@@ -43,6 +43,38 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         output.WriteLine($"{monsters} monster and {events} event scripts, {instructions} instructions round-tripped");
     }
 
+    /// <summary>
+    ///     Every block taken apart into a <see cref="ScriptImage"/> writes back byte for byte; reports how
+    ///     much the layout rules leave to pins and patches.
+    /// </summary>
+    [Fact]
+    public void EveryBlockRebuildsFromItsImage() {
+        using VbfArchive archive = OpenOrSkip();
+        List<string> paths = GameData.ScriptPaths(archive);
+        ConcurrentBag<string> failures = [];
+        ConcurrentDictionary<string, int> pins = new();
+        long patchBytes = 0, patched = 0, pinned = 0;
+        Parallel.ForEach(paths, path => {
+            ScriptBlock block = ScriptFile.Parse(archive.Read(path)).Script;
+            try {
+                ScriptImage image = ScriptImage.FromBlock(block);
+                byte[] written = image.Write();
+                int length = (int)block.U32(0x10);
+                if (!written.AsSpan().SequenceEqual(block.Bytes[..length])) failures.Add($"{path}: differs");
+                foreach (string pin in image.Pins.Keys) pins.AddOrUpdate(System.Text.RegularExpressions.Regex.Replace(pin, @"^w\d+\.", "w*."), 1, (_, c) => c + 1);
+                if (image.Pins.Count > 0) Interlocked.Increment(ref pinned);
+                if (image.Patches.Count > 0) Interlocked.Increment(ref patched);
+                Interlocked.Add(ref patchBytes, image.Patches.Values.Sum(v => v.Length));
+            }
+            catch (ScriptFormatException ex) {
+                failures.Add($"{path}: {ex.Message}");
+            }
+        });
+        Assert.Empty(failures);
+        output.WriteLine($"{paths.Count} blocks rebuild from their images; {pinned} have pins, {patched} patches ({patchBytes} bytes)");
+        foreach ((string pin, int count) in pins.OrderByDescending(p => p.Value)) output.WriteLine($"  pin {pin}: {count}");
+    }
+
     [Fact]
     public void AGrownWorkerMovesToTheEndAndKeepsWorking() {
         using VbfArchive archive = OpenOrSkip();
