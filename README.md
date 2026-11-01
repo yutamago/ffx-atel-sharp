@@ -22,6 +22,11 @@ Phase 2 of the plan, the skeleton round trip:
   byte, and the source compiles as C# against `Ffx.Atel.Game` without
   errors or warnings. The shape is in [`docs/plan.md`](docs/plan.md),
   "Phase 2: the source shape".
+- `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
+  assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`
+  output) onto the player's own file and serves the result through
+  Fahrenheit's file loader. Checked in game, including scripts that grow;
+  see [`docs/research/loader.md`](docs/research/loader.md).
 - The analyzers, linker and SDK are empty so far.
 
 ## Projects
@@ -58,6 +63,19 @@ artifacts/bin/Ffx.Atel.Cli/release/atel decompile m001 -o <dir>         # <dir>/
 artifacts/bin/Ffx.Atel.Cli/release/atel compile <dir>/Monsters/M001 -o m001.bin
 artifacts/bin/Ffx.Atel.Cli/release/atel roundtrip --check               # every script
 ```
+
+To try the loader, build it (`dotnet build -c Release
+src/Ffx.Atel.Loader`), copy `artifacts/deploy/release/mods/yuta.atel` into
+your Fahrenheit folder's `mods/`, add `yuta.atel` to `mods/loadorder`, and
+put an edited disassembly into `mods/yuta.atel/scripts/`:
+
+```bash
+atel disasm m209 -o m209.asm      # first line: "; <archive path>"; keep it
+# edit m209.asm, then copy it to <Fahrenheit>/mods/yuta.atel/scripts/
+```
+
+At start the loader writes the rebuilt files to `mods/yuta.atel/efl/x/`
+(it owns that folder) and logs what it built.
 
 No game files, extracted scripts or decompiled source go into this
 repository.

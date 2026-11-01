@@ -13,5 +13,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Ffx.Atel.Bytecode.Tests/Ffx.Atel.Bytecode.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Compiler.Tests/Ffx.Atel.Compiler.Tests.csproj" />
+    <Project Path="tests/Ffx.Atel.Loader.Tests/Ffx.Atel.Loader.Tests.csproj" />
   </Folder>
 </Solution>

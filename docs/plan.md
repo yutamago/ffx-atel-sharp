@@ -368,10 +368,15 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   checks the hashes against the player's files, applies the enabled
   packages in Fahrenheit's load order, assigns every new number (entries,
   workers, variable offsets, message indices) and gives the game the
-  linked files in place of the vanilla ones (in memory, or through a
-  generated folder, whichever Fahrenheit's file loading supports). Vanilla
-  files are never edited; disabling a mod is a relink without it. An Atel
-  mod is a Fahrenheit mod that carries packages and depends on the loader.
+  linked files in place of the vanilla ones. Vanilla files are never
+  edited; disabling a mod is a relink without it. An Atel mod is a
+  Fahrenheit mod that carries packages and depends on the loader.
+- Serving (decided 2026-11-02, Phase 2, `docs/research/loader.md`): a
+  generated folder. The loader links in its module constructor and writes
+  the linked files to its own `efl/x/<archive path>`; Fahrenheit's file
+  loader indexes every mod's `efl` folder in its `init`, which runs after
+  all constructors, and serves them. The loader owns `efl/x` and empties it
+  on each start. Checked in game with an event and a monster script.
 - Patches on entries, after Harmony and Mixins: `[Prefix(nameof(OnTalk))]`,
   `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry, `[Replace(…)]`;
   ordering with `[Before("mod")]` / `[After("mod")]`.
@@ -387,13 +392,17 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   can be redirected through the ctrl work's `+0x54` callback, which nothing
   uses, so the loader might give each mod its own saved variables in a side
   file. Needs research.
-- File sizes: the game sizes files from its own tables (`CDfileSize_CD`
-  `0x0076c320` from `cdrom.mdg`, `CDfileSize_PC` `0x00a428a0` from
-  `sizetbl.bin`; `CDfileSize_CD_EX` `0x0076c410` unknown on PC). A linked
-  script that grows needs its new size reported. `ffx-rust`'s hook solved
-  this by wrapping the two functions (`crates/ffx-hook/src/mods.rs`); find
-  out what Fahrenheit's file replacement already does, and add the same in
-  the loader if it doesn't.
+- File sizes (answered 2026-11-02, `docs/research/loader.md`): on PC the
+  PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
+  Fahrenheit hooks so that it reads the replacement's real size from disk.
+  A grown event (`kami0000`, +3,776 bytes) and a grown monster (`m209`,
+  +576 bytes) loaded whole in game with Fahrenheit alone, so the loader
+  adds no size hook. `CDfileSize_CD` (`0x0076c320`, not hooked by
+  Fahrenheit) is reached only in HDD and CD/DVD modes and, on PC, for
+  every `Cd_QueueRead` while an Eternal Calm map (393-399) is the graphic
+  map. A grown file read there would be cut; a hook like ffx-rust's would
+  fix it if a mod ever needs those maps. `CDfileSize_CD_EX` is only called
+  from `CDfileSize_PC`, on the path Fahrenheit skips.
 
 ## Phases
 
@@ -419,7 +428,8 @@ count, names placed.
    with the cross-check against `ffx-script`, `atel decompile` and `atel
    compile`. Declarations plus every entry as `Asm("""…""")`; every script
    round-trips. Plus a first loader mod: one recompiled script served to the
-   game, then one with a visible change, checked in game.
+   game, then one with a visible change, checked in game (done 2026-11-02
+   with reassembled disassembly, `scripts/*.asm`; `docs/research/loader.md`).
 3. **Expressions and statements** (1 week). Stack code to expressions and
    calls, registers to locals and `[Register]` fields.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label
