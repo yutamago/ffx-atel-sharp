@@ -6,7 +6,10 @@ namespace Ffx.Atel.Bytecode.Script;
 
 /// <summary>Which kind of file holds a script.</summary>
 public enum ScriptFileKind {
-    /// <summary><c>battle/mon/_mNNN/mNNN.bin</c>, and the battle scripts in <c>battle/btl</c>.</summary>
+    /// <summary>
+    ///     A section count and table: monsters (<c>battle/mon/_mNNN/mNNN.bin</c>, 8 sections) and the
+    ///     battle scripts (<c>battle/btl/*/*.bin</c>, 5, 7 or 8).
+    /// </summary>
     Monster,
     /// <summary><c>event/**/*.ebp</c>.</summary>
     Event,
@@ -16,7 +19,9 @@ public enum ScriptFileKind {
 /// <remarks>
 ///     Ported from ffx-rust's <c>crates/ffx-script/src/container.rs</c>.
 ///     <list type="bullet">
-///         <item>Monster files: <c>u32</c> count 8, then eight <c>u32</c> section offsets; the script is section 0.</item>
+///         <item>Monster and battle files: a <c>u32</c> section count (8 for monsters; 5, 7 or 8 in
+///         <c>battle/btl</c>), then as many <c>u32</c> section offsets; the script is section 0. Battle
+///         files' offsets may point past the end of the file.</item>
 ///         <item>Event files: <c>"EV01"</c>, then section offsets from <c>0x04</c> up to a <c>0xffffffff</c>
 ///         terminator, 0 for absent sections; the script is section 0, at <c>0x40</c>.</item>
 ///     </list>
@@ -55,7 +60,9 @@ public sealed class ScriptFile {
 
     /// <summary>Whether the bytes look like a file of either kind.</summary>
     public static bool IsScriptFile(ReadOnlySpan<byte> bytes) =>
-        bytes.StartsWith("EV01"u8) || (bytes.Length >= 4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes) == 8);
+        bytes.StartsWith("EV01"u8) || (bytes.Length >= 4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes) is >= 1 and <= MaxSections);
+
+    private const int MaxSections = 16;
 
     /// <summary>Opens a monster or event file.</summary>
     /// <exception cref="ScriptFormatException">Neither kind of file, or a malformed script.</exception>
@@ -66,9 +73,9 @@ public sealed class ScriptFile {
             kind = ScriptFileKind.Event;
             words = Enumerable.Range(1, 15).Select(i => i * 4).TakeWhile(o => U32(bytes, o) is uint v && v != 0xffff_ffff).ToArray();
         }
-        else if (U32(bytes, 0) == 8) {
+        else if (U32(bytes, 0) is uint count and >= 1 and <= MaxSections && bytes.Length >= 4 + 4 * (int)count) {
             kind = ScriptFileKind.Monster;
-            words = Enumerable.Range(1, 8).Select(i => i * 4).ToArray();
+            words = Enumerable.Range(1, (int)count).Select(i => i * 4).ToArray();
         }
         else {
             throw new ScriptFormatException("neither a monster nor an event file");
@@ -76,8 +83,8 @@ public sealed class ScriptFile {
         int[] offsets = words.Select(o => U32(bytes, o)).Where(v => v is > 0).Select(v => checked((int)v!.Value)).ToArray();
         if (offsets.Length == 0) throw new ScriptFormatException("no script section");
         int start = offsets[0];
-        int end = offsets.Where(o => o > start).DefaultIfEmpty(bytes.Length).First();
-        if (end > bytes.Length) throw new ScriptFormatException("sections out of order");
+        int end = Math.Min(offsets.Where(o => o > start).DefaultIfEmpty(bytes.Length).First(), bytes.Length);
+        if (start >= bytes.Length) throw new ScriptFormatException("script section past the end");
         for (int i = 1; i < offsets.Length; i++) {
             if (offsets[i - 1] > offsets[i]) throw new ScriptFormatException("sections out of order");
         }
@@ -108,7 +115,7 @@ public sealed class ScriptFile {
         if (grow > 0) {
             foreach (int w in _offsetWords) {
                 uint v = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(w));
-                if (v > start) BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(w), checked(v + (uint)grow));
+                if (v > start && v != 0xffff_ffff) BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(w), checked(v + (uint)grow));
             }
         }
         return Parse(bytes);

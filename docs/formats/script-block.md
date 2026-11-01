@@ -1,8 +1,8 @@
 # The script block, byte for byte
 
 What a script block holds besides its code, and in what order, so the
-compiler can build one from declarations alone. Measured over all 758
-shipped scripts (361 monster, 397 event) on 2026-11-01; the opcode-level
+compiler can build one from declarations alone. Measured over all 1,621
+shipped scripts (361 monster, 397 event, 863 battle) on 2026-11-01; the opcode-level
 format is ffx-rust's `docs/formats/script.md`, the header names follow
 Fahrenheit's `AtelScriptChunk` and `AtelScriptHeader`.
 
@@ -14,10 +14,23 @@ corpus (`CorpusTests.EveryBlockRebuildsFromItsImage`):
 
 | | Blocks |
 |---|---|
-| rebuild byte for byte | 758 / 758 |
+| rebuild byte for byte | 1,621 / 1,621 |
 | with patch bytes | 0 |
-| pin: shared data 32 bytes later than the rule (code reserve) | 352 |
+| pin: shared data 32 bytes later than the rule (code reserve) | 934 (352 of the 758 event and monster scripts) |
+| pin: event data elsewhere (battle scripts) | 5 |
 | pin: block end (developer maps `test28`, `test34`) | 2 |
+
+The tables below, except where they say otherwise, count the 758 event
+and monster scripts.
+
+## Files
+
+Event files start with `EV01` and a table of section offsets up to
+`0xffffffff`. Monster and battle files start with a section count and as
+many offsets: 8 for every monster; 8, 7 or 5 in `battle/btl` (817 have 8,
+37 have 7, 9 have 5). Some battle files have section offsets past the end
+of the file (`kino03_00`: `0xb00` in a file of `0xaf8` bytes). The script
+is section 0 in all of them.
 
 ## Block header
 

@@ -30,7 +30,12 @@ public static class GameData {
         .Order(StringComparer.Ordinal)
         .ToList();
 
-    /// <summary>The <c>.bin</c> files under <c>battle/btl</c>, sorted; not all of them hold scripts.</summary>
+    /// <summary>
+    ///     Every script: the 758 event and monster scripts and the 863 battle scripts, sorted.
+    /// </summary>
+    public static List<string> AllScriptPaths(VbfArchive archive) => [.. ScriptPaths(archive).Concat(BattlePaths(archive)).Order(StringComparer.Ordinal)];
+
+    /// <summary>The battle scripts (<c>battle/btl/*/*.bin</c>), sorted.</summary>
     public static List<string> BattlePaths(VbfArchive archive) => archive.Entries
         .Select(e => e.Path)
         .Where(p => p.StartsWith(BattlePrefix, StringComparison.Ordinal) && p.EndsWith(".bin", StringComparison.Ordinal))

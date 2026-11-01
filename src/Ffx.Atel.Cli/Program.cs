@@ -43,7 +43,7 @@ internal static class Program {
         switch (command) {
             case "list": {
                 string filter = args.Count > 0 ? args[0] : "";
-                foreach (string p in GameData.ScriptPaths(archive).Concat(GameData.BattlePaths(archive)).Where(p => p.Contains(filter, StringComparison.Ordinal))) {
+                foreach (string p in GameData.AllScriptPaths(archive).Where(p => p.Contains(filter, StringComparison.Ordinal))) {
                     Console.WriteLine(p);
                 }
                 return 0;

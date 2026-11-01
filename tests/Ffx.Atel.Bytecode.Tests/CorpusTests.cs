@@ -18,8 +18,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     [Fact]
     public void EveryScriptDisassemblesAndReassemblesExactly() {
         using VbfArchive archive = OpenOrSkip();
-        List<string> paths = GameData.ScriptPaths(archive);
-        int monsters = 0, events = 0;
+        List<string> paths = GameData.AllScriptPaths(archive);
+        int monsters = 0, events = 0, battles = 0;
         long instructions = 0;
         ConcurrentBag<string> failures = [];
         Parallel.ForEach(paths, path => {
@@ -31,7 +31,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 if (!rebuilt.Bytes.SequenceEqual(file.Script.Bytes)) failures.Add($"{path}: script block differs");
                 else if (!file.ReplaceScript(rebuilt).Bytes.SequenceEqual(original)) failures.Add($"{path}: file differs");
                 Interlocked.Add(ref instructions, text.Split('\n').Count(l => l.StartsWith("    ", StringComparison.Ordinal)));
-                if (file.Kind == ScriptFileKind.Monster) Interlocked.Increment(ref monsters);
+                if (path.StartsWith(GameData.BattlePrefix, StringComparison.Ordinal)) Interlocked.Increment(ref battles);
+                else if (file.Kind == ScriptFileKind.Monster) Interlocked.Increment(ref monsters);
                 else Interlocked.Increment(ref events);
             }
             catch (Exception ex) when (ex is ScriptFormatException or AssemblyException) {
@@ -39,8 +40,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
             }
         });
         Assert.Empty(failures);
-        Assert.Equal((361, 397), (monsters, events));
-        output.WriteLine($"{monsters} monster and {events} event scripts, {instructions} instructions round-tripped");
+        Assert.Equal((361, 397, 863), (monsters, events, battles));
+        output.WriteLine($"{monsters} monster, {events} event and {battles} battle scripts, {instructions} instructions round-tripped");
     }
 
     /// <summary>
@@ -50,7 +51,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     [Fact]
     public void EveryBlockRebuildsFromItsImage() {
         using VbfArchive archive = OpenOrSkip();
-        List<string> paths = GameData.ScriptPaths(archive);
+        List<string> paths = GameData.AllScriptPaths(archive);
         ConcurrentBag<string> failures = [];
         ConcurrentDictionary<string, int> pins = new();
         long patchBytes = 0, patched = 0, pinned = 0;
