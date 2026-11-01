@@ -21,7 +21,7 @@ public sealed partial class Survey {
         // Floats.
         long fc = 0, fcIntegral = 0, floatArgInt = 0, floatArgFloat = 0, intArgFloat = 0, intArgInt = 0;
         // Natives.
-        long funcs = 0, faccs = 0, pushfacc = 0, popfacc = 0;
+        long funcs = 0, faccs = 0, pushfacc = 0, popfacc = 0, pollingFunc = 0, pollingFacc = 0, faccThenPush = 0, faccThenPushPolling = 0;
         Dictionary<string, long> funcConsumers = [], popfaccProducers = [], pushfaccBefore = [];
         HashSet<ushort> viaFunc = [], viaFacc = [];
         // Stores.
@@ -60,7 +60,9 @@ public sealed partial class Survey {
                         break;
                     case Opcodes.Func or Opcodes.FuncFacc:
                         ushort id = ins.Operand!.Value;
+                        bool polls = _natives[id]?.Polls == true;
                         if (op == Opcodes.Func) {
+                            if (polls) pollingFunc++;
                             funcs++;
                             viaFunc.Add(id);
                             int u = consumer[i];
@@ -69,6 +71,11 @@ public sealed partial class Survey {
                         else {
                             faccs++;
                             viaFacc.Add(id);
+                            if (polls) pollingFacc++;
+                            if (i + 1 < f.Code.Count && f.Code[i + 1].Code == Opcodes.PushFacc) {
+                                faccThenPush++;
+                                if (polls) faccThenPushPolling++;
+                            }
                         }
                         if (_natives[id] is NativeSignature sig && sig.KindsFromExe) {
                             for (int k = 0; k < sig.Argc; k++) {
@@ -148,6 +155,10 @@ public sealed partial class Survey {
         Line();
         Line($"`popfacc` {N(popfacc)} (discards a value; last instruction of what it pops: {string.Join(", ", popfaccProducers.OrderByDescending(k => k.Value).Take(6).Select(k => $"`{k.Key}` {N(k.Value)}"))}); "
              + $"`pushfacc` {N(pushfacc)}{(pushfacc > 0 ? $" (after {string.Join(", ", pushfaccBefore.OrderByDescending(k => k.Value).Take(4).Select(k => $"`{k.Key}` {N(k.Value)}"))})" : "")}.");
+        Line();
+        Line($"Natives that can wait (a poll handler): called as `func_facc` {N(pollingFacc)} times, as `func` {N(pollingFunc)}. "
+             + $"`func_facc` directly followed by `pushfacc` (the call as a statement, then its result read from the float accumulator): {N(faccThenPush)}, "
+             + $"{N(faccThenPushPolling)} of them for natives that can wait.");
         Sub("Store modes");
         Line("Store mode 1 (`popv_1`, `popva_1`) saturates to the variable's type; mode 0 truncates.");
         Line();
@@ -167,7 +178,7 @@ public sealed partial class Survey {
         Line();
         Line($"Logic and bit opcodes: {string.Join(", ", new[] { "land", "lor", "not", "and", "or", "xor", "bnot", "btst", "btstn", "shl", "sar" }.Select(o => $"`{o}` {N(ops.GetValueOrDefault(o))}"))}.");
         Sub("Padding");
-        Line($"`nop`: {N(nops)} ({string.Join(", ", nopPlaces.Select(k => $"{k.Key} {N(k.Value)}"))}); `nop_1d`, `nop_1e`, `nop_76`: {N(ops.GetValueOrDefault("nop_1d") + ops.GetValueOrDefault("nop_1e") + ops.GetValueOrDefault("nop_76"))}; "
+        Line($"`nop`: {N(nops)}{(nops > 0 ? $" ({Counts(nopPlaces, code: false)})" : "")}; `nop_1d`, `nop_1e`, `nop_76`: {N(ops.GetValueOrDefault("nop_1d") + ops.GetValueOrDefault("nop_1e") + ops.GetValueOrDefault("nop_76"))}; "
              + $"breakpoints (`op_40`): {N(ops.GetValueOrDefault("op_40"))}.");
         Sub("Opcodes never used");
         Line(string.Join(", ", Opcodes.All.Where(o => !o.Doc.StartsWith("invalid", StringComparison.Ordinal) && ops.GetValueOrDefault(o.Name) == 0).Select(o => $"`{o.Name}`")) + ".");

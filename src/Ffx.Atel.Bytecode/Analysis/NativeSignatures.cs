@@ -12,7 +12,8 @@ namespace Ffx.Atel.Bytecode.Analysis;
 /// <param name="Result"><c>"int"</c>, <c>"float"</c> or <c>"none"</c> (the call still pushes 0).</param>
 /// <param name="ArgcSource">Where the count came from: <c>both</c>, <c>exe</c> or <c>bytecode</c>.</param>
 /// <param name="KindsFromExe">Whether the kinds come from the handler's own pops (not from the scripts).</param>
-public sealed record NativeSignature(ushort Id, string Name, string ArgKinds, string Result, string ArgcSource, bool KindsFromExe) {
+/// <param name="Polls">Whether it has a poll handler: the call can wait.</param>
+public sealed record NativeSignature(ushort Id, string Name, string ArgKinds, string Result, string ArgcSource, bool KindsFromExe, bool Polls = false) {
     public int Argc => ArgKinds.Length;
 }
 
@@ -40,7 +41,8 @@ public sealed class NativeSignatures {
                 kinds,
                 n.GetProperty("result").GetString()!,
                 n.GetProperty("argc_source").GetString()!,
-                n.GetProperty("kinds_source").GetString() == "exe");
+                n.GetProperty("kinds_source").GetString() == "exe",
+                n.TryGetProperty("polls", out JsonElement polls) && polls.GetBoolean());
         }
         return new NativeSignatures(byId);
     }
@@ -48,8 +50,8 @@ public sealed class NativeSignatures {
     public static NativeSignatures Load(string path) => Parse(File.ReadAllText(path));
 
     /// <summary>
-    ///     Finds <c>data/natives.json</c> in the current directory or one above it, then next to the
-    ///     program or one above that; null if there is none.
+    ///     Finds <c>data/natives.json</c> in the current directory or any above it, then in the program's
+    ///     directory or any above it; null if there is none.
     /// </summary>
     public static string? Find() {
         foreach (string start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory }) {
