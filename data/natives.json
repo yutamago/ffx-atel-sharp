@@ -25,7 +25,7 @@
       "scripts": 686,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 109973
+        "1": 110160
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -54,7 +54,7 @@
       "scripts": 375,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 4785
+        "1": 4786
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -91,7 +91,7 @@
       "scripts": 1189,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 2329
+        "3": 2330
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -173,7 +173,7 @@
       "scripts": 174,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 1436
+        "0": 1437
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -545,7 +545,7 @@
       "scripts": 379,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 7339
+        "3": 7341
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -859,7 +859,7 @@
       "scripts": 300,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 9109
+        "2": 9133
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -1156,7 +1156,7 @@
       "scripts": 340,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 20652
+        "1": 20654
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -1488,7 +1488,7 @@
       "scripts": 214,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 4972
+        "1": 4984
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -1517,7 +1517,7 @@
       "scripts": 248,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 9858
+        "1": 9869
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -1546,7 +1546,7 @@
       "scripts": 86,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 817
+        "1": 834
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -2379,7 +2379,7 @@
       "scripts": 160,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1570
+        "1": 1574
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -2595,7 +2595,7 @@
       "scripts": 333,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 4107
+        "0": 4309
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -2619,7 +2619,7 @@
       "scripts": 331,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 4169
+        "0": 4177
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -2643,7 +2643,7 @@
       "scripts": 1595,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 14370
+        "0": 14375
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -2833,7 +2833,7 @@
       "scripts": 359,
       "argc_exe": 4,
       "argc_statements": {
-        "4": 26983
+        "4": 27023
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -3031,7 +3031,7 @@
       "scripts": 348,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 27467
+        "1": 27777
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -3060,7 +3060,7 @@
       "scripts": 397,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 5756
+        "1": 5757
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -3712,7 +3712,7 @@
       "scripts": 339,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 22356
+        "2": 22357
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -4421,7 +4421,7 @@
       "scripts": 99,
       "argc_exe": 4,
       "argc_statements": {
-        "4": 40953
+        "4": 41556
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -4726,7 +4726,7 @@
       "scripts": 81,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 419
+        "1": 420
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -4755,7 +4755,7 @@
       "scripts": 42,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 291
+        "1": 292
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -4806,7 +4806,7 @@
       "scripts": 59,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 348
+        "1": 364
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -5250,7 +5250,7 @@
       "scripts": 377,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2139
+        "1": 2195
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -5337,7 +5337,7 @@
       "scripts": 52,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 123
+        "1": 127
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -5670,7 +5670,7 @@
       "scripts": 71,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1936
+        "1": 1943
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -5852,7 +5852,7 @@
       "scripts": 217,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 1031
+        "0": 1034
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -6193,7 +6193,7 @@
       "scripts": 286,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 5380
+        "1": 5392
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -6222,7 +6222,7 @@
       "scripts": 78,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 491
+        "1": 492
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -6850,7 +6850,7 @@
       "scripts": 35,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 320
+        "2": 329
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -7060,7 +7060,7 @@
       "scripts": 106,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 3751
+        "3": 4201
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -7225,7 +7225,7 @@
       "scripts": 218,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 452
+        "1": 454
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -7828,7 +7828,7 @@
       "scripts": 100,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2045
+        "1": 2063
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -8010,7 +8010,7 @@
       "scripts": 34,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 134167
+        "1": 134173
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -8485,7 +8485,7 @@
       "scripts": 20,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 23
+        "1": 24
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -8576,7 +8576,7 @@
       "scripts": 9,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 7
+        "2": 12
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -8733,7 +8733,7 @@
       "scripts": 19,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 315
+        "2": 316
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -8762,7 +8762,7 @@
       "scripts": 141,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1888
+        "1": 1889
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -8842,7 +8842,7 @@
       "scripts": 49,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 11
+        "1": 12
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -9036,7 +9036,7 @@
       "scripts": 218,
       "argc_exe": 7,
       "argc_statements": {
-        "7": 1939
+        "7": 1945
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -9349,7 +9349,7 @@
       "scripts": 27,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 36
+        "1": 37
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -10023,7 +10023,7 @@
       "scripts": 134,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 540
+        "2": 555
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -10137,7 +10137,7 @@
       "scripts": 6,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 104
+        "1": 124
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -10435,7 +10435,7 @@
       "scripts": 28,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 40
+        "2": 41
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -10472,7 +10472,7 @@
       "scripts": 50,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 114
+        "3": 123
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -10496,7 +10496,7 @@
       "scripts": 24,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 66
+        "0": 68
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -10525,7 +10525,7 @@
       "scripts": 85,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 193
+        "1": 195
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -10647,7 +10647,7 @@
       "scripts": 121,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2655
+        "1": 2660
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -11068,7 +11068,7 @@
       "scripts": 103,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 383
+        "2": 393
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -11301,7 +11301,7 @@
       "scripts": 185,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 683
+        "1": 690
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -11936,7 +11936,7 @@
       "scripts": 89,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 712
+        "1": 714
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -13563,7 +13563,7 @@
       "scripts": 6,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 45
+        "0": 47
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -14456,7 +14456,7 @@
       "scripts": 18,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 30
+        "2": 31
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -15059,7 +15059,7 @@
       "scripts": 2,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 8
+        "1": 24
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -15088,7 +15088,7 @@
       "scripts": 3,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 88
+        "1": 90
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -15239,7 +15239,7 @@
       "scripts": 3,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 186
+        "2": 192
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -16474,7 +16474,7 @@
       "scripts": 156,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1071
+        "1": 1072
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -17134,7 +17134,7 @@
       "scripts": 12,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 57
+        "1": 59
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -17516,7 +17516,7 @@
       "scripts": 88,
       "argc_exe": 4,
       "argc_statements": {
-        "4": 664
+        "4": 665
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18553,7 +18553,7 @@
       "scripts": 52,
       "argc_exe": 4,
       "argc_statements": {
-        "4": 216
+        "4": 219
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18582,7 +18582,7 @@
       "scripts": 372,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2329
+        "1": 2356
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18611,7 +18611,7 @@
       "scripts": 308,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2501
+        "1": 2530
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18640,7 +18640,7 @@
       "scripts": 78,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 146
+        "1": 147
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18751,7 +18751,7 @@
       "scripts": 19,
       "argc_exe": 4,
       "argc_statements": {
-        "4": 65
+        "4": 67
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18780,7 +18780,7 @@
       "scripts": 185,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1258
+        "1": 1260
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -18828,7 +18828,7 @@
       "scripts": 56,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 100
+        "0": 114
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -18852,7 +18852,7 @@
       "scripts": 210,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 684
+        "0": 685
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -19134,7 +19134,7 @@
       "scripts": 48,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 364
+        "2": 367
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -19200,7 +19200,7 @@
       "scripts": 130,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 679
+        "2": 691
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -19256,7 +19256,7 @@
       "scripts": 107,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 433
+        "1": 434
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -20684,7 +20684,7 @@
       "scripts": 366,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 605
+        "1": 617
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -20880,7 +20880,7 @@
       "scripts": 315,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 10762
+        "1": 10764
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -21052,7 +21052,7 @@
       "scripts": 286,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 3614
+        "1": 3616
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -21458,7 +21458,7 @@
       "scripts": 284,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 4674
+        "1": 4678
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -21615,7 +21615,7 @@
       "scripts": 170,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1533
+        "1": 1534
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -22132,7 +22132,7 @@
       "scripts": 157,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 1292
+        "2": 1404
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -22428,7 +22428,7 @@
       "scripts": 56,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 133
+        "1": 138
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -23076,7 +23076,7 @@
       "scripts": 153,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 1281
+        "1": 1282
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -23138,7 +23138,7 @@
       "scripts": 32,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 499
+        "2": 515
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -23358,7 +23358,7 @@
       "scripts": 126,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 1620
+        "2": 1625
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -23511,7 +23511,7 @@
       "scripts": 217,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 30366
+        "1": 30369
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -24238,7 +24238,7 @@
       "scripts": 44,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 676
+        "1": 685
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -24351,7 +24351,7 @@
       "scripts": 79,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 303
+        "1": 304
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -25093,7 +25093,7 @@
       "scripts": 241,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 852
+        "1": 857
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -25122,7 +25122,7 @@
       "scripts": 238,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 978
+        "1": 979
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -25883,7 +25883,7 @@
       "scripts": 1241,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 6395
+        "0": 6407
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -26214,7 +26214,7 @@
       "scripts": 1122,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 18212
+        "3": 18214
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -26714,7 +26714,7 @@
       "scripts": 337,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 3238
+        "0": 3241
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -26743,7 +26743,7 @@
       "scripts": 355,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 2471
+        "1": 2473
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -26932,7 +26932,7 @@
       "scripts": 1238,
       "argc_exe": 0,
       "argc_statements": {
-        "0": 6518
+        "0": 6527
       },
       "argc_source": "both",
       "kinds_source": "default",
@@ -31811,7 +31811,7 @@
       "scripts": 59,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 129
+        "1": 139
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -31892,7 +31892,7 @@
       "scripts": 797,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 2508
+        "2": 2516
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -33720,7 +33720,7 @@
       "scripts": 110,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 315
+        "2": 316
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -34094,7 +34094,7 @@
       "scripts": 6,
       "argc_exe": 3,
       "argc_statements": {
-        "3": 7
+        "3": 8
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -35331,8 +35331,10 @@
       "calls": 38,
       "scripts": 1,
       "argc_exe": 1,
-      "argc_statements": null,
-      "argc_source": "exe",
+      "argc_statements": {
+        "1": 4
+      },
+      "argc_source": "both",
       "kinds_source": "exe",
       "doc": "0x70b3: args (v int) -\u003E 0x007b2b60(v); ported in native_btl2 (script round 18); name ours; name from \u00220x007b2b60(v)\u0022 MsSetVoiceWait"
     },
@@ -38700,7 +38702,7 @@
       "scripts": 107,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 1354
+        "2": 1356
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -38762,7 +38764,7 @@
       "scripts": 185,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 17098
+        "2": 17143
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -38820,7 +38822,7 @@
       "scripts": 21,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 246
+        "1": 247
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
@@ -38882,7 +38884,7 @@
       "scripts": 28,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 159
+        "1": 161
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -40274,7 +40276,7 @@
       "scripts": 37,
       "argc_exe": 2,
       "argc_statements": {
-        "2": 583
+        "2": 584
       },
       "argc_source": "both",
       "kinds_source": "exe",
@@ -44793,7 +44795,7 @@
       "scripts": 11,
       "argc_exe": 1,
       "argc_statements": {
-        "1": 143
+        "1": 145
       },
       "argc_source": "both",
       "kinds_source": "exe",
