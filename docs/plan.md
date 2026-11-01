@@ -272,6 +272,63 @@ carries only entry, worker and priority. The compiler provides both:
   and attributes that pin layout details (constant-pool order, a
   variable's storage area and offset, unknown header data).
 
+### Phase 2: the source shape
+
+Decided 2026-11-02, when the skeleton round trip went in. Later phases
+replace parts of it; until then it is what `atel decompile` writes and
+`atel compile` reads.
+
+- **One file per script**, `<Namespace as folders>/<Class>.cs`: namespace
+  `Events.<Group>.<Name>`, `Monsters.<Name>` or `Battles.<Name>`, class the
+  file name with its first letter upper case (`Events.Bl.Cn_bltz0000`,
+  `Events.Ka._200thunder_kami0400`: one event folder can hold several
+  scripts, so the namespace ends in the script, not the folder). The
+  folder and one-file-per-worker layout is Phase 6.
+- **The script class** (`public static partial class`; public, or C#
+  warns that the fields are never assigned) carries `[Event("…")]`,
+  `[Monster]` or `[Battle]` with the file name, `[Workers(typeof(W00), …)]`,
+  `[Header(Author = …, Name = …, Word14 = …)]` for the strings and the
+  header words not yet understood, `[Pin("shared", 0x…)]` for layout
+  deviations, `[Patch]` for bytes no rule produces (none in the corpus),
+  and the constant pools in pool order: `[Ints(…)]`, `[Floats(…)]`
+  (`[FloatBits(…)]` when a pool holds a value no float literal gives, a
+  NaN payload; none in the corpus).
+- **Variables** are its static fields `V0`, `V1`, … in table order, typed
+  by the variable's type: `[Var(Storage.Private, 0x0010)] public static int
+  V0;`, arrays sized by their length (`public static byte[] V4 = new
+  byte[6];`), with `Extra = …` (table `+6`) and `Bit24 = true` (location
+  bit 24, set in 4,597 of the 29,103 variables) where they are not 0. The
+  table is one per block, so private (storage 3) variables are declared
+  here too, not in their workers. Initial values stay in the data areas.
+- **Workers** are classes `W00`, `W01`, … in the same namespace; the base
+  class `Worker0` … `Worker6` gives the type (function workers stay
+  classes for now). `[Worker(PrivateLength = 0x10)]` and `[PrivateData]` for
+  the header word and private block.
+- **Entries:** one method per distinct entry offset, in code order, named
+  after its first entry (`E3`), with every entry there:
+  `[Entry(3)][Entry(5)]` (9,780 of 15,010 workers have entries that share
+  code). The entry table is in code order in every shipped script, but
+  `[Entry(n)]` is always written in Phase 2. Methods are laid out in
+  declaration order, so code that does not end in a jump runs on into the
+  next method, as in the original. The body is `Asm("""…""")` in the
+  syntax of `atel disasm`, labels `lN:` numbered per worker, with each
+  native's C# name as a comment.
+- **Data areas** (map entrances, shared, other, event, area, private) as
+  attributes with a length and hex lines (`HexText`): `offset: bytes` in
+  groups of four, zero lines and trailing zeros left out. In a second part
+  of the script class at the end of the file, so the declarations come
+  first.
+- **Text, not `SyntaxFactory`**: the decompiler writes the source as text;
+  the shape is fixed and raw strings come out as they read. The compiler
+  reads declarations from Roslyn's syntax trees, and checks the source as
+  C# with a `CSharpCompilation` against `Ffx.Atel.Game`
+  (`atel compile --check`, `atel roundtrip --check`).
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte; 649.5 MB
+  of source, of which 7.1 MB data hex and about 605 MB `Asm` lines (21.3
+  million instructions; 256 MB of that is indentation); 0 C# errors and
+  0 warnings; the whole corpus decompiles, checks and compiles in about
+  30 s.
+
 ## Toolchain
 
 A .NET 10 solution in this repo (Roslyn is MIT):
