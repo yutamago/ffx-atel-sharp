@@ -1,0 +1,407 @@
+// SPDX-License-Identifier: MIT
+
+using System.Text;
+using Ffx.Atel.Bytecode;
+using Ffx.Atel.Bytecode.Script;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace Ffx.Atel.Compiler;
+
+/// <summary>Source the compiler cannot turn into a script, with where it is.</summary>
+public sealed class CompileException(string message) : Exception(message) {
+    public static CompileException At(SyntaxNode node, string message) => At(node.GetLocation(), message);
+
+    public static CompileException At(Location location, string message) {
+        FileLinePositionSpan span = location.GetLineSpan();
+        return new CompileException($"{span.Path}({span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1}): {message}");
+    }
+}
+
+/// <summary>A compiled script: which file it belongs in, and its script block.</summary>
+public sealed class CompiledScript(ScriptCategory category, string name, ScriptImage image) {
+    public ScriptCategory Category { get; } = category;
+
+    /// <summary>The file name, without extension (<c>bjyt0400</c>).</summary>
+    public string Name { get; } = name;
+
+    public ScriptImage Image { get; } = image;
+
+    /// <summary>The script block's bytes.</summary>
+    public byte[] Block() => Image.Write();
+
+    /// <summary>The script file: the vanilla file with its script section replaced.</summary>
+    /// <exception cref="ScriptFormatException">The block does not parse (a worker without entries, …).</exception>
+    public ScriptFile ApplyTo(ScriptFile vanilla) => vanilla.ReplaceScript(ScriptBlock.Parse(Block()));
+}
+
+/// <summary>
+///     Atel source to a script block, for the source shape of Phase 2 (see
+///     <c>Ffx.Atel.Decompiler.ScriptDecompiler</c>): declarations are read from the syntax, entry
+///     bodies are <c>Asm("""…""")</c> statements, assembled per worker.
+/// </summary>
+/// <remarks>
+///     Reading needs only the syntax trees. <see cref="Check"/> compiles them as C# against the
+///     reference assembly (<c>Ffx.Atel.Game</c>), so the source is also checked as real C#.
+/// </remarks>
+public static class ScriptCompiler {
+    public static CSharpParseOptions ParseOptions { get; } = new(LanguageVersion.Latest);
+
+    /// <summary>Parses source files; <paramref name="path"/> names each in messages.</summary>
+    public static SyntaxTree Parse(string text, string path = "") => CSharpSyntaxTree.ParseText(text, ParseOptions, path, Encoding.UTF8);
+
+    /// <summary>Compiles one script from its source files.</summary>
+    /// <exception cref="CompileException">Syntax errors, or source the compiler cannot read or assemble.</exception>
+    public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees) {
+        foreach (SyntaxTree tree in trees) {
+            if (tree.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is Diagnostic d) {
+                throw CompileException.At(d.Location, d.GetMessage(System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+        List<ClassDeclarationSyntax> classes = trees.SelectMany(t => t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()).ToList();
+        ILookup<string, ClassDeclarationSyntax> byName = classes.ToLookup(c => c.Identifier.ValueText, StringComparer.Ordinal);
+
+        // The script class: the one with [Event], [Monster] or [Battle]; its parts in source order.
+        List<(ClassDeclarationSyntax Class, AttributeSyntax Attribute, ScriptCategory Category)> mains = [];
+        foreach (ClassDeclarationSyntax c in classes) {
+            foreach (AttributeSyntax a in Attributes(c)) {
+                ScriptCategory? category = NameOf(a) switch {
+                    "Event" => ScriptCategory.Event, "Monster" => ScriptCategory.Monster, "Battle" => ScriptCategory.Battle, _ => null,
+                };
+                if (category is not null) mains.Add((c, a, category.Value));
+            }
+        }
+        if (mains.Count == 0) throw new CompileException("no script class: none has [Event], [Monster] or [Battle]");
+        if (mains.Count > 1) throw CompileException.At(mains[1].Attribute, "a second script class; one script per compilation");
+        (ClassDeclarationSyntax mainClass, AttributeSyntax nameAttribute, ScriptCategory scriptCategory) = mains[0];
+        string name = (string)Positional(nameAttribute, 0);
+        List<ClassDeclarationSyntax> mainParts = byName[mainClass.Identifier.ValueText].ToList();
+        List<AttributeSyntax> mainAttributes = mainParts.SelectMany(Attributes).ToList();
+
+        ScriptImage image = new();
+        foreach (AttributeSyntax a in mainAttributes) {
+            switch (NameOf(a)) {
+                case "Event" or "Monster" or "Battle" or "Workers":
+                    break;
+                case "Header":
+                    foreach ((string key, object value) in Named(a)) {
+                        switch (key) {
+                            case "Author": image.Author = Latin1((string)value, a); break;
+                            case "Name": image.Name = Latin1((string)value, a); break;
+                            case "Word14": image.Header14 = U32(value, a); break;
+                            case "Word18": image.Header18 = U32(value, a); break;
+                            case "Word1C": image.Header1C = U32(value, a); break;
+                            case "Word24": image.Header24 = U32(value, a); break;
+                            default: throw CompileException.At(a, $"[Header] has no {key}");
+                        }
+                    }
+                    break;
+                case "Pin":
+                    image.Pins[(string)Positional(a, 0)] = I32(Positional(a, 1), a);
+                    break;
+                case "Patch":
+                    image.Patches[I32(Positional(a, 0), a)] = HexBytes((string)Positional(a, 1), a);
+                    break;
+                case "Ints":
+                    image.IntConstants.AddRange(AllPositional(a).Select(v => U32(v, a)));
+                    break;
+                case "Floats":
+                    image.FloatConstants.AddRange(AllPositional(a).Select(v => BitConverter.SingleToUInt32Bits(F32(v, a))));
+                    break;
+                case "FloatBits":
+                    image.FloatConstants.AddRange(AllPositional(a).Select(v => U32(v, a)));
+                    break;
+                case "MapData": image.Map = Data(a); break;
+                case "SharedData": image.Shared = Data(a); break;
+                case "OtherData": image.Other = Data(a); break;
+                case "EventData": image.Event = Data(a); break;
+                case "AreaData": image.Area = Data(a); break;
+                default:
+                    throw CompileException.At(a, $"unknown attribute [{NameOf(a)}] on the script class");
+            }
+        }
+
+        // Variables: [Var] fields of the script class, in declaration order.
+        foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
+            image.Variables.Add(Variable(field));
+        }
+
+        // Workers, in [Workers] order.
+        AttributeSyntax? workersAttribute = mainAttributes.FirstOrDefault(a => NameOf(a) == "Workers");
+        List<object> workerTypes = workersAttribute is null ? [] : AllPositional(workersAttribute);
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        foreach (object t in workerTypes) {
+            if (t is not TypeName(string workerName)) throw CompileException.At(workersAttribute!, "[Workers] takes typeof(…) only");
+            if (!seen.Add(workerName)) throw CompileException.At(workersAttribute!, $"{workerName} is listed twice");
+            List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
+            if (parts.Count == 0) throw CompileException.At(workersAttribute!, $"no class {workerName}");
+            image.Workers.Add(Worker(parts, workerName, image.Workers.Count));
+        }
+        foreach (ClassDeclarationSyntax c in classes) {
+            string n = c.Identifier.ValueText;
+            if (!seen.Contains(n) && c.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b && WorkerType(b.Type) is not null) {
+                throw CompileException.At(c.Identifier.GetLocation(), $"worker {n} is not in [Workers]");
+            }
+        }
+        return new CompiledScript(scriptCategory, name, image);
+    }
+
+    /// <summary>Compiles one script from source text.</summary>
+    public static CompiledScript Compile(string source, string path = "") => Compile([Parse(source, path)]);
+
+    // ----- Declarations ----------------------------------------------------------------------
+
+    private static VarEntry Variable(FieldDeclarationSyntax field) {
+        AttributeSyntax a = field.AttributeLists.SelectMany(l => l.Attributes).FirstOrDefault(x => NameOf(x) == "Var")
+            ?? throw CompileException.At(field, "a field of the script class without [Var]");
+        if (field.Declaration.Variables.Count != 1) throw CompileException.At(field, "one variable per [Var] field");
+        TypeSyntax type = field.Declaration.Type;
+        bool array = false;
+        if (type is ArrayTypeSyntax at && at.RankSpecifiers.Count == 1 && at.RankSpecifiers[0].Rank == 1) {
+            type = at.ElementType;
+            array = true;
+        }
+        uint varType = (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
+            SyntaxKind.ByteKeyword => 0, SyntaxKind.SByteKeyword => 1, SyntaxKind.UShortKeyword => 2, SyntaxKind.ShortKeyword => 3,
+            SyntaxKind.UIntKeyword => 4, SyntaxKind.IntKeyword => 5, SyntaxKind.FloatKeyword => 6,
+            _ => throw CompileException.At(type, $"a variable cannot be {p.Keyword.ValueText}"),
+        } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or an array of one"));
+        object storage = Positional(a, 0);
+        uint storageNumber = storage is EnumMember(string member) && Enum.TryParse(member, out Storage s) ? (uint)s
+            : throw CompileException.At(a, "the storage is Storage.<area>");
+        int offset = I32(Positional(a, 1), a);
+        if (offset is < 0 or > 0xff_ffff) throw CompileException.At(a, "the offset is 24 bits");
+        int length = 1, extra = 0;
+        bool bit24 = false;
+        foreach ((string key, object value) in Named(a)) {
+            switch (key) {
+                case "Length": length = I32(value, a); break;
+                case "Extra": extra = I32(value, a); break;
+                case "Bit24": bit24 = value is true; break;
+                default: throw CompileException.At(a, $"[Var] has no {key}");
+            }
+        }
+        // An array's length is its size: `byte[] V3 = new byte[4];`.
+        VariableDeclaratorSyntax declarator = field.Declaration.Variables[0];
+        if (array) {
+            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: [ExpressionSyntax size] }] }) {
+                length = I32(Eval(size), size);
+            }
+            else if (!Named(a).Any(n => n.Key == "Length")) {
+                throw CompileException.At(declarator, "an array variable needs its size: = new T[n]");
+            }
+        }
+        else if (declarator.Initializer is not null) {
+            throw CompileException.At(declarator.Initializer, "initial values are not read yet (they are in the data areas)");
+        }
+        if (length is < 0 or > 0xffff || extra is < 0 or > 0xffff) throw CompileException.At(a, "the length and Extra are 16 bits");
+        if (array == (length == 1)) throw CompileException.At(field, length == 1 ? "an array of 1 is written as a scalar" : "a variable of length other than 1 is an array");
+        uint location = varType << 28 | storageNumber << 25 | (bit24 ? 0x0100_0000u : 0) | (uint)offset;
+        return new VarEntry(location, (ushort)length, (ushort)extra);
+    }
+
+    private static ushort? WorkerType(TypeSyntax type) {
+        string n = type switch {
+            QualifiedNameSyntax q => q.Right.Identifier.ValueText,
+            SimpleNameSyntax s => s.Identifier.ValueText,
+            _ => "",
+        };
+        return n.Length == 7 && n.StartsWith("Worker", StringComparison.Ordinal) && n[6] is >= '0' and <= '6' ? (ushort)(n[6] - '0') : null;
+    }
+
+    private static WorkerImage Worker(List<ClassDeclarationSyntax> parts, string name, int number) {
+        ushort? type = null;
+        foreach (ClassDeclarationSyntax part in parts) {
+            if (part.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b) {
+                type = WorkerType(b.Type) ?? throw CompileException.At(b, "a worker derives from Worker0 … Worker6");
+            }
+        }
+        WorkerImage wi = new() { Type = type ?? throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6") };
+        foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
+            switch (NameOf(a)) {
+                case "Worker":
+                    foreach ((string key, object value) in Named(a)) {
+                        switch (key) {
+                            case "Word0C": wi.Unknown0C = U32(value, a); break;
+                            case "PrivateLength": wi.PrivateLength = U32(value, a); break;
+                            default: throw CompileException.At(a, $"[Worker] has no {key}");
+                        }
+                    }
+                    break;
+                case "PrivateData": wi.Private = Data(a); break;
+                default: throw CompileException.At(a, $"unknown attribute [{NameOf(a)}] on a worker");
+            }
+        }
+
+        // Entry methods in declaration order: each places its entries, then its code follows.
+        WorkerAssembler asm = new() { Name = $"worker {number} ({name})" };
+        foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
+            if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods only (for now)");
+            List<AttributeSyntax> entries = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
+            if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry]");
+            foreach (AttributeSyntax e in entries) {
+                if (NameOf(e) != "Entry") throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
+                Wrap(e, () => asm.PlaceEntry(I32(Positional(e, 0), e)));
+            }
+            if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
+            foreach (StatementSyntax statement in method.Body.Statements) {
+                if (statement is not ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
+                    || call.Expression is not IdentifierNameSyntax { Identifier.ValueText: "Asm" }
+                    || call.ArgumentList.Arguments.Count != 1
+                    || call.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax { Token.Value: string text } literal) {
+                    throw CompileException.At(statement, "only Asm(\"\"\"…\"\"\") statements so far");
+                }
+                // Line numbers in assembly errors are the source file's.
+                FileLinePositionSpan span = literal.GetLocation().GetLineSpan();
+                bool multiLine = literal.Token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken);
+                int first = span.StartLinePosition.Line + 1 + (multiLine ? 1 : 0);
+                try {
+                    asm.Add(text, first);
+                }
+                catch (AssemblyException ex) {
+                    throw new CompileException($"{span.Path}({(ex.Line > 0 ? ex.Line : first)}): {StripLine(ex)}");
+                }
+            }
+        }
+        AssembledWorker done;
+        try {
+            done = asm.Finish();
+        }
+        catch (AssemblyException ex) {
+            throw CompileException.At(parts[0].Identifier.GetLocation(), ex.Message);
+        }
+        if (done.Entries.Length == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
+        if (done.Entries.Concat(done.Labels).Any(o => o >= done.Code.Length)) {
+            throw CompileException.At(parts[0].Identifier.GetLocation(), "an entry or label after the worker's last instruction");
+        }
+        wi.Code = done.Code;
+        wi.Entries = done.Entries;
+        wi.Labels = done.Labels;
+        return wi;
+    }
+
+    private static string StripLine(AssemblyException ex) =>
+        ex.Line > 0 && ex.Message.StartsWith($"line {ex.Line}: ", StringComparison.Ordinal) ? ex.Message[$"line {ex.Line}: ".Length..] : ex.Message;
+
+    private static void Wrap(SyntaxNode node, Action action) {
+        try {
+            action();
+        }
+        catch (AssemblyException ex) {
+            throw CompileException.At(node, StripLine(ex));
+        }
+    }
+
+    private static byte[] Data(AttributeSyntax a) {
+        int length = I32(Positional(a, 0), a);
+        if (length < 0) throw CompileException.At(a, "a negative length");
+        try {
+            return HexText.Parse((string)Positional(a, 1), length);
+        }
+        catch (FormatException ex) {
+            throw CompileException.At(a, ex.Message);
+        }
+    }
+
+    private static byte[] HexBytes(string hex, AttributeSyntax a) {
+        try {
+            return Convert.FromHexString(hex);
+        }
+        catch (FormatException ex) {
+            throw CompileException.At(a, ex.Message);
+        }
+    }
+
+    private static byte[] Latin1(string s, AttributeSyntax a) =>
+        s.All(c => c <= 0xff) ? Encoding.Latin1.GetBytes(s) : throw CompileException.At(a, "the string has characters outside Latin-1");
+
+    // ----- Attribute arguments ---------------------------------------------------------------
+
+    private sealed record TypeName(string Name);
+
+    private sealed record EnumMember(string Name);
+
+    private static IEnumerable<AttributeSyntax> Attributes(MemberDeclarationSyntax m) => m.AttributeLists.SelectMany(l => l.Attributes);
+
+    /// <summary><c>Event</c> for <c>[Event]</c>, <c>[EventAttribute]</c> and <c>[Ffx.Atel.Event]</c>.</summary>
+    private static string NameOf(AttributeSyntax a) {
+        string n = a.Name switch {
+            QualifiedNameSyntax q => q.Right.Identifier.ValueText,
+            AliasQualifiedNameSyntax q => q.Name.Identifier.ValueText,
+            SimpleNameSyntax s => s.Identifier.ValueText,
+            _ => a.Name.ToString(),
+        };
+        return n.EndsWith("Attribute", StringComparison.Ordinal) && n.Length > "Attribute".Length ? n[..^"Attribute".Length] : n;
+    }
+
+    private static IEnumerable<AttributeArgumentSyntax> Arguments(AttributeSyntax a) => a.ArgumentList?.Arguments ?? [];
+
+    private static List<object> AllPositional(AttributeSyntax a) =>
+        Arguments(a).Where(x => x.NameEquals is null && x.NameColon is null).Select(x => Eval(x.Expression)).ToList();
+
+    private static object Positional(AttributeSyntax a, int i) {
+        List<object> args = AllPositional(a);
+        return i < args.Count ? args[i] : throw CompileException.At(a, $"[{NameOf(a)}] needs {i + 1} arguments");
+    }
+
+    private static IEnumerable<(string Key, object Value)> Named(AttributeSyntax a) =>
+        Arguments(a).Where(x => x.NameEquals is not null).Select(x => (x.NameEquals!.Name.Identifier.ValueText, Eval(x.Expression)));
+
+    /// <summary>The value of a constant attribute argument: literals, negation, <c>typeof</c>, enum members.</summary>
+    private static object Eval(ExpressionSyntax e) => e switch {
+        LiteralExpressionSyntax l => l.Token.Value ?? throw CompileException.At(e, "null is not a value here"),
+        ParenthesizedExpressionSyntax p => Eval(p.Expression),
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.UnaryMinusExpression } u => Eval(u.Operand) switch {
+            int i => (object)(-(long)i), uint i => -(long)i, long i => -i, ulong i and <= 0x8000_0000_0000_0000 => (long)(0 - i),
+            float f => (object)(-f), double d => (object)(-d),
+            _ => throw CompileException.At(e, "cannot negate this"),
+        },
+        TypeOfExpressionSyntax t => new TypeName(t.Type switch {
+            QualifiedNameSyntax q => q.Right.Identifier.ValueText,
+            SimpleNameSyntax s => s.Identifier.ValueText,
+            _ => t.Type.ToString(),
+        }),
+        MemberAccessExpressionSyntax m => new EnumMember(m.Name.Identifier.ValueText),
+        _ => throw CompileException.At(e, "not a constant the compiler reads (yet)"),
+    };
+
+    private static long Integer(object v, SyntaxNode at) => v switch {
+        int i => i, uint i => i, long i => i, ulong i and <= long.MaxValue => (long)i,
+        short i => i, ushort i => i, byte i => i, sbyte i => i, char c => c,
+        _ => throw CompileException.At(at, $"expected an integer, not {v}"),
+    };
+
+    private static int I32(object v, SyntaxNode at) => Integer(v, at) is long l and >= int.MinValue and <= int.MaxValue ? (int)l : throw CompileException.At(at, $"{v} is out of range");
+
+    /// <summary>A 32-bit word, written signed or unsigned.</summary>
+    private static uint U32(object v, SyntaxNode at) => Integer(v, at) is long l and >= int.MinValue and <= uint.MaxValue ? (uint)l : throw CompileException.At(at, $"{v} is out of range");
+
+    private static float F32(object v, SyntaxNode at) => v switch {
+        float f => f,
+        double d => (float)d,
+        _ => Integer(v, at),
+    };
+
+    // ----- Checking as C# --------------------------------------------------------------------
+
+    private static readonly Lazy<MetadataReference[]> References = new(() => {
+        string[] platform = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? "").Split(Path.PathSeparator);
+        string[] wanted = ["System.Runtime.dll", "System.Private.CoreLib.dll"];
+        return [
+            .. platform.Where(p => wanted.Contains(Path.GetFileName(p), StringComparer.OrdinalIgnoreCase)).Select(p => MetadataReference.CreateFromFile(p)),
+            MetadataReference.CreateFromFile(typeof(Atel.Worker).Assembly.Location),
+        ];
+    });
+
+    /// <summary>
+    ///     Compiles the trees as C# against the reference assembly and returns the diagnostics:
+    ///     warnings and errors.
+    /// </summary>
+    public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees) {
+        CSharpCompilation compilation = CSharpCompilation.Create(
+            "AtelCheck", trees, References.Value,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        return compilation.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning).ToList();
+    }
+}
