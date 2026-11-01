@@ -1,0 +1,22 @@
+# Build output
+artifacts/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+TestResults/
+*.nupkg
+
+# Game data and anything derived from it never goes into this repo:
+# archives, extracted files, rebuilt scripts, disassemblies, decompiled
+# source (that lives in yutamago/ffx-atel-src), corpus measurements.
+*.vbf
+*.ebp
+*.asm
+*.dmp
+/work/
+/out/
+/decompiled/

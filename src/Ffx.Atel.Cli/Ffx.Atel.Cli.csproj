@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>atel: decompile, compile, link and round-trip FFX scripts.</Description>
+        <OutputType>Exe</OutputType>
+        <AssemblyName>atel</AssemblyName>
+        <RootNamespace>Ffx.Atel.Cli</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+        <ProjectReference Include="../Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
+        <ProjectReference Include="../Ffx.Atel.Compiler/Ffx.Atel.Compiler.csproj" />
+        <ProjectReference Include="../Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
+    </ItemGroup>
+</Project>

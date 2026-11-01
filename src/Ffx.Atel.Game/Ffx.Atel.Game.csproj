@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The reference assembly Atel source compiles against: natives, properties, enums, base classes. -->
+    <PropertyGroup>
+        <Description>The game's API for Atel source: natives, properties, enums, Save, Story, Priority, worker base classes and the Task types.</Description>
+        <RootNamespace>Ffx</RootNamespace>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+    </PropertyGroup>
+</Project>

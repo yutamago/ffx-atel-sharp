@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- VBF archives, script files, disassembler and assembler. -->
+    <PropertyGroup>
+        <Description>FFX's ATEL bytecode: VBF archives, script containers, the script block, disassembler and assembler.</Description>
+    </PropertyGroup>
+</Project>

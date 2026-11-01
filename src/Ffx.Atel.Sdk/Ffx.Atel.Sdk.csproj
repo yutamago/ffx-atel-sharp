@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The NuGet package mod projects use: reference assembly, analyzers, MSBuild targets (Phase 8). -->
+    <PropertyGroup>
+        <Description>Build Atel mods with dotnet build: the game's reference assembly, the analyzers and the targets that write the mod package.</Description>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+    <Project Path="src/Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
+    <Project Path="src/Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
+    <Project Path="src/Ffx.Atel.Compiler/Ffx.Atel.Compiler.csproj" />
+    <Project Path="src/Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" />
+    <Project Path="src/Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
+    <Project Path="src/Ffx.Atel.Loader/Ffx.Atel.Loader.csproj" />
+    <Project Path="src/Ffx.Atel.Cli/Ffx.Atel.Cli.csproj" />
+    <Project Path="src/Ffx.Atel.Sdk/Ffx.Atel.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ffx.Atel.Bytecode.Tests/Ffx.Atel.Bytecode.Tests.csproj" />
+  </Folder>
+</Solution>

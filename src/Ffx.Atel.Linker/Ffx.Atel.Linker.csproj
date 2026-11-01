@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Applies compiled Atel mod packages to the player's vanilla scripts, in load order.</Description>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+    </ItemGroup>
+</Project>

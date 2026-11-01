@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build:
+    # The tools must run on every OS a modder may use. The corpus tests need
+    # the game (FFX_GAME_DIR), which CI doesn't have, so they skip here.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Build
+      run: dotnet build -c Release ffx-atel-sharp.slnx
+
+    - name: Test
+      run: dotnet test -c Release --no-build ffx-atel-sharp.slnx

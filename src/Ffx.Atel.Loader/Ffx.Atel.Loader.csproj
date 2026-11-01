@@ -1,0 +1,16 @@
+<Project Sdk="Fahrenheit.Sdk/1.0.0-alpha12">
+    <!-- The Fahrenheit mod that links the enabled Atel mods and serves the result to the game. -->
+    <PropertyGroup>
+        <AssemblyName>yuta.atel</AssemblyName>
+        <RootNamespace>Ffx.Atel.Loader</RootNamespace>
+        <AssemblyTitle>Atel</AssemblyTitle>
+        <Product>Atel</Product>
+        <Description>Loads Atel mods: links them onto your own event and battle scripts and gives the game the result.</Description>
+        <FhManifestFlags>NONE</FhManifestFlags>
+        <!-- Fahrenheit loads mods from <Fahrenheit>/mods/<id>/. -->
+        <PublishDir>$(ArtifactsPath)/deploy/$(Configuration.ToLowerInvariant())/mods/$(AssemblyName)/</PublishDir>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
+    </ItemGroup>
+</Project>
