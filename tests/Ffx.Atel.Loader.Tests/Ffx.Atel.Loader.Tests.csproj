@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The loader's portable part. The loader itself builds against Fahrenheit for win-x86,
+         so its sources are compiled in here directly. -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../src/Ffx.Atel.Loader/ScriptBuilder.cs" Link="ScriptBuilder.cs" />
+        <ProjectReference Include="../../src/Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+    </ItemGroup>
+</Project>
