@@ -13,6 +13,8 @@ internal static class Program {
           list [filter]                    scripts in the game (events, monsters, battle)
           disasm <script> [-o <file>]      disassemble (m001, bjyt0400 or an archive path)
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
+          survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
+                                           measure the corpus (docs/corpus.md)
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -27,7 +29,7 @@ internal static class Program {
         }
     }
 
-    private sealed class UsageException(string message) : Exception(message);
+    internal sealed class UsageException(string message) : Exception(message);
 
     private static int Run(string[] argv) {
         List<string> args = [.. argv];
@@ -63,6 +65,8 @@ internal static class Program {
                 File.WriteAllBytes(output, file.ReplaceScript(rebuilt).ToArray());
                 return 0;
             }
+            case "survey":
+                return SurveyCommand.Run(archive, args, output);
             default:
                 throw new UsageException($"unknown command {command}\n{Usage}");
         }
