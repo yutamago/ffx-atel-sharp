@@ -13,6 +13,7 @@ internal static class Program {
           list [filter]                    scripts in the game (events, monsters, battle)
           disasm <script> [-o <file>]      disassemble (m001, bjyt0400 or an archive path)
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
+        """ + "\n" + SourceCommands.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -21,7 +22,8 @@ internal static class Program {
         try {
             return Run(args);
         }
-        catch (Exception ex) when (ex is ScriptFormatException or AssemblyException or IOException or InvalidDataException or UsageException) {
+        catch (Exception ex) when (ex is ScriptFormatException or AssemblyException or IOException or InvalidDataException or UsageException
+                                       or ArgumentException or Compiler.CompileException) {
             Console.Error.WriteLine($"atel: {ex.Message}");
             return 1;
         }
@@ -63,6 +65,12 @@ internal static class Program {
                 File.WriteAllBytes(output, file.ReplaceScript(rebuilt).ToArray());
                 return 0;
             }
+            case "decompile":
+                return SourceCommands.Decompile(archive, args, output);
+            case "compile":
+                return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"));
+            case "roundtrip":
+                return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"));
             default:
                 throw new UsageException($"unknown command {command}\n{Usage}");
         }
@@ -81,6 +89,8 @@ internal static class Program {
         args.RemoveRange(i, 2);
         return value;
     }
+
+    private static bool TakeFlag(List<string> args, string name) => args.Remove(name);
 
     private static void Write(string? path, string text) {
         if (path is null) Console.Out.Write(text);
