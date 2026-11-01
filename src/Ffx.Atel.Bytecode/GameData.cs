@@ -4,6 +4,13 @@ using Ffx.Atel.Bytecode.Vbf;
 
 namespace Ffx.Atel.Bytecode;
 
+/// <summary>The three kinds of script: events (<c>.ebp</c>), monster AI and battle scripts.</summary>
+public enum ScriptCategory {
+    Event,
+    Monster,
+    Battle,
+}
+
 /// <summary>Where the scripts are in the player's game.</summary>
 public static class GameData {
     /// <summary>The environment variable pointing at the game folder (the one with <c>FFX.exe</c>).</summary>
@@ -41,6 +48,29 @@ public static class GameData {
         .Where(p => p.StartsWith(BattlePrefix, StringComparison.Ordinal) && p.EndsWith(".bin", StringComparison.Ordinal))
         .Order(StringComparer.Ordinal)
         .ToList();
+
+    /// <summary>What a script path holds and its name: the file name without extension (<c>bjyt0400</c>, <c>m001</c>, <c>cdsp00_00</c>).</summary>
+    public static (ScriptCategory Category, string Name)? Identify(string path) {
+        ScriptCategory? category = path.StartsWith(EventPrefix, StringComparison.Ordinal) ? ScriptCategory.Event
+            : path.StartsWith(MonsterPrefix, StringComparison.Ordinal) ? ScriptCategory.Monster
+            : path.StartsWith(BattlePrefix, StringComparison.Ordinal) ? ScriptCategory.Battle
+            : null;
+        if (category is null) return null;
+        string file = path[(path.LastIndexOf('/') + 1)..];
+        int dot = file.IndexOf('.');
+        return (category.Value, dot < 0 ? file : file[..dot]);
+    }
+
+    /// <summary>The archive path of a script by category and name (file names are unique within each).</summary>
+    public static string? Find(VbfArchive archive, ScriptCategory category, string name) {
+        string lower = name.ToLowerInvariant();
+        if (category == ScriptCategory.Monster) {
+            string path = $"{MonsterPrefix}_{lower}/{lower}.bin";
+            return archive.Find(path) is not null ? path : null;
+        }
+        (string prefix, string suffix) = category == ScriptCategory.Event ? (EventPrefix, $"/{lower}.ebp") : (BattlePrefix, $"/{lower}.bin");
+        return archive.Entries.Select(e => e.Path).FirstOrDefault(p => p.StartsWith(prefix, StringComparison.Ordinal) && p.EndsWith(suffix, StringComparison.Ordinal));
+    }
 
     /// <summary>
     ///     Resolves a short name to an archive path: <c>m001</c> is a monster, <c>bjyt0400</c> an event
