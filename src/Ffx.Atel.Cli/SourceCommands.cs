@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: MIT
+
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Globalization;
+using Ffx.Atel.Bytecode;
+using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Bytecode.Vbf;
+using Ffx.Atel.Compiler;
+using Ffx.Atel.Decompiler;
+using Microsoft.CodeAnalysis;
+
+namespace Ffx.Atel.Cli;
+
+/// <summary><c>atel decompile</c>, <c>atel compile</c> and <c>atel roundtrip</c>.</summary>
+internal static class SourceCommands {
+    public const string Usage = """
+          decompile <script>... [-o <dir>] to C# (to <dir>/<Namespace>/<Class>.cs, else stdout);
+                                           `all` for every script
+          compile <dir|file.cs> -o <out>   C# back to the script file (the game's file gives
+                                           the other sections); --check also compiles it as C#
+          roundtrip [filter] [--check]     decompile and compile every script (path contains
+                                           filter), compare with the game's bytes
+        """;
+
+    public static int Decompile(VbfArchive archive, List<string> args, string? output) {
+        if (args.Count == 0) throw new ArgumentException("decompile <script>... [-o <dir>]");
+        List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
+            : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
+        if (output is null && paths.Count > 1) throw new ArgumentException("more than one script needs -o <dir>");
+        foreach (string path in paths) {
+            DecompiledScript d = ScriptDecompiler.Decompile(path, ScriptFile.Parse(archive.Read(path)));
+            if (output is null) {
+                Console.Out.Write(d.Source);
+                continue;
+            }
+            string file = Path.Combine(output, d.Names.RelativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, d.Source);
+        }
+        return 0;
+    }
+
+    public static int Compile(VbfArchive archive, List<string> args, string? output, bool check) {
+        if (args.Count != 1 || output is null) throw new ArgumentException("compile <dir|file.cs> -o <out>");
+        string input = args[0];
+        List<string> files = Directory.Exists(input)
+            ? [.. Directory.EnumerateFiles(input, "*.cs", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]
+            : [input];
+        List<SyntaxTree> trees = files.Select(f => ScriptCompiler.Parse(File.ReadAllText(f), f)).ToList();
+        if (check) {
+            IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check(trees);
+            foreach (Diagnostic d in diagnostics) Console.Error.WriteLine(d.ToString());
+            if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)) return 1;
+        }
+        CompiledScript script = ScriptCompiler.Compile(trees);
+        string path = GameData.Find(archive, script.Category, script.Name) ?? throw new ArgumentException($"the game has no {script.Category} {script.Name}");
+        ScriptFile vanilla = ScriptFile.Parse(archive.Read(path));
+        File.WriteAllBytes(output, script.ApplyTo(vanilla).ToArray());
+        return 0;
+    }
+
+    public static int RoundTrip(VbfArchive archive, List<string> args, string? output, bool check) {
+        string filter = args.Count > 0 ? args[0] : "";
+        List<string> paths = GameData.AllScriptPaths(archive).Where(p => p.Contains(filter, StringComparison.Ordinal)).ToList();
+        ConcurrentBag<string> failures = [];
+        long sourceBytes = 0, errors = 0, warnings = 0, identical = 0;
+        Stopwatch clock = Stopwatch.StartNew();
+        Parallel.ForEach(paths, path => {
+            try {
+                byte[] original = archive.Read(path);
+                ScriptFile vanilla = ScriptFile.Parse(original);
+                DecompiledScript d = ScriptDecompiler.Decompile(path, vanilla);
+                Interlocked.Add(ref sourceBytes, d.Source.Length);
+                if (output is not null) {
+                    string file = Path.Combine(output, d.Names.RelativePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                    File.WriteAllText(file, d.Source);
+                }
+                SyntaxTree tree = ScriptCompiler.Parse(d.Source, d.Names.RelativePath);
+                if (check) {
+                    IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check([tree]);
+                    int e = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Error);
+                    Interlocked.Add(ref errors, e);
+                    Interlocked.Add(ref warnings, diagnostics.Count - e);
+                    if (diagnostics.FirstOrDefault() is Diagnostic first) failures.Add($"{path}: C#: {first}");
+                }
+                byte[] rebuilt = ScriptCompiler.Compile([tree]).ApplyTo(vanilla).ToArray();
+                if (rebuilt.AsSpan().SequenceEqual(original)) Interlocked.Increment(ref identical);
+                else failures.Add($"{path}: differs");
+            }
+            catch (Exception ex) when (ex is ScriptFormatException or CompileException or AssemblyException) {
+                failures.Add($"{path}: {ex.Message}");
+            }
+        });
+        foreach (string f in failures.Order(StringComparer.Ordinal).Take(50)) Console.Error.WriteLine(f);
+        string checks = check ? string.Create(CultureInfo.InvariantCulture, $"{errors} C# errors, {warnings} warnings; ") : "";
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
+        return identical == paths.Count && errors == 0 ? 0 : 1;
+    }
+}
