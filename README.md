@@ -16,6 +16,11 @@ Phase 2 of the plan has started: the bytecode layer.
   their script blocks, and disassembles and reassembles them. All 758
   scripts (17.3 million instructions) come back byte for byte, and the
   disassembly is the same text as ffx-rust's `ffx script disasm`.
+- `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
+  assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`
+  output) onto the player's own file and serves the result through
+  Fahrenheit's file loader. Checked in game, including scripts that grow;
+  see [`docs/research/loader.md`](docs/research/loader.md).
 - The other projects are empty so far.
 
 ## Projects
@@ -49,6 +54,19 @@ export FFX_SCRIPT_CLI=<ffx-rust>/target/release/ffx   # optional: cross-check wi
 dotnet test -c Release ffx-atel-sharp.slnx
 artifacts/bin/Ffx.Atel.Cli/debug/atel disasm m001
 ```
+
+To try the loader, build it (`dotnet build -c Release
+src/Ffx.Atel.Loader`), copy `artifacts/deploy/release/mods/yuta.atel` into
+your Fahrenheit folder's `mods/`, add `yuta.atel` to `mods/loadorder`, and
+put an edited disassembly into `mods/yuta.atel/scripts/`:
+
+```bash
+atel disasm m209 -o m209.asm      # first line: "; <archive path>"; keep it
+# edit m209.asm, then copy it to <Fahrenheit>/mods/yuta.atel/scripts/
+```
+
+At start the loader writes the rebuilt files to `mods/yuta.atel/efl/x/`
+(it owns that folder) and logs what it built.
 
 No game files, extracted scripts or decompiled source go into this
 repository.
