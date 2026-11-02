@@ -41,8 +41,23 @@ public sealed class AtelMod {
         }
         AtelMod mod = new() { Id = id, Manifest = manifest };
         mod.Errors.AddRange(errors);
-        string packages = Path.Combine(dir, PackageDir);
-        if (!Directory.Exists(packages)) return mod;
+        mod.AddPackages(Path.Combine(dir, PackageDir));
+        return mod;
+    }
+
+    /// <summary>
+    ///     A mod made of the packages in a folder (every <c>*.json</c> under it), without a manifest: the
+    ///     loader's <c>inject/</c> folder (docs/formats/debug.md).
+    /// </summary>
+    public static AtelMod FromFolder(string id, string packages) {
+        AtelMod mod = new() { Id = id };
+        mod.AddPackages(packages);
+        return mod;
+    }
+
+    private void AddPackages(string packages) {
+        AtelMod mod = this;
+        if (!Directory.Exists(packages)) return;
         string[] files = Directory.GetFiles(packages, "*.json", SearchOption.AllDirectories);
         Array.Sort(files, StringComparer.Ordinal);
         foreach (string f in files) {
@@ -57,8 +72,10 @@ public sealed class AtelMod {
                 mod.Errors.Add($"{rel}: {ex.Message}");
             }
         }
-        return mod;
     }
+
+    /// <summary>The texts of every package's <c>Debug.Print</c> calls.</summary>
+    public IEnumerable<string> DebugStrings => Packages.Values.SelectMany(p => p.DebugStrings ?? []);
 }
 
 /// <summary>One linked file of a <see cref="ModSet"/>.</summary>

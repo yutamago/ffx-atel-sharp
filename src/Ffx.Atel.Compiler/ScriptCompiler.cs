@@ -31,6 +31,12 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
 
     public ScriptImage Image { get; } = image;
 
+    /// <summary>The texts of the script's <c>Debug.Print</c> calls, which the loader needs (docs/formats/debug.md).</summary>
+    public IReadOnlyList<string> DebugStrings { get; init; } = [];
+
+    /// <summary>Warnings: <c>Debug.*</c> calls left out (<see cref="DebugMode.Drop"/>).</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
     /// <summary>The script block's bytes.</summary>
     public byte[] Block() => Image.Write();
 
@@ -73,8 +79,9 @@ public static partial class ScriptCompiler {
     /// </summary>
     /// <exception cref="CompileException">Syntax errors, or source the compiler cannot read or assemble.</exception>
     /// <remarks>A worker may derive from a class of <paramref name="library"/>, which gives its type and the members laid out before its own.</remarks>
-    public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null) {
+    public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null, CompileOptions? options = null) {
         library ??= ScriptLibrary.Empty;
+        DebugCalls debug = new((options ?? CompileOptions.Default).Debug);
         trees = [.. trees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
         foreach (SyntaxTree tree in trees) {
             if (tree.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is Diagnostic d) {
@@ -172,7 +179,7 @@ public static partial class ScriptCompiler {
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex, entryMethods);
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug);
             workers.Add((wi, items, $"worker {number} ({workerName})", parts[0].Identifier.GetLocation()));
             image.Workers.Add(wi);
         }
@@ -195,7 +202,7 @@ public static partial class ScriptCompiler {
         foreach ((WorkerImage wi, List<WorkerItem> items, string label, Location where) in workers) {
             Assemble(wi, items, label, where, intIndex, floatIndex);
         }
-        return new CompiledScript(scriptCategory, name, image);
+        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings] };
     }
 
     /// <summary>Compiles one script from source text.</summary>
@@ -276,7 +283,7 @@ public static partial class ScriptCompiler {
 
     private static (WorkerImage Image, List<WorkerItem> Items) Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
-        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null) {
+        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -296,7 +303,9 @@ public static partial class ScriptCompiler {
         }
 
         Dictionary<string, RegExpr> registers = Registers(parts);
-        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) { EntryMethods = entryMethods };
+        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
+            EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
+        };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The
         // constructs' labels are numbered over the whole worker (FlowEmitter).

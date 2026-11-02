@@ -34,7 +34,20 @@ public sealed class ScriptPackage {
     /// <summary>New entries and patches on vanilla entries (<see cref="RelocKind.NewEntry"/> indexes this list).</summary>
     public List<EntryPatch> Patches { get; set; } = [];
 
-    // Later: Messages (Text.New), Data (per-field edits of data areas and tables).
+    /// <summary>
+    ///     The texts of the package's <c>Debug.Print</c> calls (docs/formats/debug.md); the code pushes each
+    ///     one's <see cref="DebugText.Id"/>. Null when there are none.
+    /// </summary>
+    public List<string>? DebugStrings { get; set; }
+
+    /// <summary>
+    ///     Messages by index in the script's message table, for runtime injection only (docs/formats/debug.md,
+    ///     "Runtime injection"): the loader sets them in the running event's table. The linker does not
+    ///     read them; <c>Text.New</c> in mods comes later. Null when there are none.
+    /// </summary>
+    public List<PackageMessage>? Messages { get; set; }
+
+    // Later: Data (per-field edits of data areas and tables).
 
     public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web) {
         WriteIndented = true,
@@ -95,6 +108,9 @@ public sealed class NewVariable {
     [JsonIgnore]
     public int ElementSize => Type switch { 0 or 1 => 1, 2 or 3 => 2, _ => 4 };
 }
+
+/// <summary>A message for the script's table: <see cref="Index"/> in it, the text in the game's language (control codes as <c>atel text export</c> writes them).</summary>
+public sealed record PackageMessage(int Index, string Text);
 
 /// <summary>A worker the mod adds; its entry numbers are its own, its number is given when linking.</summary>
 public sealed class NewWorker {

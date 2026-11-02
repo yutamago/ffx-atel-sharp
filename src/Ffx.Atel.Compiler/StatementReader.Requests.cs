@@ -19,6 +19,9 @@ internal sealed partial class StatementReader {
     /// <summary>For each worker class, its methods by name with the first entry each places.</summary>
     public IReadOnlyDictionary<string, Dictionary<string, int>> EntryMethods { get; init; } = new Dictionary<string, Dictionary<string, int>>();
 
+    /// <summary>What <c>Debug.*</c> calls compile to, and the texts they use (docs/formats/debug.md).</summary>
+    public DebugCalls DebugCalls { get; init; } = new(DebugMode.Natives);
+
     /// <summary>
     ///     A mod's requests (<c>atel compile-mod</c>): the worker and entry numbers of a worker class and
     ///     method, which may be numbers only the linker gives; null where <see cref="EntryMethods"/> answers.

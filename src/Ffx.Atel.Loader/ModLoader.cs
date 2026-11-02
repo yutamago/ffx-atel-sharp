@@ -15,7 +15,8 @@ namespace Ffx.Atel.Loader;
 /// <param name="Mods">The Atel mods found, in load order.</param>
 /// <param name="Written">The archive paths of the files written to <c>efl/x</c>.</param>
 /// <param name="Messages">The link report: per mod, what was applied, conflicts and errors.</param>
-public sealed record LinkRun(List<string> Mods, List<string> Written, List<LinkMessage> Messages);
+/// <param name="Linked">The mods linked, in load order, the injected packages last (<see cref="Injection"/>).</param>
+public sealed record LinkRun(List<string> Mods, List<string> Written, List<LinkMessage> Messages, List<AtelMod> Linked);
 
 /// <summary>
 ///     Links the enabled Atel mods onto the player's files and writes the results to the loader's
@@ -43,7 +44,8 @@ public static class ModLoader {
     ///     <c>scripts/</c> already rebuilt).
     /// </summary>
     /// <param name="readVanilla">The vanilla file of an archive path, or null when the game has none.</param>
-    public static LinkRun Link(string modsDir, string eflDir, Func<string, byte[]?> readVanilla, IReadOnlySet<string> taken) {
+    /// <param name="injected">The loader's <c>inject/</c> packages, linked after every mod (<see cref="Injection"/>).</param>
+    public static LinkRun Link(string modsDir, string eflDir, Func<string, byte[]?> readVanilla, IReadOnlySet<string> taken, AtelMod? injected = null) {
         List<LinkMessage> messages = [];
         List<AtelMod> found = [];
         foreach (string id in LoadOrder(modsDir)) {
@@ -51,37 +53,46 @@ public static class ModLoader {
             if (AtelMod.IsAtelMod(dir)) found.Add(AtelMod.Load(id, dir));
         }
         List<AtelMod> mods = ModSet.Resolve(found, messages);
+        if (injected is not null) {
+            foreach (string e in injected.Errors) messages.Add(new(LinkSeverity.Error, injected.Id, e));
+            if (injected.Packages.Count > 0) mods.Add(injected);
+        }
         List<string> written = [];
         if (mods.Count > 0 && mods.Any(m => m.Packages.Count > 0)) {
             foreach (LinkedFile f in ModSet.Link(mods, readVanilla)) {
-                if (f.Result is null) {
-                    messages.Add(new(LinkSeverity.Error, "", $"{f.Path}: {f.Error}"));
-                    continue;
-                }
-                messages.AddRange(f.Result.Messages);
-                if (!f.Result.Changed) continue;
-                if (taken.Contains(f.Path)) {
-                    messages.Add(new(LinkSeverity.Conflict, string.Join(", ", f.Result.Applied),
-                        $"{f.Path}: the loader's own {ScriptBuilder.SourceDir}/ already rebuilds this file; the mods are not linked onto it"));
-                    continue;
-                }
-                string target = Path.Combine(eflDir, f.Path.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.WriteAllBytes(target, f.Result.File);
-                written.Add(f.Path);
+                if (Write(f, eflDir, taken, messages)) written.Add(f.Path);
             }
         }
-        return new LinkRun([.. found.Select(m => m.Id)], written, messages);
+        return new LinkRun([.. found.Select(m => m.Id)], written, messages, mods);
     }
 
-    /// <summary><see cref="Link(string, string, Func{string, byte[]}, IReadOnlySet{string})"/> with the vanilla files from the game's <c>data/FFX_Data.vbf</c>, opened only when a mod has a package.</summary>
-    public static LinkRun Link(string modsDir, string gameDir, string eflDir, IReadOnlySet<string> taken) {
+    /// <summary>Writes a linked file to <paramref name="eflDir"/>, unless it failed, did not change or is <paramref name="taken"/>; the report to <paramref name="messages"/>.</summary>
+    public static bool Write(LinkedFile f, string eflDir, IReadOnlySet<string> taken, List<LinkMessage> messages) {
+        if (f.Result is null) {
+            messages.Add(new(LinkSeverity.Error, "", $"{f.Path}: {f.Error}"));
+            return false;
+        }
+        messages.AddRange(f.Result.Messages);
+        if (!f.Result.Changed) return false;
+        if (taken.Contains(f.Path)) {
+            messages.Add(new(LinkSeverity.Conflict, string.Join(", ", f.Result.Applied),
+                $"{f.Path}: the loader's own {ScriptBuilder.SourceDir}/ already rebuilds this file; the mods are not linked onto it"));
+            return false;
+        }
+        string target = Path.Combine(eflDir, f.Path.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllBytes(target, f.Result.File);
+        return true;
+    }
+
+    /// <summary><see cref="Link(string, string, Func{string, byte[]}, IReadOnlySet{string}, AtelMod)"/> with the vanilla files from the game's <c>data/FFX_Data.vbf</c>, opened only when a mod has a package.</summary>
+    public static LinkRun Link(string modsDir, string gameDir, string eflDir, IReadOnlySet<string> taken, AtelMod? injected = null) {
         VbfArchive? archive = null;
         try {
             return Link(modsDir, eflDir, path => {
                 archive ??= GameData.OpenArchive(gameDir);
                 return archive.Find(path) is { } entry ? archive.Read(entry) : null;
-            }, taken);
+            }, taken, injected);
         }
         finally {
             archive?.Dispose();
