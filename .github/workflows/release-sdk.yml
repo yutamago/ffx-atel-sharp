@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT
+# Publishes the SDK package to nuget.org when a tag such as sdk-v0.1.0-alpha is pushed. The version is
+# the tag without "sdk-v". Needs the repository secret NUGET_API_KEY (a nuget.org API key scoped to
+# push Ffx.Atel.Sdk); without it the job stops before pushing anything. See docs/sdk.md, "Publishing".
+name: Release SDK
+
+on:
+  push:
+    tags: [ "sdk-v*" ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Version from the tag
+      shell: bash
+      run: echo "VERSION=${GITHUB_REF_NAME#sdk-v}" >> "$GITHUB_ENV"
+
+    - name: Pack
+      run: dotnet pack -c Release src/Ffx.Atel.Sdk -p:Version=${{ env.VERSION }} -o artifacts/sdk-feed
+
+    - name: No checkout path in the package
+      shell: bash
+      run: |
+        pkg=$(ls artifacts/sdk-feed/Ffx.Atel.Sdk.*.nupkg)
+        if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then
+          echo "the SDK package names the checkout's path"; exit 1
+        fi
+
+    - name: Push to nuget.org
+      shell: bash
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: |
+        if [ -z "$NUGET_API_KEY" ]; then echo "the NUGET_API_KEY secret is not set"; exit 1; fi
+        dotnet nuget push artifacts/sdk-feed/Ffx.Atel.Sdk.*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
