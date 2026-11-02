@@ -1,0 +1,287 @@
+<!-- SPDX-License-Identifier: MIT -->
+
+# Analyzers
+
+Atel is standard C#; what makes it Atel is the reference assembly (`Ffx.Atel.Game`) and the
+rules below (docs/plan.md, "The language"). They are Roslyn analyzers
+(`src/Ffx.Atel.Analyzers`, netstandard2.0), so Rider, Visual Studio and VS Code show them while
+typing and `dotnet build` reports them; code fixes are in `src/Ffx.Atel.Analyzers.CodeFixes`.
+`atel compile --check` and `atel roundtrip --check` run them too (`ScriptCompiler.Check`).
+
+The rules run only in a compilation that references `Ffx.Atel.Game` (it has `Ffx.Atel.Worker`).
+Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0001` or set in
+`.editorconfig` (`dotnet_diagnostic.ATL0001.severity = none`).
+
+## Numbering
+
+| Range | What |
+|---|---|
+| ATL0xxx | the plan's own warnings (ATL0001, registers) |
+| ATL1xxx | C# that ATEL cannot run: the subset |
+| ATL2xxx | requests between workers |
+| ATL3xxx | `call`: functions and helpers |
+
+| Id | Severity | Rule | Fix |
+|---|---|---|---|
+| [ATL0001](#atl0001) | warning | register field used across a wait while another entry writes it | |
+| [ATL1001](#atl1001) | error | objects created at run time (`new`) | |
+| [ATL1002](#atl1002) | error | `string` outside `Debug.*` | |
+| [ATL1003](#atl1003) | error | the .NET base library | |
+| [ATL1004](#atl1004) | error | collections | |
+| [ATL1005](#atl1005) | error | LINQ | |
+| [ATL1006](#atl1006) | error | exceptions | |
+| [ATL1007](#atl1007) | error | lambdas and delegates | |
+| [ATL1008](#atl1008) | error | generic declarations | |
+| [ATL1009](#atl1009) | error | not an ATEL type (`long`, `double`, …) | `1.5` → `1.5f` |
+| [ATL1010](#atl1010) | error | `checked` | remove it |
+| [ATL1011](#atl1011) | error | `&&` and `\|\|` (not yet) | `&`, `\|` |
+| [ATL2001](#atl2001) | hint | request neither awaited nor discarded | `_ =`, `await` |
+| [ATL2002](#atl2002) | error | request to an entry that is not `async` | |
+| [ATL2003](#atl2003) | hint | `await` on something that is not a request | |
+| [ATL2004](#atl2004) | error | awaited request to the worker's own entry at the same or a lower level | |
+| [ATL2005](#atl2005) | warning | awaited request to the worker's own entry | |
+| [ATL2006](#atl2006) | warning | priority the engine uses (0, 7, 8) | |
+| [ATL2007](#atl2007) | error | `async` method that does not return `Ffx.Atel.Task` | |
+| [ATL3001](#atl3001) | error | recursion | |
+| [ATL3002](#atl3002) | error | `call` deeper than 3 | |
+
+"Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
+do not list it.
+
+## On the vanilla source
+
+Every script `atel decompile` writes (all 1,621, in the Phase 6 folder layout) and the library
+of shared workers are analyzed by `tests/Ffx.Atel.Analyzers.Tests` (`CorpusTests`, needs
+`FFX_GAME_DIR`). Nothing is reported at error level. ATL0001 is reported **136 times**
+(2026-11-02; 242 before the shared workers moved into the library, where each is analyzed
+once): loop counters and other values the
+original keeps in a register across a wait (`Common.WaitFrames(1)`, `Btl.ActorWaitMotion()`) in
+an entry, where another entry of the same worker also writes that register. They are what the
+rule describes, so the rule stays; the original compiler did not warn. Whether each is a real bug
+depends on which levels the entries run at, which the analyzer does not know. The compiler's
+corpus test counts them apart. Nothing else fires on vanilla source.
+
+## The rules
+
+### ATL0001
+
+**Register field used across a wait while another entry writes it** (warning).
+
+A worker has one set of registers (`i0`-`i3`, `f0`-`f9`) for all its entries; a level keeps only
+registers A, B and the float accumulator. While an entry waits, an entry on a higher level can run
+on the same worker and overwrite a register. ATL0001 reports a wait where a `[Register]` field
+holds a value: written before the wait on some path, read after it before being written again;
+and another entry of the same worker writes the field.
+
+```csharp
+[Register(0)] public int I0;
+
+[Entry(1)]
+void E1()
+{
+    for (I0 = 0; I0 < 10; I0++)
+        Common.WaitFrames(1);   // ATL0001: I0 across this wait, and E3 writes it
+}
+
+[Entry(3)]
+void E3() { I0 = 5; }
+```
+
+Waits are `await`, natives with `Polls` (`[Native(…, Polls = true)]`) and `RequestWaitStart`,
+`RequestWaitEnd`, directly in the method (not through helpers). Liveness is per method, over
+Roslyn's control flow graph. Function workers (`Worker0`) are left out: they run on their
+caller's level and registers.
+
+Fix: use a local (the compiler saves locals across waits), another register, or suppress where
+the entries cannot interleave.
+
+### ATL1001
+
+**Objects are not created at run time** (error). ATEL has no objects; workers are created by the
+game.
+
+```csharp
+var t = new Thing();            // ATL1001
+Point p = new();                // ATL1001
+int[] local = new int[2];       // ATL1001: arrays are fields
+static int[] Table = new int[3];  // fine: a field with a fixed size
+static Item[] Rewards = { Item.Potion };  // fine
+```
+
+Anonymous objects and `stackalloc` too. A .NET type's `new` is reported as ATL1003/ATL1004, a
+delegate's as ATL1007. Fix: fields for state; arrays as fields.
+
+### ATL1002
+
+**`string` outside `Debug`** (error). ATEL has no strings: messages are IDs (`Text[12]`), debug
+text goes to `Debug.*` (plan, "Text").
+
+A string is allowed in attributes (`[Event("bjyt0400")]`, `nameof`) and as an argument to a
+reference-assembly member that takes one (`Debug.Print($"hp = {Hp}")`, `Asm("""…""")`,
+`Text.New("…")`). `string` as a field, parameter, local or return type is reported, and any
+other string value (a literal, an interpolation, a concatenation) where it is made.
+
+```csharp
+string Name = "wakka";          // ATL1002 twice: the type and the value
+Asm("pushimm 1");               // fine
+```
+
+### ATL1003
+
+**The .NET base library** (error). Members and types of the `System` and `Microsoft` namespaces do
+not exist in the game's interpreter.
+
+```csharp
+int a = Math.Abs(x);            // ATL1003 at Abs
+int n = V.Length;               // ATL1003: System.Array.Length
+```
+
+Allowed: `int`, `uint`, `short`, `ushort`, `sbyte`, `byte`, `float`, `bool`, `void`, and
+constants (`int.MaxValue`). Types are judged where they are written (declarations, casts,
+`typeof`, patterns, `default(T)`), members where they are used. Attributes and `using`
+directives are compile-time only and never reported.
+
+### ATL1004
+
+**Collections** (error): types of `System.Collections.*` and other enumerable .NET types, and
+collection expressions of a non-array type. ATEL has variables and fixed-size arrays. Fix: an
+array field.
+
+### ATL1005
+
+**LINQ** (error): `System.Linq` (`V.Select(…)`) and query expressions (`from x in V select x`).
+Fix: write the loop.
+
+### ATL1006
+
+**Exceptions** (error): `try`, `catch`, `finally`, `throw` and exception types. ATEL has none.
+
+### ATL1007
+
+**Lambdas and delegates** (error): lambdas, anonymous methods, local functions, delegate
+declarations, .NET delegate types (`Action`, `Func`), method groups as values, function pointers.
+ATEL calls only fixed targets. Fix: a helper method.
+
+### ATL1008
+
+**Generic declarations** (error): a generic type or method declared in source. Each method is one
+ATEL body; the reference assembly's generics (`Call<W>()`, `At(…)`, `Task<T>`) are fine.
+
+### ATL1009
+
+**Not an ATEL type** (error): `long`, `ulong`, `double`, `decimal`, `char`, `object`, `dynamic`,
+`nint`, `nuint`, pointers; in declarations, casts, and literals (`1.5`, `2L`). ATEL values are 32
+bits: `int`, `uint`, `short`, `ushort`, `sbyte`, `byte`, `float`, `bool`, enums, fixed-size
+arrays.
+
+Fix (code fix): a `double` literal gets its `f` (`1.5` → `1.5f`).
+
+### ATL1010
+
+**`checked`** (error): `checked(…)` and `checked { … }`. ATEL integers wrap; `unchecked` is fine.
+Fix (code fix): remove `checked`.
+
+### ATL1011
+
+**`&&` and `||`** (error, for now). ATEL's `land`/`lor` evaluate both sides, as C#'s `&` and `|`
+on `bool` do, and the decompiler writes those. `&&` and `||` short-circuit, which needs branches
+inside a condition; the compiler does not emit them yet (plan, "Phase 3: statements": "new code
+may get them later"). Pattern `and`/`or` (`case >= 5 and <= 9`) is fine.
+
+Fix (code fix): `&&` → `&`, `||` → `|` (both sides are evaluated; mind side effects).
+
+### ATL2001
+
+**Request neither awaited nor discarded** (hint, as C#'s CS4014).
+
+```csharp
+Lulu.LookAtWakkaAsync();          // ATL2001
+_ = Lulu.LookAtWakkaAsync();      // req: queue it and carry on
+await Lulu.LookAtWakkaAsync();    // reqe: wait until it ends
+```
+
+Fix (code fix): `_ =`, or `await` in an `async` method.
+
+### ATL2002
+
+**Request to an entry that is not `async`** (error). Calling an entry (`[Entry(n)]`, an
+`override` of a base class entry) requests it; only `async Task NameAsync()` entries can be
+requested from code. `base.Main()` in an override is not a request.
+
+```csharp
+Lulu.E3();                        // ATL2002
+```
+
+### ATL2003
+
+**`await` on something that is not a request** (hint). Only a request (`Task`, `Task<T>`, their
+`.Finished` and `.Started`) waits for another worker; anything else of the reference assembly
+completes at once and the compiler drops the `await`. (.NET awaitables are ATL1003.)
+
+### ATL2004
+
+**Awaited request to the worker's own entry at the same or a lower level** (error). A worker runs
+one level at a time: an awaited request to its own entry starts only if its level is above the
+caller's, else the caller waits for ever (plan, "Requests between workers").
+
+Reported where both levels are known: the decompiler's raw forms `RequestWaitEnd(level, worker,
+entry)` and `RequestWaitStart(…)` with constant operands, to the caller's own worker (its index in
+`[Workers]`), from code that runs as entry 0 (`Init`, level 7) or entry 1 (`Main`, level 0): the
+entries on the method (`[Entry(n)]`, an `Init`/`Main` override) and the `Entry(n);` marks before
+the call.
+
+```csharp
+[Entry(0)]
+void E0() { RequestWaitEnd(7, 0, 3); }   // ATL2004 (in worker 0): level 7 from Init's level 7
+```
+
+Fix: a helper method, or a higher level.
+
+### ATL2005
+
+**Awaited request to the worker's own entry** (warning): `await OwnEntryAsync()` (or its
+`.Finished`/`.Started`), where the levels are not known. Fix: a helper method, which runs
+synchronously.
+
+The decompiler's raw forms are only checked where the levels are known (ATL2004): vanilla awaits
+its own entries 130 times, outside `Init` and `Main` at levels the analyzer cannot see.
+
+### ATL2006
+
+**Priority the engine uses** (warning). Scripts request at levels 1-6 (plan, "Requests between
+workers"): 0 is `Main`'s, 7 `Init`'s and the battle system's, 8 unused.
+
+- A `Priority` enum value of the reference assembly (when it has one) that is 0, 7 or 8.
+- A constant `level` of `Request`, `RequestWaitStart`, `RequestWaitEnd`, `RequestParty` that is
+  0 or 8 or more. Level 7 is not reported there: the shipped scripts request at level 7 260 times.
+
+### ATL2007
+
+**`async` method that does not return `Ffx.Atel.Task`** (error). An `async` method is a
+requestable entry, and its return type is the request: `async Task NameAsync()` or
+`async Task<int> NameAsync()` with the reference assembly's `Task`. (`async void`; a .NET `Task`
+is ATL1003.)
+
+### ATL3001
+
+**Recursion** (error), direct or through other functions and helpers, including function workers
+(`Call<W>()`). `call` keeps only a return address and shares the caller's registers.
+
+```csharp
+void Again() { Again(); }         // ATL3001: W00.Again → W00.Again
+```
+
+Each call on the cycle is reported, with the cycle in the message.
+
+### ATL3002
+
+**`call` deeper than 3** (error). A worker level keeps 3 return addresses (`Script_Run`, level
+`+0x1d`). From code that nothing calls (entries), the deepest chain through each call to a
+function or helper is followed; a chain of more than 3 is reported at its first call.
+
+```csharp
+[Entry(0)] void E0() { A(); }     // ATL3002: E0 → A → B → C → D
+void A() { B(); }  void B() { C(); }  void C() { D(); }  void D() { }
+```
+
+Calls whose target is only known at run time do not exist in Atel, so the depth is static.
