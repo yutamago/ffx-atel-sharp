@@ -407,10 +407,13 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 | `Common.MsgSetText(0, Text[12]);` | **available**: `Text[n]` is message `n` of the script's table; compiles to the number |
 | `Common.MsgSetText(0, V3);` | **available**: a computed index converts from `int` |
 | `Text.New("Nice throw!")` | **planned**: a new message, numbered by the loader; not in the reference assembly yet |
-| `Debug.Print($"hp = {Hp}")` | **planned** (Phase 10): debug output through natives the loader provides; not in the reference assembly yet |
+| `Debug.Print($"hp = {Hp}")` | **available**: a line in Fahrenheit's log, through native `0xf000` the loader registers (native group F); text with up to 16 interpolated values ([debug.md](formats/debug.md)) |
+| `Debug.Break()` | **available**: logs the worker's registers through native `0xf001`, and stops in a .NET debugger if one is attached |
 
 `string` is an error everywhere except attribute arguments and the reference-assembly members that
-take one (`Asm`) ([ATL1002](analyzers.md#atl1002)). The editor extension shows each `Text[n]`'s
+take one (`Asm`, `Debug.Print`) ([ATL1002](analyzers.md#atl1002)). `Debug.*` calls compile to the
+loader's natives by default; `--debug drop` (or `--no-debug`) leaves them out with a warning, and
+`--debug error` refuses them. The editor extension shows each `Text[n]`'s
 message from your own game's tables ([editor.md](editor.md)).
 
 ## Statements and expressions
