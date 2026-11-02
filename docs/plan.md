@@ -587,7 +587,7 @@ replaces and the round trip stays byte for byte.
   `Common.MsgGetText_0236(TextId msg)` take a `TextId`, which the worker's
   `Text` indexer gives (`Common.MsgSetText(0, Text[12]);`) and an `int`
   converts to implicitly (a computed index stays as it is). The compiler reads
-  `Text[n]` as `n`. No editor extension yet.
+  `Text[n]` as `n`. The editor extension came in Phase 8 ([editor.md](editor.md)).
 - Numbers (2026-11-02): enum members placed 97,654 (`Target` 46,697,
   `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
   casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
@@ -939,10 +939,13 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   conflicts and warnings as warnings). The Phase 2 `scripts/*.asm` path
   stays for development and wins over mods for the same file (reported as
   a conflict).
-- Not yet checked in game (2026-11-02): the Larva HP postfix links to a
-  56,624-byte `m209.bin` (vanilla 55,280), the same kind of growth the
-  Phase 2 loader test served, but with the code region moved and `+0x30`
-  changed, which no in-game test has covered yet. Open: that check; laying
+- Checked in game (2026-11-02, [research/loader.md](research/loader.md#phase-9-a-linked-mod-package-in-game)):
+  the Larva HP postfix as a mod package (`atel compile-mod`, a file-only
+  Fahrenheit mod after `yuta.atel` in the load order), linked by the loader
+  to a 56,624-byte `m209.bin` (vanilla 55,280). In battle 34 the Larva has
+  1234 HP, and its script block in memory equals the linked block byte for
+  byte, including the code region the linker moved to the block's end
+  (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
   out unchanged workers in place; `Text.New`, per-field data edits and
   `[Inject]`; private data for new workers.
 
@@ -1001,7 +1004,13 @@ count, names placed.
    extension for message text (VS Code, Rider). No grammar, parser or
    language server of our own. Analyzers done 2026-11-02
    ([analyzers.md](analyzers.md)): 21 rules, run by `atel compile --check`;
-   on the vanilla source no errors, ATL0001 136 times.
+   on the vanilla source no errors, ATL0001 136 times. Message text done
+   2026-11-02 ([editor.md](editor.md)): `atel text export` (the player's
+   tables, decoded, as `.atel/text/<lang>/<script>.json`, never committed),
+   the VS Code extension (`editors/vscode`: inlay hint and hover, language
+   setting) and `atel decompile --text-comments <lang>`; all 33,759
+   `Text[n]` are in event scripts. Rider: options written down, a frontend
+   plugin spike is the follow-up.
    SDK done 2026-11-02 ([sdk.md](sdk.md)): `Ffx.Atel.Sdk` is an MSBuild
    project SDK (`<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`) holding
    `Ffx.Atel.Game` with its docs, the analyzers and code fixes, Atel's
@@ -1018,8 +1027,8 @@ count, names placed.
    `examples/LarvaHp`; `tests/Ffx.Atel.Sdk.Tests` packs the SDK, decompiles
    m209, builds the vanilla project and the example, and gets the same
    package as `atel compile-mod`. CI packs it on all three OSes; it is not
-   published anywhere yet. Open: the editor extension for message text,
-   publishing the package, a `dotnet new` template.
+   published anywhere yet. Open: publishing the package, a `dotnet new`
+   template.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report.

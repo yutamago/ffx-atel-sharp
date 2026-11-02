@@ -43,3 +43,34 @@ jobs:
         if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then
           echo "the SDK package names the checkout's path"; exit 1
         fi
+
+  vscode:
+    # The editor extension for message text (editors/vscode, docs/editor.md): built, unit-tested, checked in a
+    # real VS Code (made-up text) and packaged; never published.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: editors/vscode/package-lock.json
+
+    - name: Install
+      run: npm ci
+
+    - name: Test
+      run: npm test
+
+    - name: Test in VS Code
+      run: xvfb-run -a npm run test:integration
+
+    - name: Package
+      run: npm run package
