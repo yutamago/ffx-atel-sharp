@@ -86,6 +86,12 @@ Phase 0 measured all 1,621 scripts, battle scripts included
 Everything below is valid C#; what makes it Atel is the reference assembly
 (the game's API) and the analyzers (what ATEL can run).
 
+This section is the design. What the compiler accepts today, and where it
+differs from the design (function workers stay classes with `Run()`,
+requested entries are static, no locals or helper methods yet), is in
+[language.md](language.md); the bytecode each construct compiles to is in
+[encoding.md](encoding.md).
+
 ### Scripts, files and order
 
 - A script is a namespace and a folder, one file per worker:
@@ -786,12 +792,12 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 |---|---|
 | `Ffx.Atel.Bytecode` | VBF archive reading, script files, disassembler and assembler (our own `ffx-vbf` and `ffx-script` crates from `ffx-rust`, ported); a test checks both agree on all 758 scripts |
 | `Ffx.Atel.Game` | the reference assembly: natives, properties, enums, `Save`, `Story`, `Priority`, base classes, `Task`; generated from `ffx-rust`'s native table (`ffx script natives`, to be given a JSON export), Fahrenheit's names and the signature tables |
-| `Ffx.Atel.Decompiler` | bytecode to C# syntax trees (Roslyn `SyntaxFactory`), the formatter |
+| `Ffx.Atel.Decompiler` | bytecode to C# source text (written as text, not with Roslyn's `SyntaxFactory`; see "Phase 2: the source shape"), the source layout, library classes |
 | `Ffx.Atel.Compiler` | a Roslyn compilation of a project to ATEL: lowering, register allocation, layout |
 | `Ffx.Atel.Analyzers` | the subset rules, ATL warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
-| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-mod`, `atel link`, `atel roundtrip` |
+| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-all`, `atel roundtrip`, `atel export`, `atel text export`, `atel compile-mod`, `atel link`, `atel survey`, `atel disasm`/`asm` |
 | `Ffx.Atel.Sdk` | NuGet package: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package |
 
 ## Compiler output
@@ -1012,11 +1018,17 @@ count, names placed.
    plugin spike is the follow-up.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
-   edits, the conflict report.
+   edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
+   packages, the linker, `atel compile-mod`, `atel link` and the loader's
+   link step are done and checked in game; per-field data edits,
+   `Text.New` and `[Inject]` are open.
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package.
 11. **Documentation.** A language reference (which C# is Atel), the
-    encoding rules, a first-mod tutorial.
+    encoding rules, a first-mod tutorial. Done 2026-11-02:
+    [language.md](language.md), [encoding.md](encoding.md),
+    [tutorial.md](tutorial.md); the tutorial's SDK section waits for the
+    SDK.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–11 follow and partly run alongside.
