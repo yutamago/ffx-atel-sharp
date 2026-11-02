@@ -637,7 +637,13 @@ replaces and the round trip stays byte for byte.
   `_ =`, 23,863 `await`, 2,879 `.Started`); 2,509 fallbacks: 1,504 computed,
   741 to the worker's own entries, 229 to an entry without a method of its own,
   32 `req2`, 3 `RequestParty`. 43,371 methods `async Task`, 1,903 `async void`.
-  1,621/1,621 round-trip, 0 C# errors, 0 warnings.
+  1,621/1,621 round-trip, 0 C# errors, 0 warnings. A body that requests by
+  name names its script's workers, so fewer workers share a library class:
+  2,990 workers from 431 classes (3,128 from 492 with the numeric form). A
+  library class that requests could name its target's library class, as for
+  `Call<…>` under "Not done" of Phase 6.
+- The compiler also finds an entry method a worker inherits from its library
+  class (`W03.E5Async()` with `E5Async` in `Shared0001`).
 - Not done yet: `AsBool`/`AsInt` (88,778 and 3,344 left; natives typed `bool`
   where every use is a condition would remove most), register and variable
   names beyond the save, `static class` function workers, storage 1 names,
