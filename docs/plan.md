@@ -47,6 +47,30 @@ and moved here when work began.
   player's scripts and serves the results. The Rust port may load the same
   packages later; nothing here depends on it.
 
+2026-11-02, after a review of `ffx-atel-src` from a scenario writer's view
+(an FFX fan new to C#):
+
+- **Actors get English names** in the source (`Tidus`, `Wakka`, `Oaka`);
+  the `Model` enum keeps the developers' codes (they match the `chr_` files).
+- **Hand-written English proper names** (monsters, areas, NPCs) may go into
+  this repo; anything extracted in bulk from the game only through a local
+  export on the player's machine.
+- **Names live in an overlay in `ffx-atel-src`**, applied by the decompiler,
+  so renames survive regeneration (not hand edits on `main`).
+- **Folders: map code plus an English suffix**
+  (`Events/Ka_ThunderPlains/Kami0000/`), plus a generated index per area.
+- **Two levels of cleanup.** Phase 1 changes keep the bytecode identical and
+  go to `main`. Phase 2 cleanups (dead code, dialogue as one call) may change
+  the bytecode as long as the game behaves the same; they live on a separate
+  branch built by a tool from `main`, which stays byte-identical.
+- **Dialogue text as comments on `main`** of the private source repo
+  (`Text[71] // "…"`, English).
+- **Only verified names.** A name inferred from call patterns (`Op77`, roles
+  like `Director`, save-flag meanings) is used only once confirmed in FFX.exe
+  or in game.
+- **Inline macros for dialogue come after `Text.New`**, which unblocks
+  writing new scenarios.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
