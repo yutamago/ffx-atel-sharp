@@ -1,0 +1,324 @@
+// SPDX-License-Identifier: MIT
+
+using Ffx.Atel.Bytecode;
+using Ffx.Atel.Bytecode.Code;
+using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Linker;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace Ffx.Atel.Compiler;
+
+/// <summary>A mod's package for one script, and which script it is.</summary>
+public sealed class CompiledMod(ScriptCategory category, string name, ScriptPackage package) {
+    public ScriptCategory Category { get; } = category;
+
+    /// <summary>The script's file name without extension (<c>m209</c>).</summary>
+    public string Name { get; } = name;
+
+    /// <summary>The package; <see cref="ScriptPackage.File"/> is for the caller to fill in (it needs the game's archive).</summary>
+    public ScriptPackage Package { get; } = package;
+}
+
+/// <summary>A number the linker gives (<see cref="SymbolExpr"/>): a new worker's or a new entry's.</summary>
+internal sealed record LinkSymbol(RelocKind Kind, int Index);
+
+public static partial class ScriptCompiler {
+    /// <summary>
+    ///     Compiles a mod's source for one script against the script's vanilla source, into a package with
+    ///     only the mod's code and data (docs/formats/mod-package.md).
+    /// </summary>
+    /// <remarks>
+    ///     The mod's files extend the vanilla classes: <c>partial class M209 { public static int Turns; }</c>
+    ///     adds variables (without <c>[Var]</c> the linker allocates them in the shared data; with it they are
+    ///     a fixed location); <c>partial class W01 { … }</c> adds to a vanilla worker: a method without an
+    ///     attribute is a new entry, <c>[Prefix]</c>, <c>[Postfix]</c> and <c>[Replace]</c> patch a vanilla
+    ///     method, <c>[Register]</c> fields name registers; a class deriving from <c>Worker0</c> …
+    ///     <c>Worker6</c> (or a library class) is a new worker, its entries numbered as in vanilla source.
+    /// </remarks>
+    /// <exception cref="CompileException">The vanilla or the mod's source does not compile, or the mod does something a package cannot hold.</exception>
+    public static CompiledMod CompileMod(IReadOnlyList<SyntaxTree> vanillaTrees, IReadOnlyList<SyntaxTree> modTrees, ScriptLibrary? library = null) {
+        library ??= ScriptLibrary.Empty;
+        CompiledScript vanilla = Compile(vanillaTrees, library);
+        ScriptImage v = vanilla.Image;
+        vanillaTrees = [.. vanillaTrees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
+        modTrees = [.. modTrees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
+        foreach (SyntaxTree tree in modTrees) {
+            if (tree.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is Diagnostic d) {
+                throw CompileException.At(d.Location, d.GetMessage(System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        // ----- The vanilla declarations ----------------------------------------------------------
+        List<ClassDeclarationSyntax> classes = [.. vanillaTrees.SelectMany(t => t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())];
+        ILookup<string, ClassDeclarationSyntax> byName = classes.ToLookup(c => c.Identifier.ValueText, StringComparer.Ordinal);
+        ClassDeclarationSyntax mainClass = classes.First(c => Attributes(c).Any(a => NameOf(a) is "Event" or "Monster" or "Battle"));
+        string mainName = mainClass.Identifier.ValueText;
+        List<ClassDeclarationSyntax> mainParts = [.. byName[mainName]];
+        Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
+        List<string> vanillaVarNames = [];
+        foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
+            string n = field.Declaration.Variables[0].Identifier.ValueText;
+            variables[n] = new VariableSymbol(vanillaVarNames.Count, Variable(field));
+            vanillaVarNames.Add(n);
+        }
+        AttributeSyntax workersAttribute = mainParts.SelectMany(Attributes).First(a => NameOf(a) == "Workers");
+        List<string> vanillaWorkers = [.. AllPositional(workersAttribute).Select(t => ((TypeName)t).Name)];
+        Dictionary<string, int> workers = new(StringComparer.Ordinal);
+        foreach (string w in vanillaWorkers) workers[w] = workers.Count;
+
+        // Each vanilla worker's entry methods, in layout order: their entries and code range.
+        Dictionary<string, List<ClassDeclarationSyntax>> vanillaParts = new(StringComparer.Ordinal);
+        Dictionary<string, Dictionary<string, (int[] Entries, uint Start, uint End)>> methods = new(StringComparer.Ordinal);
+        for (int w = 0; w < vanillaWorkers.Count; w++) {
+            (List<ClassDeclarationSyntax> parts, _) = WorkerParts([.. byName[vanillaWorkers[w]]], library);
+            vanillaParts[vanillaWorkers[w]] = parts;
+            WorkerImage wi = v.Workers[w];
+            List<(string Name, int[] Entries, uint Start)> list = [];
+            foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
+                int[] entries = [.. EntriesOf(m)];
+                list.Add((m.Identifier.ValueText, entries, wi.Entries[entries[0]]));
+            }
+            Dictionary<string, (int[], uint, uint)> byMethod = new(StringComparer.Ordinal);
+            for (int i = 0; i < list.Count; i++) {
+                uint end = i + 1 < list.Count ? list[i + 1].Start : (uint)wi.Code.Length;
+                byMethod[list[i].Name] = (list[i].Entries, list[i].Start, end);
+            }
+            methods[vanillaWorkers[w]] = byMethod;
+        }
+
+        // ----- The mod's declarations ------------------------------------------------------------
+        ScriptPackage package = new() { Script = vanilla.Name };
+        Dictionary<string, List<ClassDeclarationSyntax>> modParts = new(StringComparer.Ordinal);
+        List<(string Name, List<ClassDeclarationSyntax> Parts)> newWorkers = [];
+        foreach (ClassDeclarationSyntax c in modTrees.SelectMany(t => t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())) {
+            string n = c.Identifier.ValueText;
+            if (c.Parent is ClassDeclarationSyntax) throw CompileException.At(c.Identifier.GetLocation(), "a nested class");
+            if (n == mainName) {
+                if (Attributes(c).FirstOrDefault() is AttributeSyntax a) throw CompileException.At(a, "a mod does not change the script class's attributes");
+                foreach (MemberDeclarationSyntax member in c.Members) {
+                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables only");
+                    string fieldName = field.Declaration.Variables[0].Identifier.ValueText;
+                    if (variables.ContainsKey(fieldName)) throw CompileException.At(field, $"{fieldName} is already a variable");
+                    VarEntry entry = Variable(field, allocated: true);
+                    bool fixedPlace = Attributes(field).Any(x => NameOf(x) == "Var");
+                    variables[fieldName] = new VariableSymbol(v.Variables.Count + package.Variables.Count, entry);
+                    package.Variables.Add(new NewVariable {
+                        Name = fieldName, Type = entry.Type, Storage = entry.Storage, Offset = fixedPlace ? entry.Offset : null,
+                        Length = entry.Length, RowLength = entry.RowLength, Array = entry.IsArray,
+                    });
+                }
+            }
+            else if (workers.ContainsKey(n)) {
+                if (Attributes(c).FirstOrDefault() is AttributeSyntax a) throw CompileException.At(a, "a mod does not change a vanilla worker's attributes");
+                if (c.BaseList is not null) throw CompileException.At(c.BaseList, "a mod does not change a vanilla worker's base class");
+                if (!modParts.TryGetValue(n, out List<ClassDeclarationSyntax>? list)) modParts[n] = list = [];
+                list.Add(c);
+            }
+            else if (byName[n].Any()) {
+                throw CompileException.At(c.Identifier.GetLocation(), $"{n} is a vanilla class, but not a worker");
+            }
+            else {
+                List<ClassDeclarationSyntax>? parts = newWorkers.FirstOrDefault(x => x.Name == n).Parts;
+                if (parts is null) {
+                    newWorkers.Add((n, parts = []));
+                    workers[n] = vanillaWorkers.Count + newWorkers.Count - 1;
+                }
+                parts.Add(c);
+            }
+        }
+
+        // The patches and new entries on vanilla workers, numbered before any code is read, so that
+        // Link.Entry can name a new entry anywhere in the mod.
+        List<(string Worker, MethodDeclarationSyntax Method, EntryPatch Patch)> patches = [];
+        foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
+            foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
+                if (member is FieldDeclarationSyntax) continue;
+                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
+                if (method.Body is null) throw CompileException.At(method, "an entry has a block body");
+                PatchKind kind = PatchKind.Entry;
+                string? target = null;
+                foreach (AttributeSyntax a in method.AttributeLists.SelectMany(l => l.Attributes)) {
+                    (kind, target) = NameOf(a) switch {
+                        "Prefix" => (PatchKind.Prefix, Target(a)),
+                        "Postfix" => (PatchKind.Postfix, Target(a)),
+                        "Replace" => (PatchKind.Replace, Target(a)),
+                        "Entry" => throw CompileException.At(a, "a new entry gets its number when linking; patch a vanilla entry with [Replace(nameof(…))]"),
+                        _ => throw CompileException.At(a, $"unknown attribute [{NameOf(a)}] on a mod's method"),
+                    };
+                    if (target is not null && !methods[worker].ContainsKey(target)) throw CompileException.At(a, $"{worker} has no entry method {target}");
+                }
+                if (kind == PatchKind.Entry && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
+                    throw CompileException.At(method.Identifier.GetLocation(), $"{worker} has its own {method.Identifier.ValueText}; patch it with [Prefix], [Postfix] or [Replace]");
+                }
+                patches.Add((worker, method, new EntryPatch { Kind = kind, Worker = workers[worker], Name = method.Identifier.ValueText, Target = target }));
+            }
+        }
+
+        // A worker's number and an entry's, as numbers or as what the linker gives (Link.Worker,
+        // Link.Entry, and requests written as calls: `_ = W01.BoostAsync();`).
+        Expr WorkerNumber(string worker, SyntaxNode at) {
+            if (!workers.TryGetValue(worker, out int number)) throw CompileException.At(at, $"no worker {worker}");
+            return number >= vanillaWorkers.Count ? new SymbolExpr(new LinkSymbol(RelocKind.NewWorker, number - vanillaWorkers.Count)) : new IntLit(number);
+        }
+        Expr? EntryNumber(string worker, string method) {
+            if (!workers.TryGetValue(worker, out int number)) return null;
+            if (number >= vanillaWorkers.Count) {
+                MethodDeclarationSyntax? m = newWorkers[number - vanillaWorkers.Count].Parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()
+                    .FirstOrDefault(x => x.Identifier.ValueText == method);
+                return m is not null && EntriesOf(m) is [int first, ..] ? new IntLit(first) : null;
+            }
+            if (methods[worker].TryGetValue(method, out var vm)) return new IntLit(vm.Entries[0]);
+            int k = patches.FindIndex(p => p.Worker == worker && p.Patch.Kind == PatchKind.Entry && p.Patch.Name == method);
+            return k >= 0 ? new SymbolExpr(new LinkSymbol(RelocKind.NewEntry, k)) : null;
+        }
+        (Expr, Expr)? RequestTargets(string worker, string method) =>
+            workers.ContainsKey(worker) && EntryNumber(worker, method) is Expr entry ? (WorkerNumber(worker, mainClass), entry) : null;
+
+        Expr? Links(InvocationExpressionSyntax link) {
+            GenericNameSyntax g = (GenericNameSyntax)((MemberAccessExpressionSyntax)link.Expression).Name;
+            if (g.TypeArgumentList.Arguments is not [TypeSyntax t]) throw CompileException.At(link, "Link.Worker<T>() and Link.Entry<T>(method) name one worker");
+            string worker = StatementReader.TypeName(t);
+            switch (g.Identifier.ValueText) {
+                case "Worker" when link.ArgumentList.Arguments.Count == 0:
+                    return WorkerNumber(worker, t);
+                case "Entry" when link.ArgumentList.Arguments is [ArgumentSyntax arg]: {
+                    string method = StatementReader.MethodName(arg.Expression) ?? throw CompileException.At(arg, "the method by nameof(…) or as a string");
+                    return EntryNumber(worker, method) ?? throw CompileException.At(arg, $"{worker} has no entry {method}");
+                }
+                default:
+                    throw CompileException.At(link, "Link.Worker<T>() or Link.Entry<T>(method)");
+            }
+        }
+
+        Dictionary<string, Dictionary<string, int>> entryMethods = new(StringComparer.Ordinal);
+        foreach ((string w, var byMethod) in methods) entryMethods[w] = byMethod.ToDictionary(kv => kv.Key, kv => kv.Value.Entries[0], StringComparer.Ordinal);
+        foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
+            entryMethods[name] = parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()
+                .Where(m => EntriesOf(m).Count > 0).ToDictionary(m => m.Identifier.ValueText, m => EntriesOf(m)[0], StringComparer.Ordinal);
+        }
+
+        FragmentBuilder fragments = new(v.Variables.Count, vanillaWorkers.Count);
+
+        // ----- New workers ---------------------------------------------------------------------
+        foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workers, entryMethods, Links);
+            if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
+            (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
+            if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
+            uint[] table = new uint[entries.Keys.Max() + 1];
+            for (int e = 0; e < table.Length; e++) {
+                table[e] = entries.TryGetValue(e, out uint at) ? at : throw CompileException.At(parts[0].Identifier.GetLocation(), $"{name} has no entry {e}");
+            }
+            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table });
+        }
+
+        // ----- Methods on vanilla workers ------------------------------------------------------
+        foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
+            int number = workers[worker];
+            bool function = v.Workers[number].Type == 0;
+            StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
+                EntryMethods = entryMethods, RequestTargets = RequestTargets,
+            };
+            FlowEmitter emitter = new() { TagOf = reader.LocationOf };
+            try {
+                List<Stmt> body = reader.Block(method.Body!.Statements);
+                emitter.BeginMethod();
+                emitter.Block(body);
+                // Entries and replacements end the entry; prefixes and postfixes run on (the linker chains them).
+                if (patch.Kind is PatchKind.Entry or PatchKind.Replace) emitter.Statement(new OpStmt(function ? Opcodes.Ret : Opcodes.End));
+                emitter.Number();
+            }
+            catch (FlowException ex) {
+                throw CompileException.At(ex.Tag as Location ?? method.Identifier.GetLocation(), ex.Message);
+            }
+            (patch.Code, Dictionary<int, uint> stray) = fragments.Build(ItemsOf(emitter), method.Identifier.GetLocation());
+            if (stray.Count > 0) throw CompileException.At(method.Identifier.GetLocation(), "Entry(n) inside a mod's method");
+            fragments.Workers.Add(number);
+            package.Patches.Add(patch);
+        }
+
+        // ----- The vanilla parts it attaches to ------------------------------------------------
+        foreach (int w in fragments.Workers.Order()) {
+            package.Vanilla.Workers.Add(new WorkerRef(w, vanillaWorkers[w], VanillaHash.Worker(v.Workers[w])));
+        }
+        foreach (var target in patches.Where(p => p.Patch.Target is not null).Select(p => (p.Worker, Target: p.Patch.Target!)).Distinct()) {
+            (int[] entries, uint start, uint end) = methods[target.Worker][target.Target];
+            int w = workers[target.Worker];
+            package.Vanilla.Entries.Add(new EntryRef(w, target.Target, entries, start, end, VanillaHash.Range(v.Workers[w], start, end)));
+        }
+        foreach (int i in fragments.Variables.Order()) {
+            package.Vanilla.Variables.Add(new VariableRef(i, vanillaVarNames[i], VanillaHash.Variable(v.Variables[i])));
+        }
+        return new CompiledMod(vanilla.Category, vanilla.Name, package);
+    }
+
+    private static string Target(AttributeSyntax a) =>
+        Arguments(a).ToList() is [AttributeArgumentSyntax arg] && StatementReader.MethodName(arg.Expression) is string name
+            ? name
+            : throw CompileException.At(a, $"[{NameOf(a)}] names a vanilla method: [{NameOf(a)}(nameof(Init))]");
+
+    /// <summary>Instructions to a <see cref="Fragment"/>: the operands the linker gives become relocations.</summary>
+    private sealed class FragmentBuilder(int vanillaVariables, int vanillaWorkers) {
+        /// <summary>The vanilla variables and workers the code uses, which the package lists with their hashes.</summary>
+        public HashSet<int> Variables { get; } = [];
+        public HashSet<int> Workers { get; } = [];
+
+        public (Fragment Code, Dictionary<int, uint> Entries) Build(List<WorkerItem> items, Location where) {
+            List<byte> code = [];
+            Dictionary<int, uint> labels = [], entries = [];
+            List<(int At, int Label, Location? Where)> jumps = [];
+            List<Reloc> relocs = [];
+            foreach (WorkerItem item in items) {
+                switch (item.Kind) {
+                    case AsmLineKind.Entry:
+                        entries[item.Number] = (uint)code.Count;
+                        continue;
+                    case AsmLineKind.Label:
+                        labels[item.Number] = (uint)code.Count;
+                        continue;
+                }
+                CodeOp op = item.Op;
+                int at = code.Count;
+                OperandKind kind = Opcodes.All[op.Code].Operand;
+                ushort? operand = op.Operand;
+                if (op.Symbol is LinkSymbol s) {
+                    relocs.Add(new Reloc(at, s.Kind, (uint)s.Index));
+                    operand = 0;
+                }
+                else if (op.Pooled) {
+                    relocs.Add(new Reloc(at, op.Code == Opcodes.PushC ? RelocKind.Int : RelocKind.Float, op.Value));
+                    operand = 0;
+                }
+                else if (kind is OperandKind.Int or OperandKind.Float) {
+                    throw CompileException.At(item.Where ?? where, "a mod cannot use a constant by its pool index (Pooled or Asm)");
+                }
+                else if (kind == OperandKind.Label && operand is ushort label) {
+                    jumps.Add((at, label, item.Where));
+                    operand = 0;
+                }
+                else if (kind == OperandKind.Var && operand is ushort var) {
+                    if (var < vanillaVariables) Variables.Add(var);
+                    relocs.Add(var < vanillaVariables ? new Reloc(at, RelocKind.Var, var) : new Reloc(at, RelocKind.NewVar, (uint)(var - vanillaVariables)));
+                    operand = 0;
+                }
+                else if (kind == OperandKind.Worker && operand is ushort worker) {
+                    if (worker < vanillaWorkers) Workers.Add(worker);
+                    relocs.Add(worker < vanillaWorkers ? new Reloc(at, RelocKind.Worker, worker) : new Reloc(at, RelocKind.NewWorker, (uint)(worker - vanillaWorkers)));
+                    operand = 0;
+                }
+                new Instr(0, op.Code, operand).Encode(code);
+            }
+            // The fragment's labels, numbered densely in the order of their numbers.
+            List<int> numbers = [.. labels.Keys.Order()];
+            Dictionary<int, int> index = numbers.Select((n, i) => (n, i)).ToDictionary(x => x.n, x => x.i);
+            foreach ((int at, int label, Location? from) in jumps) {
+                if (!index.TryGetValue(label, out int i)) throw CompileException.At(from ?? where, $"a jump to l{label}, which is not in this method");
+                relocs.Add(new Reloc(at, RelocKind.Label, (uint)i));
+            }
+            relocs.Sort((a, b) => a.At.CompareTo(b.At));
+            return (new Fragment { Bytes = [.. code], Labels = [.. numbers.Select(n => labels[n])], Relocs = relocs }, entries);
+        }
+    }
+}

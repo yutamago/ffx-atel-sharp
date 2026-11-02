@@ -791,7 +791,7 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Analyzers` | the subset rules, ATL warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
-| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel link`, `atel roundtrip` |
+| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-mod`, `atel link`, `atel roundtrip` |
 | `Ffx.Atel.Sdk` | NuGet package: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package |
 
 ## Compiler output
@@ -904,6 +904,30 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   areas, the other workers' code and the file's other sections. Files grow
   by 36 KB on average, as the code region moves; laying the code out in two
   runs is left for later.
+- **`atel compile-mod <mod dir> --vanilla <dir> -o <out> [--id <id>]`**
+  (`ScriptCompiler.CompileMod`): a mod is C# in the namespace of the script
+  it changes, next to the decompiled vanilla source (`atel decompile -o`).
+  `partial class M209 { public static int Turns; }` adds variables (no
+  `[Var]`: the linker allocates them in the shared data); `partial class
+  W01 { … }` adds to a vanilla worker: a method without an attribute is a
+  new entry, `[Prefix(nameof(Init))]`, `[Postfix(…)]` and `[Replace(…)]`
+  patch a vanilla method (`Ffx.Atel.Game/Atel/ModAttributes.cs`); a new
+  class deriving from `Worker0` … `Worker6` is a new worker.
+  A mod requests its new entries as any entry (`_ = W01.BoostAsync();`);
+  `Link.Worker<T>()` and `Link.Entry<T>(nameof(…))` give the numbers for
+  the explicit `Request(level, worker, entry)` form. Where the linker gives
+  the number, the code model has a `SymbolExpr`. The
+  compiler compiles the vanilla source, reads the mod's members against its
+  declarations, and keeps only the mod's code, as fragments. The decompiler
+  now writes every worker `partial`, so the mod and the vanilla source
+  compile together as C# (`--check`).
+- **`atel link <mod dir>… -o <dir>`** links mod folders onto the game's
+  files as the loader does and prints the report.
+- Numbers (2026-11-02): a postfix on the Larva's (`m209`) worker 1 `Init`
+  that sets its HP is a 9-byte package; a mod that adds a postfix which
+  requests a new entry links onto `m209`, and the linked file decompiles
+  to C# without errors and compiles back byte for byte, with workers 0 and
+  2 unchanged.
 
 ## Phases
 

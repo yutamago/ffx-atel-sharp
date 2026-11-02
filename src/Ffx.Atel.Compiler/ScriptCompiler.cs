@@ -203,9 +203,10 @@ public static partial class ScriptCompiler {
 
     // ----- Declarations ----------------------------------------------------------------------
 
-    private static VarEntry Variable(FieldDeclarationSyntax field) {
-        AttributeSyntax a = field.AttributeLists.SelectMany(l => l.Attributes).FirstOrDefault(x => NameOf(x) == "Var")
-            ?? throw CompileException.At(field, "a field of the script class without [Var]");
+    /// <param name="allocated">A mod's field: without <c>[Var]</c> it is a shared variable the linker places (offset 0 here).</param>
+    private static VarEntry Variable(FieldDeclarationSyntax field, bool allocated = false) {
+        AttributeSyntax? a = field.AttributeLists.SelectMany(l => l.Attributes).FirstOrDefault(x => NameOf(x) == "Var");
+        if (a is null && !allocated) throw CompileException.At(field, "a field of the script class without [Var]");
         if (field.Declaration.Variables.Count != 1) throw CompileException.At(field, "one variable per [Var] field");
         TypeSyntax type = field.Declaration.Type;
         int rank = 0;
@@ -218,16 +219,16 @@ public static partial class ScriptCompiler {
             SyntaxKind.UIntKeyword => 4, SyntaxKind.IntKeyword => 5, SyntaxKind.FloatKeyword => 6,
             _ => throw CompileException.At(type, $"a variable cannot be {p.Keyword.ValueText}"),
         } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
-        object storage = Positional(a, 0);
+        object storage = a is null ? new EnumMember(nameof(Storage.Shared)) : Positional(a, 0);
         uint storageNumber = storage is EnumMember(string member) && Enum.TryParse(member, out Storage s) ? (uint)s
-            : throw CompileException.At(a, "the storage is Storage.<area>");
-        int offset = I32(Positional(a, 1), a);
-        if (offset is < 0 or > 0xff_ffff) throw CompileException.At(a, "the offset is 24 bits");
+            : throw CompileException.At(a!, "the storage is Storage.<area>");
+        int offset = a is null ? 0 : I32(Positional(a, 1), a);
+        if (offset is < 0 or > 0xff_ffff) throw CompileException.At(a!, "the offset is 24 bits");
         int length = 1, rowLength = 0;
-        foreach ((string key, object value) in Named(a)) {
+        foreach ((string key, object value) in a is null ? [] : Named(a)) {
             switch (key) {
-                case "Length": length = I32(value, a); break;
-                default: throw CompileException.At(a, $"[Var] has no {key}");
+                case "Length": length = I32(value, a!); break;
+                default: throw CompileException.At(a!, $"[Var] has no {key}");
             }
         }
         // An array's length is its size: `byte[] V3 = new byte[4];`; a 2-D array's second dimension
@@ -243,7 +244,7 @@ public static partial class ScriptCompiler {
                     if (rowLength <= 0) throw CompileException.At(sizes[1], "a 2-D array has rows of at least 1");
                 }
             }
-            else if (rank == 2 || !Named(a).Any(n => n.Key == "Length")) {
+            else if (rank == 2 || !(a is not null && Named(a).Any(n => n.Key == "Length"))) {
                 throw CompileException.At(declarator, rank == 2 ? "a 2-D array variable needs its size: = new T[rows, cols]" : "an array variable needs its size: = new T[n]");
             }
         }
@@ -253,7 +254,7 @@ public static partial class ScriptCompiler {
         else if (length != 1) {
             throw CompileException.At(field, "a variable that is not an array has length 1");
         }
-        if (length is < 0 or > 0xffff || rowLength is < 0 or > 0xffff) throw CompileException.At(a, "the length and row length are 16 bits");
+        if (length is < 0 or > 0xffff || rowLength is < 0 or > 0xffff) throw CompileException.At((SyntaxNode?)a ?? field, "the length and row length are 16 bits");
         uint location = varType << 28 | storageNumber << 25 | (rank > 0 ? VarEntry.ArrayBit : 0) | (uint)offset;
         return new VarEntry(location, (ushort)length, (ushort)rowLength);
     }
@@ -275,22 +276,9 @@ public static partial class ScriptCompiler {
 
     private static (WorkerImage Image, List<WorkerItem> Items) Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
-        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods) {
-        // The base class: Worker0 … Worker6, or a library class, whose parts (and its base's) come first.
-        List<ClassDeclarationSyntax> parts = [.. own];
-        ushort? type = null;
-        BaseTypeSyntax? b = own.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
-        HashSet<string> seen = new(StringComparer.Ordinal);
-        while (b is not null) {
-            type = WorkerType(b.Type);
-            if (type is not null) break;
-            string baseName = SimpleName(b.Type);
-            List<ClassDeclarationSyntax> inherited = [.. library.Classes[baseName]];
-            if (inherited.Count == 0 || !seen.Add(baseName)) throw CompileException.At(b, "a worker derives from Worker0 … Worker6 or a library class");
-            parts.InsertRange(0, inherited);
-            b = inherited.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
-        }
-        WorkerImage wi = new() { Type = type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6 or a library class") };
+        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null) {
+        (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
+        WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
             switch (NameOf(a)) {
                 case "Worker":
@@ -307,19 +295,8 @@ public static partial class ScriptCompiler {
             }
         }
 
-        // [Register(n)] fields: int for the integer registers, float for the float ones.
-        Dictionary<string, RegExpr> registers = new(StringComparer.Ordinal);
-        foreach (FieldDeclarationSyntax field in parts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
-            AttributeSyntax a = Attributes(field).FirstOrDefault(x => NameOf(x) == "Register")
-                ?? throw CompileException.At(field, "a worker field is a [Register] (for now)");
-            int n = I32(Positional(a, 0), a);
-            RegExpr reg = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
-                : field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } ? new RegExpr(RegKind.Float, n)
-                : throw CompileException.At(field.Declaration.Type, "a register is int or float");
-            if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
-            foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
-        }
-        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0) { EntryMethods = entryMethods };
+        Dictionary<string, RegExpr> registers = Registers(parts);
+        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) { EntryMethods = entryMethods };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The
         // constructs' labels are numbered over the whole worker (FlowEmitter).
@@ -352,6 +329,48 @@ public static partial class ScriptCompiler {
         catch (FlowException ex) {
             throw CompileException.At(ex.Tag as Location ?? where, ex.Message);
         }
+        return (wi, ItemsOf(emitter));
+    }
+
+    /// <summary>
+    ///     A worker's parts and type: its base class is Worker0 … Worker6, or a library class, whose parts
+    ///     (and its base's) come first.
+    /// </summary>
+    private static (List<ClassDeclarationSyntax> Parts, ushort Type) WorkerParts(List<ClassDeclarationSyntax> own, ScriptLibrary library) {
+        List<ClassDeclarationSyntax> parts = [.. own];
+        ushort? type = null;
+        BaseTypeSyntax? b = own.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        while (b is not null) {
+            type = WorkerType(b.Type);
+            if (type is not null) break;
+            string baseName = SimpleName(b.Type);
+            List<ClassDeclarationSyntax> inherited = [.. library.Classes[baseName]];
+            if (inherited.Count == 0 || !seen.Add(baseName)) throw CompileException.At(b, "a worker derives from Worker0 … Worker6 or a library class");
+            parts.InsertRange(0, inherited);
+            b = inherited.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
+        }
+        return (parts, type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6 or a library class"));
+    }
+
+    /// <summary>A worker's <c>[Register(n)]</c> fields: <c>int</c> for the integer registers, <c>float</c> for the float ones.</summary>
+    private static Dictionary<string, RegExpr> Registers(IEnumerable<ClassDeclarationSyntax> parts) {
+        Dictionary<string, RegExpr> registers = new(StringComparer.Ordinal);
+        foreach (FieldDeclarationSyntax field in parts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
+            AttributeSyntax a = Attributes(field).FirstOrDefault(x => NameOf(x) == "Register")
+                ?? throw CompileException.At(field, "a worker field is a [Register] (for now)");
+            int n = I32(Positional(a, 0), a);
+            RegExpr reg = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
+                : field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } ? new RegExpr(RegKind.Float, n)
+                : throw CompileException.At(field.Declaration.Type, "a register is int or float");
+            if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
+            foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
+        }
+        return registers;
+    }
+
+    /// <summary>The emitter's items as entries, labels a jump uses, and instructions with their label numbers.</summary>
+    private static List<WorkerItem> ItemsOf(FlowEmitter emitter) {
         List<WorkerItem> items = [];
         foreach (FlowItem it in emitter.Items) {
             Location? at = it.Tag as Location;
@@ -367,7 +386,7 @@ public static partial class ScriptCompiler {
                     break;
             }
         }
-        return (wi, items);
+        return items;
     }
 
     /// <summary>The lines of <c>Asm("""…""")</c>; line numbers in assembly errors are the source file's.</summary>

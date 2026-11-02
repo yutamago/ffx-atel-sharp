@@ -15,7 +15,7 @@ internal static class Program {
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
-        """ + "\n" + SourceCommands.Usage + CompileAllCommand.Usage + ExportCommand.Usage + "\n" + """
+        """ + "\n" + SourceCommands.Usage + CompileAllCommand.Usage + ExportCommand.Usage + ModCommands.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -87,6 +87,10 @@ internal static class Program {
                 bool check = TakeFlag(args, "--check"), push = TakeFlag(args, "--push");
                 return ExportCommand.Run(archive, game, args, merge, compile, check, push);
             }
+            case "compile-mod":
+                return ModCommands.CompileMod(archive, args, output, TakeOption(args, "--vanilla"), TakeOption(args, "--id"), TakeFlag(args, "--check"));
+            case "link":
+                return ModCommands.Link(archive, args, output);
             case "survey":
                 return SurveyCommand.Run(archive, args, output);
             default:

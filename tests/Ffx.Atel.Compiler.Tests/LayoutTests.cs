@@ -139,7 +139,7 @@ public sealed class LayoutTests {
             List<SourceFile> files = SourceLayout.Files(script);
             SourceFile worker = files.Single(f => f.RelativePath.EndsWith("/W00.cs", StringComparison.Ordinal));
             Assert.Contains("using Library;", worker.Text, StringComparison.Ordinal);
-            Assert.Contains("public sealed class W00 : Shared0001\n{\n}\n", worker.Text, StringComparison.Ordinal);
+            Assert.Contains("public sealed partial class W00 : Shared0001\n{\n}\n", worker.Text, StringComparison.Ordinal);
             List<SyntaxTree> trees = Parse(files);
             Assert.Empty(ScriptCompiler.Check(trees, library));
             Assert.Equal(original, ScriptCompiler.Compile(trees, library).ApplyTo(file).ToArray());
