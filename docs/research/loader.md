@@ -85,6 +85,45 @@ same result:
   the moved code region and everything past the vanilla block length
   included.
 
+## Phase 10: debug text and runtime injection
+
+Checked on 2026-11-02 from the `phase10-debug` branch, two runs (the
+first found the language bug below), in the same harness as Phase 9.
+Format and design: [formats/debug.md](../formats/debug.md).
+
+- The setup: the loader with one injection package in its `inject/`
+  folder (`kami0000`: a postfix on worker 0 `Tidu`'s `Init`,
+  `Debug.Print($"kami0000 inject v1: Tidu init, i0 {I0}, entrance x
+  {Common.GetEntranceX():F1}")`), and a test mod in the load order
+  (`m209`: a postfix on worker 1's `Init`, `Debug.Print($"m209 mod: Larva
+  init done, {3 + 4} and {1.5f * 2f:F1}"); Debug.Break();`). The load
+  order was `yuta.atel`, `yuta.atel-test-debug`.
+- At startup: "debug natives registered as group F (2 debug text(s)
+  known)", after `AtelInitTotal` (the loader's `init` ran before it; the
+  hook registered). Both files were linked and served.
+- Developer save 51 (map 140, `kami0000`): "Atel debug: worker 0: kami0000
+  inject v1: Tidu init, i0 1, entrance x -32.8". So the group F native ran
+  from an event's init, with an `int` register and a `float` native result
+  as values, each printed by its stack slot's type.
+- Runtime injection: while the map ran, v2 of the package (another text,
+  and messages 73 and 400) was written over the one in `inject/`. Within a
+  second the log had "kami0000.ebp linked again" and "ka/kami0000: 2
+  message(s) set (4569 -> 7306 bytes)"; ctrl work 0 `+0x34` then pointed at
+  a table of 401 entries in which 73 is the new text, 400 the added one,
+  89-399 empty and the rest unchanged (dumped from memory and decoded with
+  the English charset). `+0x38` (the `.ebp`'s own table here, not the same
+  as `+0x34`) was left alone.
+- Developer save 51 again (the map loaded anew): "kami0000 inject v2: …",
+  so the game read the relinked file, and the messages were set again in
+  the new event's table (a new `+0x34`, 401 entries).
+- Battle 34: "Atel debug: worker 1: m209 mod: Larva init done, 7 and 3.0"
+  and "break, stack depth 0, i0=0 … f9=0"; the battle ran on.
+- Found on the way: `TkGetLang()` (`g_TkLang`) is 0 on PC with the English
+  files, so the first run encoded the messages with the Japanese charset
+  (which lacks `A`). The language of the files is `TOGetFFXLang()`
+  (`0x006410e0`, 1 here), which `TKMallocAndReadEventMessage` uses for
+  `new_<lang>pc/`; the loader now asks that, once an event runs.
+
 The game is relocated at run time (the ctrl works were at `0x01325ba0`
 plus a different offset each run); the harness's `read` rebases static
 addresses, so pointers read from memory need `readabs`. The two Larvas of

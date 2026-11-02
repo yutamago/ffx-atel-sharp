@@ -19,6 +19,9 @@ public sealed class CompiledMod(ScriptCategory category, string name, ScriptPack
 
     /// <summary>The package; <see cref="ScriptPackage.File"/> is for the caller to fill in (it needs the game's archive).</summary>
     public ScriptPackage Package { get; } = package;
+
+    /// <summary>Warnings: <c>Debug.*</c> calls left out (<see cref="DebugMode.Drop"/>).</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>A number the linker gives (<see cref="SymbolExpr"/>): a new worker's or a new entry's.</summary>
@@ -38,8 +41,9 @@ public static partial class ScriptCompiler {
     ///     <c>Worker6</c> (or a library class) is a new worker, its entries numbered as in vanilla source.
     /// </remarks>
     /// <exception cref="CompileException">The vanilla or the mod's source does not compile, or the mod does something a package cannot hold.</exception>
-    public static CompiledMod CompileMod(IReadOnlyList<SyntaxTree> vanillaTrees, IReadOnlyList<SyntaxTree> modTrees, ScriptLibrary? library = null) {
+    public static CompiledMod CompileMod(IReadOnlyList<SyntaxTree> vanillaTrees, IReadOnlyList<SyntaxTree> modTrees, ScriptLibrary? library = null, CompileOptions? options = null) {
         library ??= ScriptLibrary.Empty;
+        DebugCalls debug = new((options ?? CompileOptions.Default).Debug);
         CompiledScript vanilla = Compile(vanillaTrees, library);
         ScriptImage v = vanilla.Image;
         vanillaTrees = [.. vanillaTrees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
@@ -77,7 +81,7 @@ public static partial class ScriptCompiler {
             WorkerImage wi = v.Workers[w];
             List<(string Name, int[] Entries, uint Start)> list = [];
             foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
-                int[] entries = [.. EntriesOf(m)];
+                int[] entries = [.. EntriesOf(m, wi.Type == 0)];
                 list.Add((m.Identifier.ValueText, entries, wi.Entries[entries[0]]));
             }
             Dictionary<string, (int[], uint, uint)> byMethod = new(StringComparer.Ordinal);
@@ -203,7 +207,7 @@ public static partial class ScriptCompiler {
 
         // ----- New workers ---------------------------------------------------------------------
         foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workers, entryMethods, Links);
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workers, entryMethods, Links, debug);
             if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
             (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
             if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
@@ -219,7 +223,7 @@ public static partial class ScriptCompiler {
             int number = workers[worker];
             bool function = v.Workers[number].Type == 0;
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
-                EntryMethods = entryMethods, RequestTargets = RequestTargets,
+                EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug,
             };
             FlowEmitter emitter = new() { TagOf = reader.LocationOf };
             try {
@@ -251,7 +255,8 @@ public static partial class ScriptCompiler {
         foreach (int i in fragments.Variables.Order()) {
             package.Vanilla.Variables.Add(new VariableRef(i, vanillaVarNames[i], VanillaHash.Variable(v.Variables[i])));
         }
-        return new CompiledMod(vanilla.Category, vanilla.Name, package);
+        if (debug.Strings.Count > 0) package.DebugStrings = [.. debug.Strings];
+        return new CompiledMod(vanilla.Category, vanilla.Name, package) { Warnings = [.. debug.Warnings] };
     }
 
     private static string Target(AttributeSyntax a) =>

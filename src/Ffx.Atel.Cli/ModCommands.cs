@@ -14,16 +14,18 @@ namespace Ffx.Atel.Cli;
 /// <summary><c>atel compile-mod</c> and <c>atel link</c> (docs/formats/mod-package.md).</summary>
 internal static class ModCommands {
     public const string Usage = """
-          compile-mod <mod dir> --vanilla <dir> -o <out dir> [--id <id>] [--check]
+          compile-mod <mod dir> --vanilla <dir> -o <out dir> [--id <id>] [--check] [--debug <mode>]
                                            compile a mod's C# (partial classes of the decompiled
                                            scripts under --vanilla, the root `atel decompile -o`
                                            wrote) into packages: <out>/atel/<archive path>.json, its
-                                           mod.toml, and with --id a Fahrenheit manifest if none
+                                           mod.toml, and with --id a Fahrenheit manifest if none.
+                                           A package is also a runtime injection package: put it
+                                           in the loader's inject/ folder (docs/formats/debug.md)
           link <mod dir>... -o <out dir>   link mods (in this order) onto the game's files as the
                                            loader does: <out>/<archive path>, and the report
         """;
 
-    public static int CompileMod(VbfArchive archive, List<string> args, string? output, string? vanilla, string? id, bool check) {
+    public static int CompileMod(VbfArchive archive, List<string> args, string? output, string? vanilla, string? id, bool check, CompileOptions options) {
         if (args.Count != 1 || output is null || vanilla is null) throw new ArgumentException("compile-mod <mod dir> --vanilla <dir> -o <out dir>");
         string modDir = args[0];
         if (!Directory.Exists(modDir)) throw new ArgumentException($"no folder {modDir}");
@@ -51,7 +53,8 @@ internal static class ModCommands {
                 foreach (Diagnostic d in diagnostics) Console.Error.WriteLine(d.ToString());
                 if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)) return 1;
             }
-            CompiledMod mod = ScriptCompiler.CompileMod(vanillaTrees, modTrees, library);
+            CompiledMod mod = ScriptCompiler.CompileMod(vanillaTrees, modTrees, library, options);
+            foreach (string w in mod.Warnings) Console.Error.WriteLine($"warning: {w}");
             string path = GameData.Find(archive, mod.Category, mod.Name) ?? throw new ArgumentException($"the game has no {mod.Category} {mod.Name}");
             mod.Package.File = path;
             string target = Path.Combine([output, AtelMod.PackageDir, .. (path + ".json").Split('/')]);

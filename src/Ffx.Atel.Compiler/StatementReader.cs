@@ -69,6 +69,10 @@ internal sealed partial class StatementReader(
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Asm" } } call } e:
                 list.Add(At(ScriptCompiler.AsmLines(e, call), s));
                 return;
+            // Debug.Print/Debug.Break: the loader's natives, or nothing when the build leaves them out.
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } when DebugCalls.MethodOf(call) is string method:
+                if (DebugCalls.Read(call, method, ReadExpr) is Stmt d) list.Add(At(d, s));
+                return;
             default:
                 list.Add(At(Read(s), s));
                 return;
@@ -206,6 +210,9 @@ internal sealed partial class StatementReader(
     }
 
     private Stmt CallStatement(InvocationExpressionSyntax call) {
+        if (DebugCalls.MethodOf(call) is string debugMethod) {
+            return DebugCalls.Read(call, debugMethod, ReadExpr) ?? throw Error(call, $"Debug.{debugMethod} cannot be left out here; make it a statement of its own");
+        }
         List<ArgumentSyntax> args = [.. call.ArgumentList.Arguments];
         switch (call.Expression) {
             case IdentifierNameSyntax { Identifier.ValueText: "Request" or "RequestWaitStart" or "RequestWaitEnd" } id: {

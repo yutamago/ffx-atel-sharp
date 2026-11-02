@@ -27,7 +27,10 @@ internal static class SourceCommands {
                                            C# back to the script file, from a script's folder (every
                                            .cs under it but obj/, bin/) or one file, with the library
                                            classes of the nearest Library/ above it (the game's file gives
-                                           the other sections); --check also compiles it as C#
+                                           the other sections); --check also compiles it as C#.
+                                           --debug natives|drop|error (--no-debug = drop): Debug.*
+                                           calls to the loader's natives (the default; their texts go
+                                           to <out>.debug.json), left out, or refused
           roundtrip [filter] [--check]     decompile and compile every script (path contains
                                            filter), compare with the game's bytes
           --no-library                     (decompile, roundtrip) keep duplicated workers in
@@ -157,7 +160,7 @@ internal static class SourceCommands {
         }
     }
 
-    public static int Compile(VbfArchive archive, List<string> args, string? output, bool check, string? libraryFolder) {
+    public static int Compile(VbfArchive archive, List<string> args, string? output, bool check, string? libraryFolder, CompileOptions options) {
         if (args.Count != 1 || output is null) throw new ArgumentException("compile <dir|file.cs> -o <out>");
         string input = args[0];
         List<SyntaxTree> trees = Directory.Exists(input) ? ScriptCompiler.ParseFolder(input) : [ScriptCompiler.Parse(File.ReadAllText(input), input)];
@@ -168,10 +171,15 @@ internal static class SourceCommands {
             foreach (Diagnostic d in diagnostics) Console.Error.WriteLine(d.ToString());
             if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)) return 1;
         }
-        CompiledScript script = ScriptCompiler.Compile(trees, library);
+        CompiledScript script = ScriptCompiler.Compile(trees, library, options);
+        foreach (string w in script.Warnings) Console.Error.WriteLine($"warning: {w}");
         string path = GameData.Find(archive, script.Category, script.Name) ?? throw new ArgumentException($"the game has no {script.Category} {script.Name}");
         ScriptFile vanilla = ScriptFile.Parse(archive.Read(path));
         File.WriteAllBytes(output, script.ApplyTo(vanilla).ToArray());
+        // The texts of Debug.Print, for the loader (docs/formats/debug.md).
+        if (script.DebugStrings.Count > 0) {
+            File.WriteAllText(output + ".debug.json", System.Text.Json.JsonSerializer.Serialize(script.DebugStrings, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        }
         return 0;
     }
 

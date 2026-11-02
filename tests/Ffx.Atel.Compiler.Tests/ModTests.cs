@@ -128,6 +128,15 @@ public sealed class ModTests {
         Assert.Empty(found);
     }
 
+    /// <summary>A function worker as the decompiler writes it, <c>public static void Run()</c>, without <c>[Entry]</c>.</summary>
+    [Fact]
+    public void AFunctionWorkersRunIsItsEntry() {
+        string vanilla = System.Text.RegularExpressions.Regex.Replace(Vanilla, @"\[Entry\(0\)\]\s*void E0\(\)", "public static void Run()");
+        Assert.NotEqual(Vanilla, vanilla);
+        CompiledMod mod = ScriptCompiler.CompileMod([ScriptCompiler.Parse(vanilla, "Monsters/M997/M997.cs")], [ScriptCompiler.Parse(Mod, "mod/Larva.cs")]);
+        Assert.Equal(3, mod.Package.Patches.Count);
+    }
+
     [Fact]
     public void ThePackageHoldsOnlyTheMod() {
         CompiledMod mod = CompileMod();

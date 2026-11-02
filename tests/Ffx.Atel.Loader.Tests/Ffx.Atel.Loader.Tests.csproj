@@ -14,6 +14,7 @@
         <Compile Include="../../src/Ffx.Atel.Loader/ScriptBuilder.cs" Link="ScriptBuilder.cs" />
         <Compile Include="../../src/Ffx.Atel.Loader/ServedFiles.cs" Link="ServedFiles.cs" />
         <Compile Include="../../src/Ffx.Atel.Loader/ModLoader.cs" Link="ModLoader.cs" />
+        <Compile Include="../../src/Ffx.Atel.Loader/Injection.cs" Link="Injection.cs" />
         <ProjectReference Include="../../src/Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
         <ProjectReference Include="../../src/Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
     </ItemGroup>

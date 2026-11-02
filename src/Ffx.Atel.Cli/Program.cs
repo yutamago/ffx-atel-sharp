@@ -81,7 +81,7 @@ internal static class Program {
                 return TextCommand.Run(archive, args, output);
             case "compile": {
                 string? library = TakeOption(args, "--library");
-                return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"), library);
+                return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"), library, Options(args));
             }
             case "roundtrip": {
                 bool share = !TakeFlag(args, "--no-library");
@@ -97,7 +97,7 @@ internal static class Program {
                 return ExportCommand.Run(archive, game, args, merge, compile, check, push, projects);
             }
             case "compile-mod":
-                return ModCommands.CompileMod(archive, args, output, TakeOption(args, "--vanilla"), TakeOption(args, "--id"), TakeFlag(args, "--check"));
+                return ModCommands.CompileMod(archive, args, output, TakeOption(args, "--vanilla"), TakeOption(args, "--id"), TakeFlag(args, "--check"), Options(args));
             case "link":
                 return ModCommands.Link(archive, args, output);
             case "survey":
@@ -129,6 +129,15 @@ internal static class Program {
     }
 
     private static bool TakeFlag(List<string> args, string name) => args.Remove(name);
+
+    /// <summary><c>--debug natives|drop|error</c>, <c>--no-debug</c> (= drop): what <c>Debug.*</c> calls compile to (docs/formats/debug.md).</summary>
+    private static Compiler.CompileOptions Options(List<string> args) {
+        bool off = TakeFlag(args, "--no-debug");
+        string? value = TakeOption(args, "--debug");
+        Compiler.DebugMode mode = value is null ? (off ? Compiler.DebugMode.Drop : Compiler.DebugMode.Natives)
+            : Compiler.CompileOptions.ParseDebug(value) ?? throw new UsageException($"--debug {value}: natives, drop or error");
+        return new Compiler.CompileOptions { Debug = mode };
+    }
 
     private static void Write(string? path, string text) {
         if (path is null) Console.Out.Write(text);

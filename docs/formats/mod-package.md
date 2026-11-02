@@ -95,9 +95,21 @@ each vanilla part, so a package never contains game code.
   Entries and replacements end in `end` (`ret` in a function worker);
   prefixes and postfixes run off their end into what follows.
 
-Later, in the same shape: `messages` (`Text.New`: one index per script for
-all languages) and `data` (per-field edits of data areas and kernel
-tables), and `inject` patches.
+- **`debugStrings`**: the texts of the package's `Debug.Print` calls; the
+  code pushes each one's id ([debug.md](debug.md)). Left out when there are
+  none.
+- **`messages`**: `[{ "index": 73, "text": "…" }]`, for runtime injection
+  only for now: the loader sets them in the running event's message table
+  ([debug.md](debug.md#runtime-injection)); the linker does not read them.
+
+A package is also a **runtime injection package**: put into the loader's
+`inject/` folder, it is linked after every mod, and while the game runs a
+changed one is linked again and served for the script's next load
+([debug.md](debug.md#runtime-injection)).
+
+Later, in the same shape: `messages` from `Text.New` (one index per
+script for all languages), `data` (per-field edits of data areas and
+kernel tables), and `inject` patches.
 
 ## Linking
 

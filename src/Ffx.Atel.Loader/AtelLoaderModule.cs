@@ -25,6 +25,8 @@ namespace Ffx.Atel.Loader;
 ///     hooks <c>CDfileSize_CD</c>, which Fahrenheit leaves alone and which the game uses while an
 ///     Eternal Calm map is loaded, so a script that grew is read whole there too
 ///     (<see cref="CdFileSizeHook"/>, docs/research/loader.md).
+///     It also adds the debug natives (<see cref="DebugNatives"/>) and watches its <c>inject/</c> folder for
+///     runtime injection packages (<see cref="RuntimeInjector"/>, docs/formats/debug.md).
 /// </remarks>
 [FhLoad(FhGameId.FFX)]
 public sealed class AtelLoaderModule : FhModule {
@@ -32,6 +34,10 @@ public sealed class AtelLoaderModule : FhModule {
     private readonly LinkRun?          _linked;
     private readonly ServedFiles       _served = ServedFiles.Empty;
     private readonly string?           _failure;
+    private readonly string            _modDir = "", _gameDir = "", _eflDir = "";
+    private readonly HashSet<string>   _taken = [];
+    private readonly AtelMod?          _injected;
+    private RuntimeInjector?           _injector;
 
     public AtelLoaderModule() {
         try {
@@ -40,10 +46,14 @@ public sealed class AtelLoaderModule : FhModule {
             string gameDir = Path.GetDirectoryName(Environment.ProcessPath)
                 ?? throw new IOException("cannot tell where the game is");
             string eflDir  = Path.Combine(modDir, "efl", "x");
+            (_modDir, _gameDir, _eflDir) = (modDir, gameDir, eflDir);
             _built.AddRange(ScriptBuilder.Build(modDir, gameDir, eflDir));
             HashSet<string> taken = [.. _built.Where(b => b.Error is null && b.ArchivePath is not null).Select(b => b.ArchivePath!)];
+            _taken = taken;
             string modsDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(modDir)) ?? throw new IOException("cannot tell where the mods are");
-            _linked = ModLoader.Link(modsDir, gameDir, eflDir, taken);
+            // The packages in inject/ link after every mod, so the files they touch are served (and can be replaced at run time).
+            _injected = Injection.Read(modDir);
+            _linked = ModLoader.Link(modsDir, gameDir, eflDir, taken, _injected);
             _served = ServedFiles.Scan(eflDir);
         }
         catch (Exception ex) {
@@ -53,9 +63,26 @@ public sealed class AtelLoaderModule : FhModule {
     }
 
     public override bool init(FhModContext mod_context, FileStream global_state_file) {
+        // The debug natives do not depend on the link: a script with Debug.Print may come from anywhere.
+        if (!DebugNatives.Install(this, _logger)) _logger.Error("Atel loader: cannot hook AtelInitTotal; Debug.* calls would stop their worker.");
         if (_failure is not null) {
             _logger.Error($"Atel loader: no scripts built: {_failure}");
             return true;
+        }
+        if (_linked is not null) {
+            foreach (AtelMod m in _linked.Linked) {
+                foreach ((string text, string kept) in DebugNatives.Strings.Add(m.DebugStrings)) {
+                    _logger.Warning($"Atel loader: {m.Id}: debug text \"{text}\" has the id of \"{kept}\"; Debug.Print shows the latter");
+                }
+            }
+            try {
+                _injector = new RuntimeInjector(_modDir, _gameDir, _eflDir, _linked.Linked, new HashSet<string>(_linked.Written, StringComparer.Ordinal), _taken, _logger);
+                _injector.Start(_injected ?? Injection.Read(_modDir));
+                FhApi.Events.Common.GameLoop.PreUpdate.subscribe(_ => _injector.Update());
+            }
+            catch (Exception ex) {
+                _logger.Error($"Atel loader: runtime injection is off: {ex}");
+            }
         }
         if (_linked is not null) {
             _logger.Info(_linked.Mods.Count == 0

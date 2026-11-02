@@ -955,6 +955,39 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   out unchanged workers in place; `Text.New`, per-field data edits and
   `[Inject]`; private data for new workers.
 
+### Phase 10: debug text and runtime packages
+
+Done 2026-11-02. Format and design: [formats/debug.md](formats/debug.md);
+in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime-injection).
+
+- **Group F.** `AtelInitTotal` leaves native groups 2, 3, a, e and f with
+  the game's default table (8 entries that never finish; no check of the
+  group or index anywhere), so a call into one without the loader parks
+  that level of the worker for ever. The loader takes F: it hooks
+  `AtelInitTotal` and registers a 4,096-entry table after it.
+  `Debug.Print` is `0xf000`, `Debug.Break` `0xf001`.
+- **Strings.** The compiler pushes a text's id (FNV-1a of its UTF-8), the
+  package carries the text (`debugStrings`), the loader keeps all texts by
+  id. An interpolated string is a composite format whose values (`int`,
+  `float`, `bool`; at most 16) are pushed before their count and the id;
+  the native prints each by its stack slot's type.
+- **Without the loader** (decided here, as the plan asked: "refuses it or
+  drops it on request"): `--debug natives` (default), `--debug drop`
+  (`--no-debug`; each call left out with a warning) or `--debug error`;
+  `CompileOptions.Debug` in the compiler, for the SDK's `AtelDebug`
+  property. The vanilla round trip is unchanged (no `Debug` calls).
+- **Runtime injection.** A mod package (plus `messages`) in the loader's
+  `inject/` folder. Code takes effect at the script's next load (the file
+  is linked again and served), messages at once in the running event's
+  table (ctrl work 0 `+0x34`), debug texts at once. A running script is
+  never changed in memory: its workers hold absolute pointers into the
+  block, and event workers never stop.
+- Also fixed: `atel compile-mod` failed on a script with a function worker
+  (`Run()` was not read as entry 0 in the vanilla method map).
+- Open: an on-screen line for `Debug.Print`; `Text.New` producing
+  `messages`; battle message tables; in-memory code swaps for a debugger
+  (copy the block, patch only methods no worker is in).
+
 ## Phases
 
 Each phase ends with a corpus test (`FFX_GAME_DIR`, skipped without it)
@@ -1042,7 +1075,8 @@ count, names placed.
    link step are done and checked in game; per-field data edits,
    `Text.New` and `[Inject]` are open.
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
-    group (in the loader), the injection package.
+    group (in the loader), the injection package. Done 2026-11-02, see
+    "Phase 10: debug text and runtime packages".
 11. **Documentation.** A language reference (which C# is Atel), the
     encoding rules, a first-mod tutorial. Done 2026-11-02:
     [language.md](language.md), [encoding.md](encoding.md),
