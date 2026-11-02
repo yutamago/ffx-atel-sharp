@@ -16,6 +16,7 @@ and names are ffx-rust's (`symbols/ffx.sym`).
 | Rebuilt, unchanged | monster `m209` (Larva) | 55,280 bytes, same as vanilla | battle 34 (`kami00_00`) runs; the file in memory equals vanilla; Larva HP 1498 |
 | Visible change, grown | `kami0000`: worker 0's `Main` opens message window 1 with text 73 before `WaitForever` | grew to 83,648 bytes, 5 later sections moved by `0xec0` | about a second after the map loads, the "Traveler's Save Sphere Level 1" window opens, which the vanilla map never shows. Circle closes it and the party walks on. The `.ebp` in memory equals the grown file except 23 bytes of the script's own variables, which the running scene writes |
 | Changed, grown | `m209`: worker 1's init ends with `SetActorProperty(0, 1234)` | grew to 55,856 bytes, sections 1 to 6 moved by `0x240` | in battle 34 the Larva has 1234 HP instead of 1498. The file in memory equals the grown file byte for byte, including all 576 bytes past the vanilla size |
+| Linked mod package (Phase 9) | `m209`: a postfix on worker 1's `Init` (`Btl.SetActorProperty(0, 1234)`), a file-only mod linked by the loader; the code region moved to the block's end | 56,624 bytes; block `0xa20` -> `0xf50`, code at `0xa70` | in battle 34 the Larva has 1234 HP; its block in memory equals the linked block byte for byte (see below) |
 
 So grown event and monster scripts load whole with Fahrenheit alone. The
 loader still hooks `CDfileSize_CD` for its own files, the one size function
@@ -57,6 +58,42 @@ Since Phase 9 the loader also links Atel mods (`ModLoader`,
 `mods/loadorder` that has an `atel/` folder, linked in that order onto the
 vanilla files, written to the same `efl/x`. A file the `.asm` path
 rebuilds is left to it. `Ffx.Atel.Linker` runs in the game process too.
+
+## Phase 9: a linked mod package in game
+
+Checked on 2026-11-02 from `main` at `c15170c`, three runs, each with the
+same result:
+
+- The mod: `partial class W01 { [Postfix(nameof(Init))] void MoreHp() {
+  Btl.SetActorProperty(0, 1234); } }` against the decompiled `m209`,
+  compiled with `atel compile-mod --id yuta.atel-test-larva` into a
+  file-only Fahrenheit mod (manifest, `mod.toml`, one package of 9 bytes of
+  code). The load order was `yuta.atel`, `yuta.atel-test-larva`.
+- The Fahrenheit log: "Atel mods in load order: yuta.atel-test-larva; 1
+  file(s) linked", the report line "m209: worker 1's Init: postfix MoreHp",
+  "Mod Atel replaces file …\_m209\m209.bin" and "CDfileSize_CD hooked for 1
+  served file(s)".
+- The linked file is 56,624 bytes (vanilla 55,280). Its block grew from
+  `0xa20` to `0xf50`: the linker kept every vanilla byte in place and put
+  the whole code region after the vanilla block (`+0x30` = `0xa70`, `+0x00`
+  = `0x4dc`), with the postfix chain in worker 1's part of it.
+- Battle 34 (as in Phase 2) runs: the party gets its command menu, and
+  the first monster's HP is 1234 instead of 1498. So the engine ran worker 1's entry 0
+  from the moved code region, through the copied `Init` and the postfix.
+- The block in memory: battle ctrl work 3's block table (`+0x1f8`) entry 0
+  points at the Larva's block, and all 3,920 bytes equal the linked block,
+  the moved code region and everything past the vanilla block length
+  included.
+
+The game is relocated at run time (the ctrl works were at `0x01325ba0`
+plus a different offset each run); the harness's `read` rebases static
+addresses, so pointers read from memory need `readabs`. The two Larvas of
+battle 34 are in ctrl work 3, not 2.
+
+Run the same way as above (ffx-rust's game-slot tool, `ffx-hook` harness
+in the background with its file and size hooks off, `fhstage0.exe`); the
+install's load order and mods were backed up and restored, and the game
+was killed after each run.
 
 ## File sizes
 

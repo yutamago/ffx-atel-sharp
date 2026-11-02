@@ -938,10 +938,13 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   conflicts and warnings as warnings). The Phase 2 `scripts/*.asm` path
   stays for development and wins over mods for the same file (reported as
   a conflict).
-- Not yet checked in game (2026-11-02): the Larva HP postfix links to a
-  56,624-byte `m209.bin` (vanilla 55,280), the same kind of growth the
-  Phase 2 loader test served, but with the code region moved and `+0x30`
-  changed, which no in-game test has covered yet. Open: that check; laying
+- Checked in game (2026-11-02, [research/loader.md](research/loader.md#phase-9-a-linked-mod-package-in-game)):
+  the Larva HP postfix as a mod package (`atel compile-mod`, a file-only
+  Fahrenheit mod after `yuta.atel` in the load order), linked by the loader
+  to a 56,624-byte `m209.bin` (vanilla 55,280). In battle 34 the Larva has
+  1234 HP, and its script block in memory equals the linked block byte for
+  byte, including the code region the linker moved to the block's end
+  (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
   out unchanged workers in place; `Text.New`, per-field data edits and
   `[Inject]`; private data for new workers.
 
