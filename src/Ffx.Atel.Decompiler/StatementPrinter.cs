@@ -30,7 +30,7 @@ internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLen
 ///     <c>land</c>/<c>lor</c> exactly when both operands are <c>bool</c>; <c>if (!x) goto</c> is
 ///     <c>popa_jz</c>, so <c>popa_jnz</c> on a <c>not</c> is <c>if (AsBool(AsInt(!x))) goto</c>.
 /// </remarks>
-internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives, string[] workerNames, bool functionWorker) {
+internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures natives, string[] workerNames, bool functionWorker) {
     private const int PPrimary = 15, PUnary = 14, PMul = 13, PAdd = 12, PShift = 11, PRel = 10, PEq = 9, PAnd = 8, PXor = 7, POr = 6;
 
     /// <summary>Registers the printed statements use: (kind, number) for the integer and float registers.</summary>
@@ -100,6 +100,7 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
     }
 
     private string Request(RequestStmt r) {
+        if (AsyncRequest(r) is string call) return call;
         (string name, int variant) = r.Op switch {
             Opcodes.Op39 => ("RequestParty", 0),
             >= Opcodes.Req0 and <= Opcodes.ReqE0 => (RequestNameList[r.Op - Opcodes.Req0], 0),

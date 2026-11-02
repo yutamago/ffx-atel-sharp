@@ -22,16 +22,16 @@ public abstract class Worker {
     protected static void Asm(string code) => throw Runtime.NotRunnable();
 
     /// <summary>Register A (<c>pusha</c>, <c>popa</c>); the conditional jumps pop their condition into it.</summary>
-    protected int RegA { get => throw Runtime.NotRunnable(); set => throw Runtime.NotRunnable(); }
+    protected static int RegA { get => throw Runtime.NotRunnable(); set => throw Runtime.NotRunnable(); }
 
     /// <summary>Register B (<c>pushb</c>, <c>popb</c>): the selector of a <c>switch</c>.</summary>
-    protected int RegB { get => throw Runtime.NotRunnable(); set => throw Runtime.NotRunnable(); }
+    protected static int RegB { get => throw Runtime.NotRunnable(); set => throw Runtime.NotRunnable(); }
 
     /// <summary>
     ///     The float accumulator (<c>pushfacc</c>): the result of the last native called as a statement
     ///     (a choice box's answer, after the call that waits for it).
     /// </summary>
-    protected int LastResult => throw Runtime.NotRunnable();
+    protected static int LastResult => throw Runtime.NotRunnable();
 
     /// <summary>Entry 0, which the engine runs when the worker starts (at priority 7, docs/plan.md "Workers and entries").</summary>
     protected virtual void Init() {
@@ -70,6 +70,12 @@ public abstract class Worker {
     ///     <paramref name="level"/> and carries on (<c>req0</c>; <paramref name="variant"/> 1-5 for
     ///     <c>req1</c>…<c>req5</c>).
     /// </summary>
+    /// <remarks>
+    ///     The fallback form: a request to an entry declared <c>async Task</c> by constants is written
+    ///     <c>_ = Lulu.E5Async();</c> (<see cref="Priority"/>; docs/plan.md, "Requests between workers"). This
+    ///     form stays for a computed worker or entry, a request to the worker's own entries, to an entry
+    ///     that has no method of its own, and the variants.
+    /// </remarks>
     protected static void Request(int level, int worker, int entry, int variant = 0) => throw Runtime.NotRunnable();
 
     /// <summary>Requests an entry and waits until it has begun (<c>reqw0</c>; <paramref name="variant"/> for <c>reqw1</c>…).</summary>

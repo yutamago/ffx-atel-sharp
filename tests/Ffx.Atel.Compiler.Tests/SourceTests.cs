@@ -156,7 +156,7 @@ public sealed class SourceTests {
             "F0 = I1;",
             "Call<W00>();",
             "return;",
-            "[Register(1)] public int I1;",
+            "[Register(1)] public static int I1;",
         ];
         foreach (string line in expected) Assert.Contains(line, d.Source, StringComparison.Ordinal);
         Assert.DoesNotContain("Asm(", d.Source, StringComparison.Ordinal);
@@ -410,6 +410,122 @@ public sealed class SourceTests {
         Assert.Equal(code[0].Offset, w.Entries[0]);
         Assert.Equal("pushimm 1", Bytecode.Script.Assembly.Render(block, 0, code[0]));
         Assert.Equal(code[2].Offset, w.Entries[1]);
+    }
+
+    /// <summary>Requests as calls of async entries (Phase 5): the three forms, a priority, and the fallback for the worker's own entry.</summary>
+    [Fact]
+    public void RequestsAreCallsOfAsyncEntries() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+
+            namespace Monsters.M997;
+
+            [Monster("m997")]
+            [Workers(typeof(Lulu), typeof(Wakka))]
+            public static partial class M997
+            {
+            }
+
+            public sealed class Lulu : Worker2
+            {
+                protected override void Init()
+                {
+                    return;
+                }
+
+                protected override void Main()
+                {
+                    return;
+                }
+
+                [Entry(2)]
+                public static async Task E2Async(Priority priority = Priority.P1)
+                {
+                    return;
+                }
+            }
+
+            public sealed class Wakka : Worker2
+            {
+                protected override async void Init()
+                {
+                    _ = Lulu.E2Async();
+                    await Lulu.E2Async(Priority.P3);
+                    await Lulu.E2Async().Started;
+                    await Lulu.E2Async().Finished;
+                    Request(1, 1, 2);
+                    return;
+                }
+
+                protected override void Main()
+                {
+                    return;
+                }
+
+                [Entry(2)]
+                void E2()
+                {
+                    return;
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "m997.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        CompiledScript compiled = ScriptCompiler.Compile([tree]);
+        ScriptBlock block = ScriptBlock.Parse(compiled.Block());
+        string text = string.Join("\n", block.Decode(block.Workers[1]).Select(i => Bytecode.Script.Assembly.Render(block, 1, i)));
+        Assert.Contains("pushimm 1\npushimm 0\npushimm 2\nreq0\npopfacc", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 3\npushimm 0\npushimm 2\nreqe0\npopfacc", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 1\npushimm 0\npushimm 2\nreqw0\npopfacc", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 1\npushimm 0\npushimm 2\nreqe0\npopfacc", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 1\npushimm 1\npushimm 2\nreq0\npopfacc", text, StringComparison.Ordinal);
+
+        // The decompiler writes the same forms back, and they compile to the same block.
+        byte[] blockBytes = compiled.Block();
+        byte[] file = new byte[0x40 + (blockBytes.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(file, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(file.AsSpan(4), 0x40);
+        blockBytes.CopyTo(file, 0x40);
+        ScriptFile parsed = ScriptFile.Parse(file);
+        DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m997/m997.bin", parsed);
+        string[] expected = [
+            "public static async Task E2Async(Priority priority = Priority.P1)",
+            "protected override async void Init()",
+            "_ = W00.E2Async();",
+            "await W00.E2Async(Priority.P3);",
+            "await W00.E2Async().Started;",
+            "await W00.E2Async();",
+            "Request(1, 1, 2);",
+            "void E2()",
+        ];
+        foreach (string line in expected) Assert.Contains(line, d.Source, StringComparison.Ordinal);
+        SyntaxTree back = ScriptCompiler.Parse(d.Source, "m997.cs");
+        Assert.Empty(ScriptCompiler.Check([back]));
+        Assert.Equal(file, ScriptCompiler.Compile([back]).ApplyTo(parsed).ToArray());
+    }
+
+    [Fact]
+    public void ARequestToAMethodThatIsNoEntryIsAnError() {
+        const string source = """
+            using Ffx.Atel;
+
+            namespace Monsters.M997;
+
+            [Monster("m997")]
+            [Workers(typeof(W00))]
+            public static partial class M997 { }
+
+            public sealed class W00 : Worker2
+            {
+                protected override void Init()
+                {
+                    _ = W00.E9Async();
+                }
+            }
+            """;
+        CompileException e = Assert.Throws<CompileException>(() => ScriptCompiler.Compile([ScriptCompiler.Parse(source, "m997.cs")]));
+        Assert.Contains("W00 has no entry method E9Async", e.Message, StringComparison.Ordinal);
     }
 
     private const string BadSource = """"

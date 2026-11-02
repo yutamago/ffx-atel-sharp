@@ -47,7 +47,7 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
 ///     Reading needs only the syntax trees. <see cref="Check"/> compiles them as C# against the
 ///     reference assembly (<c>Ffx.Atel.Game</c>), so the source is also checked as real C#.
 /// </remarks>
-public static class ScriptCompiler {
+public static partial class ScriptCompiler {
     public static CSharpParseOptions ParseOptions { get; } = new(LanguageVersion.Latest);
 
     /// <summary>Parses source files; <paramref name="path"/> names each in messages.</summary>
@@ -168,9 +168,10 @@ public static class ScriptCompiler {
             }
         }
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
+        Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex);
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex, entryMethods);
             workers.Add((wi, items, $"worker {number} ({workerName})", parts[0].Identifier.GetLocation()));
             image.Workers.Add(wi);
         }
@@ -272,7 +273,8 @@ public static class ScriptCompiler {
     private sealed record WorkerItem(AsmLineKind Kind, int Number, CodeOp Op, Location? Where);
 
     private static (WorkerImage Image, List<WorkerItem> Items) Worker(
-        List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers) {
+        List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
+        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods) {
         // The base class: Worker0 … Worker6, or a library class, whose parts (and its base's) come first.
         List<ClassDeclarationSyntax> parts = [.. own];
         ushort? type = null;
@@ -316,7 +318,7 @@ public static class ScriptCompiler {
             if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
             foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
         }
-        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0);
+        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0) { EntryMethods = entryMethods };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The
         // constructs' labels are numbered over the whole worker (FlowEmitter).
@@ -328,20 +330,13 @@ public static class ScriptCompiler {
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
                 where = method.Identifier.GetLocation();
                 List<AttributeSyntax> attributes = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
-                List<int> entries = [];
+                List<int> entries = EntriesOf(method);
                 List<int>? pin = null;
                 foreach (AttributeSyntax e in attributes) {
                     switch (NameOf(e)) {
-                        case "Entry": entries.Add(I32(Positional(e, 0), e)); break;
+                        case "Entry": break;
                         case "Labels": (pin ??= []).AddRange(AllPositional(e).Select(v => I32(v, e))); break;
                         default: throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
-                    }
-                }
-                // The engine's entries as overrides of the base class: Init is entry 0, Main entry 1.
-                if (entries.Count == 0 && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
-                    switch (method.Identifier.ValueText) {
-                        case "Init": entries.Add(0); break;
-                        case "Main": entries.Add(1); break;
                     }
                 }
                 if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry] (or an Init or Main override)");
@@ -563,10 +558,12 @@ public static class ScriptCompiler {
     /// <summary>
     ///     Warnings the Atel SDK will silence: CS0162 (unreachable code), because the original kept
     ///     the code of <c>if (0)</c> and of everything after an <c>end</c> (docs/corpus.md, "Code no
-    ///     entry reaches"), and the decompiler writes it.
+    ///     entry reaches"), and the decompiler writes it; CS1998 (an <c>async</c> method without
+    ///     <c>await</c>), because an entry other workers request is <c>async Task</c> whether or not it
+    ///     waits itself (docs/plan.md, "Requests between workers").
     /// </summary>
     public static IReadOnlyDictionary<string, ReportDiagnostic> Suppressed { get; } =
-        new Dictionary<string, ReportDiagnostic> { ["CS0162"] = ReportDiagnostic.Suppress };
+        new Dictionary<string, ReportDiagnostic> { ["CS0162"] = ReportDiagnostic.Suppress, ["CS1998"] = ReportDiagnostic.Suppress };
 
     /// <summary>
     ///     Compiles the trees as C# against the reference assembly and returns the diagnostics:
