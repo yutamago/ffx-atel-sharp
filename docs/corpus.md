@@ -335,6 +335,8 @@ part (static, from `cdrom.fid` and the module table; not checked here).
   table's declaration order.
 - Label numbering inside nested constructs; checking it needs the Phase 4
   structurer.
-- `func` against `func_facc; pushfacc` for the 408 + 3,151 waiting calls.
-- Bare-value conditions in C#.
+- `func` against `func_facc; pushfacc` for the 408 + 3,151 waiting calls: the
+  source says which (`x = Foo();` or `Foo(); x = LastResult;`, plan.md
+  "Phase 3: statements"); a rule would let Phase 5 merge the second form.
+- Bare-value conditions in C#: settled in Phase 3 as `AsBool(x)`, no code.
 - The modules of the script files (`CDfileSize_CD_EX` above).

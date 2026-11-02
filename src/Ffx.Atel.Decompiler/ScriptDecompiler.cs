@@ -3,12 +3,33 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using Ffx.Atel.Bytecode.Analysis;
+using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
 
 namespace Ffx.Atel.Decompiler;
 
 /// <summary>A script as C# source.</summary>
-public sealed record DecompiledScript(SourceNames Names, string Source);
+public sealed record DecompiledScript(SourceNames Names, string Source, DecompileStats Stats);
+
+/// <summary>What the decompiler made of a script: C# statements, what stayed assembly, and the pins.</summary>
+public sealed record DecompileStats {
+    /// <summary>Statements written as C#.</summary>
+    public int Statements { get; init; }
+
+    /// <summary>Instructions still inside <c>Asm</c>.</summary>
+    public int AsmInstructions { get; init; }
+
+    /// <summary>Whether the source pins the integer pool (<c>[Ints]</c>): the rule does not give it, or assembly needs its indices.</summary>
+    public bool IntPoolPinned { get; init; }
+
+    public bool FloatPoolPinned { get; init; }
+
+    /// <summary>Whether the pool differs from the rule's order (a pin the rules cannot avoid).</summary>
+    public bool IntRuleFails { get; init; }
+
+    public bool FloatRuleFails { get; init; }
+}
 
 /// <summary>
 ///     Bytecode to Atel source, Phase 2 of the plan ("skeleton"): the script's declarations, and every
@@ -41,17 +62,48 @@ public static class ScriptDecompiler {
         StringBuilder sb = new();
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
         sb.Append(CultureInfo.InvariantCulture, $"// {shortPath}, decompiled by atel.\n");
-        sb.Append("using Ffx;\nusing Ffx.Atel;\n\n");
+        sb.Append("using Ffx;\nusing Ffx.Atel;\n");
+        sb.Append(CultureInfo.InvariantCulture, $"using static {names.Namespace}.{names.ClassName};\n\n");
         sb.Append(CultureInfo.InvariantCulture, $"namespace {names.Namespace};\n\n");
 
         string[] workerNames = WorkerNames(image.Workers.Count);
-        WriteScriptClass(sb, names, image, workerNames);
+        VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, i))];
+        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
+        bool duplicates = image.IntConstants.Distinct().Count() != image.IntConstants.Count || image.FloatConstants.Distinct().Count() != image.FloatConstants.Count;
+        foreach (WorkerDecompiler w in workers) {
+            if (duplicates) w.KeepDuplicateIndices(image);
+            w.PlaceLabels();
+        }
+
+        // The pools follow the rules unless the original differs, or assembly names them by index.
+        List<IReadOnlyList<CodeOp>> ops = [.. workers.Select(w => (IReadOnlyList<CodeOp>)w.Ops())];
+        bool asmInts = workers.Any(w => w.AsmUsesPools().Ints), asmFloats = workers.Any(w => w.AsmUsesPools().Floats);
+        bool intRule = ConstantPools.Ints(ops).SequenceEqual(image.IntConstants);
+        bool floatRule = ConstantPools.Floats(ops, ConstantPools.Argc(Natives)).SequenceEqual(image.FloatConstants);
+        DecompileStats stats = new() {
+            Statements = workers.Sum(w => w.Statements),
+            AsmInstructions = workers.Sum(w => w.AsmInstructions),
+            IntPoolPinned = image.IntConstants.Count > 0 && (!intRule || asmInts),
+            FloatPoolPinned = image.FloatConstants.Count > 0 && (!floatRule || asmFloats),
+            IntRuleFails = !intRule,
+            FloatRuleFails = !floatRule,
+        };
+
+        WriteScriptClass(sb, names, image, workerNames, stats.IntPoolPinned, stats.FloatPoolPinned);
         for (int w = 0; w < image.Workers.Count; w++) {
             sb.Append('\n');
-            WriteWorker(sb, block, image, w, workerNames[w]);
+            WriteWorker(sb, image, workers[w], w, workerNames[w]);
         }
         WriteData(sb, names, image);
-        return new DecompiledScript(names, sb.ToString());
+        return new DecompiledScript(names, sb.ToString(), stats);
+    }
+
+    private static VarInfo VarInfoOf(VarEntry v, int index) {
+        CType type = v.Type switch {
+            0 => CType.Byte, 1 => CType.SByte, 2 => CType.UShort, 3 => CType.Short, 5 => CType.Int, 6 => CType.Float,
+            _ => CType.Int,
+        };
+        return new VarInfo(string.Create(CultureInfo.InvariantCulture, $"V{index}"), type, v.IsArray, v.RowLength);
     }
 
     /// <summary><c>W00</c>, <c>W01</c>, …: as many digits as the highest number needs, at least two.</summary>
@@ -62,7 +114,7 @@ public static class ScriptDecompiler {
 
     // ----- The script class ------------------------------------------------------------------
 
-    private static void WriteScriptClass(StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames) {
+    private static void WriteScriptClass(StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, bool pinInts, bool pinFloats) {
         sb.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
         if (workerNames.Length > 0) {
             WriteList(sb, "Workers", workerNames.Select(n => $"typeof({n})").ToList(), 6);
@@ -76,10 +128,10 @@ public static class ScriptDecompiler {
         foreach ((int offset, byte[] bytes) in image.Patches) {
             sb.Append(CultureInfo.InvariantCulture, $"[Patch({Hex((uint)offset, 4)}, {Str(Convert.ToHexStringLower(bytes))})]\n");
         }
-        if (image.IntConstants.Count > 0) {
+        if (pinInts) {
             WriteList(sb, "Ints", image.IntConstants.Select(v => ((int)v).ToString(CultureInfo.InvariantCulture)).ToList(), 10);
         }
-        if (image.FloatConstants.Count > 0) {
+        if (pinFloats) {
             List<string?> literals = image.FloatConstants.Select(FloatLiteral).ToList();
             if (literals.All(l => l is not null)) WriteList(sb, "Floats", literals.Select(l => l!).ToList(), 8);
             else WriteList(sb, "FloatBits", image.FloatConstants.Select(v => Hex(v, 8)).ToList(), 8);
@@ -98,78 +150,44 @@ public static class ScriptDecompiler {
             _ => throw new ScriptFormatException($"variable {index} has type {v.Type}, which has no C# type"),
         };
         string storage = ((Storage)v.Storage).ToString();
-        StringBuilder a = new($"[Var(Storage.{storage}, {Hex((uint)v.Offset, 4)}");
-        if (v.Extra != 0) a.Append(CultureInfo.InvariantCulture, $", Extra = {Hex(v.Extra, 4)}");
-        if ((v.Location & 0x0100_0000) != 0) a.Append(", Bit24 = true");
-        // An array's length is its size; a variable of length 1 is a scalar.
-        a.Append(v.Length == 1
-            ? $")] public static {type} V{index};"
-            : string.Create(CultureInfo.InvariantCulture, $")] public static {type}[] V{index} = new {type}[{v.Length}];"));
-        return a.ToString();
+        string head = $"[Var(Storage.{storage}, {Hex((uint)v.Offset, 4)})] public static";
+        // Location bit 24 is a variable declared as an array, also of length 1; the row length
+        // makes it 2-D (it divides the length in every shipped script).
+        if (!v.IsArray) {
+            if (v.Length != 1 || v.RowLength != 0) throw new ScriptFormatException($"variable {index} is not an array but has length {v.Length}, row length {v.RowLength}");
+            return string.Create(CultureInfo.InvariantCulture, $"{head} {type} V{index};");
+        }
+        if (v.RowLength == 0) return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[] V{index} = new {type}[{v.Length}];");
+        if (v.Length % v.RowLength != 0) throw new ScriptFormatException($"variable {index}: row length {v.RowLength} does not divide length {v.Length}");
+        return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[,] V{index} = new {type}[{v.Length / v.RowLength}, {v.RowLength}];");
     }
 
     // ----- Workers ---------------------------------------------------------------------------
 
-    private static void WriteWorker(StringBuilder sb, ScriptBlock block, ScriptImage image, int w, string name) {
+    private static void WriteWorker(StringBuilder sb, ScriptImage image, WorkerDecompiler worker, int w, string name) {
         WorkerImage wi = image.Workers[w];
-        Bytecode.Script.Worker worker = block.Workers[w];
         List<string> words = [];
         if (wi.Unknown0C != 0) words.Add($"Word0C = {Hex(wi.Unknown0C, 8)}");
         if (wi.PrivateLength != 0) words.Add($"PrivateLength = {Hex(wi.PrivateLength, 2)}");
         if (words.Count > 0) sb.Append(CultureInfo.InvariantCulture, $"[Worker({string.Join(", ", words)})]\n");
         if (wi.Private is not null) WriteDataAttribute(sb, "PrivateData", wi.Private);
-        sb.Append(CultureInfo.InvariantCulture, $"sealed class {name} : Worker{wi.Type}\n{{\n");
-
-        // One method per distinct entry offset, in code order; the method runs to the next one.
-        List<uint> starts = worker.Entries.Distinct().Order().ToList();
-        Dictionary<uint, List<int>> entriesAt = [];
-        for (int i = 0; i < worker.Entries.Length; i++) {
-            if (!entriesAt.TryGetValue(worker.Entries[i], out List<int>? list)) entriesAt[worker.Entries[i]] = list = [];
-            list.Add(i);
+        sb.Append(CultureInfo.InvariantCulture, $"public sealed class {name} : Worker{wi.Type}\n{{\n");
+        SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
+        foreach ((RegKind kind, int n) in registers) {
+            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public {(kind == RegKind.Int ? "int" : "float")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
         }
-        Dictionary<uint, List<int>> labelsAt = [];
-        for (int i = 0; i < worker.Labels.Length; i++) {
-            if (!labelsAt.TryGetValue(worker.Labels[i], out List<int>? list)) labelsAt[worker.Labels[i]] = list = [];
-            list.Add(i);
-        }
-        List<Instr> code = block.Decode(worker);
-        int k = 0;
-        for (int m = 0; m < starts.Count; m++) {
-            uint end = m + 1 < starts.Count ? starts[m + 1] : worker.End;
-            List<int> numbers = entriesAt[starts[m]];
-            if (m > 0) sb.Append('\n');
-            sb.Append(Indent).Append(string.Join("", numbers.Select(n => $"[Entry({n})]"))).Append('\n');
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"void E{numbers[0]}()\n");
-            sb.Append(Indent).Append("{\n");
-            const string Body = Indent + Indent;
-            sb.Append(Body).Append("Asm(\"\"\"\n");
-            for (; k < code.Count && code[k].Offset < end; k++) {
-                Instr instr = code[k];
-                if (labelsAt.TryGetValue(instr.Offset, out List<int>? labels)) {
-                    foreach (int l in labels) sb.Append(Body).Append(CultureInfo.InvariantCulture, $"l{l}:\n");
-                }
-                string line = Bytecode.Script.Assembly.Render(block, w, instr);
-                if (instr.Opcode.Operand == OperandKind.Func && instr.Operand is ushort id && NativeNames.Value.TryGetValue(id, out string? native)) {
-                    line = $"{line,-24} ; {native}";
-                }
-                sb.Append(Body).Append(Indent).Append(line).Append('\n');
-            }
-            sb.Append(Body).Append("\"\"\");\n");
-            sb.Append(Indent).Append("}\n");
-        }
+        if (registers.Count > 0) sb.Append('\n');
+        worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
         sb.Append("}\n");
     }
 
     /// <summary>The C# name of each native (<c>Btl.SetStat</c>), from the reference assembly.</summary>
-    private static readonly Lazy<Dictionary<ushort, string>> NativeNames = new(() => {
-        Dictionary<ushort, string> names = [];
-        foreach (Type t in typeof(NativeAttribute).Assembly.GetExportedTypes()) {
-            foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)) {
-                if (m.GetCustomAttribute<NativeAttribute>() is NativeAttribute n) names.TryAdd((ushort)n.Id, $"{t.Name}.{m.Name}");
-            }
-        }
-        return names;
-    });
+    private static readonly Lazy<Dictionary<ushort, string>> NativeNames = new(() => Natives.All.ToDictionary(n => n.Id, n => n.Name));
+
+    /// <summary>The natives of the reference assembly (<c>Ffx.Atel.Game</c>).</summary>
+    public static NativeSignatures Natives => s_natives.Value;
+
+    private static readonly Lazy<NativeSignatures> s_natives = new(() => NativeSignatures.FromAssembly(typeof(NativeAttribute).Assembly));
 
     // ----- Data ------------------------------------------------------------------------------
 
@@ -230,4 +248,27 @@ public static class ScriptDecompiler {
         }
         return sb.Append('"').ToString();
     }
+}
+
+/// <summary>Totals of <see cref="DecompileStats"/> over many scripts; safe to add to from several threads.</summary>
+public sealed class DecompileTotals {
+    private long _scripts, _statements, _asm, _intPins, _floatPins, _intRule, _floatRule;
+
+    public long Scripts => _scripts;
+    public long Statements => _statements;
+    public long AsmInstructions => _asm;
+
+    public void Add(DecompileStats s) {
+        Interlocked.Increment(ref _scripts);
+        Interlocked.Add(ref _statements, s.Statements);
+        Interlocked.Add(ref _asm, s.AsmInstructions);
+        if (s.IntPoolPinned) Interlocked.Increment(ref _intPins);
+        if (s.FloatPoolPinned) Interlocked.Increment(ref _floatPins);
+        if (s.IntRuleFails) Interlocked.Increment(ref _intRule);
+        if (s.FloatRuleFails) Interlocked.Increment(ref _floatRule);
+    }
+
+    /// <summary>One line: statements, instructions left in <c>Asm</c>, pool pins (of them, where the rule fails).</summary>
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture,
+        $"{_statements} C# statements, {_asm} instructions in Asm; pools pinned: {_intPins} integer ({_intRule} where the rule fails), {_floatPins} float ({_floatRule} where the rule fails)");
 }

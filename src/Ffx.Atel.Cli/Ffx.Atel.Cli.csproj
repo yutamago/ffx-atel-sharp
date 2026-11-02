@@ -4,6 +4,8 @@
         <OutputType>Exe</OutputType>
         <AssemblyName>atel</AssemblyName>
         <RootNamespace>Ffx.Atel.Cli</RootNamespace>
+        <!-- Decompiling and checking scripts in parallel allocates a lot: server GC is 4-5x faster. -->
+        <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />

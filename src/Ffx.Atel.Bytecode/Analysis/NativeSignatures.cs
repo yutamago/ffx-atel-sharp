@@ -50,6 +50,28 @@ public sealed class NativeSignatures {
     public static NativeSignatures Load(string path) => Parse(File.ReadAllText(path));
 
     /// <summary>
+    ///     The natives an assembly declares: static methods with <c>Ffx.Atel.NativeAttribute</c> (the
+    ///     reference assembly, <c>Ffx.Atel.Game</c>, generated from <c>data/natives.json</c>). Parameters
+    ///     and results of type <c>float</c> are float kinds, all others int; the name is
+    ///     <c>Class.Method</c>. The argument count source is <c>reference</c>.
+    /// </summary>
+    public static NativeSignatures FromAssembly(System.Reflection.Assembly assembly) {
+        Dictionary<ushort, NativeSignature> byId = [];
+        foreach (Type t in assembly.GetExportedTypes()) {
+            foreach (System.Reflection.MethodInfo m in t.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly)) {
+                System.Reflection.CustomAttributeData? a = m.CustomAttributes.FirstOrDefault(x => x.AttributeType.FullName == "Ffx.Atel.NativeAttribute");
+                if (a is null) continue;
+                ushort id = (ushort)(int)a.ConstructorArguments[0].Value!;
+                bool polls = a.NamedArguments.Any(n => n.MemberName == "Polls" && n.TypedValue.Value is true);
+                string kinds = string.Concat(m.GetParameters().Select(p => p.ParameterType == typeof(float) ? 'f' : 'i'));
+                string result = m.ReturnType == typeof(float) ? "float" : m.ReturnType == typeof(void) ? "none" : "int";
+                byId.TryAdd(id, new NativeSignature(id, $"{t.Name}.{m.Name}", kinds, result, "reference", false, polls));
+            }
+        }
+        return new NativeSignatures(byId);
+    }
+
+    /// <summary>
     ///     Finds <c>data/natives.json</c> in the current directory or any above it, then in the program's
     ///     directory or any above it; null if there is none.
     /// </summary>
