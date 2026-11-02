@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: MIT -->
+<idea-plugin require-restart="true">
+  <id>io.github.yutamago.atel.text</id>
+  <name>Atel# message text</name>
+  <vendor url="https://github.com/yutamago/ffx-atel-sharp">Yutamago</vendor>
+  <depends>com.intellij.modules.rider</depends>
+
+  <description><![CDATA[
+<p>Shows the message text behind <code>Text[n]</code> in decompiled Atel# (Final Fantasy X) C# sources: as an inlay
+hint after the index and in the quick documentation (Ctrl+Q, or on hover), in the language you choose. The text comes
+from your own copy of the game (<code>atel text export</code>); the plugin ships none.</p>
+]]></description>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- The backend's options page (AtelTextOptionsPage.cs), under Settings | Tools. -->
+    <applicationConfigurable parentId="tools" id="AtelTextOptionsPage" displayName="Atel# message text"
+                             instance="io.github.yutamago.atel.rider.AtelTextOptionsPage" />
+  </extensions>
+</idea-plugin>

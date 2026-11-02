@@ -1,0 +1,20 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- The Rider plugin's backend (JetBrains' plugin template): .NET Framework 4.7.2 assemblies against the Rider SDK,
+     built with the dotnet SDK on any OS (reference assemblies from NuGet). It stops the repo's own Directory.Build.props
+     (net10.0, artifacts output), which these projects don't use. -->
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);MSB3277;NU1603;NU1701</NoWarn>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <IsPackable>false</IsPackable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <Import Project="Plugin.props" />
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

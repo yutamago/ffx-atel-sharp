@@ -1,0 +1,23 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssetTargetFallback>net472</AssetTargetFallback>
+    <IsTestProject>true</IsTestProject>
+    <!-- Advisories on packages the Rider SDK's test framework pins; test-only, never shipped. -->
+    <NoWarn>$(NoWarn);NU1902;NU1903;NU1702</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Rider.SDK.Tests" Version="$(SdkVersion)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Ffx.Atel.Rider/Ffx.Atel.Rider.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="test/**/*" />
+    <None Include="test/**/*" />
+  </ItemGroup>
+  <Import Project="HeadlessTests.targets" />
+</Project>

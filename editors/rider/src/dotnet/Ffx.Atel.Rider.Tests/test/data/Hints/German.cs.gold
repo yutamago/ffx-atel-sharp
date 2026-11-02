@@ -1,0 +1,14 @@
+﻿// Made-up script and text.
+namespace Mod;
+
+[Event("aaaa0100")]
+public sealed partial class Aaaa0100
+{
+    void Talk() => Common.MsgSetText(0, Text[1]||(0));
+}
+
+---------------------------------------------------------
+(0): Atel# Message Text Hint: {name:Tidus}
+Erfundene Zeile.
+Labels:
+  "{name:Tidus…"

@@ -1,0 +1,80 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Runs the ReSharper test framework under `dotnet test` (net10.0) on Linux and macOS, headless, the way Rider's own
+  backend runs there:
+
+  1. NUnit: JetBrains' build of nunit.framework (shipped in the SDK's test framework package), which emulates STA
+     threads off Windows ([Apartment(STA)] is otherwise skipped: "Apartment state cannot be set on this platform"),
+     instead of the stock NUnit the packages also bring in.
+  2. WindowsBase: the WPF stub for Unix (JetBrains.WindowsDesktop.Mock.Runtime) is shadowed by .NET's WindowsBase
+     facade of the same version; Rider's Rider.Backend.deps.json declares it as 777.0.0.0 so the host prefers it. The
+     same entry is added to the test assembly's deps.json.
+  3. The SDK ships .NET Core builds of a few assemblies under NetCore/ beside the .NET Framework ones the package
+     references resolve to; the test framework finds both and refuses two different builds of one assembly. The
+     NetCore/ build replaces the other in the output.
+  4. The SDK's xUnit test provider loads xunit.runner.utility by its .NET Framework name (net452); the package's
+     .NET Core build has another name, so the net452 one is copied beside it.
+-->
+<Project>
+  <Target Name="AtelUseJetBrainsNUnit" AfterTargets="ResolvePackageAssets" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <_AtelJetNUnit Include="@(JetContent)"
+                     Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(JetContent.TargetPath)', 'JetBrains\.NUnit[\\/][^\\/]+[\\/]lib[\\/]netstandard2\.0[\\/]nunit\.framework\.dll$'))" />
+      <ResolvedCompileFileDefinitions Remove="@(ResolvedCompileFileDefinitions)" Condition="'%(Filename)%(Extension)' == 'nunit.framework.dll'" />
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="'%(Filename)%(Extension)' == 'nunit.framework.dll'" />
+      <Reference Include="@(_AtelJetNUnit->'%(FullPath)')" Private="true" />
+    </ItemGroup>
+    <Error Condition="'@(_AtelJetNUnit)' == ''" Text="JetBrains' nunit.framework.dll was not found in the test framework package." />
+  </Target>
+
+  <PropertyGroup>
+    <_AtelWindowsBaseMock>$(NuGetPackageRoot)jetbrains.windowsdesktop.mock.runtime/0.0.3/runtimes/unix/lib/netcoreapp3.0/WindowsBase.dll</_AtelWindowsBaseMock>
+    <_AtelWindowsBaseTarget>runtimes/unix/lib/netcoreapp3.0/WindowsBase.dll</_AtelWindowsBaseTarget>
+  </PropertyGroup>
+
+  <UsingTask TaskName="AtelAddWindowsBaseMock" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <DepsFile ParameterType="System.String" Required="true" />
+      <Asset ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // Plain text edits: the file is the SDK's own output, with its "targets" and "libraries" objects.
+        var json = System.IO.File.ReadAllText(DepsFile);
+        const string lib = "Atel.WindowsBase.Mock/777.0.0";
+        if (!json.Contains(lib))
+        {
+          var target = "\"" + lib + "\": { \"runtimeTargets\": { \"" + Asset + "\": { \"rid\": \"unix\", \"assetType\": \"runtime\", \"assemblyVersion\": \"777.0.0.0\", \"fileVersion\": \"4.6.57.0\" } } },";
+          var library = "\"" + lib + "\": { \"type\": \"project\", \"serviceable\": false, \"sha512\": \"\" },";
+          var targets = json.IndexOf("\"targets\"");
+          var first = json.IndexOf('{', json.IndexOf('{', targets) + 1) + 1;
+          json = json.Insert(first, target);
+          var libraries = json.IndexOf("\"libraries\"");
+          json = json.Insert(json.IndexOf('{', libraries) + 1, library);
+          System.IO.File.WriteAllText(DepsFile, json);
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="AtelWindowsBaseMock" AfterTargets="GenerateBuildDependencyFile" Condition="'$(OS)' != 'Windows_NT'">
+    <Error Condition="!Exists('$(_AtelWindowsBaseMock)')" Text="The WindowsBase stub was not found: $(_AtelWindowsBaseMock)" />
+    <Copy SourceFiles="$(_AtelWindowsBaseMock)" DestinationFiles="$(OutDir)$(_AtelWindowsBaseTarget)" SkipUnchangedFiles="true" />
+    <AtelAddWindowsBaseMock DepsFile="$(ProjectDepsFilePath)" Asset="$(_AtelWindowsBaseTarget)" />
+  </Target>
+  <Target Name="AtelXunitRunnerUtility" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <_AtelXunitUtility Include="@(RuntimeCopyLocalItems)" Condition="'%(RuntimeCopyLocalItems.NuGetPackageId)' == 'xunit.runner.utility'" />
+      <_AtelXunitNet452 Include="$(NuGetPackageRoot)xunit.runner.utility/%(_AtelXunitUtility.NuGetPackageVersion)/lib/net452/xunit.runner.utility.net452.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AtelXunitNet452)" DestinationFolder="$(OutDir)" Condition="Exists('%(FullPath)')" />
+  </Target>
+
+  <Target Name="AtelPreferNetCoreBuilds" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <_AtelNetCoreBuild Include="$(OutDir)NetCore/*/*.dll" />
+      <_AtelNetCoreReplace Include="@(_AtelNetCoreBuild)" Condition="Exists('$(OutDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AtelNetCoreReplace)" DestinationFolder="$(OutDir)" />
+  </Target>
+</Project>

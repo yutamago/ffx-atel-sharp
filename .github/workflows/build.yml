@@ -74,3 +74,50 @@ jobs:
 
     - name: Package
       run: npm run package
+
+  rider:
+    # The Rider plugin for message text (editors/rider, docs/editor.md): the backend's tests (the ReSharper test
+    # framework, headless, on made-up text) and the plugin zip; never published.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/rider
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 21
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v5
+
+    # The Rider SDK's NuGet packages (about 3 GB) and the reference assemblies the test framework downloads.
+    - name: Cache NuGet
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.nuget/packages
+          ~/.local/share/JetBrains
+        key: rider-nuget-${{ runner.os }}-${{ hashFiles('editors/rider/src/dotnet/**/*.csproj', 'editors/rider/src/dotnet/*.props') }}
+
+    - name: Test
+      run: ./gradlew check --no-daemon
+
+    - name: Build the plugin
+      run: ./gradlew buildPlugin --no-daemon
+
+    - name: Upload the plugin
+      uses: actions/upload-artifact@v6
+      with:
+        name: rider-plugin
+        path: editors/rider/build/distributions/*.zip

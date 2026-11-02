@@ -4,14 +4,13 @@ Phase 8 of the [plan](plan.md): the source names messages by index (`Common.MsgS
 "Text"), and the editor shows what message 12 says, in a language you choose, from your own game. No
 grammar, parser or language server of our own.
 
-Three parts:
+Four parts:
 
 - `atel text export` writes the messages of every script per language as JSON beside the decompiled
   source;
 - the VS Code extension (`editors/vscode`) shows them as inlay hint and hover;
+- the Rider plugin (`editors/rider`) does the same in Rider;
 - `atel decompile --text-comments <lang>` writes them as `// "…"` comments, for reading anywhere else.
-
-Rider has no plugin yet (see "Rider").
 
 ## Where the messages are
 
@@ -144,26 +143,98 @@ depend on a language. Library classes get none (their text depends on the script
 
 ## Rider
 
+`editors/rider`, a Rider plugin from JetBrains' Rider plugin template (IntelliJ Platform Gradle Plugin 2.x),
+built against Rider 2026.3 (the SDK `2026.3-EAP8-SNAPSHOT` / `JetBrains.Rider.SDK 2026.3.0-eap08`; since-build
+`263`, until-build `263.*`). The [README](../editors/rider/README.md) has building and settings.
+
+### What it does
+
+The same as the VS Code extension, from the same `.atel/text/<lang>/<script>.json` files and with the same
+resolution rules (a C# port of `resolve.ts`):
+
+- an **inlay hint** after each `Text[n]` with the message on one line (`"{name:Tidus} ⏎ Hey, …"`), cut at
+  the configured length; a library class shows its first user's message, `(+n)` when the others differ.
+  Hovering the hint shows the whole message;
+- **quick documentation** on `Text[n]` (Ctrl+Q, and Rider's documentation on mouse hover): the whole
+  message of each script the file belongs to, or why there is none (no export found, no text, no message
+  *n* in the language, a monster);
+- **Settings → Tools → Atel# message text**: the language (`en` … `zh`), the text folder (empty: the nearest
+  `.atel/text` above the file; relative paths are from the solution's folder), hints on or off, their
+  length. The settings are ReSharper settings (saved per machine by default; per solution in its
+  `.DotSettings` layers if wanted). A new export or another language's files refresh the hints by
+  themselves (a file watcher on the text folder).
+
+`Text[n]` is found in the C# PSI, not by a regex: an element access on something named `Text` with a decimal
+constant index (`Text[12]`, `x.Text[12]`), so comments and strings never match.
+
+### How it is built
+
+The route was chosen after a spike: Rider's C# lives in the ReSharper backend, so the plugin is a backend
+plugin, as option 3 below.
+
+- **Backend** (`src/dotnet/Ffx.Atel.Rider`, C#, .NET Framework 4.7.2 against `JetBrains.Rider.SDK`): a
+  daemon `ElementProblemAnalyzer` on element access expressions adds the hint highlighting (an inlay-hint
+  highlighting with an adornment provider, as Rider's own hints), an `IQuickDocProvider` (asked before the
+  C# ones, which would document the `Text` indexer) gives the documentation, `AtelTextSettings` and an
+  options page the settings.
+- **Frontend** (`src/rider`, plugin.xml and one Kotlin class): the plugin descriptor and the registration of
+  the backend's options page under Tools. No protocol model of our own: hints, documentation and settings go
+  over the protocol Rider already has, so the template's `protocol` (rdgen) module is left out.
+- **Tests** (`src/dotnet/Ffx.Atel.Rider.Tests`, the ReSharper test framework, headless): the daemon on
+  made-up sources and tables (hints, their labels and tooltips: event, attribute, library class with
+  `(+1)`, German with a short length, hints off), quick documentation through a test text control (an
+  event, a library class, no export, not on `Text[n]`) and the resolution rules (the cases of
+  `resolve.test.ts`). They run under `dotnet test` on Linux, macOS and Windows: the template targets
+  Windows (net472 under NUnit with STA threads), so `HeadlessTests.targets` sets up what Rider's own
+  backend uses off Windows (JetBrains' NUnit build with emulated STA threads, the Unix WPF stub, the
+  .NET Core builds of the SDK's assemblies). The test framework downloads the reference assemblies of its
+  test projects from JetBrains' platform feed (`test/data/nuget.config`) into `~/.local/share/JetBrains`.
+
+Checks: `./gradlew check` (the backend tests) and `./gradlew buildPlugin` (the zip,
+`build/distributions/atel-text-<version>.zip`); CI's `rider` job runs both on Ubuntu and keeps the zip as an
+artifact. Nothing is published. Neither starts Rider: `buildSearchableOptions` (which would start the IDE
+headless to index the settings page) is off.
+
+### Installing
+
+1. Build the zip (`./gradlew buildPlugin` in `editors/rider`; JDK 21 and the .NET 10 SDK), or take it from a
+   CI run's `rider-plugin` artifact.
+2. Rider: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, choose
+   `atel-text-<version>.zip`, restart Rider.
+3. Export the text (`atel text export -o src`) and open the decompiled solution (`src/Atel.slnx`).
+
+The plugin is built for Rider 2026.3 only (until-build `263.*`): the ReSharper API changes with every
+release, so a newer Rider needs `ProductVersion` and `SdkVersion` raised and a rebuild.
+
+### By hand
+
+What the automated tests can't show is Rider's UI drawing the hints and the documentation popup. A short
+check, after installing the zip:
+
+1. Decompile a script and export its text: `atel decompile bjyt0400 -o src`, `atel text export bjyt0400 -o
+   src --lang en,de`. Open `src/Atel.slnx` in Rider.
+2. Open a worker with `Text[n]` (`Events/Bj/Bjyt0400/W17.cs`): each `Text[n]` is followed by a grey hint with
+   the message in quotes; long ones end in `…`. Hovering the hint shows the whole message.
+3. Put the caret on a `Text[n]` and press Ctrl+Q (or hover it with "Show quick documentation on mouse move"
+   on): the popup shows `Message n` and the text.
+4. Settings → Tools → Atel# message text: Language `de`, OK. The hints switch to German without reopening
+   the file. Uncheck the hints: they go; the documentation stays.
+5. Open a library class (`Library/Shared0001.cs`) that uses `Text[n]`: hints show the first user's message,
+   `(+n)` where users differ; Ctrl+Q lists each user.
+
+If no hints appear: Settings → Editor → Inlay Hints must have hints enabled at all, and the file must be in
+the solution (the daemon only runs on solution files).
+
+### The options, as written down before
+
 Rider is an IntelliJ frontend (Kotlin/Java) over a ReSharper backend (C#), and C# is the backend's: its
 PSI, inlay hints, and quick documentation live there. The options, cheapest first:
 
 1. **`--text-comments`** (done): works in Rider and everywhere, no plugin; but the language is fixed when
    decompiling and the comments are in the source.
-2. **A frontend-only plugin** (Kotlin, IntelliJ Platform Gradle Plugin, built against the installed Rider):
-   a `DeclarativeInlayHintsProvider` registered for `language="C#"` (or any) that scans the document text
-   with the same regex and reads the same JSON, the hint's tooltip holding the whole message. About a day
-   with the build setup, about 200 lines. Unknown, so it needs a spike first: whether Rider's frontend runs
-   frontend inlay providers on C# files at all (its C# PSI on the frontend is a stub, and C# hints come
-   from the backend over the protocol). A hover is harder from the frontend, as C# quick documentation is
-   the backend's; the tooltip of the hint would have to do.
-3. **A backend plugin** (ReSharper SDK, C#, plus the frontend wrapper Rider needs; JetBrains' rider plugin
-   template): an inlay hint highlighting from a daemon stage on `Text[n]` element access expressions,
-   and a quick-doc or identifier tooltip provider for the hover. The robust way, and in C# like the rest
-   of the tools, but 2-4 days: two builds (Gradle and dotnet), the SDK packages (several GB), and a release
-   to follow every Rider version.
+2. **A frontend-only plugin** (Kotlin): a `DeclarativeInlayHintsProvider` for C# files scanning the text with
+   the same regex. Not taken: Rider's frontend C# PSI is a stub and C# hints come from the backend, and a
+   hover from the frontend would have had to be the hint's tooltip.
+3. **A backend plugin** (ReSharper SDK, C#, with the frontend part Rider needs): taken (above).
 4. **An LSP server** for Rider's LSP API: excluded by the plan (no language server of our own), and it
    would compete with Rider's own C# support for the same files.
-
-Decision: not implemented now; option 2's spike is the follow-up (if Rider's frontend runs the provider
-on C# files, it is small), else option 3. Testing either means running Rider, which needs a session where
-a window may open.
