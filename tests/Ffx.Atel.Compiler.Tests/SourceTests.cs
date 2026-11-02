@@ -169,6 +169,48 @@ public sealed class SourceTests {
         Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
     }
 
+    /// <summary>Phase 5: constants inside a condition are false/true, and a native typed bool is a condition without AsBool.</summary>
+    [Fact]
+    public void BoolConstantsAndBoolNativesAreConditions() {
+        const string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M999.M999;
+
+            namespace Monsters.M999;
+
+            [Monster("m999")]
+            [Workers(typeof(W00))]
+            public static partial class M999
+            {
+                [Var(Storage.Private, 0x0000)] public static int Count;
+            }
+
+            public sealed class W00 : Worker2
+            {
+                [Entry(0)]
+                void E0()
+                {
+                    if (false & Count > 2)
+                    {
+                        Count = 1;
+                    }
+                    if (!Common.VoiceIsPlaying() | true)
+                    {
+                        Count = 2;
+                    }
+                    return;
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "m999.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        ScriptBlock block = ScriptBlock.Parse(ScriptCompiler.Compile([tree]).Block());
+        Assert.Equal(
+            "pushimm pushv pushimm gt land popa_jz pushimm popv func not pushimm lor popa_jz pushimm popv end",
+            string.Join(" ", block.Decode(block.Workers[0]).Select(i => i.Opcode.Name)));
+    }
+
     [Fact]
     public void HandWrittenStatementsCompile() {
         string source = """

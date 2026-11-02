@@ -283,10 +283,12 @@ internal sealed partial class StatementReader(
     }
 
     /// <summary>Whether C# types the expression <c>bool</c>: a condition.</summary>
-    private static bool IsBool(ExpressionSyntax e) {
+    private bool IsBool(ExpressionSyntax e) {
         e = Strip(e, conversions: false);
         return e switch {
             InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "AsBool" } } => true,
+            // A native typed bool (data/native-types.json, "result").
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } call => natives.TryGetValue(NativeName(call), out NativeSignature? sig) && sig.Result == "bool",
             PrefixUnaryExpressionSyntax u => u.IsKind(SyntaxKind.LogicalNotExpression),
             LiteralExpressionSyntax l => l.IsKind(SyntaxKind.TrueLiteralExpression) || l.IsKind(SyntaxKind.FalseLiteralExpression),
             BinaryExpressionSyntax b => b.Kind() switch {
@@ -302,6 +304,9 @@ internal sealed partial class StatementReader(
     public Expr ReadExpr(ExpressionSyntax syntax) {
         ExpressionSyntax e = Strip(syntax);
         switch (e) {
+            // `false` and `true` inside a condition (`false & V3 > 2`): 0 and 1.
+            case LiteralExpressionSyntax l when l.IsKind(SyntaxKind.FalseLiteralExpression) || l.IsKind(SyntaxKind.TrueLiteralExpression):
+                return new IntLit(l.IsKind(SyntaxKind.TrueLiteralExpression) ? 1 : 0);
             case LiteralExpressionSyntax l when l.IsKind(SyntaxKind.NumericLiteralExpression):
                 return Number(l.Token.Value, l, negate: false);
             case PrefixUnaryExpressionSyntax u when u.IsKind(SyntaxKind.UnaryMinusExpression)
@@ -428,10 +433,12 @@ internal sealed partial class StatementReader(
         }
     }
 
+    private static string NativeName(InvocationExpressionSyntax call) => call.Expression is MemberAccessExpressionSyntax m
+        ? $"{TypeNameOf(m.Expression as TypeSyntax ?? SyntaxFactory.ParseTypeName(m.Expression.ToString()))}.{m.Name.Identifier.ValueText}"
+        : call.Expression.ToString();
+
     private (ushort Id, IReadOnlyList<Expr> Args) Native(InvocationExpressionSyntax call) {
-        string name = call.Expression is MemberAccessExpressionSyntax m
-            ? $"{TypeNameOf(m.Expression as TypeSyntax ?? SyntaxFactory.ParseTypeName(m.Expression.ToString()))}.{m.Name.Identifier.ValueText}"
-            : call.Expression.ToString();
+        string name = NativeName(call);
         if (!natives.TryGetValue(name, out NativeSignature? sig)) throw Error(call.Expression, $"{name} is not a native");
         SeparatedSyntaxList<ArgumentSyntax> args = call.ArgumentList.Arguments;
         if (args.Count != sig.Argc) throw Error(call, $"{name} takes {sig.Argc} arguments");

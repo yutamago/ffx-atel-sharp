@@ -186,7 +186,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
             case RegExpr r:
                 return Reg(r);
             case UnaryExpr { Op: Opcodes.Not } u:
-                return new E("!" + Wrap(ToBool(Expr(u.Operand)), PUnary), CType.Bool, PUnary);
+                return new E("!" + Wrap(ToBoolOperand(Expr(u.Operand)), PUnary), CType.Bool, PUnary);
             case UnaryExpr { Op: Opcodes.Bnot } u: {
                 E x = ToInt(Expr(u.Operand));
                 return new E("~" + Wrap(x, PUnary), CType.Int, PUnary, x.Const is long c ? ~c : null);
@@ -278,7 +278,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         Domain?[]? domains = GameNames.NativeParameters.GetValueOrDefault(id);
         IEnumerable<string> texts = args.Select((a, k) => (domains?[k] is Domain d ? Typed(a, d)
             : sig.ArgKinds[k] == 'f' ? ToNum(Expr(a)) : ToInt(Expr(a))).Text);
-        return new E($"{sig.Name}({string.Join(", ", texts)})", sig.Result == "float" ? CType.Float : CType.Int, PPrimary);
+        return new E($"{sig.Name}({string.Join(", ", texts)})", sig.Result switch { "float" => CType.Float, "bool" => CType.Bool, _ => CType.Int }, PPrimary);
     }
 
     private E Binary(BinaryExpr b) {
@@ -299,7 +299,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
                     ? Make(b.Op, l, r, p, CType.Bool)
                     : Fold(b.Op, ToInt(l), ToInt(r), p, CType.Int);
             case Opcodes.Land or Opcodes.Lor:
-                return Make(b.Op, ToBool(l), ToBool(r), p, CType.Bool);
+                return Make(b.Op, ToBoolOperand(l), ToBoolOperand(r), p, CType.Bool);
             case Opcodes.Eq or Opcodes.Ne when l.Type == CType.Bool && r.Type == CType.Bool:
                 return Make(b.Op, l, r, p, CType.Bool);
             default: {
@@ -348,6 +348,15 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
 
     /// <summary><c>+x</c>: C#'s promotion of a narrow value to <c>int</c>, no code.</summary>
     private static E Plus(E x) => new("+" + Wrap(x, PUnary), x.Type is CType.Float ? CType.Float : x.Type is CType.Bool ? CType.Bool : CType.Int, PUnary, x.Const);
+
+    /// <summary>
+    ///     A condition inside <c>!</c>, <c>&amp;</c> or <c>|</c>: as <see cref="ToBool"/>, but the constants 0 and 1
+    ///     are <c>false</c> and <c>true</c> (<c>pushimm 0</c>, <c>pushimm 1</c>). Not for a whole condition:
+    ///     <c>if (false)</c> is dead code and <c>while (true)</c> has no test.
+    /// </summary>
+    private static E ToBoolOperand(E x) => x is { Type: CType.Int, Const: 0L or 1L } && x.Text is "0" or "1"
+        ? new E(x.Text == "0" ? "false" : "true", CType.Bool, PPrimary)
+        : ToBool(x);
 
     private static E ToBool(E x) => x.Type == CType.Bool ? x : new E($"AsBool({x.Text})", CType.Bool, PPrimary);
 

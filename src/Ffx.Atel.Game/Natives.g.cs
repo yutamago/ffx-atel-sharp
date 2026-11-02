@@ -412,12 +412,12 @@ public static partial class Common
     /// <summary>0x0050: (i): bit i of 0x0086af30()&apos;s low word; ported in native_move (script round 11); name from &quot;bit i of 0x0086af30()&apos;s low word&quot; (g_AtelPadHeld)</summary>
     /// <remarks>Native <c>0x0050</c>, <c>Native_0050_PadIsHeldRaw</c>; 62 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0050)]
-    public static int PadIsHeldRaw(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool PadIsHeldRaw(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0051: (i): bit i of 0x0086af70()&apos;s low word; ported in native_move (script round 11); name from &quot;bit i of 0x0086af70()&apos;s low word&quot; (g_PadPressed)</summary>
     /// <remarks>Native <c>0x0051</c>, <c>Native_0051_PadIsPressedRaw</c>; 48 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0051)]
-    public static int PadIsPressedRaw(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool PadIsPressedRaw(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0052: (b): bit b of 0x0086af80(); ported in native_mods (script round 19); name from bit b of the controller history (0x0086af80)</summary>
     /// <remarks>Native <c>0x0052</c>, <c>Native_0052_PadTestButtonBit</c>; 0 calls in the shipped scripts.</remarks>
@@ -992,7 +992,7 @@ public static partial class Common
     /// <summary>0x00c4: 1 while the move block runs (mode, +2 &amp; 0x7f); ported in native_move (script round 11); name from &quot;1 while the move block runs (mode, +2 &amp; 0x7f)&quot;</summary>
     /// <remarks>Native <c>0x00c4</c>, <c>Native_00c4_MoveIsActive</c>; 11 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00c4)]
-    public static int MoveIsActive() => throw Atel.Runtime.NotRunnable();
+    public static bool MoveIsActive() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00c5: args (m0, m1, m2, m3) -&gt; 0; ctx+0xae0..0xaec = the four motion ids in push order (e.g. 69735/69736/69733/69734 = 0x1106x); indexed by 0x00c6&apos;s kind</summary>
     /// <remarks>Native <c>0x00c5</c>, <c>Native_SetTurnMotions</c>; 3205 calls in the shipped scripts.</remarks>
@@ -1032,7 +1032,7 @@ public static partial class Common
     /// <summary>0x00cc: (chr): 1 when 0x00785380(chr) is 1; ported in native_move (script round 11); name from &quot;1 when 0x00785380(chr) is 1&quot; = MsGetSavePlyJoin</summary>
     /// <remarks>Native <c>0x00cc</c>, <c>Native_00cc_PartyIsJoined</c>; 4 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00cc)]
-    public static int PartyIsJoined(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool PartyIsJoined(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00cd: 1 when the worker&apos;s party slot (+0x40) is one of the three MsGetSavePartyMember (0x007852f0) gives and not 0xff, else 0; ported in native_mods (script round 19); name ours; name from &quot;1 when the worker&apos;s party slot (+0x40) is one of the three MsGetSavePartyMember gives&quot;</summary>
     /// <remarks>Native <c>0x00cd</c>, <c>Native_00cd_WorkerInParty</c>; 0 calls in the shipped scripts.</remarks>
@@ -1092,7 +1092,7 @@ public static partial class Common
     /// <summary>0x00d8: args () -&gt; 1 while the voice plays (countdown 0x01325ae0/e4 or 0x008864b0), else 0; &quot;VoiceStatusStart!&quot; / &quot;VoiceStatusExec: Frame = %d!&quot;; scripts loop `func 0x00d8; popa_jz` after 0x00d6; 157 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
     /// <remarks>Native <c>0x00d8</c>, <c>Native_VoiceIsPlaying</c>; 6396 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00d8)]
-    public static int VoiceIsPlaying() => throw Atel.Runtime.NotRunnable();
+    public static bool VoiceIsPlaying() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00d9 poll only: voice-sync countdown (0x01325aec/0x01325ae8, &quot;VoiceSyncStart!&quot;, &quot;VoiceSyncExec: Frame = %d!&quot;) else done when no sound request is pending (0x008864b0); 165 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
     /// <remarks>Native <c>0x00d9</c>, <c>Native_SoundWait_Poll</c>; 8579 calls in the shipped scripts.</remarks>
@@ -1162,7 +1162,7 @@ public static partial class Common
     /// <summary>0x00e6: (chr): 1 when it is in a party slot (0x007852f0); ported in native_move (script round 11); name from &quot;(chr): 1 when it is in a party slot (0x007852f0)&quot;</summary>
     /// <remarks>Native <c>0x00e6</c>, <c>Native_00e6_PartyIsInSlot</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00e6)]
-    public static int PartyIsInSlot(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool PartyIsInSlot(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00e7 (slot, chr; -1 = none) -&gt; chr; Party_SwapIn 0x00784d00</summary>
     /// <remarks>Native <c>0x00e7</c>, <c>Native_PartySwapIn</c>; 1297 calls in the shipped scripts.</remarks>
@@ -1202,7 +1202,7 @@ public static partial class Common
     /// <summary>0x00ee: (worker): its +0x34 bit 5; ported in native_move (script round 11); name from worker&apos;s +0x34 bit 5</summary>
     /// <remarks>Native <c>0x00ee</c>, <c>Native_00ee_WorkerGetFlag34Bit5</c>; 18 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00ee)]
-    public static int WorkerGetFlag34Bit5(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool WorkerGetFlag34Bit5(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00ef: (on): +0x36 bit 11; on != 0; ported in native_move (script round 11); name from +0x36 bit 11 = on != 0</summary>
     /// <remarks>Native <c>0x00ef</c>, <c>Native_00ef_WorkerSetFlag36Bit11</c>; 2 calls in the shipped scripts.</remarks>
@@ -1487,12 +1487,12 @@ public static partial class Common
     /// <summary>0x0127: (worker): [native_0128] with the own touch range (position +0x48) pushed; ported in native_move (script round 11); name from &quot;[native_0128] with the own touch range (position +0x48) pushed&quot;</summary>
     /// <remarks>Native <c>0x0127</c>, <c>Native_0127_WorkerInTouchRange</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0127)]
-    public static int WorkerInTouchRange(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool WorkerInTouchRange(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0128: (worker, angle) -&gt; 0x0088b730(angle, the offset from that worker); ported in native_move (script round 11); name from &quot;0x0088b730(angle, the offset from that worker)&quot; = Math_InRadius; dump pops a float radius</summary>
     /// <remarks>Native <c>0x0128</c>, <c>Native_0128_WorkerInRadius</c>; 214 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0128)]
-    public static int WorkerInRadius(int a0, float a1) => throw Atel.Runtime.NotRunnable();
+    public static bool WorkerInRadius(int a0, float a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0129 (slot, c0, c2, c1) -&gt; slot; bytes +0x10/+0x12/+0x11 clamped 0-255; drawn as R,G,B (+0x10,+0x11,+0x12), so the push order is r, b, g</summary>
     /// <remarks>Native <c>0x0129</c>, <c>Native_SpriteSetColor</c>; 129465 calls in the shipped scripts.</remarks>
@@ -1772,7 +1772,7 @@ public static partial class Common
     /// <summary>fh v3:bsim1.00 0x0085b7a0 +CT_0160_ret_hasKeyItem; ported in native_move (script round 11)</summary>
     /// <remarks>Native <c>0x0160</c>, <c>CT_0160_ret_hasKeyItem</c>; 77 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0160)]
-    public static int RetHasKeyItem(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool RetHasKeyItem(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0161: 0x0088e780(v); v; ported in native_move (script round 11); name from 0x0088e780 = jmp 0x007907a0 MsImportantReset_007907a0 (v); v</summary>
     /// <remarks>Native <c>0x0161</c>, <c>Native_0161_ImportantReset</c>; 44 calls in the shipped scripts.</remarks>
@@ -2072,7 +2072,7 @@ public static partial class Common
     /// <summary>0x019c () -&gt; 1; no pops, constant 1 (PS2 check stubbed on PC?); scripts use it inside conditions (&quot;pushimm 32; and; land; func 0x019c; land&quot;); 6 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
     /// <remarks>Native <c>0x019c</c>, <c>Native_AlwaysTrue019c</c>; 6396 calls in the shipped scripts.</remarks>
     [Atel.Native(0x019c)]
-    public static int AlwaysTrue019c() => throw Atel.Runtime.NotRunnable();
+    public static bool AlwaysTrue019c() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>(worker, [pops dispose]): frees worker+0xaa attachment (1 model 0x008722f0 &quot;TK:ChN_DataDispose&quot;, 2 0x007ba9c0, 4/5 0x0086f4c0); +0xaa = 0, +0xa8 = 0; ported in native_move (script round 11)</summary>
     /// <remarks>Native <c>0x019d</c>, <c>Worker_Detach</c>; 765 calls in the shipped scripts.</remarks>
@@ -2197,7 +2197,7 @@ public static partial class Common
     /// <summary>0x01b6: 0x007ad6e0() != 0; ported in native_move (script round 11); name from &quot;0x007ad6e0() != 0&quot; = MsEquipmentHasUnmarked_007ad6e0</summary>
     /// <remarks>Native <c>0x01b6</c>, <c>Native_01b6_EquipHasUnmarked</c>; 3 calls in the shipped scripts.</remarks>
     [Atel.Native(0x01b6)]
-    public static int EquipHasUnmarked() => throw Atel.Runtime.NotRunnable();
+    public static bool EquipHasUnmarked() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x01b7: (v): 0x007ad640(v) when 0x007ad6e0(); 1, else 0; ported in native_move (script round 11); name from &quot;0x007ad640(v) when 0x007ad6e0()&quot; = MsChangeWeaponWakka</summary>
     /// <remarks>Native <c>0x01b7</c>, <c>Native_01b7_ChangeWeaponWakka</c>; 1 calls in the shipped scripts.</remarks>
@@ -2862,12 +2862,12 @@ public static partial class Common
     /// <summary>0x023b: (v) -&gt; 0x0086b9e0(v); ported in native_move (script round 11); name from &quot;(v) -&gt; 0x0086b9e0(v)&quot; = AtelGetHelpEventFlag</summary>
     /// <remarks>Native <c>0x023b</c>, <c>Native_023b_GetHelpEventFlag</c>; 72 calls in the shipped scripts.</remarks>
     [Atel.Native(0x023b)]
-    public static int GetHelpEventFlag(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool GetHelpEventFlag(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x023c: (b, n): 1 when 0x0086b9e0(b + i) is set for all i below n, else 0; ported in native_move (script round 11); name from &quot;1 when 0x0086b9e0(b + i) is set for all i below n&quot; = AtelGetHelpEventFlag</summary>
     /// <remarks>Native <c>0x023c</c>, <c>Native_023c_AllHelpEventFlags</c>; 74 calls in the shipped scripts.</remarks>
     [Atel.Native(0x023c)]
-    public static int AllHelpEventFlags(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static bool AllHelpEventFlags(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x023d: 0x00647e40(), a pending [0x025d5ebc] cleared after 0x00642390(7), then 0x00786b00(), 0x00782050(), 0x0088d1c0(0), 0x00643e70(); 1; ported in native_move (script round 11)</summary>
     /// <remarks>Native <c>0x023d</c>, <c>Native_023d</c>; 3 calls in the shipped scripts.</remarks>
@@ -3196,7 +3196,7 @@ public static partial class Calc
     /// <summary>0x1015: no args -&gt; six floats: 0x0088b780(f6, ..., f1)&apos;s EAX; ported in native_chr (script round 12); name from &quot;0x0088b780(f6..f1)&apos;s EAX&quot;; 0x0088b780=Math_FacingWithin; dump confirms the call</summary>
     /// <remarks>Native <c>0x1015</c>, <c>Native_1015_FacingWithin</c>; 79 calls in the shipped scripts.</remarks>
     [Atel.Native(0x1015)]
-    public static int FacingWithin(float a0, float a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+    public static bool FacingWithin(float a0, float a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x1016: (r, p0 xyz, p1 xyz f) -&gt; Math_InRadius(r, p0 - p1); ported in native_mods (script round 19); name ours; name from &quot;Math_InRadius(r, p0 - p1)&quot; (0x0088b730: dist^2 &lt;= r^2)</summary>
     /// <remarks>Native <c>0x1016</c>, <c>Native_1016_InRadius</c>; 0 calls in the shipped scripts.</remarks>
@@ -5527,7 +5527,7 @@ public static partial class Btl
     /// <summary>0x7067: msVoiceIsStreaming() != 0 (0x007b2be0); ported in native_mods (script round 21); name ours; name from &quot;msVoiceIsStreaming() != 0 (0x007b2be0)&quot;</summary>
     /// <remarks>Native <c>0x7067</c>, <c>Native_7067_VoiceIsStreaming</c>; 870 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7067)]
-    public static int VoiceIsStreaming() => throw Atel.Runtime.NotRunnable();
+    public static bool VoiceIsStreaming() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7068: 1 once msVoiceIsStreaming() is 0, else 0; ported in native_mods (script round 21); name ours; name from poll &quot;1 once msVoiceIsStreaming() is 0&quot;</summary>
     /// <remarks>Native <c>0x7068</c>, <c>Native_7068_VoiceStreamWait_Poll</c>; 885 calls in the shipped scripts.</remarks>
@@ -5747,7 +5747,7 @@ public static partial class Btl
     /// <summary>0x7093: 0x00791780(actor, record); ported in native_btl/native_move (script round 9); name from &quot;0x00791780(actor, record)&quot; MsCheckRestMotion</summary>
     /// <remarks>Native <c>0x7093</c>, <c>Native_7093_CheckRestMotion</c>; 36 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7093)]
-    public static int CheckRestMotion() => throw Atel.Runtime.NotRunnable();
+    public static bool CheckRestMotion() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7094: (b f, a f, v): MsSetChrTransparentVisible(actor, b, a, v, record +0x423) (0x00796550) for an actor; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrTransparentVisible(actor, b, a, v, record +0x423)&quot;</summary>
     /// <remarks>Native <c>0x7094</c>, <c>Native_7094_ChrSetTransparent</c>; 9 calls in the shipped scripts.</remarks>
@@ -5772,7 +5772,7 @@ public static partial class Btl
     /// <summary>0x7098: MsCheckDefenseMotion(MsGetChr(actor)) (0x007af2f0), 0 without an actor; ported in native_mods (script round 21); name ours; name from &quot;MsCheckDefenseMotion(MsGetChr(actor)) (0x007af2f0)&quot;</summary>
     /// <remarks>Native <c>0x7098</c>, <c>Native_7098_CheckDefenseMotion</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7098)]
-    public static int CheckDefenseMotion() => throw Atel.Runtime.NotRunnable();
+    public static bool CheckDefenseMotion() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7099: (v): the byte 0x0112c9cd = v &amp; 3; that value; ported in native_mods (script round 21); 0x7099: args (n) -&gt; 0; 0x0112c9cd = n &amp; 3; 0x0089d390 uses it to rotate the d-pad bits (0x1000/0x2000/0x4000/0x8000) for cursor movement; set with each camera shot</summary>
     /// <remarks>Native <c>0x7099</c>, <c>Native_BtlSetPadOrientation</c>; 6111 calls in the shipped scripts.</remarks>
@@ -5887,7 +5887,7 @@ public static partial class Btl
     /// <summary>0x70af: jumps to MsGetVoiceEventFlag (0x007986a0); ported in native_mods (script round 21); name ours; name from &quot;jumps to MsGetVoiceEventFlag (0x007986a0)&quot;</summary>
     /// <remarks>Native <c>0x70af</c>, <c>Native_70af_GetVoiceEventFlag</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70af)]
-    public static int GetVoiceEventFlag() => throw Atel.Runtime.NotRunnable();
+    public static bool GetVoiceEventFlag() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70b0: (selector): picked actor&apos;s step count from +0x40e (scaled by +0x3fc/+0x400) or the +0x4cc/+0x4d0 steps to cover 0x007a9fc0(i, 12) - +0x4bc; ported in native_btl/native_move (script round 10); name from &quot;picked actor&apos;s step count from +0x40e ... or the steps to cover 0x007a9fc0(i, 12)&quot;</summary>
     /// <remarks>Native <c>0x70b0</c>, <c>Native_70b0_ChrGetMoveSteps</c>; 150 calls in the shipped scripts.</remarks>
@@ -5997,7 +5997,7 @@ public static partial class Btl
     /// <summary>0x70c5: 1 when the byte 0x0112c9f5 is set; ported in native_mods (script round 21); name from g_BtlPartyLeaves (0x0112c9f5) set</summary>
     /// <remarks>Native <c>0x70c5</c>, <c>Native_70c5_BtlGetPartyLeaves</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c5)]
-    public static int GetPartyLeaves() => throw Atel.Runtime.NotRunnable();
+    public static bool GetPartyLeaves() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70c6: (v) -&gt; 0x007b7ed0(v); ported in native_mods (script round 21); name ours; name from &quot;0x007b7ed0(v)&quot; MsEffectGetCameraBuf_007b7ed0 (g_BtlEffectCameraWords)</summary>
     /// <remarks>Native <c>0x70c6</c>, <c>Native_70c6_GetEffectCameraWord</c>; 0 calls in the shipped scripts.</remarks>
@@ -6122,17 +6122,17 @@ public static partial class Btl
     /// <summary>0x70de: jumps to 0x00785210; ported in native_mods (script round 21); name from 0x00785210: 0 when [0x01133354] is set, else bit 9 of [0x0113079c]</summary>
     /// <remarks>Native <c>0x70de</c>, <c>Native_70de_GlobalBit9Guarded</c>; 830 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70de)]
-    public static int GlobalBit9Guarded() => throw Atel.Runtime.NotRunnable();
+    public static bool GlobalBit9Guarded() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70df: args (v int) -&gt; 1 when 0x0112a8e0 is set and i16 *(*0x0112a9f0) == v &gt;&gt; 16, else 0; ported in native_btl2 (script round 18); name from 1 when g_BtlStatus (0x0112a8e0) is set and i16 *(*0x0112a9f0) == v &gt;&gt; 16</summary>
     /// <remarks>Native <c>0x70df</c>, <c>Native_70df_BtlCheckSceneField</c>; 17 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70df)]
-    public static int CheckSceneField(int v) => throw Atel.Runtime.NotRunnable();
+    public static bool CheckSceneField(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e0: 1 when the actor can act and its partner (+0xded) has +0xdf1 clear; ported in native_btl/native_move (script round 9); name from 1 when the actor can act and its partner (+0xded) has +0xdf1 clear</summary>
     /// <remarks>Native <c>0x70e0</c>, <c>Native_70e0_ActorPartnerReady</c>; 94 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70e0)]
-    public static int ActorPartnerReady() => throw Atel.Runtime.NotRunnable();
+    public static bool ActorPartnerReady() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e1: () -&gt; 1 when MsGetChr((i8) actor +0xded) +0xdf1 is clear (the 0xff test on the sign-extended byte never matches); ported in native_btl2 (script round 18); name from 1 when MsGetChr(the actor&apos;s +0xded) +0xdf1 is clear</summary>
     /// <remarks>Native <c>0x70e1</c>, <c>Native_70e1_ActorPartnerDf1Clear</c>; 0 calls in the shipped scripts.</remarks>
@@ -6227,7 +6227,7 @@ public static partial class Btl
     /// <summary>0x70f3: (b, a) -&gt; 0x007a8ad0(b, a); ported in native_mods (script round 21); name ours; name from &quot;0x007a8ad0(b, a)&quot; MsRandCheck_007a8ad0</summary>
     /// <remarks>Native <c>0x70f3</c>, <c>Native_70f3_RandCheck</c>; 14 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70f3)]
-    public static int RandCheck(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static bool RandCheck(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70f4: (b, a) -&gt; 0x007a8b40(actor, b, a); ported in native_mods (script round 21); name ours; name from &quot;0x007a8b40(actor, b, a)&quot; MsSetCommandScriptTarget_007a8b40</summary>
     /// <remarks>Native <c>0x70f4</c>, <c>Native_70f4_SetCommandScriptTarget</c>; 0 calls in the shipped scripts.</remarks>
@@ -6292,7 +6292,7 @@ public static partial class Btl
     /// <summary>0x7100: (sel) -&gt; 0x007a8be0(MsGetChrBit(actor, sel, 0, 1)) (0x00794330); ported in native_mods (script round 21); name from 0x007a8be0 = MsAnyChrMotion (MsGetChrBit(actor, sel, 0, 1))</summary>
     /// <remarks>Native <c>0x7100</c>, <c>Native_7100_AnyChrMotion</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7100)]
-    public static int AnyChrMotion(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool AnyChrMotion(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7101: the i8 at 0x0112a905; ported in native_mods (script round 21); name from i8 at 0x0112a905 (g_BtlDebugFull)</summary>
     /// <remarks>Native <c>0x7101</c>, <c>Native_7101_BtlGetDebugFull</c>; 3 calls in the shipped scripts.</remarks>
