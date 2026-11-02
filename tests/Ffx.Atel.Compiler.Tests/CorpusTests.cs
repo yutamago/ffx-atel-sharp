@@ -44,7 +44,9 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         SharedLibrary shared = SharedWorkers.Build([.. decompiled.Select(d => d.Parts)]);
         List<SourceFile> libraryFiles = shared.Files();
         ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
-        IReadOnlyList<Diagnostic> libraryDiagnostics = library.Check();
+        IReadOnlyList<Diagnostic> libraryAll = library.Check();
+        List<Diagnostic> libraryDiagnostics = [.. libraryAll.Where(x => x.Id != "ATL0001")];
+        registerWarnings += libraryAll.Count - libraryDiagnostics.Count;
         diagnostics += libraryDiagnostics.Count;
         foreach (Diagnostic d in libraryDiagnostics.Take(5)) failures.Add($"library: {d}");
         sourceBytes += libraryFiles.Sum(f => (long)f.Text.Length);

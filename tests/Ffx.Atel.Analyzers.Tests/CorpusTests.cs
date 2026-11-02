@@ -23,7 +23,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     public void VanillaSourceHasNoAtlErrors() {
         string? dir = GameData.GameDir();
         if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
-        using VbfArchive archive = GameData.OpenArchive(dir!);
+        using VbfArchive archive = GameData.OpenArchiveExclusive(dir!); // one corpus run on the machine at a time
         List<(string Path, byte[] Bytes)> files = [.. GameData.AllScriptPaths(archive).Select(p => (p, archive.Read(p))).OrderByDescending(f => f.Item2.Length)];
         Stopwatch clock = Stopwatch.StartNew();
         DecompiledScript[] decompiled = new DecompiledScript[files.Count];
