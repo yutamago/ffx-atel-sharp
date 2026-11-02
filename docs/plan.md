@@ -979,7 +979,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   a script compiled whole grows those workers' private data. The linker's
   corpus package now has such a local: 1,598 scripts link and lay
   themselves out again byte for byte; the vanilla round trip is unchanged
-  (no new code).
+  (no new code). In game, the two Larvas of `kami03_02` each kept their own
+  hidden local ([research/loader.md](research/loader.md#hidden-locals-in-private-data-two-larvas)).
 
 ### Phase 10: debug text and runtime packages
 
