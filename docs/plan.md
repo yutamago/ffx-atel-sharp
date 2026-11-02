@@ -928,6 +928,22 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   requests a new entry links onto `m209`, and the linked file decompiles
   to C# without errors and compiles back byte for byte, with workers 0 and
   2 unchanged.
+- **The loader links** (`ModLoader`, in the module constructor as before):
+  it reads Fahrenheit's `mods/loadorder` itself (Fahrenheit publishes its
+  mod list only after the constructors), takes every listed mod with an
+  `atel/` folder as an Atel mod (a file-only Fahrenheit mod: manifest,
+  `mod.toml`, packages; `compile-mod --id` writes the manifest), resolves
+  `requires`/`incompatible`/`after`, links per file and writes the results
+  to its `efl/x`. The report goes to Fahrenheit's log (errors as errors,
+  conflicts and warnings as warnings). The Phase 2 `scripts/*.asm` path
+  stays for development and wins over mods for the same file (reported as
+  a conflict).
+- Not yet checked in game (2026-11-02): the Larva HP postfix links to a
+  56,624-byte `m209.bin` (vanilla 55,280), the same kind of growth the
+  Phase 2 loader test served, but with the code region moved and `+0x30`
+  changed, which no in-game test has covered yet. Open: that check; laying
+  out unchanged workers in place; `Text.New`, per-field data edits and
+  `[Inject]`; private data for new workers.
 
 ## Phases
 

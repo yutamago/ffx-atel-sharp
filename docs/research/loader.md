@@ -52,6 +52,12 @@ source for the same file is skipped with an error. Errors go to the log
 and the game then runs the vanilla script; a failed build never stops the
 game. The `Ffx.Atel.Bytecode` library runs inside the game process as is.
 
+Since Phase 9 the loader also links Atel mods (`ModLoader`,
+[formats/mod-package.md](../formats/mod-package.md)): every mod in
+`mods/loadorder` that has an `atel/` folder, linked in that order onto the
+vanilla files, written to the same `efl/x`. A file the `.asm` path
+rebuilds is left to it. `Ffx.Atel.Linker` runs in the game process too.
+
 ## File sizes
 
 The PS2 file layer sizes a file before reading it, and the buffer and the
