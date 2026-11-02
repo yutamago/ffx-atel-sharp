@@ -43,21 +43,28 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
   `atel export` writes it onto its `generated` branch, merges that into
   `main` (hand edits) and checks with `atel compile-all` that `main` still
   compiles to the game's bytes; see [`docs/source-repo.md`](docs/source-repo.md).
-- The analyzers, linker and SDK are empty so far.
+- The message text in the editor: `atel text export` decodes the player's
+  message tables, per language, beside the decompiled source, and the VS
+  Code extension in `editors/vscode` shows each `Text[n]`'s message as an
+  inlay hint and hover; `atel decompile --text-comments <lang>` writes it
+  as comments instead. Rider is a documented follow-up; see
+  [`docs/editor.md`](docs/editor.md).
+- The linker and SDK are empty so far.
 
 ## Projects
 
 | Project | Does |
 |---|---|
-| `Ffx.Atel.Bytecode` | VBF archives, script files, disassembler and assembler |
+| `Ffx.Atel.Bytecode` | VBF archives, script files, disassembler and assembler; FFX's text encoding and message tables |
 | `Ffx.Atel.Game` | the reference assembly: the game's API for Atel source |
 | `Ffx.Atel.Decompiler` | bytecode to C# |
 | `Ffx.Atel.Compiler` | C# to bytecode, through Roslyn |
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that serves the linked scripts |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, compile-all, roundtrip, export; later link |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, compile-all, roundtrip, export, text export; later link |
 | `Ffx.Atel.Sdk` | the NuGet package mod projects build with |
+| `editors/vscode` | the VS Code extension that shows message text (TypeScript; `npm test`, `npm run package`) |
 
 ## Building
 

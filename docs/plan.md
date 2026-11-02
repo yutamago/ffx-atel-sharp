@@ -587,7 +587,7 @@ replaces and the round trip stays byte for byte.
   `Common.MsgGetText_0236(TextId msg)` take a `TextId`, which the worker's
   `Text` indexer gives (`Common.MsgSetText(0, Text[12]);`) and an `int`
   converts to implicitly (a computed index stays as it is). The compiler reads
-  `Text[n]` as `n`. No editor extension yet.
+  `Text[n]` as `n`. The editor extension came in Phase 8 ([editor.md](editor.md)).
 - Numbers (2026-11-02): enum members placed 97,654 (`Target` 46,697,
   `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
   casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
@@ -906,7 +906,13 @@ count, names placed.
    extension for message text (VS Code, Rider). No grammar, parser or
    language server of our own. Analyzers done 2026-11-02
    ([analyzers.md](analyzers.md)): 21 rules, run by `atel compile --check`;
-   on the vanilla source no errors, ATL0001 136 times.
+   on the vanilla source no errors, ATL0001 136 times. Message text done
+   2026-11-02 ([editor.md](editor.md)): `atel text export` (the player's
+   tables, decoded, as `.atel/text/<lang>/<script>.json`, never committed),
+   the VS Code extension (`editors/vscode`: inlay hint and hover, language
+   setting) and `atel decompile --text-comments <lang>`; all 33,759
+   `Text[n]` are in event scripts. Rider: options written down, a frontend
+   plugin spike is the follow-up.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report.

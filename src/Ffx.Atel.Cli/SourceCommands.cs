@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Bytecode.Text;
 using Ffx.Atel.Bytecode.Vbf;
 using Ffx.Atel.Compiler;
 using Ffx.Atel.Decompiler;
@@ -19,7 +20,8 @@ internal static class SourceCommands {
           decompile <script>... [-o <dir>] to C#: a folder per script, <dir>/<Namespace as folders>/,
                                            with a file per worker, and projects, a solution and
                                            Directory.Build.props (else one file to stdout);
-                                           `all` for every script
+                                           `all` for every script; --text-comments <lang> writes
+                                           // "…" with the message after each Text[n] (comments only)
           compile <dir|file.cs> -o <out> [--library <dir>]
                                            C# back to the script file, from a script's folder (every
                                            .cs under it but obj/, bin/) or one file, with the library
@@ -31,13 +33,16 @@ internal static class SourceCommands {
                                            every script instead of library base classes
         """;
 
-    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share) {
+    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share, GameLanguage? textComments = null) {
         if (args.Count == 0) throw new ArgumentException("decompile <script>... [-o <dir>]");
         List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
             : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
         if (output is null && paths.Count > 1) throw new ArgumentException("more than one script needs -o <dir>");
+        ScriptMessages? messages = textComments is null ? null : new(archive);
+        string Comment(string path, string source) =>
+            messages?.Display(path, textComments!.Value) is { } texts ? TextComments.Comment(source, texts) : source;
         if (output is null) {
-            Console.Out.Write(ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0]))).Source);
+            Console.Out.Write(Comment(paths[0], ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0]))).Source));
             return 0;
         }
         List<(string Path, byte[] Bytes)> files = [.. paths.Select(p => (p, archive.Read(p)))];
@@ -48,6 +53,8 @@ internal static class SourceCommands {
         Parallel.For(0, files.Count, i => {
             List<SourceFile> sources = SourceLayout.Files(library.Scripts[i]);
             sizes[i] = sources.Sum(f => (long)f.Text.Length);
+            // The comments go in after the sizes, which choose the projects: the same layout either way.
+            if (messages is not null) sources = [.. sources.Select(f => f with { Text = Comment(files[i].Path, f.Text) })];
             WriteFiles(output, sources);
         });
         WriteFiles(output, library.Files());
