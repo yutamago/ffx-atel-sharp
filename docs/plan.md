@@ -70,6 +70,19 @@ and moved here when work began.
   or in game.
 - **Inline macros for dialogue come after `Text.New`**, which unblocks
   writing new scenarios.
+- **The dead `if (false)` blocks stay**, in every form of the source,
+  including the Phase 2 branch: they hold code the original compiler kept
+  behind constant conditions (34,806 blocks; alternate versions of scenes,
+  e.g. a per-character sequence in Macalania Woods, `mcfr0100`, with other
+  character entries and `SetLegendAbility` values; dialogue only dead code
+  shows). They are the best lead to hidden and cut content.
+- **Later: find out what each one does and make it switchable at run
+  time.** Each block gets a name (`if (Cut.MacalaniaLegendV1)`) instead of
+  `false` in the source, and a mod can turn a block on through a flag the
+  loader provides (a native in its group, set from a config or a debug UI),
+  so the game runs the hidden variant while vanilla stays as shipped. The
+  vanilla source keeps compiling to the shipped bytes: the flags are names
+  for `false` until a mod links in the switch.
 
 ## What the bytecode says about the original language
 
