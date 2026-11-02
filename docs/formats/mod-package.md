@@ -62,14 +62,17 @@ each vanilla part, so a package never contains game code.
   applies anything of the package.
 - **`variables`**: new variables, by type (0 `u8` … 6 `f32`), storage,
   length and row length. Without `offset` the linker allocates them:
-  storage 4 (shared, the default) or 6 (event). With `offset` they are a
-  fixed location (a save or common variable the mod names).
+  storage 3 (private), 4 (shared, the default) or 6 (event). With `offset`
+  they are a fixed location (a save or common variable the mod names).
 - **`workers`**: new workers with their own entry numbers (entry 0 `Init`,
   1 `Main`, …); the worker's number is given when linking. The mod's helper
   methods are new function workers (type 0, entry 0, named
   `<helper>Class.Method`), after its other new workers.
 - New variables named `<local>…` are the hidden storage of the mod's
-  locals (encoding.md, "Locals"): 4-byte shared variables, zero at start.
+  locals (encoding.md, "Locals"): private arrays of nine `i32`/`f32`, one
+  element per level, zero at start; and of its entries' parameters and
+  results, one `i32`/`f32` each, private when only the entry's own worker
+  requests it, else shared.
 - **`patches`**, on vanilla workers:
 
   | `kind` | Source | Does |
@@ -144,7 +147,8 @@ loader runs it for every file any enabled mod has a package for.
    when they grew, worker headers (new ones, and vanilla ones that sit
    where the larger header table at `+0x38` needs room), entry and label
    tables that grew, the new variables' data (their offsets reach past the
-   vanilla area from the storage's base), and, when any code changed, the
+   vanilla area from the storage's base), grown private data (below), and,
+   when any code changed, the
    whole code region in worker order (`+0x30` points at it, `+0x00` is its
    length); the old code stays as unused bytes. Tables that kept their size
    are rewritten in place. A worker whose code no longer starts at an entry
@@ -152,6 +156,21 @@ loader runs it for every file any enabled mod has a package for.
    jump back, so that every worker starts at an entry as in the shipped
    scripts. The file's later sections shift when the script outgrows its
    section (`ScriptFile.ReplaceScript`).
+
+**Private data.** New storage-3 variables (the hidden locals) form one
+area, in load order. Storage 3 is resolved through the worker that runs
+the code, also inside a function worker it calls
+([script-block.md](script-block.md#private-data-at-run-time)), so every
+worker that is not a function worker and whose code uses one of them (its
+own, or a function worker's it calls, directly or not) gets the whole
+area, at the same offset in each: past the longest vanilla private data
+among those workers, rounded up to 4. Such a worker gets a new private
+block after the block's end, `+0x10` bytes long (rounded up to 16): a
+copy of its vanilla private bytes, then zeros; `+0x2c` points at it and
+`+0x10` is the new length. The vanilla block stays where it was. A
+vanilla worker without private data gets one. In battle the game sizes
+each actor's private buffer from `+0x10` and clears it, so a grown worker
+also gets the room there.
 
 The cost: a linked script grows by its whole code region (about 1 KB for a
 monster, up to tens of KB for an event) plus what the mods add. Laying the

@@ -251,7 +251,9 @@ _ = Larva.DamageAsync(amount: 5, priority: Priority.P3);   // queued; the result
 ```
 
 - ATEL's requests carry only level, worker and entry. Each parameter and the result are **hidden
-  fields of the receiving worker**: variables of the shared data, one per parameter and entry. The
+  fields of the receiving worker**, one per parameter and entry: in the worker's private data when
+  only the worker itself requests the entry, else in the script's shared data (which two monsters of
+  one kind share). The
   request writes the arguments, then requests; the entry reads its parameters as locals (they live
   in their fields, so they survive waits); `return v;` writes the result field before `end`, and
   `await` reads it after the entry has finished.
@@ -343,16 +345,20 @@ The compiler decides where each local lives (docs/plan.md, "Variables": locals s
 - in a **register** no code of the worker names (its `[Register]` fields, and those of the
   function workers it calls) and no other local needs at the same time, when the local never holds
   a value across a wait;
-- in a **hidden variable** otherwise: a 4-byte variable of the script's shared data (storage 4),
-  which only this local uses. A wait is a native that polls, a request, a call of a function worker
-  or of a helper that waits, `Halt()` and the opcodes not understood: while an entry waits, another
-  entry of the same worker may run and change any register.
+- in a **hidden variable** otherwise: a variable of the worker's private data (storage 3) which
+  only this local uses, with a copy for each level the worker runs. A wait is a native that polls, a
+  request, a call of a function worker or of a helper that waits, `Halt()` and the opcodes not
+  understood: while an entry waits, another entry of the same worker may run and change any
+  register.
 
 So a local keeps its value across `Common.WaitFrames(1)` or `await`, unlike a `[Register]` field
-([ATL0001](analyzers.md#atl0001)). In a mod, hidden variables are new variables of the package, which
-the linker places like the mod's own; in a script compiled whole, they go at the end of its shared
-data. The shared data is the script's, not the worker's: a method that runs on two levels of its
-worker at once (requested again while it waits) shares its hidden locals with itself.
+([ATL0001](analyzers.md#atl0001)). Hidden locals belong to one worker and one level: two monsters of
+the same kind in a battle share their script (and its shared data) but not their private data, and a
+method that runs on two levels of its worker at once (requested again at a higher level while it
+waits) has a copy at each. A helper's hidden locals are those of the worker that calls it. In a mod,
+hidden variables are new variables of the package, which the linker places in the private data of the
+workers that run the code; in a script compiled whole, those workers' private data grows
+([encoding.md](encoding.md#locals)).
 
 ## Types and values
 

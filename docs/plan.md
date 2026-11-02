@@ -224,7 +224,11 @@ carries only entry, worker and priority. The compiler provides both:
   order unless pinned. Function and helper parameters also use registers
   (see "Parameters and return values").
 - Locals survive waits, as in C#: where a local is still needed after a
-  wait, the compiler saves and restores it through hidden storage.
+  wait, the compiler saves and restores it through hidden storage: the
+  private data of the worker that runs the code (storage 3), one copy per
+  level (decided 2026-11-02; the shared data is one per script block, which
+  two monsters of one kind share in battle, and one entry can run on two
+  levels of its worker at once; [encoding.md](encoding.md#locals)).
   Decompiled locals that do not cross a wait stay plain locals; registers
   the original kept across a wait become `[Register]` fields.
 - Register fields used across a wait while another entry of the same
@@ -955,6 +959,27 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
   out unchanged workers in place; `Text.New`, per-field data edits and
   `[Inject]`; private data for new workers.
+- **Hidden locals in private data** (2026-11-02). Hidden locals used to be
+  4-byte variables of the shared data (storage 4). FFX.exe
+  ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
+  storage 3 goes through the running worker's work (header `+0x2c`, in
+  battle the ctrl work's `+0x54` callback to the work's own buffer at
+  `+0xb8`, sized by `+0x10`, cleared at set-up); `call` keeps the caller's
+  work; two monsters of one kind share one script block (one shared data)
+  and get a set of works each. So a hidden local is now an array of nine in
+  storage 3, indexed by the level the worker runs (native `0x00eb`, work
+  `+0x32`): `func 0x00eb; pushva v` to read, `func 0x00eb; …; popva v` to
+  write. An entry's parameter and result fields are one plain variable
+  each, private when only the entry's own worker requests it, else still
+  shared (storage 3 is the running worker's, so another worker could not
+  write the entry's copy). The linker allocates new storage-3 variables in
+  one area that every worker running the code (its own or a function
+  worker's it calls) gets past its private data, copying a vanilla private
+  block to the block's end when it grows ([formats/mod-package.md](formats/mod-package.md#linking));
+  a script compiled whole grows those workers' private data. The linker's
+  corpus package now has such a local: 1,598 scripts link and lay
+  themselves out again byte for byte; the vanilla round trip is unchanged
+  (no new code).
 
 ### Phase 10: debug text and runtime packages
 

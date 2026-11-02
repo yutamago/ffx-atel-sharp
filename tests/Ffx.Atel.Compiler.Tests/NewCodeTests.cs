@@ -328,9 +328,108 @@ public sealed class NewCodeTests {
                     Hp = kept + Hp;
             """));
         Assert.Equal(8, vm.Var(Hp).AsInt);
+        // In the worker's private data, one element per level, at the level the worker runs.
         NewVariable hidden = Assert.Single(linked.Mod.Package.Variables);
-        Assert.Equal(5, hidden.Type);
-        Assert.Equal(4, hidden.Storage);
+        Assert.Equal((5, 3, 9, true), (hidden.Type, hidden.Storage, hidden.Length, hidden.Array));
+        Assert.Contains(LevelNative, Funcs(linked.Mod.Package.Patches[0].Code.Bytes));
+        // The linker gave Larva (no private data in vanilla) a private block for it; Fn runs no new code.
+        VarEntry entry = linked.Image.Variables[4];
+        Assert.Equal((3, 0, (ushort)9), (entry.Storage, entry.Offset, entry.Length));
+        Assert.Equal(36u, linked.Image.Workers[0].PrivateLength);
+        Assert.NotNull(linked.Image.Workers[0].Private);
+        Assert.Equal(0u, linked.Image.Workers.Single(w => w.Type == 0).PrivateLength);
+    }
+
+    /// <summary>The native that answers the level a worker runs (<c>GetFieldU832_00856980</c>, work <c>+0x32</c>).</summary>
+    private const ushort LevelNative = 0x00eb;
+
+    /// <summary>The <c>func</c> operands in some code.</summary>
+    private static List<ushort> Funcs(byte[] code) {
+        List<ushort> funcs = [];
+        for (int pc = 0; pc < code.Length;) {
+            byte b = code[pc];
+            if ((b & 0x80) != 0 && (b & 0x7f) == Opcodes.Func) funcs.Add((ushort)(code[pc + 1] | code[pc + 2] << 8));
+            pc += (b & 0x80) != 0 ? 3 : 1;
+        }
+        return funcs;
+    }
+
+    [Fact]
+    public void EachLevelKeepsItsOwnCopyOfAHiddenLocal() {
+        // The same code at level 3 and at level 5 (one interrupting the other while it waits): each
+        // writes and reads its own element.
+        Linked linked = Link(Replaced("""
+                    int kept = Hp + 7;
+                    Common.WaitFrames(1);
+                    Out = kept;
+            """));
+        foreach (int level in new[] { 3, 5 }) {
+            MiniVm vm = new(linked.Image, (id, _) => Value.Int(id == LevelNative ? level : 0));
+            vm.SetVar(Hp, Value.Int(level * 10));
+            vm.Run(0, 1);
+            Assert.Equal(level * 10 + 7, vm.Var(Out).AsInt);
+            Assert.Equal(level * 10 + 7, vm.Var(4, level).AsInt);
+            Assert.Equal(0, vm.Var(4, 0).AsInt);
+        }
+    }
+
+    [Fact]
+    public void AHelpersHiddenLocalsGrowTheWorkersThatCallIt() {
+        // Larva has private data in vanilla: its block is copied (the old one stays), the new area starts
+        // after it. The helper runs on Larva (`call` keeps the caller's work), so Larva grows, Fn does not.
+        string vanilla = Vanilla.Replace("public sealed partial class Larva : Worker2", """
+            [Worker(PrivateLength = 6)]
+            [PrivateData(0x10, "0000: 01020304 0506")]
+            public sealed partial class Larva : Worker2
+            """, StringComparison.Ordinal);
+        Assert.NotEqual(Vanilla, vanilla);
+        const string mod = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M996.M996;
+
+            namespace Monsters.M996;
+
+            public sealed partial class Larva
+            {
+                [Postfix(nameof(Main))]
+                void After() { Out = Slow(Hp); }
+
+                static int Slow(int x)
+                {
+                    int kept = x * 2;
+                    Common.WaitFrames(1);
+                    return kept + 1;
+                }
+            }
+            """;
+        SyntaxTree v = ScriptCompiler.Parse(vanilla, "Monsters/M996/M996.cs");
+        CompiledMod compiled = ScriptCompiler.CompileMod([v], [ScriptCompiler.Parse(mod, "mod/Mod.cs")]);
+        byte[] block = ScriptCompiler.Compile([v]).Block();
+        byte[] file = new byte[0x40 + (block.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(file, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(file.AsSpan(4), 0x40);
+        block.CopyTo(file, 0x40);
+        LinkResult r = ScriptLinker.Link(file, [new ModScript("test", ScriptPackage.FromJson(compiled.Package.ToJson()))]);
+        Assert.True(r.Changed, string.Join("\n", r.Messages));
+        ScriptBlock linked = ScriptFile.Parse(r.File).Script;
+        ScriptImage image = ScriptImage.FromBlock(linked);
+        // The vanilla private block is still there, and copied to Larva's new one.
+        uint oldPrivate = BinaryPrimitives.ReadUInt32LittleEndian(block.AsSpan(ScriptBlock.Parse(block).Workers[0].Header + 0x2c));
+        Assert.Equal(block.AsSpan((int)oldPrivate, 6).ToArray(), linked.Bytes[(int)oldPrivate..((int)oldPrivate + 6)]);
+        WorkerImage larva = image.Workers[0];
+        Assert.NotEqual(oldPrivate, linked.U32(linked.Workers[0].Header + 0x2c));
+        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, larva.Private![..6]);
+        // The helper's kept (live across its wait) is private, from offset 8 (6 rounded up to 4), nine elements each.
+        List<int> hidden = [.. Enumerable.Range(4, image.Variables.Count - 4).Where(i => image.Variables[i].Storage == 3)];
+        Assert.NotEmpty(hidden);
+        Assert.Equal(8, hidden.Min(i => image.Variables[i].Offset));
+        Assert.Equal((uint)(8 + 36 * hidden.Count), larva.PrivateLength);
+        Assert.All(image.Workers.Where(w => w.Type == 0), w => Assert.Equal(0u, w.PrivateLength));
+        // Main sets Hp = 1, then the postfix: Slow(1).
+        MiniVm vm = new(image);
+        vm.Run(0, 1);
+        Assert.Equal(3, vm.Var(Out).AsInt);
     }
 
     [Fact]
@@ -418,7 +517,7 @@ public sealed class NewCodeTests {
     // ----- Without a mod --------------------------------------------------------------------------
 
     [Fact]
-    public void AScriptWithNewCodeGetsItsHiddenVariablesInItsSharedData() {
+    public void AScriptWithNewCodeGetsItsHiddenVariablesInThePrivateDataOfItsWorkers() {
         string source = Vanilla.Replace("""
                     Hp = 1;
                     return;
@@ -431,8 +530,11 @@ public sealed class NewCodeTests {
         Assert.NotEqual(Vanilla, source);
         ScriptImage image = ScriptCompiler.Compile(source, "M996.cs").Image;
         Assert.Equal(5, image.Variables.Count);
-        Assert.Equal((5, 4, 0x40), (image.Variables[4].Type, image.Variables[4].Storage, image.Variables[4].Offset));
-        Assert.Equal(0x44, image.Shared!.Length);
+        Assert.Equal((5, 3, 0, (ushort)9), (image.Variables[4].Type, image.Variables[4].Storage, image.Variables[4].Offset, image.Variables[4].Length));
+        Assert.Equal(0x40, image.Shared!.Length);
+        Assert.Equal(36u, image.Workers[0].PrivateLength);
+        Assert.Equal(48, image.Workers[0].Private!.Length);
+        Assert.Equal(0u, image.Workers[1].PrivateLength);
         MiniVm vm = new(image);
         vm.Run(0, 1);
         Assert.Equal(52, vm.Var(Out).AsInt);
