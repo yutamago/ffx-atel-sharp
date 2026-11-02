@@ -39,6 +39,10 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
   output) onto the player's own file and serves the result through
   Fahrenheit's file loader. Checked in game, including scripts that grow;
   see [`docs/research/loader.md`](docs/research/loader.md).
+- The decompiled corpus lives in the private repo `yutamago/ffx-atel-src`:
+  `atel export` writes it onto its `generated` branch, merges that into
+  `main` (hand edits) and checks with `atel compile-all` that `main` still
+  compiles to the game's bytes; see [`docs/source-repo.md`](docs/source-repo.md).
 - The analyzers, linker and SDK are empty so far.
 
 ## Projects
@@ -52,7 +56,7 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that serves the linked scripts |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, roundtrip; later link |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, compile-all, roundtrip, export; later link |
 | `Ffx.Atel.Sdk` | the NuGet package mod projects build with |
 
 ## Building
