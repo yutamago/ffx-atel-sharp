@@ -15,7 +15,7 @@ internal static class Program {
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
-        """ + "\n" + SourceCommands.Usage + "\n" + """
+        """ + "\n" + SourceCommands.Usage + CompileAllCommand.Usage + ExportCommand.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -45,7 +45,7 @@ internal static class Program {
         args.RemoveAt(0);
         string gameDir = game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>");
         // Whole-corpus commands take the machine-wide corpus lock: one at a time, they each use several GB.
-        bool wholeCorpus = command is "roundtrip" or "survey" || (command == "decompile" && args.Contains("all"));
+        bool wholeCorpus = command is "roundtrip" or "survey" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"));
         using VbfArchive archive = wholeCorpus ? GameData.OpenArchiveExclusive(gameDir) : GameData.OpenArchive(gameDir);
         switch (command) {
             case "list": {
@@ -79,6 +79,13 @@ internal static class Program {
             case "roundtrip": {
                 bool share = !TakeFlag(args, "--no-library");
                 return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"), share);
+            }
+            case "compile-all":
+                return CompileAllCommand.Run(archive, args, TakeFlag(args, "--check"));
+            case "export": {
+                bool merge = !TakeFlag(args, "--no-merge"), compile = !TakeFlag(args, "--no-compile");
+                bool check = TakeFlag(args, "--check"), push = TakeFlag(args, "--push");
+                return ExportCommand.Run(archive, game, args, merge, compile, check, push);
             }
             case "survey":
                 return SurveyCommand.Run(archive, args, output);

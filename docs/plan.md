@@ -899,6 +899,9 @@ count, names placed.
    written only by the tool and a `main` branch for hand edits, merged with
    git; the round-trip check runs locally (it needs the game). Commits as
    Yutamago, no user paths.
+   Done 2026-11-02, see [source-repo.md](source-repo.md): `atel export`
+   (decompile onto `generated`, merge into `main`, check) and `atel
+   compile-all` (every script folder of a tree against the game's files).
 8. **Tooling.** Analyzers and code fixes, the SDK package, the editor
    extension for message text (VS Code, Rider). No grammar, parser or
    language server of our own.
