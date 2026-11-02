@@ -10,7 +10,7 @@ The plan, the language and the phases are in [`docs/plan.md`](docs/plan.md).
 
 ## Status
 
-Phase 4 of the plan, control flow (Phases 0-3 done):
+Phase 5 of the plan, typing and naming (Phases 0-4 done):
 
 - `Ffx.Atel.Bytecode` reads `FFX_Data.vbf`, the event, monster and battle
   files and their script blocks, and disassembles and reassembles them.
@@ -27,6 +27,10 @@ Phase 4 of the plan, control flow (Phases 0-3 done):
   compiles as C# against `Ffx.Atel.Game` without errors or warnings. The
   shape is in [`docs/plan.md`](docs/plan.md), "Phase 2: the source shape",
   "Phase 3: statements" and "Phase 4: control flow".
+- Phase 5 names what the sources say: story progress values as `Story`
+  constants (`if (StoryProgress < Story.S01340_Kami0400)`), save variables
+  after Fahrenheit's save fields (`Save`); see
+  [`docs/plan.md`](docs/plan.md), "Phase 5: typing and naming".
 - `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
   assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`
   output) onto the player's own file and serves the result through

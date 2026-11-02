@@ -227,11 +227,13 @@ carries only entry, worker and priority. The compiler provides both:
 - Types: `int`, `uint`, `short`, `ushort`, `sbyte`, `byte`, `float`,
   `bool`, enums, fixed-size arrays. `long`, `double`, `decimal`, `string`
   (outside `Debug`) are errors.
-- The save game is the predefined `Save` class (`Save.StoryProgress`),
-  from `ffx-rust`'s `docs/formats/save.md` and Fahrenheit's names; unnamed offsets are
-  `Save.Unknown_0123`. Storage 0 starts at `g_SaveData + 0x1ec`
-  (`AtelSetUpCtrlWork`), so `Save` offsets are storage 0 offsets plus
-  `0x1ec`; story progress is storage 0 `0xa00`.
+- The save game is the predefined `Save` class, from `ffx-rust`'s
+  `docs/formats/save.md` and Fahrenheit's names: the storage 0 offset of each
+  known field, which a script's declaration uses
+  (`[Var(Storage.Save, Save.StoryProgress)] public static ushort StoryProgress;`,
+  Phase 5); unnamed offsets are `Save_0123`. Storage 0 starts at
+  `g_SaveData + 0x1ec` (`AtelSetUpCtrlWork`), so save offsets are storage 0
+  offsets plus `0x1ec`; story progress is storage 0 `0xa00`.
 
 ### Readability
 
@@ -245,9 +247,9 @@ carries only entry, worker and priority. The compiler provides both:
 - Float literals need C#'s `f` (`35f`); the decompiler writes them so.
 - Values are typed by use: `Item[] Rewards = { Item.Potion, … }`,
   `Motion.Idle`, `Command.Bite`, `Target.Party | Target.Alive`.
-- Story progress: `Story.S1340_WakkaJoinsParty`, the value zero-padded in
-  the name so alphabetical order is progress order; auto-named from the
-  script that sets each value (`data/story-progress.json`: 432 of the 449
+- Story progress: `Story.S01340_WakkaJoinsParty`, the value zero-padded in
+  the name (five digits: the highest is 11000) so alphabetical order is
+  progress order; auto-named from the script that sets each value (`data/story-progress.json`: 432 of the 449
   values outside the developer maps have exactly one), renamed by hand.
 - Shared behaviour: workers with identical code across scripts (3,525 of
   15,010 are exact copies of another; 7,237 copy another's shape with other
@@ -526,6 +528,41 @@ writes on top of Phase 3:
   the C# check: Roslyn takes about 36 s of it, half of Phase 3's 72 s on the
   same machine (89 s with the check, 17 s without), as structured code gives
   its flow analysis no methods with tens of thousands of labels.
+
+### Phase 5: typing and naming
+
+Started 2026-11-02. Every name has a source: the reference assembly
+(`Ffx.Atel.Game`) holds the names, the decompiler reads them by reflection
+(`Ffx.Atel.Decompiler/Naming`), and the compiler resolves `Type.Member` to the
+constant (`GameConstants`), so a name compiles to exactly the number it
+replaces and the round trip stays byte for byte.
+
+- **Story progress** (`Story`, `src/Ffx.Atel.Game/Story.g.cs`, written by
+  `tools/gen-story.cs` from `data/story-progress.json`): one `int` constant per
+  value a script stores, 509, named `S` + the value in five digits + the
+  scripts that store it, leaving out the developer maps (`test*`, `sample*`)
+  unless only they do, and counting `cn_`, `psv_`, `psvcn_` and other prefixed
+  copies (`200thunder_kami0400`) as their script: `S01340_Kami0400`,
+  `S00055_Bjyt0400_Znkd0500`, `S00562_Bltz0000_Bltz0001_Etc`. Hand names go in
+  `data/story-names.json` (`{ "1340": "WakkaJoinsParty" }`). Constants, not an
+  enum: `StoryProgress` is a `ushort` in the save, and C# compares and assigns
+  `int` constants to it without casts. The decompiler names a constant where
+  the story variable (storage 0 `0xa00`) is compared with it, assigned it, or
+  switched on (`case >= Story.S02400_Nagi0000 and <= Story.S02875_Zkrn0600:`,
+  `goto case`); values no script stores stay numbers.
+- **Save variables** (`Save`, `src/Ffx.Atel.Game/Save.cs`): the storage 0
+  offset of each save field Fahrenheit names (`SaveData`, as listed in
+  ffx-rust's `docs/formats/save.md`) at or after save `+0x1ec`, 65 fields.
+  A script's save variable is named after the field at its offset and placed
+  by the constant (`[Var(Storage.Save, Save.StoryProgress)] public static
+  ushort StoryProgress;`), else `Save_0a4a` by its storage 0 offset; a
+  location declared twice gets `_2`. The variable stays a field of the script
+  class rather than `Save.StoryProgress` in code: scripts declare the same
+  offset with different types and lengths (`0x0000` as a `byte` and as
+  `byte[60]`), and the table order is the declaration order. No names are
+  known for storage 1 (common variables) yet.
+- Numbers (2026-11-02): all 1,621 scripts round-trip; 10,822 story constants
+  placed; 760 save variable declarations named after a field, 2,579 by offset.
 
 ## Toolchain
 

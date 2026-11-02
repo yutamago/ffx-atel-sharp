@@ -111,6 +111,7 @@ internal static class SourceCommands {
             $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
         Console.WriteLine(totals.ToString());
         Console.WriteLine(totals.FlowSummary());
+        Console.WriteLine(totals.NameSummary());
         Console.WriteLine("constructs dropped: " + string.Join(", ", ScriptDecompiler.DroppedReasons.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}")));
         return identical == paths.Count && errors == 0 ? 0 : 1;
     }

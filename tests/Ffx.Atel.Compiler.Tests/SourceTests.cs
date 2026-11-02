@@ -285,6 +285,50 @@ public sealed class SourceTests {
         Assert.Equal(block.Decode(w)[^1].Offset, w.Entries[1]);
     }
 
+    /// <summary>The reference assembly's constants (Phase 5): story values and save offsets compile to their numbers.</summary>
+    [Fact]
+    public void NamedConstantsCompile() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Events.Zz.Zz0000.Zz0000;
+
+            namespace Events.Zz.Zz0000;
+
+            [Event("zz0000")]
+            [Workers(typeof(W00))]
+            public static partial class Zz0000
+            {
+                [Var(Storage.Save, Save.StoryProgress)] public static ushort StoryProgress;
+            }
+
+            public sealed class W00 : Worker1
+            {
+                [Entry(0)]
+                void E0()
+                {
+                    if (StoryProgress < Story.S01340_Kami0400)
+                    {
+                        StoryProgress = Story.S00005_Znkd1400;
+                    }
+                    switch (StoryProgress)
+                    {
+                        case Story.S00006_Znkd1300:
+                            return;
+                    }
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "zz0000.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        ScriptBlock block = ScriptBlock.Parse(ScriptCompiler.Compile([tree]).Block());
+        Assert.Equal(0x0a00, ScriptImage.FromBlock(block).Variables[0].Offset);
+        string text = string.Join("\n", block.Decode(block.Workers[0]).Select(i => Bytecode.Script.Assembly.Render(block, 0, i)));
+        Assert.Contains("pushv v0\npushimm 1340\nlt", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 5\npopv v0", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 6\npushb\neq", text, StringComparison.Ordinal);
+    }
+
     private const string BadSource = """"
         using Ffx.Atel;
 

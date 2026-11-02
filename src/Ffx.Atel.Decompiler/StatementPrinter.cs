@@ -4,6 +4,7 @@ using System.Globalization;
 using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Decompiler.Naming;
 
 namespace Ffx.Atel.Decompiler;
 
@@ -14,7 +15,8 @@ internal enum CType { Bool, Byte, SByte, UShort, Short, Int, Float }
 internal sealed class NotPrintableException(string message) : Exception(message);
 
 /// <summary>A variable as the source declares it.</summary>
-internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength);
+/// <param name="Domain">The named values the variable holds, when known (the story progress: <see cref="GameNames.Story"/>).</param>
+internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength, Domain? Domain = null);
 
 /// <summary>
 ///     Statements as C#, typed so that Roslyn accepts them. ATEL has untyped 32-bit values and no
@@ -34,6 +36,19 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
     /// <summary>Registers the printed statements use: (kind, number) for the integer and float registers.</summary>
     public SortedSet<(RegKind Kind, int Number)> Registers { get; } = [];
 
+    /// <summary>Names placed by domain (<c>story</c>, an enum's name; <c>…-cast</c> for a value without a member), while <see cref="Counting"/>.</summary>
+    public Dictionary<string, int> Names { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Whether to count names: on while the source is written, off while statements are only tried.</summary>
+    public bool Counting { get; set; }
+
+    /// <summary>The domains of the selectors of the switches being written, innermost on top (for <c>goto case</c>).</summary>
+    public Stack<Domain?> Switches { get; } = new();
+
+    private void Count(string what) {
+        if (Counting) Names[what] = Names.GetValueOrDefault(what) + 1;
+    }
+
     /// <param name="Const">The value of a C# constant expression: <c>long</c> for <c>int</c>, <c>float</c>; else null.</param>
     private readonly record struct E(string Text, CType Type, int Prec, object? Const = null);
 
@@ -50,7 +65,7 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
         GotoStmt g => $"goto l{g.Label};",
         BreakStmt => "break;",
         ContinueStmt => "continue;",
-        GotoCaseStmt { Case: int k } => $"goto case {IntText(k)};",
+        GotoCaseStmt { Case: int k } => $"goto case {CaseValue(k, Switches.Count > 0 ? Switches.Peek() : null)};",
         GotoCaseStmt => "goto default;",
         EntryStmt e => $"Entry({e.Entry});",
         // `if (!x) goto` reads back as popa_jz; popa_jnz on a `not` keeps it inside conversions (no code).
@@ -87,18 +102,18 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
     private string Request(RequestStmt r) {
         (string name, int variant) = r.Op switch {
             Opcodes.Op39 => ("RequestParty", 0),
-            >= Opcodes.Req0 and <= Opcodes.ReqE0 => (Names[r.Op - Opcodes.Req0], 0),
-            >= Opcodes.Req1 and <= 0x53 => (Names[(r.Op - Opcodes.Req1) / 5], (r.Op - Opcodes.Req1) % 5 + 1),
+            >= Opcodes.Req0 and <= Opcodes.ReqE0 => (RequestNameList[r.Op - Opcodes.Req0], 0),
+            >= Opcodes.Req1 and <= 0x53 => (RequestNameList[(r.Op - Opcodes.Req1) / 5], (r.Op - Opcodes.Req1) % 5 + 1),
             _ => throw No("not a request"),
         };
         string args = $"{ToInt(Expr(r.Level)).Text}, {ToInt(Expr(r.Worker)).Text}, {ToInt(Expr(r.Entry)).Text}";
         return variant == 0 ? $"{name}({args});" : string.Create(CultureInfo.InvariantCulture, $"{name}({args}, variant: {variant});");
     }
 
-    private static readonly string[] Names = ["Request", "RequestWaitStart", "RequestWaitEnd"];
+    private static readonly string[] RequestNameList = ["Request", "RequestWaitStart", "RequestWaitEnd"];
 
     /// <summary>The C# request methods, by the name the compiler reads: (base opcode of variant 0, base opcode of variants 1-5).</summary>
-    public static IReadOnlyList<string> RequestNames => Names;
+    public static IReadOnlyList<string> RequestNames => RequestNameList;
 
     private (string Text, CType Type) Target(Expr t) => t switch {
         VarExpr v => (vars[v.Var].Name, vars[v.Var].Type),
@@ -119,7 +134,7 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
             && CompoundOperand(b.Op, b.Right, t, cast: false) is E rhs) {
             return $"{target} {Symbol(b.Op)}= {rhs.Text};";
         }
-        E value = Expr(a.Value);
+        E value = a.Value is IntLit lit && DomainOf(a.Target) is Domain d ? Lit(lit.Value, d) : Expr(a.Value);
         // `x = x;` is CS1717 (assignment to the same variable); unary plus is no code.
         if (a.Value == a.Target) value = Plus(value);
         return $"{target} = {ToType(value, t).Text};";
@@ -184,6 +199,34 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
         }
     }
 
+    /// <summary>The domain of the values an expression holds: a variable's.</summary>
+    private Domain? DomainOf(Expr e) => e switch {
+        VarExpr v => vars[v.Var].Domain,
+        ElemExpr x => vars[x.Var].Domain,
+        Elem2Expr x => vars[x.Var].Domain,
+        _ => null,
+    };
+
+    /// <summary>The domain of a switch's selector, for its case labels.</summary>
+    public Domain? SelectorDomain(Expr e) => DomainOf(e);
+
+    /// <summary>
+    ///     A constant of a domain: its member, else for an enum a cast (<c>(Command)1234</c>), else the number.
+    ///     Only <c>int</c> domains (no enum type) may stand where C# wants an <c>int</c>.
+    /// </summary>
+    private E Lit(int v, Domain d) {
+        if (d.Member(v) is string member) {
+            Count(d.Name);
+            return new E(member, CType.Int, PPrimary, (long)v);
+        }
+        if (d.EnumType is null) return Expr(new IntLit(v));
+        Count(d.Name + "-cast");
+        return new E($"({d.EnumType}){(v < 0 ? $"({IntText(v)})" : IntText(v))}", CType.Int, PUnary, (long)v);
+    }
+
+    /// <summary>A case label's value: the domain's member where it has one.</summary>
+    public string CaseValue(int v, Domain? d) => d is null ? IntText(v) : Lit(v, d).Text;
+
     private E Element(Expr e) {
         switch (e) {
             case ElemExpr el: {
@@ -243,6 +286,11 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
             case Opcodes.Eq or Opcodes.Ne when l.Type == CType.Bool && r.Type == CType.Bool:
                 return Make(b.Op, l, r, p, CType.Bool);
             default: {
+                // A comparison of a value of a domain with a constant names the constant (`StoryProgress < Story.S01340_Bjyt0400`).
+                if ((DomainOf(b.Left) ?? DomainOf(b.Right)) is Domain d) {
+                    if (b.Right is IntLit rl) r = Lit(rl.Value, d);
+                    if (b.Left is IntLit ll) l = Lit(ll.Value, d);
+                }
                 // `x == x` is CS1718 (comparison to the same variable); unary plus is no code.
                 if (b.Left == b.Right) r = Plus(r);
                 // Comparisons. A narrow variable against a constant outside its range is CS0652

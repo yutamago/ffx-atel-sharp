@@ -44,6 +44,9 @@ internal sealed class WorkerDecompiler {
 
     public FlowStats Flow { get; } = new();
 
+    /// <summary>Names the written statements placed, by domain (counted while <see cref="WriteMethods"/> runs).</summary>
+    public IReadOnlyDictionary<string, int> Names => _printer.Names;
+
     /// <summary>Why constructs were dropped, over the process: "reason kind" to count.</summary>
     public static System.Collections.Concurrent.ConcurrentDictionary<string, int> Reasons { get; } = new(StringComparer.Ordinal);
 
@@ -530,6 +533,7 @@ internal sealed class WorkerDecompiler {
             });
         }
         TreeWriter writer = new(sb, _printer, _block, _worker, annotate, csharpTargets);
+        _printer.Counting = true;
         for (int m = 0; m < _methods.Count; m++) {
             Method method = _methods[m];
             if (m > 0) sb.Append('\n');
@@ -622,10 +626,12 @@ internal sealed class TreeWriter(StringBuilder sb, StatementPrinter printer, Scr
                 case SwitchStmt sw:
                     sb.Append(pad).Append("switch (").Append(printer.Selector(sw.Selector, sw.Sections.Select(x => x.Label).OfType<CaseLabel>())).Append(")\n");
                     sb.Append(pad).Append("{\n");
+                    printer.Switches.Push(printer.SelectorDomain(sw.Selector));
                     foreach (SwitchSection section in sw.Sections) {
                         sb.Append(pad).Append(Unit).Append(CaseText(section.Label)).Append('\n');
                         Block(section.Body, depth + 2);
                     }
+                    printer.Switches.Pop();
                     sb.Append(pad).Append("}\n");
                     break;
                 default:
@@ -643,13 +649,17 @@ internal sealed class TreeWriter(StringBuilder sb, StatementPrinter printer, Scr
         sb.Append(pad).Append("}\n");
     }
 
-    private static string CaseText(CaseLabel? c) => c switch {
-        null => "default:",
-        { Kind: CaseKind.Equal } => $"case {StatementPrinter.IntText(c.Value)}:",
-        { Kind: CaseKind.Less } => $"case < {StatementPrinter.IntText(c.Value)}:",
-        { Kind: CaseKind.LessOrEqual } => $"case <= {StatementPrinter.IntText(c.Value)}:",
-        { Kind: CaseKind.Greater } => $"case > {StatementPrinter.IntText(c.Value)}:",
-        { Kind: CaseKind.GreaterOrEqual } => $"case >= {StatementPrinter.IntText(c.Value)}:",
-        _ => $"case >= {StatementPrinter.IntText(c.Value)} and <= {StatementPrinter.IntText(c.High)}:",
-    };
+    private string CaseText(CaseLabel? c) {
+        Naming.Domain? d = printer.Switches.Peek();
+        string V(int v) => printer.CaseValue(v, d);
+        return c switch {
+            null => "default:",
+            { Kind: CaseKind.Equal } => $"case {V(c.Value)}:",
+            { Kind: CaseKind.Less } => $"case < {V(c.Value)}:",
+            { Kind: CaseKind.LessOrEqual } => $"case <= {V(c.Value)}:",
+            { Kind: CaseKind.Greater } => $"case > {V(c.Value)}:",
+            { Kind: CaseKind.GreaterOrEqual } => $"case >= {V(c.Value)}:",
+            _ => $"case >= {V(c.Value)} and <= {V(c.High)}:",
+        };
+    }
 }

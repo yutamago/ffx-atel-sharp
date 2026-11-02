@@ -54,6 +54,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
+        output.WriteLine(totals.NameSummary());
         Assert.Empty(failures.Take(20));
         Assert.Equal(1621, identical);
         Assert.Equal(0, totals.AsmInstructions);

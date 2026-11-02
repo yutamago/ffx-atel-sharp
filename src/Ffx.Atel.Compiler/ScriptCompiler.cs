@@ -476,7 +476,7 @@ public static class ScriptCompiler {
     private static IEnumerable<(string Key, object Value)> Named(AttributeSyntax a) =>
         Arguments(a).Where(x => x.NameEquals is not null).Select(x => (x.NameEquals!.Name.Identifier.ValueText, Eval(x.Expression)));
 
-    /// <summary>The value of a constant attribute argument: literals, negation, <c>typeof</c>, enum members.</summary>
+    /// <summary>The value of a constant attribute argument: literals, negation, <c>typeof</c>, the reference assembly's constants (<c>Save.StoryProgress</c>), enum members.</summary>
     private static object Eval(ExpressionSyntax e) => e switch {
         LiteralExpressionSyntax l => l.Token.Value ?? throw CompileException.At(e, "null is not a value here"),
         ParenthesizedExpressionSyntax p => Eval(p.Expression),
@@ -490,6 +490,7 @@ public static class ScriptCompiler {
             SimpleNameSyntax s => s.Identifier.ValueText,
             _ => t.Type.ToString(),
         }),
+        MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: false) is int constant => constant,
         MemberAccessExpressionSyntax m => new EnumMember(m.Name.Identifier.ValueText),
         _ => throw CompileException.At(e, "not a constant the compiler reads (yet)"),
     };

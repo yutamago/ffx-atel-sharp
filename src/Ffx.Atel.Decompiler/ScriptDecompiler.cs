@@ -6,6 +6,7 @@ using System.Text;
 using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Decompiler.Naming;
 
 namespace Ffx.Atel.Decompiler;
 
@@ -47,6 +48,12 @@ public sealed record DecompileStats {
 
     /// <summary>Workers written with gotos only, because the structured form did not give the original back.</summary>
     public int FlatWorkers { get; init; }
+
+    /// <summary>
+    ///     Names placed (Phase 5): constants and casts by domain (<c>story</c>, <c>Command</c>,
+    ///     <c>Command-cast</c>), variables named after the save (<c>save-named</c>, <c>save-unnamed</c>).
+    /// </summary>
+    public IReadOnlyDictionary<string, int> Names { get; init; } = new Dictionary<string, int>();
 }
 
 /// <summary>
@@ -88,7 +95,8 @@ public static class ScriptDecompiler {
         sb.Append(CultureInfo.InvariantCulture, $"namespace {names.Namespace};\n\n");
 
         string[] workerNames = WorkerNames(image.Workers.Count);
-        VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, i))];
+        string[] varNames = VariableNames(image.Variables);
+        VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
@@ -114,21 +122,48 @@ public static class ScriptDecompiler {
             FlatWorkers = workers.Sum(w => w.Flow.FlatWorkers),
         };
 
-        WriteScriptClass(sb, names, image, workerNames, stats.IntPoolPinned, stats.FloatPoolPinned);
+        WriteScriptClass(sb, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
         for (int w = 0; w < image.Workers.Count; w++) {
             sb.Append('\n');
             WriteWorker(sb, image, workers[w], w, workerNames[w]);
         }
         WriteData(sb, names, image);
-        return new DecompiledScript(names, sb.ToString(), stats);
+        Dictionary<string, int> placed = new(StringComparer.Ordinal);
+        foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
+        foreach (VarEntry v in image.Variables.Where(v => v.Storage == 0)) {
+            string k = GameNames.SaveFields.ContainsKey(v.Offset) ? "save-named" : "save-unnamed";
+            placed[k] = placed.GetValueOrDefault(k) + 1;
+        }
+        return new DecompiledScript(names, sb.ToString(), stats with { Names = placed });
     }
 
-    private static VarInfo VarInfoOf(VarEntry v, int index) {
+    private static VarInfo VarInfoOf(VarEntry v, string name) {
         CType type = v.Type switch {
             0 => CType.Byte, 1 => CType.SByte, 2 => CType.UShort, 3 => CType.Short, 5 => CType.Int, 6 => CType.Float,
             _ => CType.Int,
         };
-        return new VarInfo(string.Create(CultureInfo.InvariantCulture, $"V{index}"), type, v.IsArray, v.RowLength);
+        Domain? domain = v.Storage == 0 && v.Offset == GameNames.StoryOffset && !v.IsArray ? GameNames.Story : null;
+        return new VarInfo(name, type, v.IsArray, v.RowLength, domain);
+    }
+
+    /// <summary>
+    ///     The variables' C# names: a save variable (storage 0) by the <see cref="Ffx.Save"/> field at its
+    ///     offset (<c>StoryProgress</c>), else <c>Save_0123</c>; the others <c>V3</c> by table index. A name
+    ///     the table already gave (the same location declared twice) gets <c>_2</c>, <c>_3</c>, ….
+    /// </summary>
+    public static string[] VariableNames(IReadOnlyList<VarEntry> table) {
+        string[] names = new string[table.Count];
+        HashSet<string> taken = new(StringComparer.Ordinal);
+        for (int i = 0; i < table.Count; i++) {
+            VarEntry v = table[i];
+            string name = v.Storage != 0 ? string.Create(CultureInfo.InvariantCulture, $"V{i}")
+                : GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? field
+                : string.Create(CultureInfo.InvariantCulture, $"Save_{v.Offset:x4}");
+            string unique = name;
+            for (int k = 2; !taken.Add(unique); k++) unique = string.Create(CultureInfo.InvariantCulture, $"{name}_{k}");
+            names[i] = unique;
+        }
+        return names;
     }
 
     /// <summary><c>W00</c>, <c>W01</c>, …: as many digits as the highest number needs, at least two.</summary>
@@ -139,7 +174,7 @@ public static class ScriptDecompiler {
 
     // ----- The script class ------------------------------------------------------------------
 
-    private static void WriteScriptClass(StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, bool pinInts, bool pinFloats) {
+    private static void WriteScriptClass(StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, bool pinInts, bool pinFloats) {
         sb.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
         if (workerNames.Length > 0) {
             WriteList(sb, "Workers", workerNames.Select(n => $"typeof({n})").ToList(), 6);
@@ -163,28 +198,30 @@ public static class ScriptDecompiler {
         }
         sb.Append(CultureInfo.InvariantCulture, $"public static partial class {names.ClassName}\n{{\n");
         for (int i = 0; i < image.Variables.Count; i++) {
-            sb.Append(Indent).Append(VarDeclaration(image.Variables[i], i)).Append('\n');
+            sb.Append(Indent).Append(VarDeclaration(image.Variables[i], i, varNames[i])).Append('\n');
         }
         sb.Append("}\n");
     }
 
     /// <summary><c>[Var(Storage.Private, 0x0012)] public static byte[] V3 = new byte[4];</c></summary>
-    private static string VarDeclaration(VarEntry v, int index) {
+    private static string VarDeclaration(VarEntry v, int index, string name) {
         string type = v.Type switch {
             0 => "byte", 1 => "sbyte", 2 => "ushort", 3 => "short", 4 => "uint", 5 => "int", 6 => "float",
             _ => throw new ScriptFormatException($"variable {index} has type {v.Type}, which has no C# type"),
         };
         string storage = ((Storage)v.Storage).ToString();
-        string head = $"[Var(Storage.{storage}, {Hex((uint)v.Offset, 4)})] public static";
+        // A save field is placed by its constant: [Var(Storage.Save, Save.StoryProgress)].
+        string offset = v.Storage == 0 && GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? $"Save.{field}" : Hex((uint)v.Offset, 4);
+        string head = $"[Var(Storage.{storage}, {offset})] public static";
         // Location bit 24 is a variable declared as an array, also of length 1; the row length
         // makes it 2-D (it divides the length in every shipped script).
         if (!v.IsArray) {
             if (v.Length != 1 || v.RowLength != 0) throw new ScriptFormatException($"variable {index} is not an array but has length {v.Length}, row length {v.RowLength}");
-            return string.Create(CultureInfo.InvariantCulture, $"{head} {type} V{index};");
+            return string.Create(CultureInfo.InvariantCulture, $"{head} {type} {name};");
         }
-        if (v.RowLength == 0) return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[] V{index} = new {type}[{v.Length}];");
+        if (v.RowLength == 0) return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[] {name} = new {type}[{v.Length}];");
         if (v.Length % v.RowLength != 0) throw new ScriptFormatException($"variable {index}: row length {v.RowLength} does not divide length {v.Length}");
-        return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[,] V{index} = new {type}[{v.Length / v.RowLength}, {v.RowLength}];");
+        return string.Create(CultureInfo.InvariantCulture, $"{head} {type}[,] {name} = new {type}[{v.Length / v.RowLength}, {v.RowLength}];");
     }
 
     // ----- Workers ---------------------------------------------------------------------------
@@ -279,6 +316,7 @@ public static class ScriptDecompiler {
 public sealed class DecompileTotals {
     private long _scripts, _statements, _asm, _intPins, _floatPins, _intRule, _floatRule, _gotos, _labelPins, _fallbacks, _merged, _flat;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _constructs = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _names = new(StringComparer.Ordinal);
 
     public long Scripts => _scripts;
     public long Statements => _statements;
@@ -298,9 +336,16 @@ public sealed class DecompileTotals {
         Interlocked.Add(ref _merged, s.MergedMethods);
         Interlocked.Add(ref _flat, s.FlatWorkers);
         foreach ((string k, int n) in s.Constructs) _constructs.AddOrUpdate(k, n, (_, v) => v + n);
+        foreach ((string k, int n) in s.Names) _names.AddOrUpdate(k, n, (_, v) => v + n);
     }
 
     public long Gotos => _gotos;
+
+    /// <summary>Names placed over all scripts, by kind (<see cref="DecompileStats.Names"/>).</summary>
+    public IReadOnlyDictionary<string, long> Names => _names;
+
+    /// <summary>The naming numbers: names placed by kind.</summary>
+    public string NameSummary() => "names: " + string.Join(", ", _names.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")));
     public long LabelPins => _labelPins;
     public long FlatWorkers => _flat;
 
