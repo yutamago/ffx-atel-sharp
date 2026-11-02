@@ -177,13 +177,22 @@ public static partial class ScriptCompiler {
         }
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
+        // Helper methods (of the workers and the script class) become function workers after the others.
+        HelperTable helpers = new(mainClass.Identifier.ValueText);
+        AddHelpers(helpers, mainClass.Identifier.ValueText, mainParts, functionWorker: false, registers: false);
+        foreach (string workerName in workerIndex.Keys) {
+            (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts([.. byName[workerName]], library);
+            AddHelpers(helpers, workerName, parts, type == 0);
+        }
+        for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = workerIndex.Count + k;
         List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug);
+            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers);
             compiled.Add(cw);
             image.Workers.Add(cw.Image);
         }
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workerIndex, entryMethods, links: null, debug: debug);
         // New code's locals: registers where free, else hidden variables at the end of the shared data.
         int Hide(Slot slot) {
             if (image.Shared is null) throw new CompileException($"local {slot.Name} needs hidden storage, and the script has no shared data (storage 4)");
@@ -193,10 +202,17 @@ public static partial class ScriptCompiler {
             return image.Variables.Count - 1;
         }
         RegisterSet[] reach = Reach([.. compiled.Select(c => (c.Declared, CallsIn(c.Emitter.Items)))]);
+        RegisterSet WorkerRegisters(int w) => w < compiled.Count ? reach[w] | (compiled[w].Image.Type == 0 ? RegisterSet.All : RegisterSet.None) : RegisterSet.All;
+        PlaceHelpers(helpers, WorkerRegisters, Hide);
         for (int w = 0; w < compiled.Count; w++) {
             CompiledWorker cw = compiled[w];
-            PlaceSlots(cw.Emitter, reach[w] | (cw.Image.Type == 0 ? RegisterSet.All : RegisterSet.None), Hide);
+            PlaceSlots(cw.Emitter, WorkerRegisters(w), Hide, c => helpers.ByWorker(c)?.Waits ?? true, callClobbers: c => helpers.ByWorker(c)?.Total ?? WorkerRegisters(c));
             workers.Add((cw.Image, ItemsOf(cw.Emitter), $"worker {w} ({workerIndex.First(x => x.Value == w).Key})", cw.Where));
+        }
+        foreach (Helper h in helpers.All) {
+            WorkerImage wi = new() { Type = 0 };
+            image.Workers.Add(wi);
+            workers.Add((wi, ItemsOf(h.Emitter!), $"helper {h.Name}", h.Method.Identifier.GetLocation()));
         }
 
         // The constant pools: pinned, or by the rules (docs/corpus.md); then the code.
@@ -336,18 +352,22 @@ public static partial class ScriptCompiler {
     }
 
     /// <summary>Places the slots of an emitter's code (<see cref="SlotAllocator"/>).</summary>
-    private static SlotAllocator.Placed PlaceSlots(FlowEmitter emitter, RegisterSet forbidden, Func<Slot, int> hide, Func<int, bool>? callWaits = null, IReadOnlyList<Slot>? parameters = null) =>
+    private static SlotAllocator.Placed PlaceSlots(
+        FlowEmitter emitter, RegisterSet forbidden, Func<Slot, int> hide, Func<int, bool>? callWaits = null, IReadOnlyList<Slot>? parameters = null,
+        Func<int, RegisterSet>? callClobbers = null) =>
         SlotAllocator.Place(emitter.Items, new SlotContext {
             Forbidden = forbidden,
             NativeWaits = id => Natives[id]?.Polls ?? true,
             CallWaits = callWaits ?? (_ => true),
+            CallClobbers = callClobbers ?? (_ => RegisterSet.All),
             Hide = hide,
             Parameters = parameters ?? [],
         });
 
     private static CompiledWorker Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
-        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null) {
+        IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
+        string? name = null, int number = -1, HelperTable? helpers = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -370,6 +390,7 @@ public static partial class ScriptCompiler {
         RegisterSet declared = RegisterSet.Of(registers.Values);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
+            Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass,
         };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The
@@ -379,7 +400,8 @@ public static partial class ScriptCompiler {
         try {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
-                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
+                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only (for now)");
+                if (helpers?.Contains(method) == true) continue;
                 where = method.Identifier.GetLocation();
                 List<AttributeSyntax> attributes = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
                 List<int> entries = EntriesOf(method, wi.Type == 0);
@@ -391,7 +413,7 @@ public static partial class ScriptCompiler {
                         default: throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
                     }
                 }
-                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry] (or an Init or Main override, or Run in a function worker)");
+                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "an async method without [Entry] (or an Init or Main override, or Run in a function worker)");
                 if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
                 List<Stmt> body = reader.Block(method.Body.Statements);
                 emitter.BeginMethod(pin);
@@ -403,6 +425,7 @@ public static partial class ScriptCompiler {
         catch (FlowException ex) {
             throw CompileException.At(ex.Tag as Location ?? where, ex.Message);
         }
+        foreach (Helper h in reader.Called) h.CalledBy.Add(number);
         return new CompiledWorker(wi, emitter, declared, parts[0].Identifier.GetLocation());
     }
 

@@ -65,12 +65,16 @@ each vanilla part, so a package never contains game code.
   storage 4 (shared, the default) or 6 (event). With `offset` they are a
   fixed location (a save or common variable the mod names).
 - **`workers`**: new workers with their own entry numbers (entry 0 `Init`,
-  1 `Main`, …); the worker's number is given when linking.
+  1 `Main`, …); the worker's number is given when linking. The mod's helper
+  methods are new function workers (type 0, entry 0, named
+  `<helper>Class.Method`), after its other new workers.
+- New variables named `<local>…` are the hidden storage of the mod's
+  locals (encoding.md, "Locals"): 4-byte shared variables, zero at start.
 - **`patches`**, on vanilla workers:
 
   | `kind` | Source | Does |
   |---|---|---|
-  | `entry` | a method without an attribute | a new entry; it gets the next free number |
+  | `entry` | an `async` method without an attribute | a new entry; it gets the next free number |
   | `replace` | `[Replace(nameof(E3))]` | replaces the method's code |
   | `prefix` | `[Prefix(nameof(Init))]` | runs before it; `return;` ends the entry, so the method does not run (as Harmony's `return false`) |
   | `postfix` | `[Postfix(nameof(Init))]` | runs after it, wherever it ends the entry |

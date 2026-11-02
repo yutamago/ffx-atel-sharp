@@ -151,9 +151,48 @@ Function workers stay classes deriving from `Worker0`, not `static class`es as t
 a static class cannot derive, and the type, the `Worker` helpers and library classes all need the
 base class.
 
-**Helper methods** (a plain method that the compiler would turn into a hidden function worker) are
-**planned**. Today a method call that is not a native, a request, `Run()` or one of the `Worker`
-members below is a compile error ("no ATEL call").
+### Helper methods
+
+**Available.** A plain method (no attribute, not `async`, not an `override`, not a function worker's
+`Run`) of a worker or of the script class is a helper: the compiler makes it a hidden function worker
+and runs it with `call`, synchronously, on the caller's worker.
+
+```csharp
+public sealed partial class Larva
+{
+    [Postfix(nameof(Init))]
+    void Tougher() { Btl.SetActorProperty(0, Scaled(1234, 3)); }
+
+    static int Scaled(int hp, int percent) => hp + hp * percent / 100;
+
+    void Count() { Turns++; }
+}
+
+public static partial class M209
+{
+    public static int Turns;
+    public static int Twice(int x) { return x * 2; }   // callable as Twice(…) from every worker
+}
+```
+
+- Called as `Scaled(…)` from its own class, `Larva.Scaled(…)` from elsewhere, and a script class
+  helper as `Twice(…)` from any file (the `using static` line) or `M209.Twice(…)`. Static or not
+  makes no difference; there is one instance of each worker.
+- **Parameters and the result** (`int`, `float`, `bool`, enums) are locals of the helper: the caller
+  evaluates every argument, writes the parameters, calls, and copies the result. They live in
+  registers the callers' workers leave free, else in hidden variables, like any local (plan,
+  "Parameters and return values"). Named arguments work; `ref`, `out`, `params` and default values do
+  not (yet).
+- A block body or an expression body (`=> x * 2`); `return value;` anywhere.
+- A helper may call natives, request entries, wait, and call other helpers and function workers. A
+  helper that waits makes its callers keep their locals across the call in hidden storage.
+- At most 3 calls deep counting from an entry, and no recursion: compile errors, as
+  [ATL3001](analyzers.md#atl3001) and [ATL3002](analyzers.md#atl3002) report in the IDE.
+- Its code runs with the caller's registers, so a helper of a worker may use that worker's
+  `[Register]` fields.
+
+Any other method call (not a native, a request, a helper, `Run()` or a `Worker` member) is a compile
+error ("no ATEL call").
 
 ## Requests
 
@@ -269,9 +308,9 @@ The compiler decides where each local lives (docs/plan.md, "Variables": locals s
   function workers it calls) and no other local needs at the same time, when the local never holds
   a value across a wait;
 - in a **hidden variable** otherwise: a 4-byte variable of the script's shared data (storage 4),
-  which only this local uses. A wait is a native that polls, a request, a `call` (the function might
-  wait), `Halt()` and the opcodes not understood: while an entry waits, another entry of the same
-  worker may run and change any register.
+  which only this local uses. A wait is a native that polls, a request, a call of a function worker
+  or of a helper that waits, `Halt()` and the opcodes not understood: while an entry waits, another
+  entry of the same worker may run and change any register.
 
 So a local keeps its value across `Common.WaitFrames(1)` or `await`, unlike a `[Register]` field
 ([ATL0001](analyzers.md#atl0001)). In a mod, hidden variables are new variables of the package, which
@@ -364,8 +403,7 @@ Operands are evaluated left to right, as in C#, also where a later one needs sta
 temporaries first. How each of these lowers is in [encoding.md](encoding.md#new-code).
 
 **Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): entries
-with parameters or return values, helper methods, `foreach`, an assignment used as a value
-(`a = b = 0`).
+with parameters or return values, `foreach`, an assignment used as a value (`a = b = 0`).
 
 **Not Atel at all** (analyzer errors, [analyzers.md](analyzers.md)): `new` for objects and local
 arrays (ATL1001), `string` (ATL1002), the .NET base library (ATL1003), collections (ATL1004),
@@ -513,7 +551,8 @@ public sealed partial class Helper : Worker2  // a new worker
 | `[Prefix(nameof(M))]` | runs before vanilla method `M`; `return;` ends the entry, so `M` does not run |
 | `[Postfix(nameof(M))]` | runs after `M`, wherever `M` ends the entry |
 | `[Replace(nameof(M))]` | runs instead of `M` |
-| a method without attribute | a new entry; its number is given when linking |
+| an `async` method without attribute | a new entry; its number is given when linking |
+| a plain method without attribute | a helper (above): a new function worker of the mod |
 | a new class deriving from `Worker0` … `Worker6` | a new worker |
 | `[Register(n)]` fields | name registers, as in vanilla |
 
