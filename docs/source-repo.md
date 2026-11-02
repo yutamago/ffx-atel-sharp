@@ -13,7 +13,7 @@ This repo holds only the tool that writes it (`atel export`) and the check
 | Branch | Written by | Holds |
 |---|---|---|
 | `generated` | `atel export` only | `atel decompile all`, one commit per export, the whole tree replaced (files the decompiler no longer writes disappear) |
-| `main` | people, and `atel export`'s merge | `generated` merged in, plus hand edits: names, comments, reorganised code |
+| `main` | people, and `atel export`'s merge | `generated` merged in, plus hand edits: comments, reorganised code (names go into ffx-atel-sharp's `data/names/`, see "Names") |
 
 A `generated` commit's message names what it was made from, without paths
 or machine names:
@@ -34,6 +34,79 @@ Author and committer are the source repo's git identity (`user.name`,
 `user.email`; Yutamago and the GitHub noreply address there). Git merges hand
 edits with each new decompile as with any other branch.
 
+## Names
+
+Renaming a worker, an entry or a variable by hand on `main` would conflict with
+every later decompile that touches the same lines, so names live in an
+**overlay** that the decompiler applies (plan, "Decisions", 2026-11-02, changed
+2026-11-03): one file per script under **this repo's** `data/names/`. They are
+our own names keyed by numbers, with no game code or text, so they belong here,
+and the decompiler names the same wherever it runs (`atel decompile`, `atel
+export`, the SDK's vanilla source).
+
+```
+data/names/events/kami0000.toml
+data/names/monsters/m209.toml
+data/names/battles/kino00_00.toml
+```
+
+The folder is the script's category (`events`, `monsters`, `battles`), the
+file its name in the game (`atel list`). The format is a small subset of TOML:
+`#` comments, three sections, `key = "Name"` lines.
+
+```toml
+# kami0000
+
+[workers]
+18 = "LightningTowers"          # W18, by its number in [Workers]
+
+[entries]
+"18.2" = "StrikeNearPlayer"     # W18's entry 2
+
+[variables]
+"Event:0x0012" = "DodgeCount"   # [Var(Storage.Event, 0x0012)]
+"Save:0x0a4a" = "ThunderFlags"  # also save variables
+```
+
+Every key is something the bytes keep from one decompile to the next, never a
+name the decompiler made up:
+
+- **Workers** by number: the class is renamed everywhere the script names it
+  (`[Workers]`, the files, requests `LightningTowers.E5Async()`, `W18.Run()`).
+  Its other workers keep their names, also those numbered because they share a
+  model (`Kimahri_02`, `Kimahri_19`). A name may not be one the reference
+  assembly or the script already uses, nor another worker's default name
+  (`W03`).
+- **Entries** by worker and entry number: the method that starts with the
+  entry is renamed, `StrikeNearPlayer()`, or `StrikeNearPlayerAsync()` when
+  other workers request it (write the name with or without `Async`; the
+  requests are renamed too). `Init`, `Main` and a function worker's `Run`
+  keep their names, as do entries that share a method with a lower one
+  (`[Entry(2)][Entry(3)]`: name entry 2).
+- **Variables** by storage and offset, as in their `[Var(Storage.X, offset)]`
+  (the storage by its name or number, the offset in hex or decimal). A script
+  that declares the same location twice gets the name and `Name_2`.
+
+A name must be a C# identifier. A key the script does not have, or a name
+given twice, stops the decompile with the file and the line. None of it
+changes what the source compiles to: the attributes keep the numbers.
+
+Renaming an entry changes the text of a worker's body, so a worker whose body
+was shared with identical workers elsewhere (`: Shared0123`) then keeps its
+own copy, with the new name; the library numbering of the others may shift by
+one at the next export.
+
+The files are embedded in the decompiler when it is built, so a change to
+`data/names/` takes effect with the next build: commit it here (a PR, as any
+change), build, then `atel export` the source repo. Check it first with
+`atel roundtrip <script> --check`. `atel decompile` and `atel roundtrip` take
+`--names <dir>` to use another folder laid out the same way instead (to try
+names without rebuilding).
+
+Story progress values are not in the overlay: they are constants of the
+reference assembly (`Story.S01340_Kami0400`), and their hand names go into
+`data/story-names.json`, next to `data/names/`.
+
 ## Commands
 
 From a build of this repo (`dotnet build -c Release src/Ffx.Atel.Cli`; the
@@ -53,7 +126,8 @@ set:
 - **`atel export <repo> [--no-merge] [--no-compile] [--check] [--push]`**,
   with `<repo>` a clean checkout of the source repo on `main`:
   1. hashes `FFX_Data.vbf` and `FFX.exe` (SHA-256) while it decompiles every
-     script into `<repo>/.git/atel-export/` and writes the README;
+     script into `<repo>/.git/atel-export/` (with this repo's `data/names/`
+     applied) and writes the README;
   2. refuses to go on if any file names the user's home folder or the
      machine name;
   3. commits that tree onto `generated` through a separate index (`git add
@@ -86,8 +160,10 @@ A conflict means the new output changed lines that were edited by hand.
 Resolve them (keep the hand edit, adapted to the new output), `git commit`,
 `atel compile-all .`, `git push origin main generated`.
 
-**Hand edits on `main`** (rename a worker, a variable, add a comment): edit,
-then
+**Renames** go into this repo's `data/names/` (see "Names"): merge them
+here, build, then `atel export . --push`.
+
+**Other hand edits on `main`** (a comment, reorganised code): edit, then
 
 ```bash
 atel compile-all . Events/Bj             # the scripts you touched

@@ -26,7 +26,7 @@ internal static class Program {
             return Run(args);
         }
         catch (Exception ex) when (ex is ScriptFormatException or AssemblyException or IOException or InvalidDataException or UsageException
-                                       or ArgumentException or Compiler.CompileException) {
+                                       or ArgumentException or FormatException or Compiler.CompileException) {
             Console.Error.WriteLine($"atel: {ex.Message}");
             return 1;
         }
@@ -75,7 +75,8 @@ internal static class Program {
             case "decompile": {
                 string? comments = TakeOption(args, "--text-comments");
                 GameLanguage? language = comments is null ? null : TextCommand.ParseLanguage(comments);
-                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"), ProjectOptions(args), language);
+                string? names = TakeOption(args, "--names");
+                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"), ProjectOptions(args), language, names);
             }
             case "text":
                 return TextCommand.Run(archive, args, output);
@@ -85,7 +86,8 @@ internal static class Program {
             }
             case "roundtrip": {
                 bool share = !TakeFlag(args, "--no-library");
-                return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"), share);
+                string? names = TakeOption(args, "--names");
+                return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"), share, names);
             }
             case "compile-all":
                 return CompileAllCommand.Run(archive, args, TakeFlag(args, "--check"));
