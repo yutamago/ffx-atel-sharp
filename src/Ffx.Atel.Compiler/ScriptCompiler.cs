@@ -324,7 +324,14 @@ public static class ScriptCompiler {
                         default: throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
                     }
                 }
-                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry]");
+                // The engine's entries as overrides of the base class: Init is entry 0, Main entry 1.
+                if (entries.Count == 0 && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
+                    switch (method.Identifier.ValueText) {
+                        case "Init": entries.Add(0); break;
+                        case "Main": entries.Add(1); break;
+                    }
+                }
+                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry] (or an Init or Main override)");
                 if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
                 List<Stmt> body = reader.Block(method.Body.Statements);
                 emitter.BeginMethod(pin);

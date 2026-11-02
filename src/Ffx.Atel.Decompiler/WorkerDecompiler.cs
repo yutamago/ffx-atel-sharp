@@ -44,6 +44,9 @@ internal sealed class WorkerDecompiler {
 
     public FlowStats Flow { get; } = new();
 
+    /// <summary>Methods written as <c>Init</c> or <c>Main</c> overrides (entries 0 and 1).</summary>
+    public int Overrides { get; private set; }
+
     /// <summary>Names the written statements placed, by domain (counted while <see cref="WriteMethods"/> runs).</summary>
     public IReadOnlyDictionary<string, int> Names => _printer.Names;
 
@@ -538,8 +541,16 @@ internal sealed class WorkerDecompiler {
             Method method = _methods[m];
             if (m > 0) sb.Append('\n');
             if (method.Pin is not null) sb.Append(Indent).Append("[Labels(").Append(string.Join(", ", method.Pin.Select(n => n.ToString(CultureInfo.InvariantCulture)))).Append(")]\n");
-            sb.Append(Indent).Append(string.Join("", method.Entries.Select(n => string.Create(CultureInfo.InvariantCulture, $"[Entry({n})]")))).Append('\n');
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"void E{method.Entries[0]}()\n");
+            // The engine's entries 0 and 1 are the base class's Init and Main, where a method holds only that one.
+            string? engine = _functionWorker ? null : method.Entries switch { [0] => "Init", [1] => "Main", _ => null };
+            if (engine is not null) {
+                Overrides++;
+                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"protected override void {engine}()\n");
+            }
+            else {
+                sb.Append(Indent).Append(string.Join("", method.Entries.Select(n => string.Create(CultureInfo.InvariantCulture, $"[Entry({n})]")))).Append('\n');
+                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"void E{method.Entries[0]}()\n");
+            }
             sb.Append(Indent).Append("{\n");
             writer.Block(method.Body, 2);
             sb.Append(Indent).Append("}\n");

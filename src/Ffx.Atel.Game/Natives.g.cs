@@ -17,7 +17,7 @@ public static partial class Common
     /// <summary>0x0001: args (chr id) -&gt; 0; releases the old one, loads the model (FUN_00872210 -&gt; 0x00825650), worker+0x9c = model, +0xa8 = id, +0xaa = 1, placed at the worker position (FUN_00870b20); ids 1-7 party, 0x5002 NPCs</summary>
     /// <remarks>Native <c>0x0001</c>, <c>Native_SetModel</c>; 5690 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0001)]
-    public static int SetModel(int chrId) => throw Atel.Runtime.NotRunnable();
+    public static int SetModel(Model model) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0002: args (kind 0-3, slot 0-2, unused) -&gt; 0; ?camera controller FUN_007ba780 (0x01136f88.. tables, 0x007bd110), kind 0 -&gt; 1 for the player worker; +0xaa = 2, kind 1 sets +0x36 0x10; scripts &quot;1, 0, 0&quot; at e0; ported in native_move (script round 11)</summary>
     /// <remarks>Native <c>0x0002</c>, <c>Native_AttachCamera</c>; 2330 calls in the shipped scripts.</remarks>
@@ -1552,7 +1552,7 @@ public static partial class Common
     /// <summary>0x0134 (chr id): tail call to Native_ChrLoad 0x0085d000</summary>
     /// <remarks>Native <c>0x0134</c>, <c>Native_ChrLoadAlias</c>; 7580 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0134)]
-    public static int ChrLoadAlias(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ChrLoadAlias(Model model) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0135: jumps to 0x00784e80; ported in native_move (script round 11); name from &quot;jumps to 0x00784e80&quot; = MsGetGIL</summary>
     /// <remarks>Native <c>0x0135</c>, <c>Native_0135_GetGil</c>; 20 calls in the shipped scripts.</remarks>

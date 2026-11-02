@@ -44,8 +44,9 @@
       },
       "args": [
         {
-          "name": "chrId",
-          "kind": "int"
+          "name": "model",
+          "kind": "int",
+          "type": "Model"
         }
       ],
       "result": "int",
@@ -8753,8 +8754,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "model",
+          "kind": "int",
+          "type": "Model"
         }
       ],
       "result": "int",

@@ -2971,3 +2971,1793 @@ public enum BattleMotion
     /// <summary><c>MOT_SP7_07</c></summary>
     Sp7_07 = 0x00ef,
 }
+
+/// <summary>A character model (<c>Common.SetModel</c>): party members (<c>pc.ath</c>, 1-), monsters (<c>0x1000</c>-), NPCs (<c>0x2000</c>-), summons (<c>0x3000</c>-), weapons (<c>0x4000</c>-), objects (<c>0x5000</c>-), skeletons (<c>0x6000</c>-). One member per value: the <c>chr_</c> name where the header gives one, else the file code (<c>w001</c>).</summary>
+/// <remarks>From <c>pc.ath</c> (Fahrenheit's <c>PcModelId</c>), <c>mon.ath</c> (Fahrenheit's <c>MonsterId</c>), <c>npc.ath</c> (Fahrenheit's <c>NpcId</c>), <c>sum.ath</c> (Fahrenheit's <c>SummonId</c>), <c>wep.ath</c> (Fahrenheit's <c>WeaponId</c>), <c>obj.ath</c> (Fahrenheit's <c>ObjectId</c>), <c>skl.ath</c> (Fahrenheit's <c>SkeletonId</c>).</remarks>
+public enum Model
+{
+    /// <summary><c>chr_tidu</c></summary>
+    Tidu = 0x0001,
+    /// <summary><c>chr_yuna</c></summary>
+    Yuna = 0x0002,
+    /// <summary><c>chr_auro</c></summary>
+    Auro = 0x0003,
+    /// <summary><c>chr_kima</c></summary>
+    Kima = 0x0004,
+    /// <summary><c>chr_wakk</c></summary>
+    Wakk = 0x0005,
+    /// <summary><c>chr_lulu</c></summary>
+    Lulu = 0x0006,
+    /// <summary><c>chr_rikk</c></summary>
+    Rikk = 0x0007,
+    /// <summary><c>chr_seym</c></summary>
+    Seym = 0x0008,
+    /// <summary><c>chr_rikk_a</c></summary>
+    RikkA = 0x0029,
+    /// <summary><c>chr_yuna_b</c></summary>
+    YunaB = 0x002b,
+    /// <summary><c>chr_seym_b</c></summary>
+    SeymB = 0x002c,
+    /// <summary><c>chr_auro_y</c></summary>
+    AuroY = 0x002d,
+    /// <summary><c>chr_wakk_d</c></summary>
+    WakkD = 0x002e,
+    /// <summary><c>chr_rikk_la</c></summary>
+    RikkLa = 0x0033,
+    /// <summary><c>chr_tidu_h</c></summary>
+    TiduH = 0x0065,
+    /// <summary><c>chr_yuna_h</c></summary>
+    YunaH = 0x0066,
+    /// <summary><c>chr_auro_h</c></summary>
+    AuroH = 0x0067,
+    /// <summary><c>chr_kima_h</c></summary>
+    KimaH = 0x0068,
+    /// <summary><c>chr_wakk_h</c></summary>
+    WakkH = 0x0069,
+    /// <summary><c>chr_lulu_h</c></summary>
+    LuluH = 0x006a,
+    /// <summary><c>chr_rikk_h</c></summary>
+    RikkH = 0x006b,
+    /// <summary><c>chr_seym_h</c></summary>
+    SeymH = 0x006c,
+    /// <summary><c>chr_yuna_hb</c></summary>
+    YunaHb = 0x0079,
+    /// <summary><c>chr_seym_hb</c></summary>
+    SeymHb = 0x007a,
+    /// <summary><c>c901</c></summary>
+    C901 = 0x0385,
+    /// <summary><c>c902</c></summary>
+    C902 = 0x0386,
+    /// <summary><c>c903</c></summary>
+    C903 = 0x0387,
+    /// <summary><c>c904</c></summary>
+    C904 = 0x0388,
+    /// <summary><c>c905</c></summary>
+    C905 = 0x0389,
+    /// <summary><c>c906</c></summary>
+    C906 = 0x038a,
+    /// <summary><c>c907</c></summary>
+    C907 = 0x038b,
+    /// <summary><c>c908</c></summary>
+    C908 = 0x038c,
+    /// <summary><c>c921</c></summary>
+    C921 = 0x0399,
+    /// <summary><c>c922</c></summary>
+    C922 = 0x039a,
+    /// <summary><c>c999</c></summary>
+    C999 = 0x03e7,
+    /// <summary><c>chr_dummy</c></summary>
+    Dummy = 0x1000,
+    /// <summary><c>chr_koura_01</c></summary>
+    Koura01 = 0x1001,
+    /// <summary><c>chr_koura_02</c></summary>
+    Koura02 = 0x1002,
+    /// <summary><c>chr_koura_03</c></summary>
+    Koura03 = 0x1003,
+    /// <summary><c>chr_koura_04</c></summary>
+    Koura04 = 0x1004,
+    /// <summary><c>chr_koura_05</c></summary>
+    Koura05 = 0x1005,
+    /// <summary><c>chr_garuki_01</c></summary>
+    Garuki01 = 0x1006,
+    /// <summary><c>chr_garuki_02</c></summary>
+    Garuki02 = 0x1007,
+    /// <summary><c>chr_garuki_03</c></summary>
+    Garuki03 = 0x1008,
+    /// <summary><c>chr_wolf_01</c></summary>
+    Wolf01 = 0x1009,
+    /// <summary><c>chr_wolf_02</c></summary>
+    Wolf02 = 0x100a,
+    /// <summary><c>chr_wolf_03</c></summary>
+    Wolf03 = 0x100b,
+    /// <summary><c>chr_wolf_04</c></summary>
+    Wolf04 = 0x100c,
+    /// <summary><c>chr_wolf_05</c></summary>
+    Wolf05 = 0x100d,
+    /// <summary><c>chr_wolf_06</c></summary>
+    Wolf06 = 0x100e,
+    /// <summary><c>chr_wolf_07</c></summary>
+    Wolf07 = 0x100f,
+    /// <summary><c>chr_pudding_01</c></summary>
+    Pudding01 = 0x1010,
+    /// <summary><c>chr_pudding_02</c></summary>
+    Pudding02 = 0x1011,
+    /// <summary><c>chr_pudding_03</c></summary>
+    Pudding03 = 0x1012,
+    /// <summary><c>chr_pudding_04</c></summary>
+    Pudding04 = 0x1013,
+    /// <summary><c>chr_pudding_05</c></summary>
+    Pudding05 = 0x1014,
+    /// <summary><c>chr_pudding_06</c></summary>
+    Pudding06 = 0x1015,
+    /// <summary><c>chr_lizard_01</c></summary>
+    Lizard01 = 0x1016,
+    /// <summary><c>chr_lizard_02</c></summary>
+    Lizard02 = 0x1017,
+    /// <summary><c>chr_lizard_03</c></summary>
+    Lizard03 = 0x1018,
+    /// <summary><c>chr_lizard_04</c></summary>
+    Lizard04 = 0x1019,
+    /// <summary><c>chr_lizard_05</c></summary>
+    Lizard05 = 0x101a,
+    /// <summary><c>chr_lizard_06</c></summary>
+    Lizard06 = 0x101b,
+    /// <summary><c>chr_bird_01</c></summary>
+    Bird01 = 0x101c,
+    /// <summary><c>chr_bird_02</c></summary>
+    Bird02 = 0x101d,
+    /// <summary><c>chr_bird_03</c></summary>
+    Bird03 = 0x101e,
+    /// <summary><c>chr_insect_01</c></summary>
+    Insect01 = 0x101f,
+    /// <summary><c>chr_insect_02</c></summary>
+    Insect02 = 0x1020,
+    /// <summary><c>chr_insect_03</c></summary>
+    Insect03 = 0x1021,
+    /// <summary><c>chr_insect_04</c></summary>
+    Insect04 = 0x1022,
+    /// <summary><c>chr_ariman_01</c></summary>
+    Ariman01 = 0x1023,
+    /// <summary><c>chr_ariman_02</c></summary>
+    Ariman02 = 0x1024,
+    /// <summary><c>chr_ariman_03</c></summary>
+    Ariman03 = 0x1025,
+    /// <summary><c>chr_ariman_04</c></summary>
+    Ariman04 = 0x1026,
+    /// <summary><c>chr_plant_01</c></summary>
+    Plant01 = 0x1027,
+    /// <summary><c>chr_plant_02</c></summary>
+    Plant02 = 0x1028,
+    /// <summary><c>chr_sahagin_01</c></summary>
+    Sahagin01 = 0x1029,
+    /// <summary><c>chr_m042</c></summary>
+    M042 = 0x102a,
+    /// <summary><c>chr_sahagin_02n</c></summary>
+    Sahagin02n = 0x102b,
+    /// <summary><c>chr_zoo_01</c></summary>
+    Zoo01 = 0x102c,
+    /// <summary><c>chr_zoo_02</c></summary>
+    Zoo02 = 0x102d,
+    /// <summary><c>chr_sand_01</c></summary>
+    Sand01 = 0x102e,
+    /// <summary><c>chr_sand_02</c></summary>
+    Sand02 = 0x102f,
+    /// <summary><c>chr_golem_01</c></summary>
+    Golem01 = 0x1030,
+    /// <summary><c>chr_golem_02</c></summary>
+    Golem02 = 0x1031,
+    /// <summary><c>chr_ghost_01</c></summary>
+    Ghost01 = 0x1032,
+    /// <summary><c>chr_flesius_01</c></summary>
+    Flesius01 = 0x1033,
+    /// <summary><c>chr_flesius_02</c></summary>
+    Flesius02 = 0x1034,
+    /// <summary><c>chr_rising_01</c></summary>
+    Rising01 = 0x1035,
+    /// <summary><c>chr_rising_02</c></summary>
+    Rising02 = 0x1036,
+    /// <summary><c>chr_4spike_01</c></summary>
+    Chr4spike01 = 0x1037,
+    /// <summary><c>chr_4spike_02</c></summary>
+    Chr4spike02 = 0x1038,
+    /// <summary><c>chr_4spike_03</c></summary>
+    Chr4spike03 = 0x1039,
+    /// <summary><c>chr_tako_01</c></summary>
+    Tako01 = 0x103a,
+    /// <summary><c>chr_dragon_01</c></summary>
+    Dragon01 = 0x103b,
+    /// <summary><c>chr_dragon_02</c></summary>
+    Dragon02 = 0x103c,
+    /// <summary><c>chr_dragon_03</c></summary>
+    Dragon03 = 0x103d,
+    /// <summary><c>chr_dragon_04</c></summary>
+    Dragon04 = 0x103e,
+    /// <summary><c>chr_dragon_05</c></summary>
+    Dragon05 = 0x103f,
+    /// <summary><c>chr_morbol_01</c></summary>
+    Morbol01 = 0x1040,
+    /// <summary><c>chr_morbol_02</c></summary>
+    Morbol02 = 0x1041,
+    /// <summary><c>chr_fighter_01</c></summary>
+    Fighter01 = 0x1042,
+    /// <summary><c>chr_fighter_02</c></summary>
+    Fighter02 = 0x1043,
+    /// <summary><c>chr_pirania_11</c></summary>
+    Pirania11 = 0x1044,
+    /// <summary><c>chr_pirania_12</c></summary>
+    Pirania12 = 0x1045,
+    /// <summary><c>chr_pirania_13</c></summary>
+    Pirania13 = 0x1046,
+    /// <summary><c>chr_pirania_21</c></summary>
+    Pirania21 = 0x1047,
+    /// <summary><c>chr_pirania_22</c></summary>
+    Pirania22 = 0x1048,
+    /// <summary><c>chr_pirania_23</c></summary>
+    Pirania23 = 0x1049,
+    /// <summary><c>chr_pirania_31</c></summary>
+    Pirania31 = 0x104a,
+    /// <summary><c>chr_pirania_32</c></summary>
+    Pirania32 = 0x104b,
+    /// <summary><c>chr_pirania_33</c></summary>
+    Pirania33 = 0x104c,
+    /// <summary><c>chr_element_01</c></summary>
+    Element01 = 0x104d,
+    /// <summary><c>chr_element_02</c></summary>
+    Element02 = 0x104e,
+    /// <summary><c>chr_element_03</c></summary>
+    Element03 = 0x104f,
+    /// <summary><c>chr_element_04</c></summary>
+    Element04 = 0x1050,
+    /// <summary><c>chr_element_05</c></summary>
+    Element05 = 0x1051,
+    /// <summary><c>chr_element_06</c></summary>
+    Element06 = 0x1052,
+    /// <summary><c>chr_element_07</c></summary>
+    Element07 = 0x1053,
+    /// <summary><c>chr_blade_01</c></summary>
+    Blade01 = 0x1054,
+    /// <summary><c>chr_behi_01</c></summary>
+    Behi01 = 0x1055,
+    /// <summary><c>chr_behi_02</c></summary>
+    Behi02 = 0x1056,
+    /// <summary><c>chr_chimera_01</c></summary>
+    Chimera01 = 0x1057,
+    /// <summary><c>chr_chimera_02</c></summary>
+    Chimera02 = 0x1058,
+    /// <summary><c>chr_qual_01</c></summary>
+    Qual01 = 0x1059,
+    /// <summary><c>chr_qual_02</c></summary>
+    Qual02 = 0x105a,
+    /// <summary><c>chr_2leg_01</c></summary>
+    Chr2leg01 = 0x105b,
+    /// <summary><c>chr_2leg_02</c></summary>
+    Chr2leg02 = 0x105c,
+    /// <summary><c>chr_2leg_02f</c></summary>
+    Chr2leg02f = 0x105d,
+    /// <summary><c>chr_2leg_03</c></summary>
+    Chr2leg03 = 0x105e,
+    /// <summary><c>chr_monolith_01</c></summary>
+    Monolith01 = 0x105f,
+    /// <summary><c>chr_4leg_01</c></summary>
+    Chr4leg01 = 0x1060,
+    /// <summary><c>chr_4leg_02</c></summary>
+    Chr4leg02 = 0x1061,
+    /// <summary><c>chr_4leg_03</c></summary>
+    Chr4leg03 = 0x1062,
+    /// <summary><c>chr_ultima_01</c></summary>
+    Ultima01 = 0x1063,
+    /// <summary><c>chr_omega_01</c></summary>
+    Omega01 = 0x1064,
+    /// <summary><c>chr_takoboss</c></summary>
+    Takoboss = 0x1065,
+    /// <summary><c>chr_shin2</c></summary>
+    Shin2 = 0x1066,
+    /// <summary><c>chr_shin2_arm</c></summary>
+    Shin2Arm = 0x1067,
+    /// <summary><c>chr_eater</c></summary>
+    Eater = 0x1068,
+    /// <summary><c>chr_denden</c></summary>
+    Denden = 0x1069,
+    /// <summary><c>chr_magicsq_01</c></summary>
+    Magicsq01 = 0x106a,
+    /// <summary><c>chr_shinz_l1</c></summary>
+    ShinzL1 = 0x106b,
+    /// <summary><c>chr_shinz_l2</c></summary>
+    ShinzL2 = 0x106c,
+    /// <summary><c>chr_bajiboss</c></summary>
+    Bajiboss = 0x106d,
+    /// <summary><c>chr_kikai1</c></summary>
+    Kikai1 = 0x106e,
+    /// <summary><c>chr_kikai2</c></summary>
+    Kikai2 = 0x106f,
+    /// <summary><c>chr_kimari_b</c></summary>
+    KimariB = 0x1070,
+    /// <summary><c>chr_shin_se</c></summary>
+    ShinSe = 0x1071,
+    /// <summary><c>chr_shin1</c></summary>
+    Shin1 = 0x1072,
+    /// <summary><c>chr_shinz_w1</c></summary>
+    ShinzW1 = 0x1073,
+    /// <summary><c>chr_inu_02</c></summary>
+    Inu02 = 0x1074,
+    /// <summary><c>chr_shin3</c></summary>
+    Shin3 = 0x1075,
+    /// <summary><c>chr_magicsq_02</c></summary>
+    Magicsq02 = 0x1076,
+    /// <summary><c>chr_ef1</c></summary>
+    Ef1 = 0x1077,
+    /// <summary><c>chr_ef2</c></summary>
+    Ef2 = 0x1078,
+    /// <summary><c>chr_makaboss</c></summary>
+    Makaboss = 0x1079,
+    /// <summary><c>chr_countdown</c></summary>
+    Countdown = 0x107a,
+    /// <summary><c>chr_countdownb</c></summary>
+    Countdownb = 0x107b,
+    /// <summary><c>chr_simoa</c></summary>
+    Simoa = 0x107c,
+    /// <summary><c>chr_anima_b</c></summary>
+    AnimaB = 0x107d,
+    /// <summary><c>chr_simoa01</c></summary>
+    Simoa01 = 0x107e,
+    /// <summary><c>chr_simoa01_w</c></summary>
+    Simoa01W = 0x107f,
+    /// <summary><c>chr_ebon1</c></summary>
+    Ebon1 = 0x1080,
+    /// <summary><c>chr_ebon3</c></summary>
+    Ebon3 = 0x1081,
+    /// <summary><c>chr_yunareska</c></summary>
+    Yunareska = 0x1082,
+    /// <summary><c>chr_simoa03</c></summary>
+    Simoa03 = 0x1083,
+    /// <summary><c>chr_jecht</c></summary>
+    Jecht = 0x1084,
+    /// <summary><c>chr_crane</c></summary>
+    Crane = 0x1085,
+    /// <summary><c>chr_biran</c></summary>
+    Biran = 0x1086,
+    /// <summary><c>chr_enche</c></summary>
+    Enche = 0x1087,
+    /// <summary><c>chr_shin_arml</c></summary>
+    ShinArml = 0x1088,
+    /// <summary><c>chr_shin_armr</c></summary>
+    ShinArmr = 0x1089,
+    /// <summary><c>chr_shin_back</c></summary>
+    ShinBack = 0x108a,
+    /// <summary><c>chr_shin2_kai</c></summary>
+    Shin2Kai = 0x108b,
+    /// <summary><c>chr_shin_head</c></summary>
+    ShinHead = 0x108c,
+    /// <summary><c>chr_guad_e</c></summary>
+    GuadE = 0x108d,
+    /// <summary><c>chr_simoa02</c></summary>
+    Simoa02 = 0x108e,
+    /// <summary><c>chr_simoa2_w</c></summary>
+    Simoa2W = 0x108f,
+    /// <summary><c>chr_kimari_w</c></summary>
+    KimariW = 0x1090,
+    /// <summary><c>chr_shinz_l3</c></summary>
+    ShinzL3 = 0x1091,
+    /// <summary><c>chr_ido</c></summary>
+    Ido = 0x1092,
+    /// <summary><c>chr_shinz_L4</c></summary>
+    ShinzL4 = 0x1093,
+    /// <summary><c>chr_shinz_L5</c></summary>
+    ShinzL5 = 0x1094,
+    /// <summary><c>chr_syd</c></summary>
+    Syd = 0x1095,
+    /// <summary><c>chr_magicsq_03</c></summary>
+    Magicsq03 = 0x1096,
+    /// <summary><c>chr_dragon_e01</c></summary>
+    DragonE01 = 0x1097,
+    /// <summary><c>chr_robot_e01</c></summary>
+    RobotE01 = 0x1098,
+    /// <summary><c>chr_otyu_e01</c></summary>
+    OtyuE01 = 0x1099,
+    /// <summary><c>chr_magicsq_04</c></summary>
+    Magicsq04 = 0x109a,
+    /// <summary><c>chr_sahagin_e01</c></summary>
+    SahaginE01 = 0x109b,
+    /// <summary><c>chr_sahagin_e02</c></summary>
+    SahaginE02 = 0x109c,
+    /// <summary><c>chr_zoo_e01</c></summary>
+    ZooE01 = 0x109d,
+    /// <summary><c>chr_blade_e01</c></summary>
+    BladeE01 = 0x109e,
+    /// <summary><c>chr_shin4</c></summary>
+    Shin4 = 0x109f,
+    /// <summary><c>chr_shin3_head</c></summary>
+    Shin3Head = 0x10a0,
+    /// <summary><c>chr_shin3_arm</c></summary>
+    Shin3Arm = 0x10a1,
+    /// <summary><c>chr_kusabi</c></summary>
+    Kusabi = 0x10a2,
+    /// <summary><c>chr_valfare_e</c></summary>
+    ValfareE = 0x10a3,
+    /// <summary><c>chr_ifrit_e</c></summary>
+    IfritE = 0x10a4,
+    /// <summary><c>chr_ixion_e</c></summary>
+    IxionE = 0x10a5,
+    /// <summary><c>chr_shiva_e</c></summary>
+    ShivaE = 0x10a6,
+    /// <summary><c>chr_bahamot_e</c></summary>
+    BahamotE = 0x10a7,
+    /// <summary><c>chr_anima_e</c></summary>
+    AnimaE = 0x10a8,
+    /// <summary><c>chr_yojinbou_e</c></summary>
+    YojinbouE = 0x10a9,
+    /// <summary><c>chr_tank</c></summary>
+    Tank = 0x10aa,
+    /// <summary><c>chr_kusabi2</c></summary>
+    Kusabi2 = 0x10ab,
+    /// <summary><c>chr_jechtken</c></summary>
+    Jechtken = 0x10ac,
+    /// <summary><c>chr_option_l</c></summary>
+    OptionL = 0x10ad,
+    /// <summary><c>chr_option_r</c></summary>
+    OptionR = 0x10ae,
+    /// <summary><c>chr_yunareska_arm</c></summary>
+    YunareskaArm = 0x10af,
+    /// <summary><c>chr_yevonju</c></summary>
+    Yevonju = 0x10b0,
+    /// <summary><c>chr_magicsq_05</c></summary>
+    Magicsq05 = 0x10b1,
+    /// <summary><c>chr_mag_e</c></summary>
+    MagE = 0x10b2,
+    /// <summary><c>chr_dog_e</c></summary>
+    DogE = 0x10b3,
+    /// <summary><c>chr_rag_e</c></summary>
+    RagE = 0x10b4,
+    /// <summary><c>chr_iron_11</c></summary>
+    Iron11 = 0x10b5,
+    /// <summary><c>chr_iron_12</c></summary>
+    Iron12 = 0x10b6,
+    /// <summary><c>chr_iron_21</c></summary>
+    Iron21 = 0x10b7,
+    /// <summary><c>chr_iron_22</c></summary>
+    Iron22 = 0x10b8,
+    /// <summary><c>chr_basil_01</c></summary>
+    Basil01 = 0x10b9,
+    /// <summary><c>chr_basil_02</c></summary>
+    Basil02 = 0x10ba,
+    /// <summary><c>chr_adman_01</c></summary>
+    Adman01 = 0x10bb,
+    /// <summary><c>chr_belial_01</c></summary>
+    Belial01 = 0x10bc,
+    /// <summary><c>chr_otyugh_01</c></summary>
+    Otyugh01 = 0x10bd,
+    /// <summary><c>chr_otyugh_02</c></summary>
+    Otyugh02 = 0x10be,
+    /// <summary><c>chr_f_ebon_01</c></summary>
+    FEbon01 = 0x10bf,
+    /// <summary><c>chr_f_ebon_02</c></summary>
+    FEbon02 = 0x10c0,
+    /// <summary><c>chr_bomb_01</c></summary>
+    Bomb01 = 0x10c1,
+    /// <summary><c>chr_bomb_02</c></summary>
+    Bomb02 = 0x10c2,
+    /// <summary><c>chr_g_ebon_01</c></summary>
+    GEbon01 = 0x10c3,
+    /// <summary><c>chr_g_ebon_02</c></summary>
+    GEbon02 = 0x10c4,
+    /// <summary><c>chr_s_ebon_11</c></summary>
+    SEbon11 = 0x10c5,
+    /// <summary><c>chr_s_ebon_12</c></summary>
+    SEbon12 = 0x10c6,
+    /// <summary><c>chr_s_ebon_21</c></summary>
+    SEbon21 = 0x10c7,
+    /// <summary><c>chr_s_ebon_22</c></summary>
+    SEbon22 = 0x10c8,
+    /// <summary><c>chr_koyokoyo_01</c></summary>
+    Koyokoyo01 = 0x10c9,
+    /// <summary><c>chr_magicp_01</c></summary>
+    Magicp01 = 0x10ca,
+    /// <summary><c>chr_magicp_02</c></summary>
+    Magicp02 = 0x10cb,
+    /// <summary><c>chr_magicp_03</c></summary>
+    Magicp03 = 0x10cc,
+    /// <summary><c>chr_magicp_04</c></summary>
+    Magicp04 = 0x10cd,
+    /// <summary><c>chr_magicp_05</c></summary>
+    Magicp05 = 0x10ce,
+    /// <summary><c>chr_sabo_01</c></summary>
+    Sabo01 = 0x10cf,
+    /// <summary><c>chr_sabo_02</c></summary>
+    Sabo02 = 0x10d0,
+    /// <summary><c>chr_mist_01</c></summary>
+    Mist01 = 0x10d1,
+    /// <summary><c>chr_last2_01</c></summary>
+    Last2_01 = 0x10d2,
+    /// <summary><c>chr_treasure_01</c></summary>
+    Treasure01 = 0x10d3,
+    /// <summary><c>chr_fighter_03</c></summary>
+    Fighter03 = 0x10d4,
+    /// <summary><c>chr_guad_01</c></summary>
+    Guad01 = 0x10d5,
+    /// <summary><c>chr_kinoko_01</c></summary>
+    Kinoko01 = 0x10d6,
+    /// <summary><c>chr_kinoko_02</c></summary>
+    Kinoko02 = 0x10d7,
+    /// <summary><c>chr_kinoko_03</c></summary>
+    Kinoko03 = 0x10d8,
+    /// <summary><c>chr_blade_02</c></summary>
+    Blade02 = 0x10d9,
+    /// <summary><c>chr_bomb_03</c></summary>
+    Bomb03 = 0x10da,
+    /// <summary><c>chr_mist_02</c></summary>
+    Mist02 = 0x10db,
+    /// <summary><c>chr_ghost_02</c></summary>
+    Ghost02 = 0x10dc,
+    /// <summary><c>chr_plant_03</c></summary>
+    Plant03 = 0x10dd,
+    /// <summary><c>chr_guad_02</c></summary>
+    Guad02 = 0x10de,
+    /// <summary><c>chr_tonberi_01</c></summary>
+    Tonberi01 = 0x10df,
+    /// <summary><c>chr_tonberi_02</c></summary>
+    Tonberi02 = 0x10e0,
+    /// <summary><c>chr_ariman_05</c></summary>
+    Ariman05 = 0x10e1,
+    /// <summary><c>chr_bomb_04</c></summary>
+    Bomb04 = 0x10e2,
+    /// <summary><c>chr_chimera_03</c></summary>
+    Chimera03 = 0x10e3,
+    /// <summary><c>chr_4spike_04</c></summary>
+    Chr4spike04 = 0x10e4,
+    /// <summary><c>chr_golem_03</c></summary>
+    Golem03 = 0x10e5,
+    /// <summary><c>chr_zoo_01t</c></summary>
+    Zoo01t = 0x10e6,
+    /// <summary><c>chr_wolf_01t</c></summary>
+    Wolf01t = 0x10e7,
+    /// <summary><c>chr_pudding_01t</c></summary>
+    Pudding01t = 0x10e8,
+    /// <summary><c>chr_bird_01t</c></summary>
+    Bird01t = 0x10e9,
+    /// <summary><c>chr_plant_01t</c></summary>
+    Plant01t = 0x10ea,
+    /// <summary><c>chr_koura_01t</c></summary>
+    Koura01t = 0x10eb,
+    /// <summary><c>chr_koura_02t</c></summary>
+    Koura02t = 0x10ec,
+    /// <summary><c>chr_treasure_01t</c></summary>
+    Treasure01t = 0x10ed,
+    /// <summary><c>chr_zoo_02e</c></summary>
+    Zoo02e = 0x10ee,
+    /// <summary><c>chr_lizard_07</c></summary>
+    Lizard07 = 0x10ef,
+    /// <summary><c>chr_koura_06</c></summary>
+    Koura06 = 0x10f0,
+    /// <summary><c>chr_pudding_07</c></summary>
+    Pudding07 = 0x10f1,
+    /// <summary><c>chr_ariman_07</c></summary>
+    Ariman07 = 0x10f2,
+    /// <summary><c>chr_mist_03</c></summary>
+    Mist03 = 0x10f3,
+    /// <summary><c>chr_blade_03</c></summary>
+    Blade03 = 0x10f4,
+    /// <summary><c>chr_lizard_08</c></summary>
+    Lizard08 = 0x10f5,
+    /// <summary><c>chr_koura_07</c></summary>
+    Koura07 = 0x10f6,
+    /// <summary><c>chr_ariman_06</c></summary>
+    Ariman06 = 0x10f7,
+    /// <summary><c>chr_isal_01</c></summary>
+    Isal01 = 0x10f8,
+    /// <summary><c>chr_ginnem_01</c></summary>
+    Ginnem01 = 0x10f9,
+    /// <summary><c>chr_velgemine_01</c></summary>
+    Velgemine01 = 0x10fa,
+    /// <summary><c>chr_mimix_01</c></summary>
+    Mimix01 = 0x10fb,
+    /// <summary><c>chr_mimix_02</c></summary>
+    Mimix02 = 0x10fc,
+    /// <summary><c>chr_mimix_03</c></summary>
+    Mimix03 = 0x10fd,
+    /// <summary><c>chr_valfare_01</c></summary>
+    Valfare01 = 0x10fe,
+    /// <summary><c>chr_invi_00</c></summary>
+    Invi00 = 0x10ff,
+    /// <summary><c>chr_mimix_04</c></summary>
+    Mimix04 = 0x1100,
+    /// <summary><c>chr_mparts_01</c></summary>
+    Mparts01 = 0x1101,
+    /// <summary><c>chr_valfare_02</c></summary>
+    Valfare02 = 0x1102,
+    /// <summary><c>chr_efreet_02</c></summary>
+    Efreet02 = 0x1103,
+    /// <summary><c>chr_mparts_02</c></summary>
+    Mparts02 = 0x1104,
+    /// <summary><c>chr_mparts_03</c></summary>
+    Mparts03 = 0x1105,
+    /// <summary><c>chr_mparts_04</c></summary>
+    Mparts04 = 0x1106,
+    /// <summary><c>chr_rifle_01</c></summary>
+    Rifle01 = 0x1107,
+    /// <summary><c>chr_flamegun_01</c></summary>
+    Flamegun01 = 0x1108,
+    /// <summary><c>chr_anima_01</c></summary>
+    Anima01 = 0x1109,
+    /// <summary><c>chr_inu_01</c></summary>
+    Inu01 = 0x110a,
+    /// <summary><c>chr_anima_down_01</c></summary>
+    AnimaDown01 = 0x110b,
+    /// <summary><c>chr_anima_up_01</c></summary>
+    AnimaUp01 = 0x110c,
+    /// <summary><c>chr_katana_01</c></summary>
+    Katana01 = 0x110d,
+    /// <summary><c>chr_koduka_01</c></summary>
+    Koduka01 = 0x110e,
+    /// <summary><c>chr_syuriken_01</c></summary>
+    Syuriken01 = 0x110f,
+    /// <summary><c>m272</c></summary>
+    M272 = 0x1110,
+    /// <summary><c>m273</c></summary>
+    M273 = 0x1111,
+    /// <summary><c>chr_mparts_18</c></summary>
+    Mparts18 = 0x1112,
+    /// <summary><c>chr_mparts_19</c></summary>
+    Mparts19 = 0x1113,
+    /// <summary><c>chr_b_ultima_01</c></summary>
+    BUltima01 = 0x1114,
+    /// <summary><c>chr_b_shin2</c></summary>
+    BShin2 = 0x1115,
+    /// <summary><c>chr_b_shin2_arm</c></summary>
+    BShin2Arm = 0x1116,
+    /// <summary><c>chr_b_eater</c></summary>
+    BEater = 0x1117,
+    /// <summary><c>chr_b_shin3</c></summary>
+    BShin3 = 0x1118,
+    /// <summary><c>chr_b_makaboss</c></summary>
+    BMakaboss = 0x1119,
+    /// <summary><c>chr_b_ebon1</c></summary>
+    BEbon1 = 0x111a,
+    /// <summary><c>chr_b_ef2</c></summary>
+    BEf2 = 0x111b,
+    /// <summary><c>chr_efreet_01</c></summary>
+    Efreet01 = 0x111c,
+    /// <summary><c>m285</c></summary>
+    M285 = 0x111d,
+    /// <summary><c>m286</c></summary>
+    M286 = 0x111e,
+    /// <summary><c>m287</c></summary>
+    M287 = 0x111f,
+    /// <summary><c>m288</c></summary>
+    M288 = 0x1120,
+    /// <summary><c>m289</c></summary>
+    M289 = 0x1121,
+    /// <summary><c>m290</c></summary>
+    M290 = 0x1122,
+    /// <summary><c>m291</c></summary>
+    M291 = 0x1123,
+    /// <summary><c>chr_b_koura_03</c></summary>
+    BKoura03 = 0x1124,
+    /// <summary><c>chr_b_garuki_03</c></summary>
+    BGaruki03 = 0x1125,
+    /// <summary><c>chr_b_wolf_07</c></summary>
+    BWolf07 = 0x1126,
+    /// <summary><c>chr_b_pudding_06</c></summary>
+    BPudding06 = 0x1127,
+    /// <summary><c>chr_b_lizard_06</c></summary>
+    BLizard06 = 0x1128,
+    /// <summary><c>chr_b_bird_02</c></summary>
+    BBird02 = 0x1129,
+    /// <summary><c>chr_b_insect_03</c></summary>
+    BInsect03 = 0x112a,
+    /// <summary><c>chr_b_ariman_03</c></summary>
+    BAriman03 = 0x112b,
+    /// <summary><c>chr_b_zoo_02</c></summary>
+    BZoo02 = 0x112c,
+    /// <summary><c>chr_b_sand_02</c></summary>
+    BSand02 = 0x112d,
+    /// <summary><c>chr_b_4spike_03</c></summary>
+    B4spike03 = 0x112e,
+    /// <summary><c>chr_b_dragon_05</c></summary>
+    BDragon05 = 0x112f,
+    /// <summary><c>chr_b_morbol_01</c></summary>
+    BMorbol01 = 0x1130,
+    /// <summary><c>chr_b_fighter_02</c></summary>
+    BFighter02 = 0x1131,
+    /// <summary><c>chr_b_element_06</c></summary>
+    BElement06 = 0x1132,
+    /// <summary><c>chr_b_behi_01</c></summary>
+    BBehi01 = 0x1133,
+    /// <summary><c>chr_b_chimera_02</c></summary>
+    BChimera02 = 0x1134,
+    /// <summary><c>chr_b_qual_02</c></summary>
+    BQual02 = 0x1135,
+    /// <summary><c>chr_b_iron_12</c></summary>
+    BIron12 = 0x1136,
+    /// <summary><c>chr_b_basil_02</c></summary>
+    BBasil02 = 0x1137,
+    /// <summary><c>chr_b_belial_01</c></summary>
+    BBelial01 = 0x1138,
+    /// <summary><c>chr_b_bomb_01</c></summary>
+    BBomb01 = 0x1139,
+    /// <summary><c>chr_b_sabo_01</c></summary>
+    BSabo01 = 0x113a,
+    /// <summary><c>chr_b_last2_01</c></summary>
+    BLast2_01 = 0x113b,
+    /// <summary><c>chr_b_kinoko_03</c></summary>
+    BKinoko03 = 0x113c,
+    /// <summary><c>chr_b_tonberi_02</c></summary>
+    BTonberi02 = 0x113d,
+    /// <summary><c>chr_b_blade_e01</c></summary>
+    BBladeE01 = 0x113e,
+    /// <summary><c>m319</c></summary>
+    M319 = 0x113f,
+    /// <summary><c>m320</c></summary>
+    M320 = 0x1140,
+    /// <summary><c>m321</c></summary>
+    M321 = 0x1141,
+    /// <summary><c>m322</c></summary>
+    M322 = 0x1142,
+    /// <summary><c>m323</c></summary>
+    M323 = 0x1143,
+    /// <summary><c>m324</c></summary>
+    M324 = 0x1144,
+    /// <summary><c>m325</c></summary>
+    M325 = 0x1145,
+    /// <summary><c>m326</c></summary>
+    M326 = 0x1146,
+    /// <summary><c>m327</c></summary>
+    M327 = 0x1147,
+    /// <summary><c>m328</c></summary>
+    M328 = 0x1148,
+    /// <summary><c>m329</c></summary>
+    M329 = 0x1149,
+    /// <summary><c>m330</c></summary>
+    M330 = 0x114a,
+    /// <summary><c>m331</c></summary>
+    M331 = 0x114b,
+    /// <summary><c>m332</c></summary>
+    M332 = 0x114c,
+    /// <summary><c>m333</c></summary>
+    M333 = 0x114d,
+    /// <summary><c>m334</c></summary>
+    M334 = 0x114e,
+    /// <summary><c>m335</c></summary>
+    M335 = 0x114f,
+    /// <summary><c>m336</c></summary>
+    M336 = 0x1150,
+    /// <summary><c>m337</c></summary>
+    M337 = 0x1151,
+    /// <summary><c>m338</c></summary>
+    M338 = 0x1152,
+    /// <summary><c>m339</c></summary>
+    M339 = 0x1153,
+    /// <summary><c>m340</c></summary>
+    M340 = 0x1154,
+    /// <summary><c>m341</c></summary>
+    M341 = 0x1155,
+    /// <summary><c>m342</c></summary>
+    M342 = 0x1156,
+    /// <summary><c>m343</c></summary>
+    M343 = 0x1157,
+    /// <summary><c>chr_angel_b</c></summary>
+    AngelB = 0x1158,
+    /// <summary><c>chr_angel_r</c></summary>
+    AngelR = 0x1159,
+    /// <summary><c>chr_angel_l</c></summary>
+    AngelL = 0x115a,
+    /// <summary><c>chr_zero</c></summary>
+    Zero = 0x13e7,
+    /// <summary><c>chr_zana_han001</c></summary>
+    ZanaHan001 = 0x2001,
+    /// <summary><c>chr_zana_han002</c></summary>
+    ZanaHan002 = 0x2002,
+    /// <summary><c>chr_zana_han003</c></summary>
+    ZanaHan003 = 0x2003,
+    /// <summary><c>chr_zana_han004</c></summary>
+    ZanaHan004 = 0x2004,
+    /// <summary><c>chr_zana_han005</c></summary>
+    ZanaHan005 = 0x2005,
+    /// <summary><c>chr_zana_han006</c></summary>
+    ZanaHan006 = 0x2006,
+    /// <summary><c>chr_zana_han008</c></summary>
+    ZanaHan008 = 0x2008,
+    /// <summary><c>chr_zana_han009</c></summary>
+    ZanaHan009 = 0x2009,
+    /// <summary><c>chr_zana_han010</c></summary>
+    ZanaHan010 = 0x200a,
+    /// <summary><c>chr_zana_han011</c></summary>
+    ZanaHan011 = 0x200b,
+    /// <summary><c>chr_zana_jdg016</c></summary>
+    ZanaJdg016 = 0x2010,
+    /// <summary><c>chr_zana_blza018</c></summary>
+    ZanaBlza018 = 0x2012,
+    /// <summary><c>chr_zana_blza019</c></summary>
+    ZanaBlza019 = 0x2013,
+    /// <summary><c>chr_zana_blza020</c></summary>
+    ZanaBlza020 = 0x2014,
+    /// <summary><c>chr_zana_blza021</c></summary>
+    ZanaBlza021 = 0x2015,
+    /// <summary><c>chr_zana_blzb022</c></summary>
+    ZanaBlzb022 = 0x2016,
+    /// <summary><c>chr_zana_blzb023</c></summary>
+    ZanaBlzb023 = 0x2017,
+    /// <summary><c>chr_zana_blzb024</c></summary>
+    ZanaBlzb024 = 0x2018,
+    /// <summary><c>chr_zana_blzb025</c></summary>
+    ZanaBlzb025 = 0x2019,
+    /// <summary><c>chr_sprs_han026</c></summary>
+    SprsHan026 = 0x201a,
+    /// <summary><c>chr_sprs_han027</c></summary>
+    SprsHan027 = 0x201b,
+    /// <summary><c>chr_sprs_han028</c></summary>
+    SprsHan028 = 0x201c,
+    /// <summary><c>chr_sprs_han029</c></summary>
+    SprsHan029 = 0x201d,
+    /// <summary><c>chr_sprs_han030</c></summary>
+    SprsHan030 = 0x201e,
+    /// <summary><c>chr_sprs_han031</c></summary>
+    SprsHan031 = 0x201f,
+    /// <summary><c>chr_sprs_han032</c></summary>
+    SprsHan032 = 0x2020,
+    /// <summary><c>chr_sprs_han033</c></summary>
+    SprsHan033 = 0x2021,
+    /// <summary><c>chr_sprs_han034</c></summary>
+    SprsHan034 = 0x2022,
+    /// <summary><c>chr_sprs_han035</c></summary>
+    SprsHan035 = 0x2023,
+    /// <summary><c>chr_sprs_han036</c></summary>
+    SprsHan036 = 0x2024,
+    /// <summary><c>chr_sprs_han037</c></summary>
+    SprsHan037 = 0x2025,
+    /// <summary><c>chr_sprs_han038</c></summary>
+    SprsHan038 = 0x2026,
+    /// <summary><c>chr_sprs_han039</c></summary>
+    SprsHan039 = 0x2027,
+    /// <summary><c>chr_sprs_shp040</c></summary>
+    SprsShp040 = 0x2028,
+    /// <summary><c>chr_sprs_shp041</c></summary>
+    SprsShp041 = 0x2029,
+    /// <summary><c>chr_sprm_han042</c></summary>
+    SprmHan042 = 0x202a,
+    /// <summary><c>chr_sprm_han043</c></summary>
+    SprmHan043 = 0x202b,
+    /// <summary><c>chr_sprm_han044</c></summary>
+    SprmHan044 = 0x202c,
+    /// <summary><c>chr_sprm_han045</c></summary>
+    SprmHan045 = 0x202d,
+    /// <summary><c>chr_sprm_han046</c></summary>
+    SprmHan046 = 0x202e,
+    /// <summary><c>chr_sprm_han047</c></summary>
+    SprmHan047 = 0x202f,
+    /// <summary><c>chr_sprm_han048</c></summary>
+    SprmHan048 = 0x2030,
+    /// <summary><c>chr_sprm_han049</c></summary>
+    SprmHan049 = 0x2031,
+    /// <summary><c>chr_sprm_han050</c></summary>
+    SprmHan050 = 0x2032,
+    /// <summary><c>chr_sprm_han051</c></summary>
+    SprmHan051 = 0x2033,
+    /// <summary><c>chr_sprm_han052</c></summary>
+    SprmHan052 = 0x2034,
+    /// <summary><c>chr_sprm_han053</c></summary>
+    SprmHan053 = 0x2035,
+    /// <summary><c>chr_sprm_han054</c></summary>
+    SprmHan054 = 0x2036,
+    /// <summary><c>chr_sprm_han055</c></summary>
+    SprmHan055 = 0x2037,
+    /// <summary><c>chr_sprm_han056</c></summary>
+    SprmHan056 = 0x2038,
+    /// <summary><c>chr_sprm_shp057</c></summary>
+    SprmShp057 = 0x2039,
+    /// <summary><c>chr_sprm_shp058</c></summary>
+    SprmShp058 = 0x203a,
+    /// <summary><c>chr_sprm_shp059</c></summary>
+    SprmShp059 = 0x203b,
+    /// <summary><c>chr_sprm_ana060</c></summary>
+    SprmAna060 = 0x203c,
+    /// <summary><c>chr_blz_stf61</c></summary>
+    BlzStf61 = 0x203d,
+    /// <summary><c>chr_sprn_han063</c></summary>
+    SprnHan063 = 0x203f,
+    /// <summary><c>chr_sprn_han064</c></summary>
+    SprnHan064 = 0x2040,
+    /// <summary><c>chr_sprn_yvn065</c></summary>
+    SprnYvn065 = 0x2041,
+    /// <summary><c>chr_sprn_yvn066</c></summary>
+    SprnYvn066 = 0x2042,
+    /// <summary><c>chr_sprn_yvn067</c></summary>
+    SprnYvn067 = 0x2043,
+    /// <summary><c>chr_sprn_yvn068</c></summary>
+    SprnYvn068 = 0x2044,
+    /// <summary><c>chr_sprn_han069</c></summary>
+    SprnHan069 = 0x2045,
+    /// <summary><c>chr_sprn_han070</c></summary>
+    SprnHan070 = 0x2046,
+    /// <summary><c>chr_gad_han071</c></summary>
+    GadHan071 = 0x2047,
+    /// <summary><c>chr_gad_han072</c></summary>
+    GadHan072 = 0x2048,
+    /// <summary><c>chr_gad_han074</c></summary>
+    GadHan074 = 0x204a,
+    /// <summary><c>chr_gad_han075</c></summary>
+    GadHan075 = 0x204b,
+    /// <summary><c>chr_gad_han076</c></summary>
+    GadHan076 = 0x204c,
+    /// <summary><c>chr_gad_han078</c></summary>
+    GadHan078 = 0x204e,
+    /// <summary><c>chr_gad_shp079</c></summary>
+    GadShp079 = 0x204f,
+    /// <summary><c>chr_albd_han080</c></summary>
+    AlbdHan080 = 0x2050,
+    /// <summary><c>chr_albd_han081</c></summary>
+    AlbdHan081 = 0x2051,
+    /// <summary><c>chr_albd_han082</c></summary>
+    AlbdHan082 = 0x2052,
+    /// <summary><c>chr_albd_han084</c></summary>
+    AlbdHan084 = 0x2054,
+    /// <summary><c>chr_albd_han085</c></summary>
+    AlbdHan085 = 0x2055,
+    /// <summary><c>chr_albd_han086</c></summary>
+    AlbdHan086 = 0x2056,
+    /// <summary><c>chr_albd_han087</c></summary>
+    AlbdHan087 = 0x2057,
+    /// <summary><c>chr_albd_han088</c></summary>
+    AlbdHan088 = 0x2058,
+    /// <summary><c>chr_albd_han090</c></summary>
+    AlbdHan090 = 0x205a,
+    /// <summary><c>chr_albd_han091</c></summary>
+    AlbdHan091 = 0x205b,
+    /// <summary><c>chr_rns_han099</c></summary>
+    RnsHan099 = 0x2063,
+    /// <summary><c>chr_rns_han100</c></summary>
+    RnsHan100 = 0x2064,
+    /// <summary><c>chr_rns_han101</c></summary>
+    RnsHan101 = 0x2065,
+    /// <summary><c>chr_rns_han102</c></summary>
+    RnsHan102 = 0x2066,
+    /// <summary><c>chr_rns_han103</c></summary>
+    RnsHan103 = 0x2067,
+    /// <summary><c>chr_rns_han104</c></summary>
+    RnsHan104 = 0x2068,
+    /// <summary><c>chr_rns_han105</c></summary>
+    RnsHan105 = 0x2069,
+    /// <summary><c>chr_rns_han106</c></summary>
+    RnsHan106 = 0x206a,
+    /// <summary><c>chr_man_yvn108</c></summary>
+    ManYvn108 = 0x206c,
+    /// <summary><c>chr_man_yvn110</c></summary>
+    ManYvn110 = 0x206e,
+    /// <summary><c>chr_man_yvn112</c></summary>
+    ManYvn112 = 0x2070,
+    /// <summary><c>chr_man_yvn115</c></summary>
+    ManYvn115 = 0x2073,
+    /// <summary><c>chr_man_yvnsld122</c></summary>
+    ManYvnsld122 = 0x207a,
+    /// <summary><c>chr_man_yvnsld124</c></summary>
+    ManYvnsld124 = 0x207c,
+    /// <summary><c>chr_man_yvnsld125</c></summary>
+    ManYvnsld125 = 0x207d,
+    /// <summary><c>chr_man_hiprst126</c></summary>
+    ManHiprst126 = 0x207e,
+    /// <summary><c>chr_man_hiprst127</c></summary>
+    ManHiprst127 = 0x207f,
+    /// <summary><c>chr_man_hiprst128</c></summary>
+    ManHiprst128 = 0x2080,
+    /// <summary><c>chr_man_expd129</c></summary>
+    ManExpd129 = 0x2081,
+    /// <summary><c>chr_man_expd130</c></summary>
+    ManExpd130 = 0x2082,
+    /// <summary><c>chr_man_expd131</c></summary>
+    ManExpd131 = 0x2083,
+    /// <summary><c>chr_man_expd132</c></summary>
+    ManExpd132 = 0x2084,
+    /// <summary><c>chr_man_expd133</c></summary>
+    ManExpd133 = 0x2085,
+    /// <summary><c>chr_man_expd134</c></summary>
+    ManExpd134 = 0x2086,
+    /// <summary><c>chr_man_expd135</c></summary>
+    ManExpd135 = 0x2087,
+    /// <summary><c>chr_man_expd136</c></summary>
+    ManExpd136 = 0x2088,
+    /// <summary><c>chr_man_expd137</c></summary>
+    ManExpd137 = 0x2089,
+    /// <summary><c>chr_man_sailor139</c></summary>
+    ManSailor139 = 0x208b,
+    /// <summary><c>chr_man_sailor140</c></summary>
+    ManSailor140 = 0x208c,
+    /// <summary><c>chr_man_sailor141</c></summary>
+    ManSailor141 = 0x208d,
+    /// <summary><c>chr_man_sailor142</c></summary>
+    ManSailor142 = 0x208e,
+    /// <summary><c>chr_man_sailor143</c></summary>
+    ManSailor143 = 0x208f,
+    /// <summary><c>chr_man_band144</c></summary>
+    ManBand144 = 0x2090,
+    /// <summary><c>chr_man_band145</c></summary>
+    ManBand145 = 0x2091,
+    /// <summary><c>chr_man_band146</c></summary>
+    ManBand146 = 0x2092,
+    /// <summary><c>chr_gad_guard150</c></summary>
+    GadGuard150 = 0x2096,
+    /// <summary><c>chr_gad_guard151</c></summary>
+    GadGuard151 = 0x2097,
+    /// <summary><c>chr_blz_stf168</c></summary>
+    BlzStf168 = 0x20a8,
+    /// <summary><c>chr_blz_stf170</c></summary>
+    BlzStf170 = 0x20aa,
+    /// <summary><c>chr_blz_jdg171</c></summary>
+    BlzJdg171 = 0x20ab,
+    /// <summary><c>chr_blz_bsd172</c></summary>
+    BlzBsd172 = 0x20ac,
+    /// <summary><c>chr_blz_bsd173</c></summary>
+    BlzBsd173 = 0x20ad,
+    /// <summary><c>chr_blz_bsd174</c></summary>
+    BlzBsd174 = 0x20ae,
+    /// <summary><c>chr_blz_bsd175</c></summary>
+    BlzBsd175 = 0x20af,
+    /// <summary><c>chr_blz_bsd176</c></summary>
+    BlzBsd176 = 0x20b0,
+    /// <summary><c>chr_blz_klk177</c></summary>
+    BlzKlk177 = 0x20b1,
+    /// <summary><c>chr_blz_klk178</c></summary>
+    BlzKlk178 = 0x20b2,
+    /// <summary><c>chr_blz_klk179</c></summary>
+    BlzKlk179 = 0x20b3,
+    /// <summary><c>chr_blz_klk180</c></summary>
+    BlzKlk180 = 0x20b4,
+    /// <summary><c>chr_blz_klk181</c></summary>
+    BlzKlk181 = 0x20b5,
+    /// <summary><c>chr_blz_luca182</c></summary>
+    BlzLuca182 = 0x20b6,
+    /// <summary><c>chr_blz_luca183</c></summary>
+    BlzLuca183 = 0x20b7,
+    /// <summary><c>chr_blz_luca184</c></summary>
+    BlzLuca184 = 0x20b8,
+    /// <summary><c>chr_blz_luca185</c></summary>
+    BlzLuca185 = 0x20b9,
+    /// <summary><c>chr_blz_luca186</c></summary>
+    BlzLuca186 = 0x20ba,
+    /// <summary><c>chr_blz_gad197</c></summary>
+    BlzGad197 = 0x20c5,
+    /// <summary><c>chr_blz_gad198</c></summary>
+    BlzGad198 = 0x20c6,
+    /// <summary><c>chr_blz_gad199</c></summary>
+    BlzGad199 = 0x20c7,
+    /// <summary><c>chr_blz_gad200</c></summary>
+    BlzGad200 = 0x20c8,
+    /// <summary><c>chr_blz_albd201</c></summary>
+    BlzAlbd201 = 0x20c9,
+    /// <summary><c>chr_blz_albd202</c></summary>
+    BlzAlbd202 = 0x20ca,
+    /// <summary><c>chr_blz_albd203</c></summary>
+    BlzAlbd203 = 0x20cb,
+    /// <summary><c>chr_blz_albd204</c></summary>
+    BlzAlbd204 = 0x20cc,
+    /// <summary><c>chr_blz_albd205</c></summary>
+    BlzAlbd205 = 0x20cd,
+    /// <summary><c>chr_blz_rns206</c></summary>
+    BlzRns206 = 0x20ce,
+    /// <summary><c>chr_blz_rns207</c></summary>
+    BlzRns207 = 0x20cf,
+    /// <summary><c>chr_blz_rns208</c></summary>
+    BlzRns208 = 0x20d0,
+    /// <summary><c>chr_blz_rns209</c></summary>
+    BlzRns209 = 0x20d1,
+    /// <summary><c>chr_demihuman210</c></summary>
+    Demihuman210 = 0x20d2,
+    /// <summary><c>chr_demihuman211</c></summary>
+    Demihuman211 = 0x20d3,
+    /// <summary><c>chr_demihuman212</c></summary>
+    Demihuman212 = 0x20d4,
+    /// <summary><c>chr_ga_gatta216</c></summary>
+    GaGatta216 = 0x20d8,
+    /// <summary><c>chr_ga_luzzu217</c></summary>
+    GaLuzzu217 = 0x20d9,
+    /// <summary><c>chr_ga_ooaka218</c></summary>
+    GaOoaka218 = 0x20da,
+    /// <summary><c>chr_ga_dona219</c></summary>
+    GaDona219 = 0x20db,
+    /// <summary><c>chr_ga_baltero220</c></summary>
+    GaBaltero220 = 0x20dc,
+    /// <summary><c>chr_ga_wantz221</c></summary>
+    GaWantz221 = 0x20dd,
+    /// <summary><c>chr_ga_isalu222</c></summary>
+    GaIsalu222 = 0x20de,
+    /// <summary><c>chr_ga_maroda223</c></summary>
+    GaMaroda223 = 0x20df,
+    /// <summary><c>chr_ga_vasse224</c></summary>
+    GaVasse224 = 0x20e0,
+    /// <summary><c>chr_ga_syelinda225</c></summary>
+    GaSyelinda225 = 0x20e1,
+    /// <summary><c>chr_ga_machen226</c></summary>
+    GaMachen226 = 0x20e2,
+    /// <summary><c>chr_ga_rutiru227</c></summary>
+    GaRutiru227 = 0x20e3,
+    /// <summary><c>chr_ga_elma228</c></summary>
+    GaElma228 = 0x20e4,
+    /// <summary><c>chr_ga_klasco229</c></summary>
+    GaKlasco229 = 0x20e5,
+    /// <summary><c>chr_ga_twamel231</c></summary>
+    GaTwamel231 = 0x20e7,
+    /// <summary><c>chr_ga_biran232</c></summary>
+    GaBiran232 = 0x20e8,
+    /// <summary><c>chr_ga_enche233</c></summary>
+    GaEnche233 = 0x20e9,
+    /// <summary><c>chr_ga_rin234</c></summary>
+    GaRin234 = 0x20ea,
+    /// <summary><c>chr_tid_child236</c></summary>
+    TidChild236 = 0x20ec,
+    /// <summary><c>chr_jecht238</c></summary>
+    Jecht238 = 0x20ee,
+    /// <summary><c>chr_tidmama239</c></summary>
+    Tidmama239 = 0x20ef,
+    /// <summary><c>chr_chap240</c></summary>
+    Chap240 = 0x20f0,
+    /// <summary><c>chr_mika241</c></summary>
+    Mika241 = 0x20f1,
+    /// <summary><c>chr_semoamama242</c></summary>
+    Semoamama242 = 0x20f2,
+    /// <summary><c>chr_watasi243</c></summary>
+    Watasi243 = 0x20f3,
+    /// <summary><c>chr_deadsummoner244</c></summary>
+    Deadsummoner244 = 0x20f4,
+    /// <summary><c>chr_zook246</c></summary>
+    Zook246 = 0x20f6,
+    /// <summary><c>chr_sorton247</c></summary>
+    Sorton247 = 0x20f7,
+    /// <summary><c>chr_yunalesca248</c></summary>
+    Yunalesca248 = 0x20f8,
+    /// <summary><c>chr_zaon249</c></summary>
+    Zaon249 = 0x20f9,
+    /// <summary><c>chr_braska250</c></summary>
+    Braska250 = 0x20fa,
+    /// <summary><c>chr_jyscal255</c></summary>
+    Jyscal255 = 0x20ff,
+    /// <summary><c>chr_cid257</c></summary>
+    Cid257 = 0x2101,
+    /// <summary><c>chr_rikbros265</c></summary>
+    Rikbros265 = 0x2109,
+    /// <summary><c>chr_semoa_child272</c></summary>
+    SemoaChild272 = 0x2110,
+    /// <summary><c>chr_blz_gad278</c></summary>
+    BlzGad278 = 0x2116,
+    /// <summary><c>chr_blz_rns281</c></summary>
+    BlzRns281 = 0x2119,
+    /// <summary><c>chr_kinoc283</c></summary>
+    Kinoc283 = 0x211b,
+    /// <summary><c>chr_ronso284</c></summary>
+    Ronso284 = 0x211c,
+    /// <summary><c>chr_026mob287</c></summary>
+    Chr026mob287 = 0x211f,
+    /// <summary><c>chr_027mob288</c></summary>
+    Chr027mob288 = 0x2120,
+    /// <summary><c>chr_028mob289</c></summary>
+    Chr028mob289 = 0x2121,
+    /// <summary><c>chr_029mob290</c></summary>
+    Chr029mob290 = 0x2122,
+    /// <summary><c>chr_030mob291</c></summary>
+    Chr030mob291 = 0x2123,
+    /// <summary><c>chr_031mob292</c></summary>
+    Chr031mob292 = 0x2124,
+    /// <summary><c>chr_032mob293</c></summary>
+    Chr032mob293 = 0x2125,
+    /// <summary><c>chr_033mob294</c></summary>
+    Chr033mob294 = 0x2126,
+    /// <summary><c>chr_034mob295</c></summary>
+    Chr034mob295 = 0x2127,
+    /// <summary><c>chr_035mob296</c></summary>
+    Chr035mob296 = 0x2128,
+    /// <summary><c>chr_036mob297</c></summary>
+    Chr036mob297 = 0x2129,
+    /// <summary><c>chr_037mob298</c></summary>
+    Chr037mob298 = 0x212a,
+    /// <summary><c>chr_038mob299</c></summary>
+    Chr038mob299 = 0x212b,
+    /// <summary><c>chr_039mob300</c></summary>
+    Chr039mob300 = 0x212c,
+    /// <summary><c>chr_227chocobo314</c></summary>
+    Chr227chocobo314 = 0x213a,
+    /// <summary><c>chr_228chocobo315</c></summary>
+    Chr228chocobo315 = 0x213b,
+    /// <summary><c>chr_229chocobo316</c></summary>
+    Chr229chocobo316 = 0x213c,
+    /// <summary><c>chr_130color323</c></summary>
+    Chr130color323 = 0x2143,
+    /// <summary><c>chr_131color324</c></summary>
+    Chr131color324 = 0x2144,
+    /// <summary><c>chr_135color325</c></summary>
+    Chr135color325 = 0x2145,
+    /// <summary><c>chr_137color326</c></summary>
+    Chr137color326 = 0x2146,
+    /// <summary><c>chr_beruge327</c></summary>
+    Beruge327 = 0x2147,
+    /// <summary><c>chr_yunamama330</c></summary>
+    Yunamama330 = 0x214a,
+    /// <summary><c>chr_zana_blzb331</c></summary>
+    ZanaBlzb331 = 0x214b,
+    /// <summary><c>chr_081goggleoff332</c></summary>
+    Chr081goggleoff332 = 0x214c,
+    /// <summary><c>chr_082goggleoff333</c></summary>
+    Chr082goggleoff333 = 0x214d,
+    /// <summary><c>chr_265goggleoff334</c></summary>
+    Chr265goggleoff334 = 0x214e,
+    /// <summary><c>chr_043mob335</c></summary>
+    Chr043mob335 = 0x214f,
+    /// <summary><c>chr_044mob336</c></summary>
+    Chr044mob336 = 0x2150,
+    /// <summary><c>chr_052mob337</c></summary>
+    Chr052mob337 = 0x2151,
+    /// <summary><c>chr_053mob338</c></summary>
+    Chr053mob338 = 0x2152,
+    /// <summary><c>chr_054mob339</c></summary>
+    Chr054mob339 = 0x2153,
+    /// <summary><c>chr_057mob340</c></summary>
+    Chr057mob340 = 0x2154,
+    /// <summary><c>chr_058mob341</c></summary>
+    Chr058mob341 = 0x2155,
+    /// <summary><c>chr_061mob342</c></summary>
+    Chr061mob342 = 0x2156,
+    /// <summary><c>chr_168mob343</c></summary>
+    Chr168mob343 = 0x2157,
+    /// <summary><c>chr_170mob344</c></summary>
+    Chr170mob344 = 0x2158,
+    /// <summary><c>chr_klk_sailor345</c></summary>
+    KlkSailor345 = 0x2159,
+    /// <summary><c>chr_klk_sailor346</c></summary>
+    KlkSailor346 = 0x215a,
+    /// <summary><c>chr_klk_sailor347</c></summary>
+    KlkSailor347 = 0x215b,
+    /// <summary><c>chr_klk_sailor348</c></summary>
+    KlkSailor348 = 0x215c,
+    /// <summary><c>chr_klk_sailor349</c></summary>
+    KlkSailor349 = 0x215d,
+    /// <summary><c>chr_zana_han350</c></summary>
+    ZanaHan350 = 0x215e,
+    /// <summary><c>chr_zana_han352</c></summary>
+    ZanaHan352 = 0x2160,
+    /// <summary><c>chr_zana_han353</c></summary>
+    ZanaHan353 = 0x2161,
+    /// <summary><c>chr_zana_han354</c></summary>
+    ZanaHan354 = 0x2162,
+    /// <summary><c>chr_zana_han355</c></summary>
+    ZanaHan355 = 0x2163,
+    /// <summary><c>chr_jecht_clear356</c></summary>
+    JechtClear356 = 0x2164,
+    /// <summary><c>n999</c></summary>
+    N999 = 0x23e7,
+    /// <summary><c>chr_valfor</c></summary>
+    Valfor = 0x3001,
+    /// <summary><c>chr_rakusa</c></summary>
+    Rakusa = 0x3002,
+    /// <summary><c>chr_martarm</c></summary>
+    Martarm = 0x3003,
+    /// <summary><c>chr_siva</c></summary>
+    Siva = 0x3004,
+    /// <summary><c>chr_leviatha</c></summary>
+    Leviatha = 0x3005,
+    /// <summary><c>chr_bahamut</c></summary>
+    Bahamut = 0x3006,
+    /// <summary><c>chr_anima</c></summary>
+    Anima = 0x3007,
+    /// <summary><c>chr_youjin</c></summary>
+    Youjin = 0x3008,
+    /// <summary><c>chr_megas1</c></summary>
+    Megas1 = 0x3009,
+    /// <summary><c>chr_megas2</c></summary>
+    Megas2 = 0x300a,
+    /// <summary><c>chr_megas3</c></summary>
+    Megas3 = 0x300b,
+    /// <summary><c>chr_angel</c></summary>
+    Angel = 0x300c,
+    /// <summary><c>chr_anima2</c></summary>
+    Anima2 = 0x300d,
+    /// <summary><c>chr_anima3</c></summary>
+    Anima3 = 0x300e,
+    /// <summary><c>chr_anima4</c></summary>
+    Anima4 = 0x300f,
+    /// <summary><c>chr_anima5</c></summary>
+    Anima5 = 0x3010,
+    /// <summary><c>chr_siva2</c></summary>
+    Siva2 = 0x3011,
+    /// <summary><c>chr_siva3</c></summary>
+    Siva3 = 0x3012,
+    /// <summary><c>chr_siva4</c></summary>
+    Siva4 = 0x3013,
+    /// <summary><c>chr_e_angel</c></summary>
+    EAngel = 0x3014,
+    /// <summary><c>chr_e_death</c></summary>
+    EDeath = 0x3015,
+    /// <summary><c>chr_youjin2</c></summary>
+    Youjin2 = 0x3016,
+    /// <summary><c>chr_youjin3</c></summary>
+    Youjin3 = 0x3017,
+    /// <summary><c>chr_youjin4</c></summary>
+    Youjin4 = 0x3018,
+    /// <summary><c>chr_youjin5</c></summary>
+    Youjin5 = 0x3019,
+    /// <summary><c>chr_megas4</c></summary>
+    Megas4 = 0x301a,
+    /// <summary><c>chr_megas5</c></summary>
+    Megas5 = 0x301b,
+    /// <summary><c>chr_megas6</c></summary>
+    Megas6 = 0x301c,
+    /// <summary><c>chr_rock1</c></summary>
+    Rock1 = 0x301d,
+    /// <summary><c>chr_rock2</c></summary>
+    Rock2 = 0x301e,
+    /// <summary><c>chr_youjin6</c></summary>
+    Youjin6 = 0x301f,
+    /// <summary><c>w001</c></summary>
+    W001 = 0x4001,
+    /// <summary><c>w002</c></summary>
+    W002 = 0x4002,
+    /// <summary><c>w003</c></summary>
+    W003 = 0x4003,
+    /// <summary><c>w004</c></summary>
+    W004 = 0x4004,
+    /// <summary><c>w005</c></summary>
+    W005 = 0x4005,
+    /// <summary><c>w006</c></summary>
+    W006 = 0x4006,
+    /// <summary><c>w007</c></summary>
+    W007 = 0x4007,
+    /// <summary><c>w008</c></summary>
+    W008 = 0x4008,
+    /// <summary><c>w011</c></summary>
+    W011 = 0x400b,
+    /// <summary><c>w012</c></summary>
+    W012 = 0x400c,
+    /// <summary><c>w013</c></summary>
+    W013 = 0x400d,
+    /// <summary><c>w014</c></summary>
+    W014 = 0x400e,
+    /// <summary><c>w015</c></summary>
+    W015 = 0x400f,
+    /// <summary><c>w016</c></summary>
+    W016 = 0x4010,
+    /// <summary><c>w021</c></summary>
+    W021 = 0x4015,
+    /// <summary><c>w022</c></summary>
+    W022 = 0x4016,
+    /// <summary><c>w023</c></summary>
+    W023 = 0x4017,
+    /// <summary><c>w024</c></summary>
+    W024 = 0x4018,
+    /// <summary><c>w025</c></summary>
+    W025 = 0x4019,
+    /// <summary><c>w031</c></summary>
+    W031 = 0x401f,
+    /// <summary><c>w032</c></summary>
+    W032 = 0x4020,
+    /// <summary><c>w033</c></summary>
+    W033 = 0x4021,
+    /// <summary><c>w034</c></summary>
+    W034 = 0x4022,
+    /// <summary><c>w035</c></summary>
+    W035 = 0x4023,
+    /// <summary><c>w036</c></summary>
+    W036 = 0x4024,
+    /// <summary><c>w041</c></summary>
+    W041 = 0x4029,
+    /// <summary><c>w042</c></summary>
+    W042 = 0x402a,
+    /// <summary><c>w043</c></summary>
+    W043 = 0x402b,
+    /// <summary><c>w044</c></summary>
+    W044 = 0x402c,
+    /// <summary><c>w045</c></summary>
+    W045 = 0x402d,
+    /// <summary><c>w046</c></summary>
+    W046 = 0x402e,
+    /// <summary><c>w051</c></summary>
+    W051 = 0x4033,
+    /// <summary><c>w052</c></summary>
+    W052 = 0x4034,
+    /// <summary><c>w053</c></summary>
+    W053 = 0x4035,
+    /// <summary><c>w054</c></summary>
+    W054 = 0x4036,
+    /// <summary><c>w055</c></summary>
+    W055 = 0x4037,
+    /// <summary><c>w056</c></summary>
+    W056 = 0x4038,
+    /// <summary><c>w061</c></summary>
+    W061 = 0x403d,
+    /// <summary><c>w062</c></summary>
+    W062 = 0x403e,
+    /// <summary><c>w063</c></summary>
+    W063 = 0x403f,
+    /// <summary><c>w064</c></summary>
+    W064 = 0x4040,
+    /// <summary><c>w065</c></summary>
+    W065 = 0x4041,
+    /// <summary><c>w066</c></summary>
+    W066 = 0x4042,
+    /// <summary><c>w067</c></summary>
+    W067 = 0x4043,
+    /// <summary><c>w068</c></summary>
+    W068 = 0x4044,
+    /// <summary><c>w069</c></summary>
+    W069 = 0x4045,
+    /// <summary><c>w070</c></summary>
+    W070 = 0x4046,
+    /// <summary><c>w071</c></summary>
+    W071 = 0x4047,
+    /// <summary><c>w072</c></summary>
+    W072 = 0x4048,
+    /// <summary><c>w073</c></summary>
+    W073 = 0x4049,
+    /// <summary><c>w074</c></summary>
+    W074 = 0x404a,
+    /// <summary><c>w075</c></summary>
+    W075 = 0x404b,
+    /// <summary><c>w076</c></summary>
+    W076 = 0x404c,
+    /// <summary><c>w077</c></summary>
+    W077 = 0x404d,
+    /// <summary><c>w078</c></summary>
+    W078 = 0x404e,
+    /// <summary><c>w079</c></summary>
+    W079 = 0x404f,
+    /// <summary><c>w080</c></summary>
+    W080 = 0x4050,
+    /// <summary><c>w081</c></summary>
+    W081 = 0x4051,
+    /// <summary><c>w082</c></summary>
+    W082 = 0x4052,
+    /// <summary><c>w083</c></summary>
+    W083 = 0x4053,
+    /// <summary><c>w084</c></summary>
+    W084 = 0x4054,
+    /// <summary><c>w085</c></summary>
+    W085 = 0x4055,
+    /// <summary><c>w086</c></summary>
+    W086 = 0x4056,
+    /// <summary><c>w087</c></summary>
+    W087 = 0x4057,
+    /// <summary><c>w088</c></summary>
+    W088 = 0x4058,
+    /// <summary><c>w089</c></summary>
+    W089 = 0x4059,
+    /// <summary><c>w090</c></summary>
+    W090 = 0x405a,
+    /// <summary><c>w091</c></summary>
+    W091 = 0x405b,
+    /// <summary><c>w092</c></summary>
+    W092 = 0x405c,
+    /// <summary><c>w093</c></summary>
+    W093 = 0x405d,
+    /// <summary><c>w094</c></summary>
+    W094 = 0x405e,
+    /// <summary><c>w095</c></summary>
+    W095 = 0x405f,
+    /// <summary><c>w096</c></summary>
+    W096 = 0x4060,
+    /// <summary><c>w097</c></summary>
+    W097 = 0x4061,
+    /// <summary><c>w098</c></summary>
+    W098 = 0x4062,
+    /// <summary><c>w099</c></summary>
+    W099 = 0x4063,
+    /// <summary><c>w100</c></summary>
+    W100 = 0x4064,
+    /// <summary><c>w101</c></summary>
+    W101 = 0x4065,
+    /// <summary><c>w102</c></summary>
+    W102 = 0x4066,
+    /// <summary><c>w103</c></summary>
+    W103 = 0x4067,
+    /// <summary><c>chr_savesphere001</c></summary>
+    Savesphere001 = 0x5001,
+    /// <summary><c>chr_takarabox002</c></summary>
+    Takarabox002 = 0x5002,
+    /// <summary><c>chr_hokora004</c></summary>
+    Hokora004 = 0x5004,
+    /// <summary><c>chr_kokuin005</c></summary>
+    Kokuin005 = 0x5005,
+    /// <summary><c>chr_ball006</c></summary>
+    Ball006 = 0x5006,
+    /// <summary><c>chr_fish007</c></summary>
+    Fish007 = 0x5007,
+    /// <summary><c>chr_butterfly008</c></summary>
+    Butterfly008 = 0x5008,
+    /// <summary><c>chr_dog009</c></summary>
+    Dog009 = 0x5009,
+    /// <summary><c>chr_monkey010</c></summary>
+    Monkey010 = 0x500a,
+    /// <summary><c>chr_albdbook011</c></summary>
+    Albdbook011 = 0x500b,
+    /// <summary><c>chr_luggage012</c></summary>
+    Luggage012 = 0x500c,
+    /// <summary><c>chr_yunomi013</c></summary>
+    Yunomi013 = 0x500d,
+    /// <summary><c>chr_can015</c></summary>
+    Can015 = 0x500f,
+    /// <summary><c>chr_infoboard016</c></summary>
+    Infoboard016 = 0x5010,
+    /// <summary><c>chr_bottle017</c></summary>
+    Bottle017 = 0x5011,
+    /// <summary><c>chr_trophy018</c></summary>
+    Trophy018 = 0x5012,
+    /// <summary><c>chr_handycamera021</c></summary>
+    Handycamera021 = 0x5015,
+    /// <summary><c>chr_mug022</c></summary>
+    Mug022 = 0x5016,
+    /// <summary><c>chr_kamome_hi023</c></summary>
+    KamomeHi023 = 0x5017,
+    /// <summary><c>chr_shouldercam024</c></summary>
+    Shouldercam024 = 0x5018,
+    /// <summary><c>chr_megahon027</c></summary>
+    Megahon027 = 0x501b,
+    /// <summary><c>chr_mike028</c></summary>
+    Mike028 = 0x501c,
+    /// <summary><c>chr_cat029</c></summary>
+    Cat029 = 0x501d,
+    /// <summary><c>chr_cheerflag_a030</c></summary>
+    CheerflagA030 = 0x501e,
+    /// <summary><c>chr_cheerflag_b031</c></summary>
+    CheerflagB031 = 0x501f,
+    /// <summary><c>chr_cheerflag_c032</c></summary>
+    CheerflagC032 = 0x5020,
+    /// <summary><c>chr_cheerflag_d033</c></summary>
+    CheerflagD033 = 0x5021,
+    /// <summary><c>chr_cheerflag_e034</c></summary>
+    CheerflagE034 = 0x5022,
+    /// <summary><c>chr_cheerflag_f035</c></summary>
+    CheerflagF035 = 0x5023,
+    /// <summary><c>chr_sipahu047</c></summary>
+    Sipahu047 = 0x502f,
+    /// <summary><c>chr_sipahukid048</c></summary>
+    Sipahukid048 = 0x5030,
+    /// <summary><c>chr_genkouka_hi049</c></summary>
+    GenkoukaHi049 = 0x5031,
+    /// <summary><c>chr_genkouka_lo050</c></summary>
+    GenkoukaLo050 = 0x5032,
+    /// <summary><c>chr_chocobo051</c></summary>
+    Chocobo051 = 0x5033,
+    /// <summary><c>chr_chocobo_sld052</c></summary>
+    ChocoboSld052 = 0x5034,
+    /// <summary><c>chr_seabird_hi053</c></summary>
+    SeabirdHi053 = 0x5035,
+    /// <summary><c>chr_iruka054</c></summary>
+    Iruka054 = 0x5036,
+    /// <summary><c>chr_mon_sori057</c></summary>
+    MonSori057 = 0x5039,
+    /// <summary><c>chr_icescoot058</c></summary>
+    Icescoot058 = 0x503a,
+    /// <summary><c>chr_scope_lo059</c></summary>
+    ScopeLo059 = 0x503b,
+    /// <summary><c>chr_scope_hi060</c></summary>
+    ScopeHi060 = 0x503c,
+    /// <summary><c>chr_anchor_lo061</c></summary>
+    AnchorLo061 = 0x503d,
+    /// <summary><c>chr_anchor_hi062</c></summary>
+    AnchorHi062 = 0x503e,
+    /// <summary><c>chr_nokogiri064</c></summary>
+    Nokogiri064 = 0x5040,
+    /// <summary><c>chr_hammer065</c></summary>
+    Hammer065 = 0x5041,
+    /// <summary><c>chr_breaksphere069</c></summary>
+    Breaksphere069 = 0x5045,
+    /// <summary><c>chr_seabird_hi072</c></summary>
+    SeabirdHi072 = 0x5048,
+    /// <summary><c>chr_seabird_lo073</c></summary>
+    SeabirdLo073 = 0x5049,
+    /// <summary><c>chr_dryflower075</c></summary>
+    Dryflower075 = 0x504b,
+    /// <summary><c>chr_albdmask079</c></summary>
+    Albdmask079 = 0x504f,
+    /// <summary><c>chr_knife080</c></summary>
+    Knife080 = 0x5050,
+    /// <summary><c>chr_ration081</c></summary>
+    Ration081 = 0x5051,
+    /// <summary><c>chr_suitou082</c></summary>
+    Suitou082 = 0x5052,
+    /// <summary><c>chr_cage_s084</c></summary>
+    CageS084 = 0x5054,
+    /// <summary><c>chr_wagoncloth085</c></summary>
+    Wagoncloth085 = 0x5055,
+    /// <summary><c>chr_wagon086</c></summary>
+    Wagon086 = 0x5056,
+    /// <summary><c>chr_feather087</c></summary>
+    Feather087 = 0x5057,
+    /// <summary><c>chr_oldsword088</c></summary>
+    Oldsword088 = 0x5058,
+    /// <summary><c>chr_takarabox090</c></summary>
+    Takarabox090 = 0x505a,
+    /// <summary><c>chr_takarabox_sa091</c></summary>
+    TakaraboxSa091 = 0x505b,
+    /// <summary><c>chr_takarabox_sb092</c></summary>
+    TakaraboxSb092 = 0x505c,
+    /// <summary><c>chr_fish_b093</c></summary>
+    FishB093 = 0x505d,
+    /// <summary><c>chr_fish_c094</c></summary>
+    FishC094 = 0x505e,
+    /// <summary><c>chr_fish_d095</c></summary>
+    FishD095 = 0x505f,
+    /// <summary><c>chr_fish_e096</c></summary>
+    FishE096 = 0x5060,
+    /// <summary><c>chr_brokenanchor097</c></summary>
+    Brokenanchor097 = 0x5061,
+    /// <summary><c>chr_guards_wep098</c></summary>
+    GuardsWep098 = 0x5062,
+    /// <summary><c>chr_balloon099</c></summary>
+    Balloon099 = 0x5063,
+    /// <summary><c>chr_10balloons100</c></summary>
+    Chr10balloons100 = 0x5064,
+    /// <summary><c>chr_shin3_fld101</c></summary>
+    Shin3Fld101 = 0x5065,
+    /// <summary><c>chr_shin3part102</c></summary>
+    Shin3part102 = 0x5066,
+    /// <summary><c>chr_expds_wep103</c></summary>
+    ExpdsWep103 = 0x5067,
+    /// <summary><c>chr_glass105</c></summary>
+    Glass105 = 0x5069,
+    /// <summary><c>chr_fruit_a106</c></summary>
+    FruitA106 = 0x506a,
+    /// <summary><c>chr_fruit_b107</c></summary>
+    FruitB107 = 0x506b,
+    /// <summary><c>chr_photosphere108</c></summary>
+    Photosphere108 = 0x506c,
+    /// <summary><c>chr_saidan109</c></summary>
+    Saidan109 = 0x506d,
+    /// <summary><c>chr_sphere_a110</c></summary>
+    SphereA110 = 0x506e,
+    /// <summary><c>chr_sphere_b111</c></summary>
+    SphereB111 = 0x506f,
+    /// <summary><c>chr_sphere_c112</c></summary>
+    SphereC112 = 0x5070,
+    /// <summary><c>chr_sphere_d113</c></summary>
+    SphereD113 = 0x5071,
+    /// <summary><c>chr_sphere_e114</c></summary>
+    SphereE114 = 0x5072,
+    /// <summary><c>chr_sphere_g116</c></summary>
+    SphereG116 = 0x5074,
+    /// <summary><c>chr_sphere_h117</c></summary>
+    SphereH117 = 0x5075,
+    /// <summary><c>chr_sphere_i118</c></summary>
+    SphereI118 = 0x5076,
+    /// <summary><c>chr_stairsride120</c></summary>
+    Stairsride120 = 0x5078,
+    /// <summary><c>chr_empty_glass122</c></summary>
+    EmptyGlass122 = 0x507a,
+    /// <summary><c>chr_leaf_lo123</c></summary>
+    LeafLo123 = 0x507b,
+    /// <summary><c>chr_gareki_a124</c></summary>
+    GarekiA124 = 0x507c,
+    /// <summary><c>chr_gareki_b125</c></summary>
+    GarekiB125 = 0x507d,
+    /// <summary><c>chr_hover126</c></summary>
+    Hover126 = 0x507e,
+    /// <summary><c>chr_sealbreaker127</c></summary>
+    Sealbreaker127 = 0x507f,
+    /// <summary><c>chr_airship128</c></summary>
+    Airship128 = 0x5080,
+    /// <summary><c>chr_lift129</c></summary>
+    Lift129 = 0x5081,
+    /// <summary><c>chr_blanket146</c></summary>
+    Blanket146 = 0x5092,
+    /// <summary><c>chr_openstone147</c></summary>
+    Openstone147 = 0x5093,
+    /// <summary><c>chr_warp149</c></summary>
+    Warp149 = 0x5095,
+    /// <summary><c>chr_kusabi150</c></summary>
+    Kusabi150 = 0x5096,
+    /// <summary><c>chr_sipahu_kura156</c></summary>
+    SipahuKura156 = 0x509c,
+    /// <summary><c>chr_sphere_sw157</c></summary>
+    SphereSw157 = 0x509d,
+    /// <summary><c>chr_trumpet158</c></summary>
+    Trumpet158 = 0x509e,
+    /// <summary><c>chr_saidan_2put159</c></summary>
+    Saidan2put159 = 0x509f,
+    /// <summary><c>chr_rifle161</c></summary>
+    Rifle161 = 0x50a1,
+    /// <summary><c>chr_wagon_free162</c></summary>
+    WagonFree162 = 0x50a2,
+    /// <summary><c>chr_map_pointer163</c></summary>
+    MapPointer163 = 0x50a3,
+    /// <summary><c>chr_butterfly2_164</c></summary>
+    Butterfly2_164 = 0x50a4,
+    /// <summary><c>chr_butterfly3_165</c></summary>
+    Butterfly3_165 = 0x50a5,
+    /// <summary><c>chr_albdbook2_166</c></summary>
+    Albdbook2_166 = 0x50a6,
+    /// <summary><c>chr_kamome_hi2_167</c></summary>
+    KamomeHi2_167 = 0x50a7,
+    /// <summary><c>chr_break_pillar168</c></summary>
+    BreakPillar168 = 0x50a8,
+    /// <summary><c>chr_flashbomb169</c></summary>
+    Flashbomb169 = 0x50a9,
+    /// <summary><c>chr_albd_box170</c></summary>
+    AlbdBox170 = 0x50aa,
+    /// <summary><c>chr_savesphere_w171</c></summary>
+    SavesphereW171 = 0x50ab,
+    /// <summary><c>chr_mini_airship172</c></summary>
+    MiniAirship172 = 0x50ac,
+    /// <summary><c>chr_luca_flag173</c></summary>
+    LucaFlag173 = 0x50ad,
+    /// <summary><c>chr_tiara</c></summary>
+    Tiara = 0x50af,
+    /// <summary><c>chr_cursor176</c></summary>
+    Cursor176 = 0x50b0,
+    /// <summary><c>k001</c></summary>
+    K001 = 0x6001,
+    /// <summary><c>k002</c></summary>
+    K002 = 0x6002,
+    /// <summary><c>k003</c></summary>
+    K003 = 0x6003,
+    /// <summary><c>k004</c></summary>
+    K004 = 0x6004,
+    /// <summary><c>k005</c></summary>
+    K005 = 0x6005,
+    /// <summary><c>k006</c></summary>
+    K006 = 0x6006,
+    /// <summary><c>k007</c></summary>
+    K007 = 0x6007,
+    /// <summary><c>k012</c></summary>
+    K012 = 0x600c,
+    /// <summary><c>k013</c></summary>
+    K013 = 0x600d,
+    /// <summary><c>k014</c></summary>
+    K014 = 0x600e,
+    /// <summary><c>k015</c></summary>
+    K015 = 0x600f,
+    /// <summary><c>k016</c></summary>
+    K016 = 0x6010,
+    /// <summary><c>k017</c></summary>
+    K017 = 0x6011,
+    /// <summary><c>k066</c></summary>
+    K066 = 0x6042,
+    /// <summary><c>k101</c></summary>
+    K101 = 0x6065,
+    /// <summary><c>k102</c></summary>
+    K102 = 0x6066,
+    /// <summary><c>k103</c></summary>
+    K103 = 0x6067,
+    /// <summary><c>k104</c></summary>
+    K104 = 0x6068,
+    /// <summary><c>k112</c></summary>
+    K112 = 0x6070,
+    /// <summary><c>k113</c></summary>
+    K113 = 0x6071,
+    /// <summary><c>k114</c></summary>
+    K114 = 0x6072,
+    /// <summary><c>k201</c></summary>
+    K201 = 0x60c9,
+    /// <summary><c>k202</c></summary>
+    K202 = 0x60ca,
+    /// <summary><c>k203</c></summary>
+    K203 = 0x60cb,
+    /// <summary><c>k204</c></summary>
+    K204 = 0x60cc,
+    /// <summary><c>k212</c></summary>
+    K212 = 0x60d4,
+    /// <summary><c>k213</c></summary>
+    K213 = 0x60d5,
+    /// <summary><c>k214</c></summary>
+    K214 = 0x60d6,
+    /// <summary><c>k301</c></summary>
+    K301 = 0x612d,
+    /// <summary><c>k302</c></summary>
+    K302 = 0x612e,
+    /// <summary><c>k303</c></summary>
+    K303 = 0x612f,
+    /// <summary><c>k304</c></summary>
+    K304 = 0x6130,
+    /// <summary><c>k401</c></summary>
+    K401 = 0x6191,
+    /// <summary><c>k402</c></summary>
+    K402 = 0x6192,
+    /// <summary><c>k403</c></summary>
+    K403 = 0x6193,
+    /// <summary><c>k501</c></summary>
+    K501 = 0x61f5,
+    /// <summary><c>k502</c></summary>
+    K502 = 0x61f6,
+    /// <summary><c>k503</c></summary>
+    K503 = 0x61f7,
+    /// <summary><c>k504</c></summary>
+    K504 = 0x61f8,
+    /// <summary><c>k505</c></summary>
+    K505 = 0x61f9,
+    /// <summary><c>k998</c></summary>
+    K998 = 0x63e6,
+    /// <summary><c>k999</c></summary>
+    K999 = 0x63e7,
+}

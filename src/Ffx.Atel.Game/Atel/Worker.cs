@@ -33,6 +33,14 @@ public abstract class Worker {
     /// </summary>
     protected int LastResult => throw Runtime.NotRunnable();
 
+    /// <summary>Entry 0, which the engine runs when the worker starts (at priority 7, docs/plan.md "Workers and entries").</summary>
+    protected virtual void Init() {
+    }
+
+    /// <summary>Entry 1, the worker's main entry (priority 0).</summary>
+    protected virtual void Main() {
+    }
+
     /// <summary>The script's message table: <c>Text[12]</c> is message 12 (docs/plan.md, "Text").</summary>
     protected static TextTable Text => throw Runtime.NotRunnable();
 
