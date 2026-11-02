@@ -13,6 +13,8 @@ namespace Ffx.Atel.Bytecode.Script;
 ///     else the int slot's, else 0. <c>func_facc</c> then pops that result into the float accumulator.
 ///     Every request (<c>req*</c>, <c>reqw*</c>, <c>reqe*</c>, <c>39</c>–<c>3b</c>) pops entry, worker and
 ///     level (pushed in the order level, worker, entry) and pushes whether it was queued.
+///     <c>op_2b</c> duplicates the top: <c>AtelFetchStackInteger</c> (<c>0x0086a000</c>) reads it without
+///     popping, and the handler pushes it again (compound array stores, <c>a[i] |= x</c>, use it for the index).
 /// </remarks>
 public static class StackEffects {
     /// <summary>
@@ -32,7 +34,7 @@ public static class StackEffects {
         Opcodes.PushVRef => (1, 1),
         Opcodes.PushA or Opcodes.PushB => (0, 1),
         Opcodes.PopA or Opcodes.PopB => (1, 0),
-        Opcodes.Op2b => (1, 1),
+        Opcodes.Op2b => (1, 2),
         Opcodes.PushC or Opcodes.PushImm or Opcodes.PushFC => (0, 1),
         Opcodes.Jmp or Opcodes.Jnz or Opcodes.Jz or Opcodes.Call or Opcodes.Ret => (0, 0),
         Opcodes.Func => (0, 1),

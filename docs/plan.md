@@ -68,6 +68,19 @@ sections; survey 2026-10-31):
 - Constant folding, small immediates, a breakpoint opcode (a debugger).
 - No strings (messages are IDs), no pointers beyond `&var`, no structs.
 
+Phase 0 measured all 1,621 scripts, battle scripts included
+([corpus.md](corpus.md)), and adds:
+
+- The stack is empty at every label, jump and end: no `?:` and no
+  short-circuit `&&`/`||` inside an expression. Statements are expression
+  trees between labels.
+- `switch` usually has no `default` (71,181 of 82,809 chains fall through
+  to the break label); cases can be ranges (`lo..hi`) and relational
+  compares; no two cases share a label.
+- 12 % of the instructions are dead code: `if (0) { … }` compiled to a
+  `jmp` over code that was kept.
+- Labels are numbered per construct as it starts, not in code order.
+
 ## The language
 
 Everything below is valid C#; what makes it Atel is the reference assembly
@@ -115,20 +128,23 @@ Everything below is valid C#; what makes it Atel is the reference assembly
 
 ### Worker types
 
-Seven types (worker header `+0x00`), in the 758 scripts:
+Seven types (worker header `+0x00`), over all 1,621 scripts; the meanings
+of 1-6 come from the natives each type calls most ([corpus.md](corpus.md#workers)):
 
 | Type | Workers | Known |
 |---|---|---|
-| 0 | 441 (events) | **function worker**: every `call` (5,560) targets one, and each has exactly one entry; becomes a `static class` |
-| 1 | 6,707 (events) | |
-| 2 | 648 (events), 898 (monsters: every monster worker) | |
-| 3 | 486 (events) | |
-| 4 | 1,944 (events) | no position block |
-| 5 | 1,382 (events) | position block and walk-line table (characters) |
-| 6 | 116 (events) | as 5 |
+| 0 | 441 (events) | **function worker**: every `call` (5,560) targets one, and each has exactly one entry, ending in `ret`; becomes a `static class`. 392 are one shared 39-instruction function |
+| 1 | 6,707 (events) | actors and the director: models, motion, movement |
+| 2 | 648 (events), 898 (monsters), 2,388 (battle): every monster and battle worker | in events, line triggers and map changes, 8-12 entries, most only `end` |
+| 3 | 486 (events) | point triggers, 8-17 entries |
+| 4 | 1,944 (events) | no position block; screen and map parts (pad, sprites, map marker) |
+| 5 | 1,382 (events) | position block and walk-line table (characters); line triggers |
+| 6 | 116 (events) | as 5; point triggers with map sprites |
 
-Phase 0 names the rest from the natives each type calls; the `battle/btl`
-scripts are counted then too.
+In events the layout groups the workers by type (`1 4 3 2 5 0` or a
+subset, 350 of 397), function workers last in all; the constant pools show
+the compiler met them in another order, so worker order is declared, not
+derived.
 
 ### Three kinds of code
 
@@ -182,7 +198,9 @@ carries only entry, worker and priority. The compiler provides both:
   knows the caller's priority (`Main` P0, `Init` P7) and warns elsewhere.
   A helper method is usually the better choice.
 - Priorities: `Priority.P0_Main` … `Priority.P8_…`, an enum, zero-based,
-  sorted by level, names after the number from Phase 0. P1–P6 are for
+  sorted by level, names after the number from Phase 0. Scripts push only
+  levels 1-7 (level 1 in 78 % of requests, 3 in 14 %), and only the forms
+  `req0`, `reqw0`, `reqe0` (plus `req2` 32 times). P1–P6 are for
   scripts; P0 (`Main`'s level), P7 (`Init`, battle system) and P8 (unused)
   compile with a warning. An optional parameter with a common default makes
   most calls omit it.
@@ -211,7 +229,9 @@ carries only entry, worker and priority. The compiler provides both:
   (outside `Debug`) are errors.
 - The save game is the predefined `Save` class (`Save.StoryProgress`),
   from `ffx-rust`'s `docs/formats/save.md` and Fahrenheit's names; unnamed offsets are
-  `Save.Unknown_0123`.
+  `Save.Unknown_0123`. Storage 0 starts at `g_SaveData + 0x1ec`
+  (`AtelSetUpCtrlWork`), so `Save` offsets are storage 0 offsets plus
+  `0x1ec`; story progress is storage 0 `0xa00`.
 
 ### Readability
 
@@ -227,9 +247,11 @@ carries only entry, worker and priority. The compiler provides both:
   `Motion.Idle`, `Command.Bite`, `Target.Party | Target.Alive`.
 - Story progress: `Story.S1340_WakkaJoinsParty`, the value zero-padded in
   the name so alphabetical order is progress order; auto-named from the
-  script that sets each value, renamed by hand.
-- Shared behaviour: workers with identical code across scripts (2,238 of
-  12,622 are exact copies of another) become library base classes
+  script that sets each value (`data/story-progress.json`: 432 of the 449
+  values outside the developer maps have exactly one), renamed by hand.
+- Shared behaviour: workers with identical code across scripts (3,525 of
+  15,010 are exact copies of another; 7,237 copy another's shape with other
+  numbers) become library base classes
   (`class Chest3 : TreasureChest { }`); the compiler copies the code back.
   Near-duplicates may become base classes with parameters.
 
@@ -255,7 +277,17 @@ carries only entry, worker and priority. The compiler provides both:
 
 - `if`/`else`, `while`, `do`, `for`, `?:`, `switch` with `case`,
   `default`, `break`, `goto case`; `goto` for flow that has no structured
-  form.
+  form (1,504 jumps cross into another entry's code). Range and relational
+  cases are C# patterns (`case >= 380 and <= 401:`). Dead code the original
+  kept is `if (false) { … }`, compiled to a `jmp` over it.
+- How the compiler chooses, from Phase 0: `pushc` exactly for values outside
+  `i16`; `func_facc` for a call statement, `func` when the result is used;
+  `popa_jz` forward, `popa_jnz` back; labels numbered per construct
+  (`while`: exit, head; `switch`: chain, break, cases, default). Pinned
+  where no rule covers the original: constant-pool and variable-table order
+  (pools match a first-use rule in 77 % (ints) and 71 % (floats) of
+  blocks), the 8 `popv_1`, label numbers the structurer does not
+  reproduce.
 - Logic: C#'s `&` and `|` on `bool` evaluate both sides, as ATEL's `land`
   and `lor` do, so the decompiler writes those; `&&` and `||`
   short-circuit as in C# and compile to branches. How an `int` used as a
@@ -401,8 +433,10 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   Fahrenheit) is reached only in HDD and CD/DVD modes and, on PC, for
   every `Cd_QueueRead` while an Eternal Calm map (393-399) is the graphic
   map. A grown file read there would be cut; a hook like ffx-rust's would
-  fix it if a mod ever needs those maps. `CDfileSize_CD_EX` is only called
-  from `CDfileSize_PC`, on the path Fahrenheit skips.
+  fix it if a mod ever needs those maps. `CDfileSize_CD_EX` (`0x0076c410`, reads
+  `sizetbl.vita.bin`) is only called from `CDfileSize_PC`, for modules
+  `0xe`, `0x10`, `0x1a`, `0x1c`-`0x22`, `0x28`, `0x29`, on the path Fahrenheit
+  skips ([corpus.md](corpus.md#cdfilesize_cd_ex-on-pc)).
   Decision (user, 2026-11-02): the loader hooks `CDfileSize_CD` too, so a
   grown file reports its real size there as well (maps 393-399 only play a
   few specific cutscenes, but it can't hurt).
@@ -418,7 +452,12 @@ Each phase ends with a corpus test (`FFX_GAME_DIR`, skipped without it)
 and numbers: scripts that round-trip, instructions inside `Asm`, `goto`
 count, names placed.
 
-0. **Measure the corpus** (2–3 days). Stack depth at labels and jumps; jump
+0. **Measure the corpus** (2–3 days). Done 2026-11-02, see
+   [corpus.md](corpus.md) and `atel survey`; left for the game: what an
+   awaited request to the worker's own entry does at the same or a lower
+   priority (`reqe0` at level 1 from entry 1 is the common case, 77
+   sites), and whether `UseCommand` checks the monster's command list.
+   Stack depth at labels and jumps; jump
    shapes; encoding choices (immediate vs pool, `func` vs `func_facc`,
    store modes, end variants); table and label order against code order;
    ternary and `for` patterns; `default` in switches; worker type meanings
