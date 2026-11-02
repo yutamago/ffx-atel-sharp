@@ -17,12 +17,15 @@ namespace Ffx.Atel.Loader;
 ///     The files are written in the constructor, into this mod's <c>efl/x</c> folder: Fahrenheit
 ///     runs every mod's constructors before any <c>init</c>, and its file loader indexes the
 ///     <c>efl</c> folders in its <c>init</c>, so it serves them like any other replacement file.
-///     Fahrenheit's own <c>CDfileSize_PC</c> hook makes the game size them from disk, so scripts
-///     that grow need nothing more (docs/research/loader.md).
+///     Fahrenheit's own <c>CDfileSize_PC</c> hook makes the game size them from disk; the loader
+///     hooks <c>CDfileSize_CD</c>, which Fahrenheit leaves alone and which the game uses while an
+///     Eternal Calm map is loaded, so a script that grew is read whole there too
+///     (<see cref="CdFileSizeHook"/>, docs/research/loader.md).
 /// </remarks>
 [FhLoad(FhGameId.FFX)]
 public sealed class AtelLoaderModule : FhModule {
     private readonly List<BuiltScript> _built = [];
+    private readonly ServedFiles       _served = ServedFiles.Empty;
     private readonly string?           _failure;
 
     public AtelLoaderModule() {
@@ -31,7 +34,9 @@ public sealed class AtelLoaderModule : FhModule {
                 ?? throw new IOException("cannot tell where the mod is");
             string gameDir = Path.GetDirectoryName(Environment.ProcessPath)
                 ?? throw new IOException("cannot tell where the game is");
-            _built.AddRange(ScriptBuilder.Build(modDir, gameDir, Path.Combine(modDir, "efl", "x")));
+            string eflDir  = Path.Combine(modDir, "efl", "x");
+            _built.AddRange(ScriptBuilder.Build(modDir, gameDir, eflDir));
+            _served = ServedFiles.Scan(eflDir);
         }
         catch (Exception ex) {
             // A failed build must not stop the game: it then runs with the vanilla scripts.
@@ -56,6 +61,15 @@ public sealed class AtelLoaderModule : FhModule {
                 ? $"script {s.ScriptSize} bytes in a section of {s.ScriptRoom}, file grew {s.VanillaSize} -> {s.RebuiltSize}"
                 : $"script {s.ScriptSize} bytes in a section of {s.ScriptRoom}, file {s.RebuiltSize} bytes";
             _logger.Info($"Atel loader: {s.Source} -> {s.ArchivePath} ({growth})");
+        }
+        // Only with files to serve: without them the game's own sizes are right.
+        if (_served.Count > 0) {
+            if (new CdFileSizeHook(_served, _logger).Install(this)) {
+                _logger.Info($"Atel loader: CDfileSize_CD hooked for {_served.Count} served file(s).");
+            }
+            else {
+                _logger.Error("Atel loader: cannot hook CDfileSize_CD; a grown file read on an Eternal Calm map (393-399) would be cut.");
+            }
         }
         return true;
     }
