@@ -95,4 +95,25 @@ public sealed class LayoutTests {
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void ProjectsAreMapAreasAndBigAreasAreSplit() {
+        SourceNames bj = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/event/obj/bj/bjyt0400/bjyt0400.ebp");
+        SourceNames bl = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/event/obj/bl/bltz0000/bltz0000.ebp");
+        SourceNames kino = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/battle/btl/kino00_00/kino00_00.bin");
+        SourceNames m001 = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/battle/mon/_m001/m001.bin");
+        Dictionary<string, string> projects = ProjectLayout.Assign([(bj, 1000), (bl, ProjectLayout.AreaLimit + 1), (kino, 1000), (m001, 1000)]);
+        Assert.Equal("Events/Bj", projects[bj.Namespace]);
+        Assert.Equal("Events/Bl/Bltz0000", projects[bl.Namespace]);
+        Assert.Equal("Battles/Kino", projects[kino.Namespace]);
+        Assert.Equal("Monsters", projects[m001.Namespace]);
+
+        List<SourceFile> files = ProjectLayout.Files(projects.Values, ["Library"]);
+        Assert.Contains(files, f => f.RelativePath == "Events/Bj/Events.Bj.csproj" && f.Text.Contains("<ProjectReference Include=\"../../Library/Library.csproj\" />", StringComparison.Ordinal));
+        Assert.Contains(files, f => f.RelativePath == "Events/Bl/Bltz0000/Events.Bl.Bltz0000.csproj" && f.Text.Contains("\"../../../Library/Library.csproj\"", StringComparison.Ordinal));
+        Assert.DoesNotContain("ProjectReference", files.Single(f => f.RelativePath == "Library/Library.csproj").Text, StringComparison.Ordinal);
+        Assert.Contains("HintPath=\"$(AtelGameAssembly)\"", files.Single(f => f.RelativePath == "Directory.Build.props").Text, StringComparison.Ordinal);
+        Assert.Equal(["Atel.slnx", "Battles.slnx", "Events.slnx", "Monsters.slnx"], files.Where(f => f.RelativePath.EndsWith(".slnx", StringComparison.Ordinal)).Select(f => f.RelativePath).Order(StringComparer.Ordinal));
+        Assert.Contains("Library/Library.csproj", files.Single(f => f.RelativePath == "Events.slnx").Text, StringComparison.Ordinal);
+    }
 }

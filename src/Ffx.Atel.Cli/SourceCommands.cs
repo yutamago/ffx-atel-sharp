@@ -17,7 +17,8 @@ namespace Ffx.Atel.Cli;
 internal static class SourceCommands {
     public const string Usage = """
           decompile <script>... [-o <dir>] to C#: a folder per script, <dir>/<Namespace as folders>/,
-                                           with a file per worker (else one file to stdout);
+                                           with a file per worker, and projects, a solution and
+                                           Directory.Build.props (else one file to stdout);
                                            `all` for every script
           compile <dir|file.cs> -o <out>   C# back to the script file, from a script's folder (every
                                            .cs under it but obj/, bin/) or one file (the game's file gives
@@ -31,15 +32,38 @@ internal static class SourceCommands {
         List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
             : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
         if (output is null && paths.Count > 1) throw new ArgumentException("more than one script needs -o <dir>");
-        foreach (string path in paths) {
-            DecompiledScript d = ScriptDecompiler.Decompile(path, ScriptFile.Parse(archive.Read(path)));
-            if (output is null) {
-                Console.Out.Write(d.Source);
-                continue;
-            }
-            WriteFiles(output, d.Files());
+        if (output is null) {
+            Console.Out.Write(ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0]))).Source);
+            return 0;
         }
+        List<(string Path, byte[] Bytes)> files = [.. paths.Select(p => (p, archive.Read(p)))];
+        DecompiledScript[] scripts = new DecompiledScript[files.Count];
+        long[] sizes = new long[files.Count];
+        Parallel.For(0, files.Count, i => {
+            scripts[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes));
+            List<SourceFile> sources = scripts[i].Files();
+            sizes[i] = sources.Sum(f => (long)f.Text.Length);
+            WriteFiles(output, sources);
+        });
+        Dictionary<string, string> projects = ProjectLayout.Assign(scripts.Select((d, i) => (d.Names, sizes[i])));
+        WriteProjects(output, projects.Values, []);
+        Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{scripts.Length} scripts in {projects.Values.Distinct().Count()} projects; dotnet build {Path.Combine(output, ProjectLayout.Solution)}"));
         return 0;
+    }
+
+    /// <summary>
+    ///     The project files at the root (<see cref="ProjectLayout"/>), and the reference assembly beside
+    ///     them in <c>.atel/</c>, which <c>Directory.Build.props</c> points at.
+    /// </summary>
+    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders) {
+        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders));
+        string game = typeof(Atel.Worker).Assembly.Location;
+        string tools = Path.Combine(root, ProjectLayout.ToolFolder);
+        Directory.CreateDirectory(tools);
+        File.Copy(game, Path.Combine(tools, ProjectLayout.GameAssembly), overwrite: true);
+        string docs = Path.ChangeExtension(game, ".xml");
+        if (File.Exists(docs)) File.Copy(docs, Path.Combine(tools, Path.GetFileName(docs)), overwrite: true);
     }
 
     /// <summary>Writes source files under a root folder.</summary>

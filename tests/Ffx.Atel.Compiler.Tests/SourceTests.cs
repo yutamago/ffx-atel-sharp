@@ -330,7 +330,7 @@ public sealed class SourceTests {
     [InlineData(MonsterPath, "Monsters.M999", "M999")]
     [InlineData("ffx_ps2/ffx/master/jppc/event/obj/bj/bjyt0400/bjyt0400.ebp", "Events.Bj.Bjyt0400", "Bjyt0400")]
     [InlineData("ffx_ps2/ffx/master/jppc/event/obj/ka/kami0400/200thunder_kami0400.ebp", "Events.Ka._200thunder_kami0400", "_200thunder_kami0400")]
-    [InlineData("ffx_ps2/ffx/master/jppc/battle/btl/cdsp00_00/cdsp00_00.bin", "Battles.Cdsp00_00", "Cdsp00_00")]
+    [InlineData("ffx_ps2/ffx/master/jppc/battle/btl/cdsp00_00/cdsp00_00.bin", "Battles.Cdsp.Cdsp00_00", "Cdsp00_00")]
     public void ScriptsAreNamedAfterTheirPath(string path, string ns, string cls) {
         SourceNames names = SourceNames.ForPath(path);
         Assert.Equal((ns, cls), (names.Namespace, names.ClassName));
