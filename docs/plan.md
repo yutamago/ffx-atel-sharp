@@ -644,9 +644,20 @@ replaces and the round trip stays byte for byte.
   `Call<…>` under "Not done" of Phase 6.
 - The compiler also finds an entry method a worker inherits from its library
   class (`W03.E5Async()` with `E5Async` in `Shared0001`).
+- **Function workers** (decided 2026-11-02): a function worker's one entry
+  is `public static void Run()` (no `[Entry]`; the compiler reads a static
+  `Run` in a type 0 worker as entry 0), and `call` is `W48.Run();`
+  (`Call<W48>();` stays valid input). The class stays `public sealed class W48
+  : Worker0`, not the plan's `static class`: a static class cannot derive, so
+  it would lose the type (`Worker0`), the `Worker` helpers its code uses
+  (`AsBool`, `RegA`, …) and the library class the 392 copies of the common
+  function share (`W48 : Shared0001 { }`, `W48.Run()` calls the inherited
+  method). Named functions (`Common.SetupModels()`) need names, which come
+  later. Numbers: all 5,560 `call`s as `Run()`; 1,621/1,621 round-trip, 0 C#
+  errors, 0 warnings; library sharing unchanged (2,990 workers, 431 classes).
 - Not done yet: `AsBool`/`AsInt` (88,778 and 3,344 left; natives typed `bool`
   where every use is a condition would remove most), register and variable
-  names beyond the save, `static class` function workers, storage 1 names,
+  names beyond the save, names for function workers, storage 1 names,
   entry names beyond 0 and 1 (requested entries are `E5Async`).
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
   workers named after their model; 29,136 `Init`/`Main` overrides. The

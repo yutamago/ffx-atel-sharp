@@ -11,11 +11,13 @@ public static partial class ScriptCompiler {
     ///     The entries a method places: its <c>[Entry(n)]</c> numbers in order, or for an <c>Init</c> or
     ///     <c>Main</c> override without <c>[Entry]</c> entry 0 or 1 (the engine's entries).
     /// </summary>
-    private static List<int> EntriesOf(MethodDeclarationSyntax method) {
+    private static List<int> EntriesOf(MethodDeclarationSyntax method, bool functionWorker = false) {
         List<int> entries = [];
         foreach (AttributeSyntax e in method.AttributeLists.SelectMany(l => l.Attributes)) {
             if (NameOf(e) == "Entry") entries.Add(I32(Positional(e, 0), e));
         }
+        // A function worker's one entry is `public static void Run()` (docs/plan.md, "Three kinds of code").
+        if (entries.Count == 0 && functionWorker && method.Identifier.ValueText == "Run" && method.Modifiers.Any(SyntaxKind.StaticKeyword)) entries.Add(0);
         if (entries.Count == 0 && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
             switch (method.Identifier.ValueText) {
                 case "Init": entries.Add(0); break;

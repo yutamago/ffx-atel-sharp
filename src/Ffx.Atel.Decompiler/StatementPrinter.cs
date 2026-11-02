@@ -61,7 +61,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         CompoundStmt c => Compound(c),
         CallStmt c => Call(c.Native, c.Args).Text + ";",
         RequestStmt r => Request(r),
-        CallWorkerStmt c => c.Worker < workerNames.Length ? $"Call<{workerNames[c.Worker]}>();" : throw No("call to a worker that does not exist"),
+        CallWorkerStmt c => c.Worker < workerNames.Length ? CallWorker(c.Worker, workerNames[c.Worker]) : throw No("call to a worker that does not exist"),
         GotoStmt g => $"goto l{g.Label};",
         BreakStmt => "break;",
         ContinueStmt => "continue;",

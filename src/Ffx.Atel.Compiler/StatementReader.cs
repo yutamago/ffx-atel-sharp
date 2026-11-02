@@ -242,6 +242,10 @@ internal sealed partial class StatementReader(
                 Expr target = Target(args[0].Expression);
                 return target is RegExpr ? throw Error(args[0], "a register has no clamped store") : new AssignStmt(target, ReadExpr(args[1].Expression), true);
             }
+            // `W48.Run();`: a function worker's entry, run on this worker (`call`).
+            case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Run", Expression: IdentifierNameSyntax fw }
+                when args.Count == 0 && workers.TryGetValue(fw.Identifier.ValueText, out int callee):
+                return new CallWorkerStmt(callee);
             case MemberAccessExpressionSyntax:
                 (ushort id2, IReadOnlyList<Expr> a2) = Native(call);
                 return new CallStmt(id2, a2);

@@ -154,7 +154,8 @@ public sealed class SourceTests {
             "if (V0 > 2 & AsBool(V2))",
             "Request(1, 0, 0);",
             "F0 = I1;",
-            "Call<W00>();",
+            "W00.Run();",
+            "public static void Run()",
             "return;",
             "[Register(1)] public static int I1;",
         ];
