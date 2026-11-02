@@ -2,6 +2,8 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
+        <!-- The corpus test decompiles and checks scripts in parallel: server GC is 4-5x faster. -->
+        <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="xunit.v3" Version="3.2.2" />

@@ -109,8 +109,10 @@ public enum Storage {
 /// <summary>
 ///     An entry of the variable table, in declaration order; the field's type gives the variable's
 ///     (<c>byte</c> u8, <c>sbyte</c> i8, <c>ushort</c> u16, <c>short</c> i16, <c>uint</c> u32, <c>int</c> i32,
-///     <c>float</c> f32; an array for a length other than 1, its size the length:
-///     <c>[Var(Storage.Event, 0x40)] public static float[] V3 = new float[4];</c>).
+///     <c>float</c> f32). A variable declared as an array (location bit 24) is a C# array, also when its
+///     length is 1, its size the length: <c>[Var(Storage.Event, 0x40)] public static float[] V3 = new float[4];</c>.
+///     A 2-D array (<c>T[,]</c>) gives the table's row length (<c>+6</c>) as its second dimension:
+///     <c>new byte[3, 8]</c> is 24 elements in rows of 8.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field, Inherited = false)]
 public sealed class VarAttribute(Storage storage, int offset) : Attribute {
@@ -121,12 +123,16 @@ public sealed class VarAttribute(Storage storage, int offset) : Attribute {
 
     /// <summary>Array length (table <c>+4</c>), for an array field without <c>= new T[n]</c>.</summary>
     public int Length { get; set; } = 1;
+}
 
-    /// <summary>The table's <c>u16</c> at <c>+6</c>, not yet understood.</summary>
-    public int Extra { get; set; }
-
-    /// <summary>Location bit 24, not yet understood.</summary>
-    public bool Bit24 { get; set; }
+/// <summary>
+///     A worker field kept in one of the worker's registers: integer registers 0-3 for <c>int</c>,
+///     float registers 0-9 for <c>float</c> (<c>pushi0</c>/<c>popi0</c>, <c>pushf0</c>/<c>popf0</c>, …).
+///     A function worker (<c>call</c>) shares its caller's registers.
+/// </summary>
+[AttributeUsage(AttributeTargets.Field, Inherited = false)]
+public sealed class RegisterAttribute(int number) : Attribute {
+    public int Number { get; } = number;
 }
 
 /// <summary>Worker header words not yet understood: <c>+0x0c</c>, and <c>+0x10</c> (Fahrenheit's <c>priv_data_len</c>).</summary>

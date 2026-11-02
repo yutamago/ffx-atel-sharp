@@ -2,6 +2,8 @@
 
 using System.Text;
 using Ffx.Atel.Bytecode;
+using Ffx.Atel.Bytecode.Analysis;
+using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -80,6 +82,7 @@ public static class ScriptCompiler {
         List<AttributeSyntax> mainAttributes = mainParts.SelectMany(Attributes).ToList();
 
         ScriptImage image = new();
+        List<uint>? pinnedInts = null, pinnedFloats = null;
         foreach (AttributeSyntax a in mainAttributes) {
             switch (NameOf(a)) {
                 case "Event" or "Monster" or "Battle" or "Workers":
@@ -104,13 +107,13 @@ public static class ScriptCompiler {
                     image.Patches[I32(Positional(a, 0), a)] = HexBytes((string)Positional(a, 1), a);
                     break;
                 case "Ints":
-                    image.IntConstants.AddRange(AllPositional(a).Select(v => U32(v, a)));
+                    (pinnedInts ??= []).AddRange(AllPositional(a).Select(v => U32(v, a)));
                     break;
                 case "Floats":
-                    image.FloatConstants.AddRange(AllPositional(a).Select(v => BitConverter.SingleToUInt32Bits(F32(v, a))));
+                    (pinnedFloats ??= []).AddRange(AllPositional(a).Select(v => BitConverter.SingleToUInt32Bits(F32(v, a))));
                     break;
                 case "FloatBits":
-                    image.FloatConstants.AddRange(AllPositional(a).Select(v => U32(v, a)));
+                    (pinnedFloats ??= []).AddRange(AllPositional(a).Select(v => U32(v, a)));
                     break;
                 case "MapData": image.Map = Data(a); break;
                 case "SharedData": image.Shared = Data(a); break;
@@ -123,26 +126,53 @@ public static class ScriptCompiler {
         }
 
         // Variables: [Var] fields of the script class, in declaration order.
+        Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
-            image.Variables.Add(Variable(field));
+            VarEntry entry = Variable(field);
+            variables[field.Declaration.Variables[0].Identifier.ValueText] = new VariableSymbol(image.Variables.Count, entry);
+            image.Variables.Add(entry);
         }
 
         // Workers, in [Workers] order.
         AttributeSyntax? workersAttribute = mainAttributes.FirstOrDefault(a => NameOf(a) == "Workers");
         List<object> workerTypes = workersAttribute is null ? [] : AllPositional(workersAttribute);
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        Dictionary<string, int> workerIndex = new(StringComparer.Ordinal);
         foreach (object t in workerTypes) {
             if (t is not TypeName(string workerName)) throw CompileException.At(workersAttribute!, "[Workers] takes typeof(…) only");
-            if (!seen.Add(workerName)) throw CompileException.At(workersAttribute!, $"{workerName} is listed twice");
-            List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            if (parts.Count == 0) throw CompileException.At(workersAttribute!, $"no class {workerName}");
-            image.Workers.Add(Worker(parts, workerName, image.Workers.Count));
+            if (!workerIndex.TryAdd(workerName, workerIndex.Count)) throw CompileException.At(workersAttribute!, $"{workerName} is listed twice");
+            if (!byName[workerName].Any()) throw CompileException.At(workersAttribute!, $"no class {workerName}");
         }
         foreach (ClassDeclarationSyntax c in classes) {
             string n = c.Identifier.ValueText;
-            if (!seen.Contains(n) && c.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b && WorkerType(b.Type) is not null) {
+            if (!workerIndex.ContainsKey(n) && c.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b && WorkerType(b.Type) is not null) {
                 throw CompileException.At(c.Identifier.GetLocation(), $"worker {n} is not in [Workers]");
             }
+        }
+        List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
+        foreach ((string workerName, int number) in workerIndex) {
+            List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, workerName, variables, workerIndex);
+            workers.Add((wi, items, $"worker {number} ({workerName})", parts[0].Identifier.GetLocation()));
+            image.Workers.Add(wi);
+        }
+
+        // The constant pools: pinned, or by the rules (docs/corpus.md); then the code.
+        List<IReadOnlyList<CodeOp>> ops = [.. workers.Select(w => (IReadOnlyList<CodeOp>)[.. w.Items.Where(i => i.Kind == AsmLineKind.Instruction).Select(i => i.Op)])];
+        foreach ((byte push, bool pinned, string attribute) in new[] { (Opcodes.PushC, pinnedInts is not null, "[Ints(…)]"), (Opcodes.PushFC, pinnedFloats is not null, "[Floats(…)]") }) {
+            if (pinned) continue;
+            foreach (var w in workers) {
+                if (w.Items.FirstOrDefault(i => i.Kind == AsmLineKind.Instruction && i.Op.Code == push && !i.Op.Pooled) is WorkerItem raw) {
+                    throw CompileException.At(raw.Where ?? w.Where, $"Asm refers to the constant pool by index; pin the pool with {attribute}");
+                }
+            }
+        }
+        image.IntConstants.AddRange(pinnedInts ?? ConstantPools.Ints(ops));
+        image.FloatConstants.AddRange(pinnedFloats ?? ConstantPools.Floats(ops, ConstantPools.Argc(Natives)));
+        Dictionary<uint, int> intIndex = [], floatIndex = [];
+        for (int k = 0; k < image.IntConstants.Count; k++) intIndex.TryAdd(image.IntConstants[k], k);
+        for (int k = 0; k < image.FloatConstants.Count; k++) floatIndex.TryAdd(image.FloatConstants[k], k);
+        foreach ((WorkerImage wi, List<WorkerItem> items, string label, Location where) in workers) {
+            Assemble(wi, items, label, where, intIndex, floatIndex);
         }
         return new CompiledScript(scriptCategory, name, image);
     }
@@ -157,48 +187,54 @@ public static class ScriptCompiler {
             ?? throw CompileException.At(field, "a field of the script class without [Var]");
         if (field.Declaration.Variables.Count != 1) throw CompileException.At(field, "one variable per [Var] field");
         TypeSyntax type = field.Declaration.Type;
-        bool array = false;
-        if (type is ArrayTypeSyntax at && at.RankSpecifiers.Count == 1 && at.RankSpecifiers[0].Rank == 1) {
+        int rank = 0;
+        if (type is ArrayTypeSyntax at && at.RankSpecifiers.Count == 1 && at.RankSpecifiers[0].Rank is 1 or 2) {
             type = at.ElementType;
-            array = true;
+            rank = at.RankSpecifiers[0].Rank;
         }
         uint varType = (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
             SyntaxKind.ByteKeyword => 0, SyntaxKind.SByteKeyword => 1, SyntaxKind.UShortKeyword => 2, SyntaxKind.ShortKeyword => 3,
             SyntaxKind.UIntKeyword => 4, SyntaxKind.IntKeyword => 5, SyntaxKind.FloatKeyword => 6,
             _ => throw CompileException.At(type, $"a variable cannot be {p.Keyword.ValueText}"),
-        } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or an array of one"));
+        } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
         object storage = Positional(a, 0);
         uint storageNumber = storage is EnumMember(string member) && Enum.TryParse(member, out Storage s) ? (uint)s
             : throw CompileException.At(a, "the storage is Storage.<area>");
         int offset = I32(Positional(a, 1), a);
         if (offset is < 0 or > 0xff_ffff) throw CompileException.At(a, "the offset is 24 bits");
-        int length = 1, extra = 0;
-        bool bit24 = false;
+        int length = 1, rowLength = 0;
         foreach ((string key, object value) in Named(a)) {
             switch (key) {
                 case "Length": length = I32(value, a); break;
-                case "Extra": extra = I32(value, a); break;
-                case "Bit24": bit24 = value is true; break;
                 default: throw CompileException.At(a, $"[Var] has no {key}");
             }
         }
-        // An array's length is its size: `byte[] V3 = new byte[4];`.
+        // An array's length is its size: `byte[] V3 = new byte[4];`; a 2-D array's second dimension
+        // is the row length: `byte[,] V3 = new byte[2, 8];`.
         VariableDeclaratorSyntax declarator = field.Declaration.Variables[0];
-        if (array) {
-            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: [ExpressionSyntax size] }] }) {
-                length = I32(Eval(size), size);
+        if (rank > 0) {
+            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: var sizes }] } && sizes.Count == rank) {
+                int first = I32(Eval(sizes[0]), sizes[0]);
+                if (rank == 1) length = first;
+                else {
+                    rowLength = I32(Eval(sizes[1]), sizes[1]);
+                    length = first * rowLength;
+                    if (rowLength <= 0) throw CompileException.At(sizes[1], "a 2-D array has rows of at least 1");
+                }
             }
-            else if (!Named(a).Any(n => n.Key == "Length")) {
-                throw CompileException.At(declarator, "an array variable needs its size: = new T[n]");
+            else if (rank == 2 || !Named(a).Any(n => n.Key == "Length")) {
+                throw CompileException.At(declarator, rank == 2 ? "a 2-D array variable needs its size: = new T[rows, cols]" : "an array variable needs its size: = new T[n]");
             }
         }
         else if (declarator.Initializer is not null) {
             throw CompileException.At(declarator.Initializer, "initial values are not read yet (they are in the data areas)");
         }
-        if (length is < 0 or > 0xffff || extra is < 0 or > 0xffff) throw CompileException.At(a, "the length and Extra are 16 bits");
-        if (array == (length == 1)) throw CompileException.At(field, length == 1 ? "an array of 1 is written as a scalar" : "a variable of length other than 1 is an array");
-        uint location = varType << 28 | storageNumber << 25 | (bit24 ? 0x0100_0000u : 0) | (uint)offset;
-        return new VarEntry(location, (ushort)length, (ushort)extra);
+        else if (length != 1) {
+            throw CompileException.At(field, "a variable that is not an array has length 1");
+        }
+        if (length is < 0 or > 0xffff || rowLength is < 0 or > 0xffff) throw CompileException.At(a, "the length and row length are 16 bits");
+        uint location = varType << 28 | storageNumber << 25 | (rank > 0 ? VarEntry.ArrayBit : 0) | (uint)offset;
+        return new VarEntry(location, (ushort)length, (ushort)rowLength);
     }
 
     private static ushort? WorkerType(TypeSyntax type) {
@@ -210,7 +246,11 @@ public static class ScriptCompiler {
         return n.Length == 7 && n.StartsWith("Worker", StringComparison.Ordinal) && n[6] is >= '0' and <= '6' ? (ushort)(n[6] - '0') : null;
     }
 
-    private static WorkerImage Worker(List<ClassDeclarationSyntax> parts, string name, int number) {
+    /// <summary>An entry, a label or an instruction of a worker, in code order; where it came from for errors.</summary>
+    private sealed record WorkerItem(AsmLineKind Kind, int Number, CodeOp Op, Location? Where);
+
+    private static (WorkerImage Image, List<WorkerItem> Items) Worker(
+        List<ClassDeclarationSyntax> parts, string name, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers) {
         ushort? type = null;
         foreach (ClassDeclarationSyntax part in parts) {
             if (part.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b) {
@@ -234,34 +274,110 @@ public static class ScriptCompiler {
             }
         }
 
+        // [Register(n)] fields: int for the integer registers, float for the float ones.
+        Dictionary<string, RegExpr> registers = new(StringComparer.Ordinal);
+        foreach (FieldDeclarationSyntax field in parts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
+            AttributeSyntax a = Attributes(field).FirstOrDefault(x => NameOf(x) == "Register")
+                ?? throw CompileException.At(field, "a worker field is a [Register] (for now)");
+            int n = I32(Positional(a, 0), a);
+            RegExpr reg = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
+                : field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } ? new RegExpr(RegKind.Float, n)
+                : throw CompileException.At(field.Declaration.Type, "a register is int or float");
+            if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
+            foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
+        }
+        StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0);
+
         // Entry methods in declaration order: each places its entries, then its code follows.
-        WorkerAssembler asm = new() { Name = $"worker {number} ({name})" };
+        List<WorkerItem> items = [];
         foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
-            if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods only (for now)");
+            if (member is FieldDeclarationSyntax) continue;
+            if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
             List<AttributeSyntax> entries = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
             if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry]");
             foreach (AttributeSyntax e in entries) {
                 if (NameOf(e) != "Entry") throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
-                Wrap(e, () => asm.PlaceEntry(I32(Positional(e, 0), e)));
+                items.Add(new WorkerItem(AsmLineKind.Entry, I32(Positional(e, 0), e), default, e.GetLocation()));
             }
             if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
-            foreach (StatementSyntax statement in method.Body.Statements) {
-                if (statement is not ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
-                    || call.Expression is not IdentifierNameSyntax { Identifier.ValueText: "Asm" }
-                    || call.ArgumentList.Arguments.Count != 1
-                    || call.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax { Token.Value: string text } literal) {
-                    throw CompileException.At(statement, "only Asm(\"\"\"…\"\"\") statements so far");
+            foreach (StatementSyntax statement in method.Body.Statements) Statement(statement, reader, items);
+        }
+        return (wi, items);
+    }
+
+    private static void Statement(StatementSyntax statement, StatementReader reader, List<WorkerItem> items) {
+        switch (statement) {
+            case LabeledStatementSyntax labeled:
+                items.Add(new WorkerItem(AsmLineKind.Label,
+                    StatementReader.LabelNumber(labeled.Identifier.ValueText) ?? throw CompileException.At(labeled, "labels are lN"),
+                    default, labeled.Identifier.GetLocation()));
+                Statement(labeled.Statement, reader, items);
+                return;
+            case EmptyStatementSyntax:
+                return;
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Asm" } } call }: {
+                if (call.ArgumentList.Arguments.Count != 1 || call.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax { Token.Value: string text } literal) {
+                    throw CompileException.At(statement, "Asm takes one string literal");
                 }
                 // Line numbers in assembly errors are the source file's.
                 FileLinePositionSpan span = literal.GetLocation().GetLineSpan();
                 bool multiLine = literal.Token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken);
                 int first = span.StartLinePosition.Line + 1 + (multiLine ? 1 : 0);
+                string[] lines = text.Split('\n');
+                for (int n = 0; n < lines.Length; n++) {
+                    AsmLine? line;
+                    try {
+                        line = Bytecode.Script.Assembly.ParseLine(lines[n], first + n);
+                    }
+                    catch (AssemblyException ex) {
+                        throw new CompileException($"{span.Path}({(ex.Line > 0 ? ex.Line : first)}): {StripLine(ex)}");
+                    }
+                    if (line is not AsmLine l) continue;
+                    if (l.Kind == AsmLineKind.Worker) throw new CompileException($"{span.Path}({first + n}): `worker` inside an entry");
+                    items.Add(l.Kind == AsmLineKind.Instruction
+                        ? new WorkerItem(l.Kind, 0, new CodeOp(l.Instr.Code, l.Instr.Operand), literal.GetLocation())
+                        : new WorkerItem(l.Kind, l.Number, default, literal.GetLocation()));
+                }
+                return;
+            }
+            default: {
+                Location where = statement.GetLocation();
+                Stmt s = reader.Read(statement);
+                List<CodeOp> ops;
                 try {
-                    asm.Add(text, first);
+                    ops = Lowering.Lower(s);
                 }
-                catch (AssemblyException ex) {
-                    throw new CompileException($"{span.Path}({(ex.Line > 0 ? ex.Line : first)}): {StripLine(ex)}");
+                catch (ArgumentException ex) {
+                    throw CompileException.At(statement, ex.Message);
                 }
+                foreach (CodeOp op in ops) items.Add(new WorkerItem(AsmLineKind.Instruction, 0, op, where));
+                return;
+            }
+        }
+    }
+
+    /// <summary>Lays a worker's items out as code, entry and label tables, with the pools' indices.</summary>
+    private static void Assemble(WorkerImage wi, List<WorkerItem> items, string name, Location where, Dictionary<uint, int> ints, Dictionary<uint, int> floats) {
+        WorkerAssembler asm = new() { Name = name };
+        foreach (WorkerItem item in items) {
+            try {
+                switch (item.Kind) {
+                    case AsmLineKind.Entry: asm.PlaceEntry(item.Number); break;
+                    case AsmLineKind.Label: asm.PlaceLabel(item.Number); break;
+                    default:
+                        CodeOp op = item.Op;
+                        ushort? index = null;
+                        if (op.Pooled) {
+                            Dictionary<uint, int> pool = op.Code == Opcodes.PushC ? ints : floats;
+                            index = pool.TryGetValue(op.Value, out int k) ? (ushort)k
+                                : throw CompileException.At(item.Where ?? where, $"the pinned {(op.Code == Opcodes.PushC ? "integer" : "float")} pool has no {(op.Code == Opcodes.PushC ? ((int)op.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : BitConverter.UInt32BitsToSingle(op.Value).ToString("R", System.Globalization.CultureInfo.InvariantCulture))}");
+                        }
+                        asm.Emit(op.ToInstr(index));
+                        break;
+                }
+            }
+            catch (AssemblyException ex) {
+                throw CompileException.At(item.Where ?? where, StripLine(ex));
             }
         }
         AssembledWorker done;
@@ -269,17 +385,23 @@ public static class ScriptCompiler {
             done = asm.Finish();
         }
         catch (AssemblyException ex) {
-            throw CompileException.At(parts[0].Identifier.GetLocation(), ex.Message);
+            throw CompileException.At(where, ex.Message);
         }
-        if (done.Entries.Length == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
+        if (done.Entries.Length == 0) throw CompileException.At(where, "a worker without entries");
         if (done.Entries.Concat(done.Labels).Any(o => o >= done.Code.Length)) {
-            throw CompileException.At(parts[0].Identifier.GetLocation(), "an entry or label after the worker's last instruction");
+            throw CompileException.At(where, "an entry or label after the worker's last instruction");
         }
         wi.Code = done.Code;
         wi.Entries = done.Entries;
         wi.Labels = done.Labels;
-        return wi;
     }
+
+    /// <summary>The natives of the reference assembly.</summary>
+    public static NativeSignatures Natives => s_natives.Value;
+
+    private static readonly Lazy<NativeSignatures> s_natives = new(() => NativeSignatures.FromAssembly(typeof(Atel.Worker).Assembly));
+
+    private static readonly Lazy<Dictionary<string, NativeSignature>> NativesByName = new(() => Natives.All.ToDictionary(n => n.Name, StringComparer.Ordinal));
 
     private static string StripLine(AssemblyException ex) =>
         ex.Line > 0 && ex.Message.StartsWith($"line {ex.Line}: ", StringComparison.Ordinal) ? ex.Message[$"line {ex.Line}: ".Length..] : ex.Message;
@@ -395,13 +517,22 @@ public static class ScriptCompiler {
     });
 
     /// <summary>
+    ///     Warnings the Atel SDK will silence: CS0162 (unreachable code), because the original kept
+    ///     the code of <c>if (0)</c> and of everything after an <c>end</c> (docs/corpus.md, "Code no
+    ///     entry reaches"), and the decompiler writes it.
+    /// </summary>
+    public static IReadOnlyDictionary<string, ReportDiagnostic> Suppressed { get; } =
+        new Dictionary<string, ReportDiagnostic> { ["CS0162"] = ReportDiagnostic.Suppress };
+
+    /// <summary>
     ///     Compiles the trees as C# against the reference assembly and returns the diagnostics:
     ///     warnings and errors.
     /// </summary>
     public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees) {
         CSharpCompilation compilation = CSharpCompilation.Create(
             "AtelCheck", trees, References.Value,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
+                .WithSpecificDiagnosticOptions(Suppressed));
         return compilation.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning).ToList();
     }
 }

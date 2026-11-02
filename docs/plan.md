@@ -328,8 +328,8 @@ replace parts of it; until then it is what `atel decompile` writes and
 - **Variables** are its static fields `V0`, `V1`, … in table order, typed
   by the variable's type: `[Var(Storage.Private, 0x0010)] public static int
   V0;`, arrays sized by their length (`public static byte[] V4 = new
-  byte[6];`), with `Extra = …` (table `+6`) and `Bit24 = true` (location
-  bit 24, set in 4,597 of the 29,103 variables) where they are not 0. The
+  byte[6];`). (Phase 2 wrote `Extra = …` and `Bit24 = true`; Phase 3 reads
+  both from the declaration, see below.) The
   table is one per block, so private (storage 3) variables are declared
   here too, not in their workers. Initial values stay in the data areas.
 - **Workers** are classes `W00`, `W01`, … in the same namespace; the base
@@ -360,6 +360,89 @@ replace parts of it; until then it is what `atel decompile` writes and
   million instructions; 256 MB of that is indentation); 0 C# errors and
   0 warnings; the whole corpus decompiles, checks and compiles in about
   30 s.
+
+### Phase 3: statements
+
+Decided 2026-11-02, with the expression round trip. What `atel decompile`
+writes on top of the Phase 2 shape:
+
+- **One statement per stack run.** The code from an empty stack to the next
+  empty stack is lifted into a tree (`Ffx.Atel.Bytecode.Code`: `Stmt`,
+  `Expr`) and printed as one C# statement. The compiler reads the C# back into
+  the same tree and lowers it (`Lowering`); every tree has exactly one
+  encoding. The decompiler lowers each lifted statement again and keeps it
+  only if that gives back its own bytes; everything else stays `Asm`, per
+  statement (consecutive ones share one `Asm`).
+- **Statements:** `V3 = …;`, `V3 += …;` (scalar compound is the same code as
+  `V3 = V3 + …`), `V1[i] = …;`, `V1[i] |= …;` (the `op_2b` form), native calls
+  `Chr.PlayMotion(…);` (`func_facc`) and in expressions (`func`), with the
+  generated names and the argument types of `data/natives.json`;
+  `Request(level, worker, entry)`, `RequestWaitStart(…)`,
+  `RequestWaitEnd(…)` for `req0`/`reqw0`/`reqe0` and their `popfacc`
+  (`variant: n` for `req1`…`req5`); `Call<W03>();`; `return;` (`end`, `ret`
+  in a function worker); `Halt();` (`op_54`), `Breakpoint();` (`op_40`),
+  `End(x);` (`endp`); `Op77(a, b);` and `Op79(a, b, Addr(ref V3[0]));` for the
+  two opcodes not yet understood (13,191 and 1,566 statements). `RegA`, `RegB` and `LastResult` (the float
+  accumulator, `pushfacc`) are `Worker` members, so the 3,151 waiting calls
+  read as `Msg.Choice(…); RegB = LastResult;`. The forms are
+  explicit helpers for now; the `await` forms of "Requests between workers"
+  come when entries get names.
+- **Control flow stays flat:** `goto lN;`, `if (c) goto lN;` (`popa_jnz`) and
+  `if (!c) goto lN;` (`popa_jz`), with C# labels `lN:` at the method level.
+  A label is a C# label when every jump to it is a C# `goto` in the same
+  method; else it is an `lN:` line in `Asm`, and the jumps to it stay `Asm`
+  too (C# has no `goto` into another method, and an unreferenced label is
+  CS0164). Phase 4 replaces these with `if`/`while`/`switch`.
+- **Registers are fields:** `[Register(1)] public int I1;`,
+  `[Register(0)] public float F0;`, declared in each worker for the registers
+  its C# uses. Fields, not locals, because the original keeps them across
+  waits and entries, and C#'s definite assignment does not follow `goto`.
+  A function worker's fields alias its caller's registers (`call` shares
+  them).
+- **Types:** variables are typed by their location type (`u8` `byte`, `i8`
+  `sbyte`, `u16` `ushort`, `i16` `short`, `i32` `int`, `f32` `float`), registers
+  `int`/`float`, natives by their signature. ATEL has untyped values and no
+  conversions; where C# needs one, the decompiler writes a form that
+  compiles to no code: `AsBool(x)` for an `int` used as a condition (the
+  bare-value conditions of corpus.md: `if (!AsBool(Foo())) goto l2;`),
+  `AsInt(c)` for a comparison used as a value, casts (`V2 = (byte)(V2 + I0);`,
+  `(int)` for the 216 float arguments to `int` parameters), `unchecked(…)`
+  for a constant out of the target's range (`V1[3] &= unchecked((byte)-65);`)
+  and unary `+` where C# warns about `x = x` or `x == x`.
+- **Logic:** `land`/`lor` are `&`/`|` on two `bool`s; `and`/`or` the same
+  operators on `int`s. The compiler decides by the operand syntax alone: a
+  comparison, `!`, `AsBool(…)`, or `&`, `|`, `^` of those is a condition.
+  `&&` and `||` are errors until Phase 4 gives them branches.
+- **Constants:** integers in decimal, from `0x10000` up in hex (motion and
+  model IDs); `pushimm` or `pushc` by the `i16` range. Floats with `f`, the
+  shortest text that reads back (`R`), negative ones as `-28.2f`.
+- **Constant pools are not written** where the corpus.md rules give them
+  (`ConstantPools`: integers by first use; floats per statement, non-negative
+  first, a negative literal also numbering its absolute value). `[Ints(…)]`
+  and `[Floats(…)]` pin the order where the rule fails, or where `Asm` names a
+  constant by index (none in the corpus). A pool with a duplicate value
+  (`dome00_04`) keeps the statements that use the second copy as `Asm`.
+- **2-D arrays:** location bit 24 marks a variable declared as an array, so a
+  C# array declaration (also `new byte[1]`) sets it and a scalar does not;
+  the table's `+6` word is the row length, so those are `T[,]`
+  (`new byte[3, 8]`). The original compiler wrote `a[r][c]` as `c + r * n`,
+  folding a constant row: those are `V1[r, c]`; any other flat index is
+  `At(V1, i)`. `pushvref` is `Addr(ref V1[i])`.
+- **Warnings:** CS0162 (unreachable code: the kept dead code, code after
+  `return;`) is suppressed by `ScriptCompiler.Check`, as the SDK will.
+  Worker classes are `public` (CS0649 for registers a worker only reads,
+  set by its caller).
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte;
+  6,073,362 C# statements; **2,006 instructions left in `Asm`** (of 21.3
+  million): 1,704 `jmp`s into another entry's method (and the conditional
+  jumps that do the same), 38 `nop_76`, the 8 `popv_1`, 6 `endp_1`, 3 `op_39`
+  and the statements around them; integer pools pinned in 276 blocks and
+  float pools in 462, exactly where the rules fail (908 of 1,184 and 1,113 of
+  1,575 follow them), none because of `Asm`; 248.2 MB of source (from 649.5
+  MB); 0 C# errors, 0 warnings; the whole corpus decompiles, checks and
+  compiles in 75-110 s (with server GC, about 4x faster here; the C# check
+  takes most of it: Roslyn's flow analysis over 30,000 labels in one method
+  of `bltz0201`, until Phase 4 removes the `goto`s).
 
 ## Toolchain
 
@@ -478,7 +561,8 @@ count, names placed.
    game, then one with a visible change, checked in game (done 2026-11-02
    with reassembled disassembly, `scripts/*.asm`; `docs/research/loader.md`).
 3. **Expressions and statements** (1 week). Stack code to expressions and
-   calls, registers to locals and `[Register]` fields.
+   calls, registers to locals and `[Register]` fields. Done 2026-11-02, see
+   "Phase 3: statements": 2,006 instructions left in `Asm`.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label
    order and branch polarity matching the original. Exit: no `Asm` left.
 5. **Typing and naming** (ongoing). Enums by use, properties, text IDs,

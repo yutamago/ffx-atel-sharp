@@ -65,13 +65,18 @@ internal static class SourceCommands {
         List<string> paths = GameData.AllScriptPaths(archive).Where(p => p.Contains(filter, StringComparison.Ordinal)).ToList();
         ConcurrentBag<string> failures = [];
         long sourceBytes = 0, errors = 0, warnings = 0, identical = 0;
+        DecompileTotals totals = new();
         Stopwatch clock = Stopwatch.StartNew();
-        Parallel.ForEach(paths, path => {
+        // Largest first, one at a time: the biggest scripts take the longest to check.
+        List<(string Path, byte[] Bytes)> files = [.. paths.Select(p => (p, archive.Read(p))).OrderByDescending(f => f.Item2.Length)];
+        Parallel.ForEach(Partitioner.Create(files, EnumerablePartitionerOptions.NoBuffering), f => {
+            string path = f.Path;
             try {
-                byte[] original = archive.Read(path);
+                byte[] original = f.Bytes;
                 ScriptFile vanilla = ScriptFile.Parse(original);
                 DecompiledScript d = ScriptDecompiler.Decompile(path, vanilla);
                 Interlocked.Add(ref sourceBytes, d.Source.Length);
+                totals.Add(d.Stats);
                 if (output is not null) {
                     string file = Path.Combine(output, d.Names.RelativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(file)!);
@@ -97,6 +102,7 @@ internal static class SourceCommands {
         string checks = check ? string.Create(CultureInfo.InvariantCulture, $"{errors} C# errors, {warnings} warnings; ") : "";
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
+        Console.WriteLine(totals.ToString());
         return identical == paths.Count && errors == 0 ? 0 : 1;
     }
 }

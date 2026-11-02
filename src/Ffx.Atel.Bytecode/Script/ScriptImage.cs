@@ -5,14 +5,29 @@ using System.Text;
 
 namespace Ffx.Atel.Bytecode.Script;
 
-/// <summary>An entry of the variable table: location word, array length and the second <c>u16</c>.</summary>
-/// <param name="Location">Type in bits 28–31, storage in bits 25–27, offset in bits 0–23.</param>
-/// <param name="Length">Array length (<c>+4</c>).</param>
-/// <param name="Extra">The <c>u16</c> at <c>+6</c> (<c>AtelGetVarArrayRange</c>).</param>
-public readonly record struct VarEntry(uint Location, ushort Length, ushort Extra) {
+/// <summary>An entry of the variable table: location word, array length and row length.</summary>
+/// <param name="Location">
+///     Type in bits 28–31, storage in bits 25–27, bit 24 set for a variable declared as an array
+///     (<see cref="IsArray"/>), offset in bits 0–23.
+/// </param>
+/// <param name="Length">Array length in elements (<c>+4</c>).</param>
+/// <param name="RowLength">
+///     The <c>u16</c> at <c>+6</c> (<c>AtelGetVarArrayRange</c>): a 2-D array's inner dimension, which
+///     divides <see cref="Length"/>; 0 otherwise (ffx-rust PR #2).
+/// </param>
+public readonly record struct VarEntry(uint Location, ushort Length, ushort RowLength) {
+    /// <summary>Location bit 24: the variable was declared as an array (also of length 1).</summary>
+    public const uint ArrayBit = 0x0100_0000;
+
     public int Type => (int)(Location >> 28);
     public int Storage => (int)((Location >> 25) & 7);
     public int Offset => (int)(Location & 0xff_ffff);
+
+    /// <summary>
+    ///     Declared as an array: only the array opcodes (<c>pushva</c>, <c>popva</c>, <c>pushvref</c>)
+    ///     touch such a variable, and only the plain ones (<c>pushv</c>, <c>popv</c>) the others.
+    /// </summary>
+    public bool IsArray => (Location & ArrayBit) != 0;
 
     /// <summary>Bytes per element: 1 for <c>u8</c>/<c>i8</c>, 2 for <c>u16</c>/<c>i16</c>, else 4.</summary>
     public int ElementSize => Type switch { 0 or 1 => 1, 2 or 3 => 2, _ => 4 };
@@ -192,7 +207,7 @@ public sealed class ScriptImage {
         for (int i = 0; i < Variables.Count; i++) {
             U32(vars + 8 * i, Variables[i].Location);
             U16(vars + 8 * i + 4, Variables[i].Length);
-            U16(vars + 8 * i + 6, Variables[i].Extra);
+            U16(vars + 8 * i + 6, Variables[i].RowLength);
         }
         for (int i = 0; i < IntConstants.Count; i++) U32(At("ints") + 4 * i, IntConstants[i]);
         for (int i = 0; i < FloatConstants.Count; i++) U32(At("floats") + 4 * i, FloatConstants[i]);
