@@ -320,7 +320,8 @@ replace parts of it; until then it is what `atel decompile` writes and
   file name with its first letter upper case (`Events.Bl.Cn_bltz0000`,
   `Events.Ka._200thunder_kami0400`: one event folder can hold several
   scripts, so the namespace ends in the script, not the folder). The
-  folder and one-file-per-worker layout is Phase 6.
+  folder and one-file-per-worker layout came with Phase 6 (see "Phase 6:
+  source layout").
 - **The script class** (`public static partial class`; public, or C#
   warns that the fields are never assigned) carries `[Event("…")]`,
   `[Monster]` or `[Battle]` with the file name, `[Workers(typeof(W00), …)]`,
@@ -591,6 +592,69 @@ replaces and the round trip stays byte for byte.
   `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
   casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
   `ActorProperty` 5), computed values cast 8,962; 33,759 `Text[n]`.
+
+### Phase 6: source layout
+
+Decided 2026-11-02. What `atel decompile -o` writes on top of Phase 4, and
+how `atel compile` reads it:
+
+- **A script is a folder and a namespace**, `Events/Bj/Bjyt0400/` (the
+  namespace as folders, as in Phase 2): `Bjyt0400.cs` holds the script
+  class (`[Event]`, `[Workers]`, `[Header]`, the pins and pools, the
+  variables), each worker has its own file named after its class
+  (`W03.cs`, with `[Worker]` and `[PrivateData]`), and the data areas are a
+  second part of the script class in `Bjyt0400.Data.cs`. Every file starts
+  with the same comment, usings and namespace.
+- **Big workers are `partial`.** A worker of more than 4,000 lines is cut
+  between members into parts of at least 2,000 lines: `W36.cs` (attributes,
+  base class, registers and the first methods), `W36.2.cs`, … (`W36.02.cs`
+  from 10 parts). One method is never cut, so the largest file is still a
+  single method (`bltz0000`'s `W36`, 191k lines, 15.7 MB).
+- **Order.** The workers' order is `[Workers]`'s alone. A worker's methods
+  are laid out in the order of its parts, then in declaration order; the
+  parts' order is the order of their paths without `.cs`, ordinal
+  (`SourceOrder`: `W36` before `W36.2`), whatever order the files are
+  given in.
+- **The compiler reads a folder**: every `.cs` under it except in `obj/`
+  and `bin/` (`ScriptCompiler.SourceFiles`); `atel compile <folder>`.
+- **Projects** (measured 2026-11-02, `dotnet build` of a generated
+  `.csproj` against `Ffx.Atel.Game`, in-process compiler, one machine with
+  16 threads; times include about 3 s of MSBuild):
+
+  | One project holding | Source on disk | Build | Peak memory |
+  |---|---|---|---|
+  | one script (`bjyt0400`) | 2 MB | 6.7 s | 0.2 GB |
+  | an event area (`Events/Bj`, `Events/Lc`) | 2-11 MB | 3.9-7.4 s | 0.25-0.9 GB |
+  | all monsters | 10 MB | 5.4 s | 0.5 GB |
+  | a battle area (`Battles/Kino`, `Battles/Zzzz`) | 6-25 MB | 3.9-9.3 s | 0.5-1.6 GB |
+  | one blitzball script (`bltz0000`) | 38 MB | 30-50 s | 2.1-2.3 GB |
+  | all battles | 78 MB | 42.5 s | 4.6 GB |
+  | all events but blitzball | 96 MB | 57.5 s | 5.3 GB |
+  | the blitzball area (`Events/Bl`) | 258 MB | 174 s | 13.6 GB |
+  | all events | 354 MB | 258 s | 17.4 GB |
+  | the whole corpus | 441 MB | 160 s | 22.0 GB |
+
+  An IDE holds about what the compiler does, so the corpus as one project
+  is too much, and so is any category. **A project is a map area**:
+  `Events/Bj/Events.Bj.csproj` (48 event areas), `Battles/Kino/…` (battle
+  scripts by the letters their name starts with, their map area; the
+  namespace became `Battles.Kino.Kino00_00`), all monsters in
+  `Monsters/Monsters.csproj`; an area of more than 64 million characters
+  (only blitzball) is a project per script. 104 projects, each found by the
+  SDK's default glob; the largest are the blitzball scripts (about 2 GB).
+- **Root files** from `atel decompile -o`: `Atel.slnx` with every project
+  (builds with `dotnet build`, 0 errors, 0 warnings, about 4 minutes in
+  parallel), `Events.slnx`, `Battles.slnx` and `Monsters.slnx` to open one
+  category, `.gitignore`, and `Directory.Build.props` with the shared
+  settings (net10.0, no implicit usings, CS0162 off) and the reference to
+  `Ffx.Atel.Game`: `$(AtelGameAssembly)`, by default the copy `atel
+  decompile` puts in `.atel/Ffx.Atel.Game.dll` (with its XML docs), or,
+  with `-p:AtelGameProject=<path to Ffx.Atel.Game.csproj>`, a project
+  reference to a checkout of this repo. Phase 8 replaces both with the SDK
+  package. The compiler ignores `obj/` and `bin/` in a script's folder.
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte from
+  18,778 files (1,621 script classes, 1,621 data files, 15,010 workers, 526
+  further parts of 160 workers), 405.5 MB; 0 C# errors, 0 warnings.
 
 ## Toolchain
 

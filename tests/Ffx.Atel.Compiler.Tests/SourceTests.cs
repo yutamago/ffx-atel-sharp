@@ -9,10 +9,10 @@ namespace Ffx.Atel.Compiler.Tests;
 
 /// <summary>Decompiling and compiling without the game: a made-up script and hand-written source.</summary>
 public sealed class SourceTests {
-    private const string MonsterPath = "ffx_ps2/ffx/master/jppc/battle/mon/_m999/m999.bin";
+    internal const string MonsterPath = "ffx_ps2/ffx/master/jppc/battle/mon/_m999/m999.bin";
 
     /// <summary>A small monster file with one of everything the source has to carry.</summary>
-    private static byte[] MadeUpFile() {
+    internal static byte[] MadeUpFile() {
         ScriptImage image = new() {
             Header14 = 3, Header18 = 0xffff, Header24 = 0x8000_0001,
             Author = "test"u8.ToArray(), Name = "999"u8.ToArray(),
@@ -412,7 +412,7 @@ public sealed class SourceTests {
     [InlineData(MonsterPath, "Monsters.M999", "M999")]
     [InlineData("ffx_ps2/ffx/master/jppc/event/obj/bj/bjyt0400/bjyt0400.ebp", "Events.Bj.Bjyt0400", "Bjyt0400")]
     [InlineData("ffx_ps2/ffx/master/jppc/event/obj/ka/kami0400/200thunder_kami0400.ebp", "Events.Ka._200thunder_kami0400", "_200thunder_kami0400")]
-    [InlineData("ffx_ps2/ffx/master/jppc/battle/btl/cdsp00_00/cdsp00_00.bin", "Battles.Cdsp00_00", "Cdsp00_00")]
+    [InlineData("ffx_ps2/ffx/master/jppc/battle/btl/cdsp00_00/cdsp00_00.bin", "Battles.Cdsp.Cdsp00_00", "Cdsp00_00")]
     public void ScriptsAreNamedAfterTheirPath(string path, string ns, string cls) {
         SourceNames names = SourceNames.ForPath(path);
         Assert.Equal((ns, cls), (names.Namespace, names.ClassName));

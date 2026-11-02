@@ -6,12 +6,19 @@ using System.Text;
 using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Decompiler.Layout;
 using Ffx.Atel.Decompiler.Naming;
 
 namespace Ffx.Atel.Decompiler;
 
 /// <summary>A script as C# source.</summary>
-public sealed record DecompiledScript(SourceNames Names, string Source, DecompileStats Stats);
+public sealed record DecompiledScript(SourceNames Names, ScriptSource Parts, DecompileStats Stats) {
+    /// <summary>The script as one file (Phase 2's shape).</summary>
+    public string Source => Parts.SingleFile();
+
+    /// <summary>The script as a folder: the script class, a file per worker, the data (<see cref="SourceLayout"/>).</summary>
+    public List<SourceFile> Files(int splitLines = SourceLayout.SplitLines, int partLines = SourceLayout.PartLines) => SourceLayout.Files(Parts, splitLines, partLines);
+}
 
 /// <summary>What the decompiler made of a script: C# statements, what stayed assembly, and the pins.</summary>
 public sealed record DecompileStats {
@@ -87,12 +94,7 @@ public static class ScriptDecompiler {
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
         ScriptImage image = ScriptImage.FromBlock(block);
-        StringBuilder sb = new();
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
-        sb.Append(CultureInfo.InvariantCulture, $"// {shortPath}, decompiled by atel.\n");
-        sb.Append("using Ffx;\nusing Ffx.Atel;\n");
-        sb.Append(CultureInfo.InvariantCulture, $"using static {names.Namespace}.{names.ClassName};\n\n");
-        sb.Append(CultureInfo.InvariantCulture, $"namespace {names.Namespace};\n\n");
 
         string[] workerNames = WorkerNames(image.Workers.Count);
         string[] varNames = VariableNames(image.Variables);
@@ -122,19 +124,18 @@ public static class ScriptDecompiler {
             FlatWorkers = workers.Sum(w => w.Flow.FlatWorkers),
         };
 
-        WriteScriptClass(sb, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
-        for (int w = 0; w < image.Workers.Count; w++) {
-            sb.Append('\n');
-            WriteWorker(sb, image, workers[w], w, workerNames[w]);
-        }
-        WriteData(sb, names, image);
+        StringBuilder main = new(), data = new();
+        WriteScriptClass(main, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
+        WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]))];
+        WriteData(data, names, image);
+        ScriptSource parts = new(names, shortPath, main.ToString(), workerSources, data.Length > 0 ? data.ToString() : null);
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
         foreach (VarEntry v in image.Variables.Where(v => v.Storage == 0)) {
             string k = GameNames.SaveFields.ContainsKey(v.Offset) ? "save-named" : "save-unnamed";
             placed[k] = placed.GetValueOrDefault(k) + 1;
         }
-        return new DecompiledScript(names, sb.ToString(), stats with { Names = placed });
+        return new DecompiledScript(names, parts, stats with { Names = placed });
     }
 
     private static VarInfo VarInfoOf(VarEntry v, string name) {
@@ -226,21 +227,23 @@ public static class ScriptDecompiler {
 
     // ----- Workers ---------------------------------------------------------------------------
 
-    private static void WriteWorker(StringBuilder sb, ScriptImage image, WorkerDecompiler worker, int w, string name) {
+    private static WorkerSource WriteWorker(ScriptImage image, WorkerDecompiler worker, int w, string name) {
         WorkerImage wi = image.Workers[w];
+        StringBuilder sb = new();
         List<string> words = [];
         if (wi.Unknown0C != 0) words.Add($"Word0C = {Hex(wi.Unknown0C, 8)}");
         if (wi.PrivateLength != 0) words.Add($"PrivateLength = {Hex(wi.PrivateLength, 2)}");
         if (words.Count > 0) sb.Append(CultureInfo.InvariantCulture, $"[Worker({string.Join(", ", words)})]\n");
         if (wi.Private is not null) WriteDataAttribute(sb, "PrivateData", wi.Private);
-        sb.Append(CultureInfo.InvariantCulture, $"public sealed class {name} : Worker{wi.Type}\n{{\n");
+        string attributes = sb.ToString();
+        sb.Clear();
         SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
         foreach ((RegKind kind, int n) in registers) {
             sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public {(kind == RegKind.Int ? "int" : "float")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
-        sb.Append("}\n");
+        return new WorkerSource(name, w, attributes, $"Worker{wi.Type}", sb.ToString());
     }
 
     /// <summary>The C# name of each native (<c>Btl.SetStat</c>), from the reference assembly.</summary>
@@ -259,7 +262,6 @@ public static class ScriptDecompiler {
             ("EventData", image.Event), ("AreaData", image.Area),
         ];
         if (areas.All(a => a.Data is null)) return;
-        sb.Append('\n');
         foreach ((string name, byte[]? data) in areas) {
             if (data is not null) WriteDataAttribute(sb, name, data);
         }

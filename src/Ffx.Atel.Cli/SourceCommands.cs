@@ -8,6 +8,7 @@ using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Bytecode.Vbf;
 using Ffx.Atel.Compiler;
 using Ffx.Atel.Decompiler;
+using Ffx.Atel.Decompiler.Layout;
 using Microsoft.CodeAnalysis;
 
 namespace Ffx.Atel.Cli;
@@ -15,9 +16,12 @@ namespace Ffx.Atel.Cli;
 /// <summary><c>atel decompile</c>, <c>atel compile</c> and <c>atel roundtrip</c>.</summary>
 internal static class SourceCommands {
     public const string Usage = """
-          decompile <script>... [-o <dir>] to C# (to <dir>/<Namespace>/<Class>.cs, else stdout);
+          decompile <script>... [-o <dir>] to C#: a folder per script, <dir>/<Namespace as folders>/,
+                                           with a file per worker, and projects, a solution and
+                                           Directory.Build.props (else one file to stdout);
                                            `all` for every script
-          compile <dir|file.cs> -o <out>   C# back to the script file (the game's file gives
+          compile <dir|file.cs> -o <out>   C# back to the script file, from a script's folder (every
+                                           .cs under it but obj/, bin/) or one file (the game's file gives
                                            the other sections); --check also compiles it as C#
           roundtrip [filter] [--check]     decompile and compile every script (path contains
                                            filter), compare with the game's bytes
@@ -28,26 +32,53 @@ internal static class SourceCommands {
         List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
             : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
         if (output is null && paths.Count > 1) throw new ArgumentException("more than one script needs -o <dir>");
-        foreach (string path in paths) {
-            DecompiledScript d = ScriptDecompiler.Decompile(path, ScriptFile.Parse(archive.Read(path)));
-            if (output is null) {
-                Console.Out.Write(d.Source);
-                continue;
-            }
-            string file = Path.Combine(output, d.Names.RelativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            File.WriteAllText(file, d.Source);
+        if (output is null) {
+            Console.Out.Write(ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0]))).Source);
+            return 0;
         }
+        List<(string Path, byte[] Bytes)> files = [.. paths.Select(p => (p, archive.Read(p)))];
+        DecompiledScript[] scripts = new DecompiledScript[files.Count];
+        long[] sizes = new long[files.Count];
+        Parallel.For(0, files.Count, i => {
+            scripts[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes));
+            List<SourceFile> sources = scripts[i].Files();
+            sizes[i] = sources.Sum(f => (long)f.Text.Length);
+            WriteFiles(output, sources);
+        });
+        Dictionary<string, string> projects = ProjectLayout.Assign(scripts.Select((d, i) => (d.Names, sizes[i])));
+        WriteProjects(output, projects.Values, []);
+        Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{scripts.Length} scripts in {projects.Values.Distinct().Count()} projects; dotnet build {Path.Combine(output, ProjectLayout.Solution)}"));
         return 0;
+    }
+
+    /// <summary>
+    ///     The project files at the root (<see cref="ProjectLayout"/>), and the reference assembly beside
+    ///     them in <c>.atel/</c>, which <c>Directory.Build.props</c> points at.
+    /// </summary>
+    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders) {
+        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders));
+        string game = typeof(Atel.Worker).Assembly.Location;
+        string tools = Path.Combine(root, ProjectLayout.ToolFolder);
+        Directory.CreateDirectory(tools);
+        File.Copy(game, Path.Combine(tools, ProjectLayout.GameAssembly), overwrite: true);
+        string docs = Path.ChangeExtension(game, ".xml");
+        if (File.Exists(docs)) File.Copy(docs, Path.Combine(tools, Path.GetFileName(docs)), overwrite: true);
+    }
+
+    /// <summary>Writes source files under a root folder.</summary>
+    internal static void WriteFiles(string root, IEnumerable<SourceFile> files) {
+        foreach (SourceFile f in files) {
+            string path = Path.Combine(root, f.RelativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, f.Text);
+        }
     }
 
     public static int Compile(VbfArchive archive, List<string> args, string? output, bool check) {
         if (args.Count != 1 || output is null) throw new ArgumentException("compile <dir|file.cs> -o <out>");
         string input = args[0];
-        List<string> files = Directory.Exists(input)
-            ? [.. Directory.EnumerateFiles(input, "*.cs", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]
-            : [input];
-        List<SyntaxTree> trees = files.Select(f => ScriptCompiler.Parse(File.ReadAllText(f), f)).ToList();
+        List<SyntaxTree> trees = Directory.Exists(input) ? ScriptCompiler.ParseFolder(input) : [ScriptCompiler.Parse(File.ReadAllText(input), input)];
         if (check) {
             IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check(trees);
             foreach (Diagnostic d in diagnostics) Console.Error.WriteLine(d.ToString());
@@ -64,7 +95,7 @@ internal static class SourceCommands {
         string filter = args.Count > 0 ? args[0] : "";
         List<string> paths = GameData.AllScriptPaths(archive).Where(p => p.Contains(filter, StringComparison.Ordinal)).ToList();
         ConcurrentBag<string> failures = [];
-        long sourceBytes = 0, errors = 0, warnings = 0, identical = 0;
+        long sourceBytes = 0, fileCount = 0, errors = 0, warnings = 0, identical = 0;
         DecompileTotals totals = new();
         Stopwatch clock = Stopwatch.StartNew();
         // Largest first, one at a time: the biggest scripts take the longest to check.
@@ -82,22 +113,20 @@ internal static class SourceCommands {
                     failures.Add($"{path}: {ex.Message}");
                     return;
                 }
-                Interlocked.Add(ref sourceBytes, d.Source.Length);
+                List<SourceFile> sources = d.Files();
+                Interlocked.Add(ref sourceBytes, sources.Sum(s => (long)s.Text.Length));
+                Interlocked.Add(ref fileCount, sources.Count);
                 totals.Add(d.Stats);
-                if (output is not null) {
-                    string file = Path.Combine(output, d.Names.RelativePath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                    File.WriteAllText(file, d.Source);
-                }
-                SyntaxTree tree = ScriptCompiler.Parse(d.Source, d.Names.RelativePath);
+                if (output is not null) WriteFiles(output, sources);
+                List<SyntaxTree> trees = [.. sources.Select(s => ScriptCompiler.Parse(s.Text, s.RelativePath))];
                 if (check) {
-                    IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check([tree]);
+                    IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check(trees);
                     int e = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Error);
                     Interlocked.Add(ref errors, e);
                     Interlocked.Add(ref warnings, diagnostics.Count - e);
                     if (diagnostics.FirstOrDefault() is Diagnostic first) failures.Add($"{path}: C#: {first}");
                 }
-                byte[] rebuilt = ScriptCompiler.Compile([tree]).ApplyTo(vanilla).ToArray();
+                byte[] rebuilt = ScriptCompiler.Compile(trees).ApplyTo(vanilla).ToArray();
                 if (rebuilt.AsSpan().SequenceEqual(original)) Interlocked.Increment(ref identical);
                 else failures.Add($"{path}: differs");
             }
@@ -108,7 +137,7 @@ internal static class SourceCommands {
         foreach (string f in failures.Order(StringComparer.Ordinal).Take(50)) Console.Error.WriteLine(f);
         string checks = check ? string.Create(CultureInfo.InvariantCulture, $"{errors} C# errors, {warnings} warnings; ") : "";
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
+            $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source in {fileCount} files; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
         Console.WriteLine(totals.ToString());
         Console.WriteLine(totals.FlowSummary());
         Console.WriteLine(totals.NameSummary());
