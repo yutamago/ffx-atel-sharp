@@ -59,7 +59,12 @@ original keeps in a register across a wait (`Common.WaitFrames(1)`, `Btl.ActorWa
 an entry, where another entry of the same worker also writes that register. They are what the
 rule describes, so the rule stays; the original compiler did not warn. Whether each is a real bug
 depends on which levels the entries run at, which the analyzer does not know. The compiler's
-corpus test counts them apart. Nothing else fires on vanilla source.
+corpus test counts them apart.
+
+Since requests are written as calls (Phase 5), ATL2006 is reported **221 times**: vanilla
+requests at `Priority.P7_Init`, the level `Init` and the battle system run at. The original
+scripts do this on purpose; the warning is for new code. The compiler's corpus test counts these
+apart too. Nothing else fires on vanilla source.
 
 ## The rules
 

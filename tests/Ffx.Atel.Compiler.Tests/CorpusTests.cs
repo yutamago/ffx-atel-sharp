@@ -21,11 +21,14 @@ public sealed class CorpusTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     Phase 4's bar: every script decompiles to structured C# without any <c>Asm</c>, which compiles
-    ///     as C# against the reference assembly without errors or warnings (but ATL0001), and compiles back, from the
+    ///     as C# against the reference assembly without errors or warnings (but ATL0001 and ATL2006), and compiles back, from the
     ///     source text and the vanilla file's other sections, to the same file bytes. Since Phase 6 the
     ///     source is the script's folder: the script class, a file per worker and the data, with the
     ///     workers that are exact copies deriving from library classes.
     /// </summary>
+    /// <summary>Analyzer warnings the vanilla code legitimately gives; they inform new code.</summary>
+    private static bool VanillaWarning(Diagnostic d) => d.Severity == DiagnosticSeverity.Warning && d.Id is "ATL0001" or "ATL2006";
+
     [Fact]
     public void EveryScriptRoundTripsThroughSource() {
         using VbfArchive archive = OpenOrSkip();
@@ -45,7 +48,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         List<SourceFile> libraryFiles = shared.Files();
         ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
         IReadOnlyList<Diagnostic> libraryAll = library.Check();
-        List<Diagnostic> libraryDiagnostics = [.. libraryAll.Where(x => x.Id != "ATL0001")];
+        List<Diagnostic> libraryDiagnostics = [.. libraryAll.Where(x => !VanillaWarning(x))];
         registerWarnings += libraryAll.Count - libraryDiagnostics.Count;
         diagnostics += libraryDiagnostics.Count;
         foreach (Diagnostic d in libraryDiagnostics.Take(5)) failures.Add($"library: {d}");
@@ -60,10 +63,11 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 Interlocked.Add(ref sourceBytes, sources.Sum(s => (long)s.Text.Length));
                 Interlocked.Add(ref fileCount, sources.Count);
                 List<SyntaxTree> trees = [.. sources.Select(s => ScriptCompiler.Parse(s.Text, s.RelativePath))];
-                // ATL0001 (a register across a wait that another entry writes) is a warning the
-                // original code gives (docs/analyzers.md); counted, not a failure.
+                // ATL0001 (a register across a wait that another entry writes) and ATL2006 (a request
+                // at a reserved priority) are warnings the original code gives (docs/analyzers.md):
+                // counted, not failures.
                 IReadOnlyList<Diagnostic> all = ScriptCompiler.Check(trees, library);
-                List<Diagnostic> found = [.. all.Where(x => x.Id != "ATL0001")];
+                List<Diagnostic> found = [.. all.Where(x => !VanillaWarning(x))];
                 Interlocked.Add(ref registerWarnings, all.Count - found.Count);
                 Interlocked.Add(ref diagnostics, found.Count);
                 if (found.Count > 0) failures.Add($"{path}: {found[0]}");
@@ -75,7 +79,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 failures.Add($"{path}: {ex.Message}");
             }
         });
-        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics (and {registerWarnings} ATL0001), {clock.Elapsed.TotalSeconds:0.0} s");
+        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics (and {registerWarnings} ATL0001/ATL2006 warnings the original code gives), {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine($"{shared.SharedWorkers} workers derive from {shared.Classes.Count} library classes, {shared.SavedChars / 1e6:0.0} MB saved");
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
