@@ -19,6 +19,9 @@
         <!-- The SDK package and the copy atel decompile writes carry these assemblies: map the checkout's
              path, so no PDB path names a user folder. -->
         <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))=/_/</PathMap>
+        <!-- Source Link's map in the PDBs uses the source root, not PathMap; deterministic source
+             paths make it /_/ too. -->
+        <DeterministicSourcePaths>true</DeterministicSourcePaths>
     </PropertyGroup>
     <PropertyGroup>
         <!-- Shared package versions. -->
