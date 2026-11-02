@@ -38,12 +38,6 @@ public sealed class CodeFixTests {
     }
 
     [Fact]
-    public async System.Threading.Tasks.Task ShortCircuitBecomesBothSides() {
-        string fixedSource = await Fix("class W : Worker1 { int I; void E() { if (I > 1 && I < 3) { } } }", "ATL1011", "Use '&' (evaluates both sides)");
-        Assert.Equal("class W : Worker1 { int I; void E() { if (I > 1 & I < 3) { } } }", fixedSource);
-    }
-
-    [Fact]
     public async System.Threading.Tasks.Task DoubleLiteralBecomesFloat() {
         string fixedSource = await Fix("class W : Worker1 { float F; void E() { F = (float)1.5; } }", "ATL1009", "Make it a float literal");
         Assert.Equal("class W : Worker1 { float F; void E() { F = (float)1.5f; } }", fixedSource);
@@ -91,13 +85,15 @@ public sealed class CodeFixTests {
                 void E0()
                 {
                     if (I0 > 1 && I0 < 3) { }
+                    string s = "no";
                     long x = 1;
                     I0 = (int)x;
                 }
             }
             """;
         IReadOnlyList<Diagnostic> found = ScriptCompiler.Check([ScriptCompiler.Parse(source)]);
-        Assert.Contains(found, d => d.Id == "ATL1011" && d.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(found, d => d.Id == "ATL1011");
+        Assert.Contains(found, d => d.Id == "ATL1002" && d.Severity == DiagnosticSeverity.Error);
         Assert.Contains(found, d => d.Id == "ATL1009" && d.Severity == DiagnosticSeverity.Error);
     }
 }

@@ -245,10 +245,7 @@ public sealed class FlowEmitter {
             case IfStmt i: {
                 FlowLabel otherwise = New();
                 if (i.Condition is null) Jump(Opcodes.Jmp, otherwise);
-                else {
-                    Expr(i.Condition);
-                    Jump(Opcodes.PopAJz, otherwise);
-                }
+                else JumpUnless(i.Condition, otherwise);
                 Block(i.Then);
                 if (i.Else is null) {
                     Place(otherwise);
@@ -266,10 +263,7 @@ public sealed class FlowEmitter {
                 FlowLabel exit = New(), head = New();
                 Loop loop = new(() => exit, head);
                 Place(head);
-                if (w.Condition is not null) {
-                    Expr(w.Condition);
-                    Jump(Opcodes.PopAJz, loop.Break);
-                }
+                if (w.Condition is not null) JumpUnless(w.Condition, loop.Break);
                 InScope(loop, () => Block(w.Body));
                 Jump(Opcodes.Jmp, head);
                 if (loop.Made is FlowLabel made) Place(made);
@@ -281,10 +275,7 @@ public sealed class FlowEmitter {
                 Block(f.Init);
                 FlowLabel exit = New(), body = New(), head = New(), step = New();
                 Place(head);
-                if (f.Condition is not null) {
-                    Expr(f.Condition);
-                    Jump(Opcodes.PopAJz, exit);
-                }
+                if (f.Condition is not null) JumpUnless(f.Condition, exit);
                 Jump(Opcodes.Jmp, body);
                 Place(step);
                 Block(f.Step);
@@ -301,8 +292,7 @@ public sealed class FlowEmitter {
                 Loop loop = new(() => exit, null);
                 Place(head);
                 InScope(loop, () => Block(d.Body));
-                Expr(d.Condition);
-                Jump(Opcodes.PopAJnz, head);
+                JumpIf(d.Condition, head);
                 if (loop.Made is FlowLabel made) Place(made);
                 break;
             }
@@ -330,8 +320,8 @@ public sealed class FlowEmitter {
                 Jump(Opcodes.Jmp, Fixed(g.Label));
                 break;
             case CondGotoStmt g:
-                Expr(g.Condition);
-                Jump(g.IfTrue ? Opcodes.PopAJnz : Opcodes.PopAJz, Fixed(g.Label));
+                if (g.IfTrue) JumpIf(g.Condition, Fixed(g.Label));
+                else JumpUnless(g.Condition, Fixed(g.Label));
                 break;
             case EntryStmt e:
                 Entry(e.Entry);
@@ -354,6 +344,64 @@ public sealed class FlowEmitter {
             default:
                 Ops(Lowering.Lower(s));
                 break;
+        }
+    }
+
+    /// <summary>Whether a condition branches: <c>&amp;&amp;</c>, <c>||</c>, or <c>!</c> of one.</summary>
+    public static bool Branches(Expr e) => e switch {
+        AndAlsoExpr or OrElseExpr => true,
+        UnaryExpr { Op: Opcodes.Not, Operand: var x } => Branches(x),
+        _ => false,
+    };
+
+    /// <summary>
+    ///     Jumps to <paramref name="target"/> when <paramref name="condition"/> is 0: the condition, then
+    ///     <c>popa_jz</c>. A short-circuit condition is a chain of jumps, each operand tested on its own.
+    /// </summary>
+    private void JumpUnless(Expr condition, FlowLabel target) {
+        switch (condition) {
+            case AndAlsoExpr a:
+                JumpUnless(a.Left, target);
+                JumpUnless(a.Right, target);
+                return;
+            case OrElseExpr o: {
+                FlowLabel taken = New();
+                JumpIf(o.Left, taken);
+                JumpUnless(o.Right, target);
+                Place(taken);
+                return;
+            }
+            case UnaryExpr { Op: Opcodes.Not, Operand: var x } when Branches(x):
+                JumpIf(x, target);
+                return;
+            default:
+                Expr(condition);
+                Jump(Opcodes.PopAJz, target);
+                return;
+        }
+    }
+
+    /// <summary>Jumps to <paramref name="target"/> when <paramref name="condition"/> is not 0 (<c>popa_jnz</c>); as <see cref="JumpUnless"/>.</summary>
+    private void JumpIf(Expr condition, FlowLabel target) {
+        switch (condition) {
+            case OrElseExpr o:
+                JumpIf(o.Left, target);
+                JumpIf(o.Right, target);
+                return;
+            case AndAlsoExpr a: {
+                FlowLabel skip = New();
+                JumpUnless(a.Left, skip);
+                JumpIf(a.Right, target);
+                Place(skip);
+                return;
+            }
+            case UnaryExpr { Op: Opcodes.Not, Operand: var x } when Branches(x):
+                JumpUnless(x, target);
+                return;
+            default:
+                Expr(condition);
+                Jump(Opcodes.PopAJnz, target);
+                return;
         }
     }
 

@@ -84,8 +84,8 @@ fields in the script class.
 | `x op= e;` on a variable or register | the same as `x = x op e;`: `pushv x; e; op; popv x` |
 | `A[i] op= e;` on an element | `i; op_2b; pushva vA; e; op; popva vA` (`op_2b` keeps a copy of the index) |
 
-`op` is one of `+ - * / % & | ^ << >>`; there is no increment opcode, and `++`/`--` are not
-compiled.
+`op` is one of `+ - * / % & | ^ << >>`. There is no increment opcode: `x++;` as a statement is
+`x += 1;` (see "New code" for `++` as a value).
 
 ## Operators
 
@@ -100,6 +100,7 @@ compiled.
 | `!c` | `not` |
 | `~x` | `bnot` |
 | `-5` (a literal) | the negative constant |
+| `-x` (new code) | `x; neg` for a float, `push 0; x; sub` for an integer (see "New code") |
 | `(T)e`, `+e`, `unchecked(e)`, `AsBool(e)`, `AsInt(e)`, `(e)` | nothing |
 
 An operand is a condition when its syntax is a comparison, `!`, `true`/`false`, `AsBool(…)`, a
@@ -256,6 +257,77 @@ per worker its entry table, label table and private data, the end aligned to 16.
 The data areas are kept as hex because they hold more than variables' initial values (the shared
 area holds a timestamp and offsets into the block). Event and monster files hold the script as
 section 0; the compiler takes the file's other sections from the game's file.
+
+## New code
+
+What the original compiler never emitted, so the round trip does not constrain it: the forms below
+compile only from new code (a mod, or a hand edit), and the decompiler never writes them. The stack
+stays empty at every jump and label; where an expression needs a jump, it is computed by statements
+before the statement that holds it, into a temporary.
+
+### Operators
+
+| C# | Bytecode |
+|---|---|
+| `x++;`, `++x;`, `x--;` as a statement | as `x += 1;`, `x -= 1;` (on an element the `op_2b` form) |
+| `++x` as a value | `x = x + 1;` first, then `x` is read |
+| `x++` as a value | `t = x; x = t + 1;` first, then `t` is read |
+| `-x` | `x; neg` when `x` is a float, else `push 0; x; sub` |
+| `c ? a : b` | `if (c) t = a; else t = b;` first, then `t`; assigned to a variable, register or local directly: `if (c) x = a; else x = b;` |
+
+`neg` pops its operand as a float (the interpreter's `0x1a`, x87 `* -1.0`), so it is only for floats;
+an integer `0 - x` stays an integer. Whether a value is a float follows the stack's types: a float
+literal, register, variable or local, a native that returns `float`, and `+ - * /` with a float
+operand.
+
+### Evaluation order
+
+C# evaluates operands left to right. When a later operand needs statements (`?:`, `x++` as a value,
+`&&` with statements on its right, a helper call), every earlier operand that is not a constant is
+evaluated into a temporary first: `Out = Hp++ * 10 + ++Hp;` is `t0 = Hp; Hp = t0 + 1; t1 = t0 * 10;
+Hp = Hp + 1; Out = t1 + Hp;`. An element's index is evaluated once (`Table[i++] += 1` reads and writes
+the element at the old `i`), and a compound assignment reads its target before the value's statements.
+
+Named arguments to natives bind by the parameter's name; when they are out of the parameters' order,
+all arguments are evaluated into temporaries in the order written, then pushed in the parameters'
+order.
+
+### Short-circuit conditions
+
+`&&` and `||` are jumps, one operand tested at a time; `!` swaps the jump. `L` is a label of the
+construct's own, numbered as the construct's labels are, when it is needed:
+
+| Condition | Jump when false (`if`, `while`, `for`) | Jump when true (`do … while`, `if (…) goto`) |
+|---|---|---|
+| `a && b` | `a; popa_jz F; b; popa_jz F` | `a; popa_jz L; b; popa_jnz T; L:` |
+| `a \|\| b` | `a; popa_jnz L; b; popa_jz F; L:` | `a; popa_jnz T; b; popa_jnz T` |
+| `!(…)` | as jump when true | as jump when false |
+
+A condition without `&&`/`||` lowers as before, so vanilla code is unchanged. As a value, a
+short-circuit condition is `t = 0; if (c) t = 1;`. When `b` needs statements of its own (`a && x++ >
+0`), they must run only when `a` does not decide: `t = 0; if (a) { …; if (b) t = 1; }` (for `||`:
+`t = 0; if (a) t = 1; else { …; if (b) t = 1; }`), and the condition is `t`. A loop condition that
+needs statements runs them on every test: `while (true) { …; if (!c) break; body }`, likewise for
+`for`; for `do … while` they go at the end of the body.
+
+### Locals
+
+Each local, parameter, result and temporary is a slot. After a worker's or fragment's code is
+lowered and its labels numbered, the compiler computes which slots are live at each instruction (over
+the code's jumps) and places each:
+
+| Slot | Home |
+|---|---|
+| live across a wait (a native that polls, `req*`, `op_39`, `call`, `op_54`, `op_77`-`op_79`) | a hidden variable |
+| otherwise | an integer register (`i3` down to `i0`) or float register (`f9` down to `f0`) that the worker's code does not name (its `[Register]` fields, any register opcode in the code, the `[Register]` fields of every function worker it calls, all registers in a function worker), and that no slot live at the same time has |
+| otherwise | a hidden variable |
+
+A placed slot is `pushi3`/`popi3` (`pushf9`/`popf9`, …) or `pushv`/`popv` of its variable. A hidden
+variable is an `i32` (`f32` for a float) in storage 4, one per slot: in a mod a new variable of the
+package (`<local>name#n`), which the linker allocates in its new data area; in a script compiled
+whole a variable at the end of the variable table, at the end of the shared data (which grows by 4
+bytes each). Registers are per worker and only change while the worker runs, so a value that crosses
+no wait cannot be changed by other code; a hidden variable belongs to one slot of one method.
 
 ## Mods
 

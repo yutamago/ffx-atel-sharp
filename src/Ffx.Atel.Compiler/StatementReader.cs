@@ -46,14 +46,30 @@ internal sealed partial class StatementReader(
         return s;
     }
 
-    /// <summary>A block's statements; labels become <see cref="LabelStmt"/>s before the statement they label.</summary>
-    public List<Stmt> Block(IEnumerable<StatementSyntax> statements) {
-        List<Stmt> list = [];
-        foreach (StatementSyntax s in statements) Add(s, list);
-        return list;
+    /// <summary>
+    ///     A block's statements, in a scope of their own (<paramref name="scope"/>: a switch's sections share
+    ///     the switch's); labels become <see cref="LabelStmt"/>s before the statement they label.
+    /// </summary>
+    public List<Stmt> Block(IEnumerable<StatementSyntax> statements, bool scope = true) {
+        if (scope) PushScope();
+        try {
+            List<Stmt> list = [];
+            foreach (StatementSyntax s in statements) Add(s, list);
+            return list;
+        }
+        finally {
+            if (scope) PopScope();
+        }
     }
 
     private List<Stmt> Body(StatementSyntax s) => s is BlockSyntax b ? Block(b.Statements) : Block([s]);
+
+    /// <summary>A statement with the statements its expressions need first (<see cref="_pre"/>).</summary>
+    private List<Stmt> Statements(StatementSyntax s) {
+        (List<Stmt> pre, Stmt stmt) = Apart(() => Read(s));
+        List<Stmt> list = [.. pre.Select(p => At(p, s)), At(stmt, s)];
+        return list;
+    }
 
     private void Add(StatementSyntax s, List<Stmt> list) {
         switch (s) {
@@ -69,12 +85,19 @@ internal sealed partial class StatementReader(
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Asm" } } call } e:
                 list.Add(At(ScriptCompiler.AsmLines(e, call), s));
                 return;
-            // Debug.Print/Debug.Break: the loader's natives, or nothing when the build leaves them out.
-            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } when DebugCalls.MethodOf(call) is string method:
-                if (DebugCalls.Read(call, method, ReadExpr) is Stmt d) list.Add(At(d, s));
+            // Debug.Print/Debug.Break: the loader's natives, or nothing when the build leaves them out
+            // (with the statements their values need).
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } when DebugCalls.MethodOf(call) is string method: {
+                (List<Stmt> pre, Stmt? d) = Apart(() => DebugCalls.Read(call, method, ReadExpr));
+                if (d is not null) list.AddRange([.. pre.Select(x => At(x, s)), At(d, s)]);
+                return;
+            }
+            case LocalDeclarationStatementSyntax d:
+                if (d.UsingKeyword.IsKind(SyntaxKind.UsingKeyword) || d.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)) throw Error(d, "using declarations are not Atel");
+                list.AddRange(Declare(d.Declaration, d.IsConst).Select(x => At(x, s)));
                 return;
             default:
-                list.Add(At(Read(s), s));
+                list.AddRange(Statements(s));
                 return;
         }
     }
@@ -87,6 +110,10 @@ internal sealed partial class StatementReader(
                 return Awaited(aw);
             case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax a }:
                 return Assignment(a);
+            case ExpressionStatementSyntax { Expression: PostfixUnaryExpressionSyntax p } when IsIncDec(p.Kind()):
+                return IncDecStatement(p.Operand, p.IsKind(SyntaxKind.PostIncrementExpression));
+            case ExpressionStatementSyntax { Expression: PrefixUnaryExpressionSyntax p } when IsIncDec(p.Kind()):
+                return IncDecStatement(p.Operand, p.IsKind(SyntaxKind.PreIncrementExpression));
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }:
                 return CallStatement(call);
             case ReturnStatementSyntax { Expression: null }:
@@ -105,20 +132,35 @@ internal sealed partial class StatementReader(
             case IfStatementSyntax { Else: null, Statement: GotoStatementSyntax g } i when g.IsKind(SyntaxKind.GotoStatement): {
                 ExpressionSyntax c = Strip(i.Condition, conversions: false);
                 return c is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } not
-                    ? new CondGotoStmt(Label(g.Expression!), ReadExpr(not.Operand), false)
-                    : new CondGotoStmt(Label(g.Expression!), ReadExpr(c), true);
+                    ? new CondGotoStmt(Label(g.Expression!), ReadCond(not.Operand), false)
+                    : new CondGotoStmt(Label(g.Expression!), ReadCond(c), true);
             }
             case IfStatementSyntax i:
                 return new IfStmt(Constant(i.Condition) == false ? null : Cond(i.Condition), Body(i.Statement), i.Else is null ? null : Body(i.Else.Statement));
-            case WhileStatementSyntax w:
-                return new WhileStmt(Constant(w.Condition) == true ? null : Cond(w.Condition), Body(w.Statement));
-            case DoStatementSyntax d:
-                return new DoStmt(Body(d.Statement), Cond(d.Condition));
+            case WhileStatementSyntax w: {
+                // A condition that needs statements runs them on every test: `while (true) { …; if (!c) break; … }`.
+                (List<Stmt> pre, Expr? c) = Apart(() => Constant(w.Condition) == true ? null : Cond(w.Condition));
+                List<Stmt> body = Body(w.Statement);
+                return pre.Count == 0 ? new WhileStmt(c, body) : new WhileStmt(null, [.. pre, Exit(c!), .. body]);
+            }
+            case DoStatementSyntax d: {
+                List<Stmt> body = Body(d.Statement);
+                (List<Stmt> pre, Expr c) = Apart(() => Cond(d.Condition));
+                return new DoStmt([.. body, .. pre], c);
+            }
             case ForStatementSyntax f: {
-                if (f.Declaration is not null) throw Error(f.Declaration, "a for loop declares no variables (registers and variables are fields)");
-                List<Stmt> init = [.. f.Initializers.Select(e => At(Read(SyntaxFactory.ExpressionStatement(e)), e))];
-                List<Stmt> step = [.. f.Incrementors.Select(e => At(Read(SyntaxFactory.ExpressionStatement(e)), e))];
-                return new ForStmt(init, f.Condition is null ? null : Cond(f.Condition), step, Body(f.Statement));
+                PushScope();
+                try {
+                    List<Stmt> init = f.Declaration is null ? [] : Declare(f.Declaration, constant: false);
+                    foreach (ExpressionSyntax e in f.Initializers) init.AddRange(Statements(SyntaxFactory.ExpressionStatement(e)));
+                    (List<Stmt> pre, Expr? c) = Apart(() => f.Condition is null ? null : Cond(f.Condition));
+                    List<Stmt> step = [.. f.Incrementors.SelectMany(e => Statements(SyntaxFactory.ExpressionStatement(e)))];
+                    List<Stmt> body = Body(f.Statement);
+                    return pre.Count == 0 ? new ForStmt(init, c, step, body) : new ForStmt(init, null, step, [.. pre, Exit(c!), .. body]);
+                }
+                finally {
+                    PopScope();
+                }
             }
             case SwitchStatementSyntax sw:
                 return Switch(sw);
@@ -135,10 +177,26 @@ internal sealed partial class StatementReader(
     };
 
     private Expr Cond(ExpressionSyntax e) =>
-        Constant(e) is not null ? throw Error(e, "a constant condition is only `if (false)` (dead code) and `while (true)`") : ReadExpr(e);
+        Constant(e) is not null ? throw Error(e, "a constant condition is only `if (false)` (dead code) and `while (true)`") : ReadCond(e);
+
+    /// <summary><c>if (!c) break;</c></summary>
+    private static IfStmt Exit(Expr c) => new(new UnaryExpr(Opcodes.Not, c), [new BreakStmt()], null);
 
     private SwitchStmt Switch(SwitchStatementSyntax sw) {
+        Expr selector = ReadExpr(sw.Expression);
         List<SwitchSection> sections = [];
+        // One scope for the whole switch block, as in C#.
+        PushScope();
+        try {
+            ReadSections(sw, sections);
+        }
+        finally {
+            PopScope();
+        }
+        return new SwitchStmt(selector, sections);
+    }
+
+    private void ReadSections(SwitchStatementSyntax sw, List<SwitchSection> sections) {
         foreach (SwitchSectionSyntax section in sw.Sections) {
             if (section.Labels.Count != 1) throw Error(section, "one label per switch section (the original had no shared case bodies)");
             CaseLabel? label = section.Labels[0] switch {
@@ -147,9 +205,8 @@ internal sealed partial class StatementReader(
                 CasePatternSwitchLabelSyntax { WhenClause: null } p => Pattern(p.Pattern),
                 var other => throw Error(other, "a case is a constant, a relational pattern or `>= lo and <= hi`"),
             };
-            sections.Add(new SwitchSection(label, Block(section.Statements)));
+            sections.Add(new SwitchSection(label, Block(section.Statements, scope: false)));
         }
-        return new SwitchStmt(ReadExpr(sw.Expression), sections);
     }
 
     private int CaseValue(ExpressionSyntax e) => ReadExpr(e) is IntLit k ? k.Value : throw Error(e, "a case value is an integer constant");
@@ -184,7 +241,17 @@ internal sealed partial class StatementReader(
 
     private Stmt Assignment(AssignmentExpressionSyntax a) {
         Expr target = Target(a.Left);
+        if (a.IsKind(SyntaxKind.SimpleAssignmentExpression) && ConditionalInto(target, a.Right) is IfStmt direct) return direct;
+        int mark = _pre.Count;
         Expr value = ReadExpr(a.Right);
+        bool valueNeedsStatements = _pre.Count > mark;
+        // C# evaluates the target's index, and for `op=` reads the target, before the value.
+        int afterIndex = mark;
+        if (valueNeedsStatements) {
+            int before = _pre.Count;
+            target = SpillIndex(target, mark);
+            afterIndex += _pre.Count - before;
+        }
         if (a.IsKind(SyntaxKind.SimpleAssignmentExpression)) return new AssignStmt(target, value);
         byte op = a.Kind() switch {
             SyntaxKind.AddAssignmentExpression => Opcodes.Add,
@@ -199,6 +266,7 @@ internal sealed partial class StatementReader(
             SyntaxKind.RightShiftAssignmentExpression => Opcodes.Sar,
             _ => throw Error(a, $"no ATEL operation for {a.OperatorToken.ValueText}"),
         };
+        if (valueNeedsStatements) return new AssignStmt(target, new BinaryExpr(op, SpillAt(target, afterIndex), value));
         return target is ElemExpr or Elem2Expr
             ? new CompoundStmt(target, op, value)
             : new AssignStmt(target, new BinaryExpr(op, target, value));
@@ -206,7 +274,7 @@ internal sealed partial class StatementReader(
 
     private Expr Target(ExpressionSyntax e) {
         Expr t = ReadExpr(e);
-        return t is VarExpr or ElemExpr or Elem2Expr or RegExpr { Kind: not RegKind.Facc } ? t : throw Error(e, "not something to assign to");
+        return t is VarExpr or ElemExpr or Elem2Expr or RegExpr { Kind: not RegKind.Facc } or LocalExpr ? t : throw Error(e, "not something to assign to");
     }
 
     private Stmt CallStatement(InvocationExpressionSyntax call) {
@@ -298,6 +366,8 @@ internal sealed partial class StatementReader(
             // A native typed bool (data/native-types.json, "result").
             InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } call => natives.TryGetValue(NativeName(call), out NativeSignature? sig) && sig.Result == "bool",
             PrefixUnaryExpressionSyntax u => u.IsKind(SyntaxKind.LogicalNotExpression),
+            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalAndExpression or (int)SyntaxKind.LogicalOrExpression } => true,
+            IdentifierNameSyntax id => Local(id.Identifier.ValueText) is LocalExpr { Slot: Slot { Bool: true } },
             LiteralExpressionSyntax l => l.IsKind(SyntaxKind.TrueLiteralExpression) || l.IsKind(SyntaxKind.FalseLiteralExpression),
             BinaryExpressionSyntax b => b.Kind() switch {
                 SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression or SyntaxKind.LessThanExpression
@@ -320,8 +390,16 @@ internal sealed partial class StatementReader(
             case PrefixUnaryExpressionSyntax u when u.IsKind(SyntaxKind.UnaryMinusExpression)
                 && Strip(u.Operand) is LiteralExpressionSyntax lit && lit.IsKind(SyntaxKind.NumericLiteralExpression):
                 return Number(lit.Token.Value, u, negate: true);
+            case PrefixUnaryExpressionSyntax u when u.IsKind(SyntaxKind.UnaryMinusExpression):
+                return Negate(ReadExpr(u.Operand));
+            case PrefixUnaryExpressionSyntax u when IsIncDec(u.Kind()):
+                return IncDecValue(u.Operand, u.IsKind(SyntaxKind.PreIncrementExpression), postfix: false);
+            case PostfixUnaryExpressionSyntax u when IsIncDec(u.Kind()):
+                return IncDecValue(u.Operand, u.IsKind(SyntaxKind.PostIncrementExpression), postfix: true);
+            case ConditionalExpressionSyntax c:
+                return Conditional(c);
             case PrefixUnaryExpressionSyntax u when u.IsKind(SyntaxKind.LogicalNotExpression):
-                return new UnaryExpr(Opcodes.Not, ReadExpr(u.Operand));
+                return Value(new UnaryExpr(Opcodes.Not, ReadCond(u.Operand)));
             case PrefixUnaryExpressionSyntax u when u.IsKind(SyntaxKind.BitwiseNotExpression):
                 return new UnaryExpr(Opcodes.Bnot, ReadExpr(u.Operand));
             case BinaryExpressionSyntax b:
@@ -401,6 +479,7 @@ internal sealed partial class StatementReader(
     }
 
     private Expr Binary(BinaryExpressionSyntax b) {
+        if (b.IsKind(SyntaxKind.LogicalAndExpression) || b.IsKind(SyntaxKind.LogicalOrExpression)) return Value(ReadCond(b));
         bool logical = IsBool(b.Left) && IsBool(b.Right);
         byte op = b.Kind() switch {
             SyntaxKind.AddExpression => Opcodes.Add,
@@ -419,15 +498,15 @@ internal sealed partial class StatementReader(
             SyntaxKind.BitwiseAndExpression => logical ? Opcodes.Land : Opcodes.And,
             SyntaxKind.BitwiseOrExpression => logical ? Opcodes.Lor : Opcodes.Or,
             SyntaxKind.ExclusiveOrExpression => Opcodes.Xor,
-            SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression
-                => throw Error(b, "&& and || short-circuit, which needs branches (Phase 4); & and | evaluate both sides"),
             _ => throw Error(b, $"no ATEL operation for {b.OperatorToken.ValueText}"),
         };
-        return new BinaryExpr(op, ReadExpr(b.Left), ReadExpr(b.Right));
+        List<Expr> operands = ReadArgs([b.Left, b.Right]);
+        return new BinaryExpr(op, operands[0], operands[1]);
     }
 
     private Expr Name(IdentifierNameSyntax id) {
         string n = id.Identifier.ValueText;
+        if (Local(n) is Expr local) return local;
         if (registers.TryGetValue(n, out RegExpr? reg)) return reg;
         if (variables.TryGetValue(n, out VariableSymbol? v)) {
             return v.Entry.IsArray ? throw Error(id, $"{n} is an array") : new VarExpr(v.Index);
@@ -475,7 +554,37 @@ internal sealed partial class StatementReader(
         if (!natives.TryGetValue(name, out NativeSignature? sig)) throw Error(call.Expression, $"{name} is not a native");
         SeparatedSyntaxList<ArgumentSyntax> args = call.ArgumentList.Arguments;
         if (args.Count != sig.Argc) throw Error(call, $"{name} takes {sig.Argc} arguments");
-        if (args.Any(a => a.NameColon is not null)) throw Error(call, "native arguments are positional (for now)");
-        return (sig.Id, [.. args.Select(a => ReadExpr(a.Expression))]);
+        // Named arguments bind by the parameter's name. C# evaluates arguments in the order they are
+        // written and ATEL pushes them in the parameters' order, so out of order they are evaluated into
+        // temporaries first.
+        int[] position = new int[args.Count];
+        bool[] given = new bool[sig.Argc];
+        for (int k = 0; k < args.Count; k++) {
+            ArgumentSyntax a = args[k];
+            if (!a.RefKindKeyword.IsKind(SyntaxKind.None)) throw Error(a, "natives take values (Addr(ref …) for an address)");
+            int p = k;
+            if (a.NameColon is not null) {
+                string param = a.NameColon.Name.Identifier.ValueText;
+                p = sig.ParamNames is { } names ? Array.IndexOf(names, param) : -1;
+                if (p < 0) throw Error(a.NameColon, $"{name} has no parameter {param}");
+            }
+            else if (args.Take(k).Any(x => x.NameColon is not null && position[args.IndexOf(x)] != args.IndexOf(x))) {
+                throw Error(a, "a positional argument after a named one out of place");
+            }
+            if (given[p]) throw Error(a, $"{name}'s parameter {p} is given twice");
+            given[p] = true;
+            position[k] = p;
+        }
+        List<Expr> values = ReadArgs(args.Select(a => a.Expression));
+        if (position.Select((p, k) => p == k).All(same => same)) return (sig.Id, values);
+        int at = _pre.Count;
+        for (int k = 0; k < values.Count; k++) {
+            int before = _pre.Count;
+            values[k] = SpillAt(values[k], at);
+            at += _pre.Count - before;
+        }
+        Expr[] ordered = new Expr[sig.Argc];
+        for (int k = 0; k < values.Count; k++) ordered[position[k]] = values[k];
+        return (sig.Id, ordered);
     }
 }

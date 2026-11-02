@@ -90,11 +90,7 @@ public static class Rules {
         SubsetCategory, DiagnosticSeverity.Error,
         "ATEL has no overflow check; 'int' arithmetic wraps as in C#'s default unchecked context.");
 
-    public static readonly DiagnosticDescriptor ShortCircuit = Rule(
-        "ATL1011", "&& and || (not yet)",
-        "'{0}' short-circuits, which the Atel compiler does not compile yet; '{1}' evaluates both sides as ATEL does",
-        SubsetCategory, DiagnosticSeverity.Error,
-        "ATEL's logic opcodes evaluate both sides, as C#'s '&' and '|' on bool do. A short-circuit needs branches inside a condition; the compiler does not emit them yet.");
+    // ATL1011 (`&&` and `||`, "not yet") is retired: the compiler lowers them to branches.
 
     // ----- ATL2xxx: requests between workers ----------------------------------------------------
 

@@ -71,6 +71,24 @@ public sealed record BinaryExpr(byte Op, Expr Left, Expr Right) : Expr;
 /// <summary>A native call whose result is used: arguments, then <c>func</c>.</summary>
 public sealed record CallExpr(ushort Native, IReadOnlyList<Expr> Args) : Expr;
 
+/// <summary>
+///     <c>a &amp;&amp; b</c>: short-circuit, so branches. Only a condition of a statement that jumps on it
+///     (<c>if</c>, the loops, <c>if (…) goto</c>) holds one, inside <c>!</c> and the other short-circuit
+///     forms; <see cref="FlowEmitter"/> lowers it to jumps. (The stack is empty at every jump, so it has no
+///     value of its own; the compiler gives a value through a hidden local.)
+/// </summary>
+public sealed record AndAlsoExpr(Expr Left, Expr Right) : Expr;
+
+/// <summary><c>a || b</c>: as <see cref="AndAlsoExpr"/>.</summary>
+public sealed record OrElseExpr(Expr Left, Expr Right) : Expr;
+
+/// <summary>
+///     A local of new code (a C# local, a parameter, a result, a temporary the compiler needs) before it has
+///     a place: <c>pushv</c>/<c>popv</c> with <see cref="Slot"/> as <see cref="CodeOp.Symbol"/>, which the
+///     compiler rewrites to a register or a hidden variable once it knows where the local lives.
+/// </summary>
+public sealed record LocalExpr(object Slot) : Expr;
+
 /// <summary>A statement: code from an empty stack to an empty stack.</summary>
 public abstract record Stmt;
 

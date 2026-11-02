@@ -36,7 +36,9 @@ time per **priority level**; a higher level interrupts a lower one. Code is a st
 
 There are no strings, objects, pointers (beyond the address of a variable), exceptions or
 short-circuit operators. The stack is empty at every jump and label, so a statement is an
-expression tree between jumps ([corpus.md](corpus.md#stack)).
+expression tree between jumps ([corpus.md](corpus.md#stack)). What new code needs beyond that
+(`&&`, `?:`, locals) the compiler builds from jumps, registers and hidden variables ("New code"
+below).
 
 ## Scripts
 
@@ -251,8 +253,31 @@ register used across a wait while another entry writes it gets
 answer (`Common.MsgShowWaitResult(…); RegB = LastResult;`): the answer is in the accumulator.
 **Decompiler only.**
 
-**Planned**: `[Register]` without a number (slots in declaration order), and locals. Today a
-local variable declaration is a compile error; use a register field or a variable.
+**Planned**: `[Register]` without a number (slots in declaration order). For values an entry needs
+only while it runs, use a local ("Locals" below).
+
+### Locals
+
+**Available.** `int n = 3;`, `float speed;`, `bool done = Hp < 10;`, `var k = n * 2;`,
+`const int Max = 4;`, and `for (int i = 0; i < 4; i++)`. A local is `int` (also `uint`, `short`,
+`ushort`, `sbyte`, `byte`, an enum, or another integer type of the reference assembly, all held as
+32-bit integers), `float` or `bool`; not an array, `long`, `double` or `string`.
+
+The compiler decides where each local lives (docs/plan.md, "Variables": locals survive waits):
+
+- in a **register** no code of the worker names (its `[Register]` fields, and those of the
+  function workers it calls) and no other local needs at the same time, when the local never holds
+  a value across a wait;
+- in a **hidden variable** otherwise: a 4-byte variable of the script's shared data (storage 4),
+  which only this local uses. A wait is a native that polls, a request, a `call` (the function might
+  wait), `Halt()` and the opcodes not understood: while an entry waits, another entry of the same
+  worker may run and change any register.
+
+So a local keeps its value across `Common.WaitFrames(1)` or `await`, unlike a `[Register]` field
+([ATL0001](analyzers.md#atl0001)). In a mod, hidden variables are new variables of the package, which
+the linker places like the mod's own; in a script compiled whole, they go at the end of its shared
+data. The shared data is the script's, not the worker's: a method that runs on two levels of its
+worker at once (requested again while it waits) shares its hidden locals with itself.
 
 ## Types and values
 
@@ -289,7 +314,10 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 
 - A call as a statement is `func_facc` (the result goes to the float accumulator); a call whose
   result is used is `func`.
-- Arguments are positional; named arguments to natives are a compile error for now.
+- Arguments are positional or named (`Common.WaitFrames(frames: 30)`,
+  `Common.MoveSetFrames(frames: 2f, elapsed: 1f)`): a named argument binds to the parameter of that
+  name. Arguments are evaluated in the order they are written, as in C#; out of the parameters'
+  order they go through temporaries first ([encoding.md](encoding.md#new-code)).
 - 25 natives that are predicates return `bool` (`Common.VoiceIsPlaying()`,
   `Common.PartyIsJoined(…)`); the others return `int` (or `float`), also when the scripts only
   test them.
@@ -322,14 +350,22 @@ message from your own game's tables ([editor.md](editor.md)).
 | requests, `W48.Run();` | see above |
 | `return;` | `end`, or `ret` in a function worker |
 | `+ - * / %`, `<< >>`, `& \| ^ ~ !`, `== != < > <= >=` | `>>` is arithmetic (`sar`) |
-| `-5`, `-1.5f` | a negative literal; negating any other expression is not compiled yet |
+| `-5`, `-1.5f` | a negative literal: the negative constant |
+| `-x` | any other value: `neg` for a float, `0 - x` for an integer |
+| `x++`, `++x`, `x--`, `--x` | on any variable, element, register or local; as statements and as values |
+| `c ? a : b` | only the chosen branch is evaluated |
+| `a && b`, `a \|\| b` | short-circuit, as in C#: `b` is evaluated only when `a` does not decide |
+| `int n = e;` | locals (above) |
 | `true`, `false` | inside a condition: 1 and 0 |
 | `Type.Member` | an `int` constant of the reference assembly or an enum member: its number |
 
-**Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): `++`/`--`
-(write `x += 1`), local variables, `?:`, unary minus on a non-literal, entries with parameters or
-return values, helper methods, `foreach`. `&&` and `||` are errors for now
-([ATL1011](analyzers.md#atl1011)).
+Operands are evaluated left to right, as in C#, also where a later one needs statements of its own
+(`Out = Hp++ * 10 + ++Hp;`, `Table[i++] += Foo();`): the compiler evaluates the earlier ones into
+temporaries first. How each of these lowers is in [encoding.md](encoding.md#new-code).
+
+**Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): entries
+with parameters or return values, helper methods, `foreach`, an assignment used as a value
+(`a = b = 0`).
 
 **Not Atel at all** (analyzer errors, [analyzers.md](analyzers.md)): `new` for objects and local
 arrays (ATL1001), `string` (ATL1002), the .NET base library (ATL1003), collections (ATL1004),
@@ -346,8 +382,13 @@ expression is a condition: a comparison, `!`, `true`/`false`, `AsBool(…)`, a n
 
 - **`&` and `|` evaluate both sides.** On two conditions they are ATEL's `land` and `lor`, which do
   not short-circuit; C#'s `&` and `|` on `bool` do the same, so the meaning is unchanged. On
-  integers they are the bitwise `and`/`or`. `&&` and `||` are errors for now: they need branches
-  inside an expression, which the original compiler never made.
+  integers they are the bitwise `and`/`or`. The decompiler writes these, as the original never
+  branched inside a condition.
+- **`&&` and `||` short-circuit**, as in C#. In a condition (`if`, the loops, `if (…) goto`) they are
+  jumps, one test per operand; as a value (`AsInt(a && b)`, a `bool` local) they set a temporary to
+  0 or 1. New code may use either form; mind that `&` evaluates a native call on its right also when
+  the left is false.
+- A `bool` local is a condition, like a comparison.
 - `AsBool(x)` is an `int` (or `float`) used as a condition, `if (AsBool(V3 & 4))`: no code, the
   machine tests against 0. `if (V3 != 0)` would add an `ne`, so different bytes. **Decompiler
   only**, but fine in new code.
@@ -360,7 +401,8 @@ expression is a condition: a comparison, `!`, `true`/`false`, `AsBool(…)`, a n
 **Available:** `if`/`else`, `while`, `while (true)`, `do … while`, `for`, `switch`, `break`,
 `continue`, `goto case`, `goto default`, `goto lN;` with labels `lN:`.
 
-- `for` declares no variables: `for (I0 = 0; I0 < 4; I0 += 1)`.
+- `for` may declare locals (`for (int i = 0; i < 4; i++)`) or use registers and variables
+  (`for (I0 = 0; I0 < 4; I0 += 1)`, as the decompiler writes it).
 - `continue` works in `while` and `for` (it goes to the step); not in `do … while`.
 - `switch` takes any `int` expression. Each section has exactly one label (no `case 1: case 2:`):
   a constant `case 3:`, a relational pattern `case < 5:`, `case >= 10:`, or a range

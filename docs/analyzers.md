@@ -34,7 +34,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL1008](#atl1008) | error | generic declarations | |
 | [ATL1009](#atl1009) | error | not an ATEL type (`long`, `double`, …) | `1.5` → `1.5f` |
 | [ATL1010](#atl1010) | error | `checked` | remove it |
-| [ATL1011](#atl1011) | error | `&&` and `\|\|` (not yet) | `&`, `\|` |
+| [ATL1011](#atl1011) | retired | `&&` and `\|\|` compile since 2026-11-02 | |
 | [ATL2001](#atl2001) | hint | request neither awaited nor discarded | `_ =`, `await` |
 | [ATL2002](#atl2002) | error | request to an entry that is not `async` | |
 | [ATL2003](#atl2003) | hint | `await` on something that is not a request | |
@@ -188,12 +188,9 @@ Fix (code fix): remove `checked`.
 
 ### ATL1011
 
-**`&&` and `||`** (error, for now). ATEL's `land`/`lor` evaluate both sides, as C#'s `&` and `|`
-on `bool` do, and the decompiler writes those. `&&` and `||` short-circuit, which needs branches
-inside a condition; the compiler does not emit them yet (plan, "Phase 3: statements": "new code
-may get them later"). Pattern `and`/`or` (`case >= 5 and <= 9`) is fine.
-
-Fix (code fix): `&&` → `&`, `||` → `|` (both sides are evaluated; mind side effects).
+**Retired.** It reported `&&` and `||` while the compiler could not compile them. They compile now,
+with C#'s short-circuit (language.md, "Conditions"; encoding.md, "New code"), so the rule and its
+code fix are gone; the id is not reused.
 
 ### ATL2001
 
