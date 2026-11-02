@@ -11,7 +11,8 @@
      same entry is added to the test assembly's deps.json.
   3. The SDK ships .NET Core builds of a few assemblies under NetCore/ beside the .NET Framework ones the package
      references resolve to; the test framework finds both and refuses two different builds of one assembly. The
-     NetCore/ build replaces the other in the output.
+     NetCore/ build replaces the other in the output, after the SDK's own copy targets (CopyJetContent,
+     CopyJetReference, in PrepareForRun), which would otherwise put the other build back on a clean build.
   4. The SDK's xUnit test provider loads xunit.runner.utility by its .NET Framework name (net452); the package's
      .NET Core build has another name, so the net452 one is copied beside it.
 -->
@@ -62,7 +63,7 @@
     <Copy SourceFiles="$(_AtelWindowsBaseMock)" DestinationFiles="$(OutDir)$(_AtelWindowsBaseTarget)" SkipUnchangedFiles="true" />
     <AtelAddWindowsBaseMock DepsFile="$(ProjectDepsFilePath)" Asset="$(_AtelWindowsBaseTarget)" />
   </Target>
-  <Target Name="AtelXunitRunnerUtility" AfterTargets="CopyFilesToOutputDirectory">
+  <Target Name="AtelXunitRunnerUtility" AfterTargets="PrepareForRun">
     <ItemGroup>
       <_AtelXunitUtility Include="@(RuntimeCopyLocalItems)" Condition="'%(RuntimeCopyLocalItems.NuGetPackageId)' == 'xunit.runner.utility'" />
       <_AtelXunitNet452 Include="$(NuGetPackageRoot)xunit.runner.utility/%(_AtelXunitUtility.NuGetPackageVersion)/lib/net452/xunit.runner.utility.net452.dll" />
@@ -70,7 +71,7 @@
     <Copy SourceFiles="@(_AtelXunitNet452)" DestinationFolder="$(OutDir)" Condition="Exists('%(FullPath)')" />
   </Target>
 
-  <Target Name="AtelPreferNetCoreBuilds" AfterTargets="CopyFilesToOutputDirectory">
+  <Target Name="AtelPreferNetCoreBuilds" AfterTargets="PrepareForRun">
     <ItemGroup>
       <_AtelNetCoreBuild Include="$(OutDir)NetCore/*/*.dll" />
       <_AtelNetCoreReplace Include="@(_AtelNetCoreBuild)" Condition="Exists('$(OutDir)%(Filename)%(Extension)')" />
