@@ -71,7 +71,9 @@ public static class ScriptCompiler {
     ///     workers' order is <c>[Workers]</c>'s.
     /// </summary>
     /// <exception cref="CompileException">Syntax errors, or source the compiler cannot read or assemble.</exception>
-    public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees) {
+    /// <remarks>A worker may derive from a class of <paramref name="library"/>, which gives its type and the members laid out before its own.</remarks>
+    public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null) {
+        library ??= ScriptLibrary.Empty;
         trees = [.. trees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
         foreach (SyntaxTree tree in trees) {
             if (tree.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is Diagnostic d) {
@@ -161,14 +163,14 @@ public static class ScriptCompiler {
         }
         foreach (ClassDeclarationSyntax c in classes) {
             string n = c.Identifier.ValueText;
-            if (!workerIndex.ContainsKey(n) && c.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b && WorkerType(b.Type) is not null) {
+            if (!workerIndex.ContainsKey(n) && c.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b && (WorkerType(b.Type) is not null || library.Classes.Contains(SimpleName(b.Type)))) {
                 throw CompileException.At(c.Identifier.GetLocation(), $"worker {n} is not in [Workers]");
             }
         }
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, workerName, variables, workerIndex);
+            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex);
             workers.Add((wi, items, $"worker {number} ({workerName})", parts[0].Identifier.GetLocation()));
             image.Workers.Add(wi);
         }
@@ -254,12 +256,15 @@ public static class ScriptCompiler {
         return new VarEntry(location, (ushort)length, (ushort)rowLength);
     }
 
+    private static string SimpleName(TypeSyntax type) => type switch {
+        QualifiedNameSyntax q => q.Right.Identifier.ValueText,
+        AliasQualifiedNameSyntax q => q.Name.Identifier.ValueText,
+        SimpleNameSyntax s => s.Identifier.ValueText,
+        _ => "",
+    };
+
     private static ushort? WorkerType(TypeSyntax type) {
-        string n = type switch {
-            QualifiedNameSyntax q => q.Right.Identifier.ValueText,
-            SimpleNameSyntax s => s.Identifier.ValueText,
-            _ => "",
-        };
+        string n = SimpleName(type);
         return n.Length == 7 && n.StartsWith("Worker", StringComparison.Ordinal) && n[6] is >= '0' and <= '6' ? (ushort)(n[6] - '0') : null;
     }
 
@@ -267,14 +272,22 @@ public static class ScriptCompiler {
     private sealed record WorkerItem(AsmLineKind Kind, int Number, CodeOp Op, Location? Where);
 
     private static (WorkerImage Image, List<WorkerItem> Items) Worker(
-        List<ClassDeclarationSyntax> parts, string name, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers) {
+        List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers) {
+        // The base class: Worker0 … Worker6, or a library class, whose parts (and its base's) come first.
+        List<ClassDeclarationSyntax> parts = [.. own];
         ushort? type = null;
-        foreach (ClassDeclarationSyntax part in parts) {
-            if (part.BaseList?.Types.FirstOrDefault() is BaseTypeSyntax b) {
-                type = WorkerType(b.Type) ?? throw CompileException.At(b, "a worker derives from Worker0 … Worker6");
-            }
+        BaseTypeSyntax? b = own.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        while (b is not null) {
+            type = WorkerType(b.Type);
+            if (type is not null) break;
+            string baseName = SimpleName(b.Type);
+            List<ClassDeclarationSyntax> inherited = [.. library.Classes[baseName]];
+            if (inherited.Count == 0 || !seen.Add(baseName)) throw CompileException.At(b, "a worker derives from Worker0 … Worker6 or a library class");
+            parts.InsertRange(0, inherited);
+            b = inherited.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
         }
-        WorkerImage wi = new() { Type = type ?? throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6") };
+        WorkerImage wi = new() { Type = type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6 or a library class") };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
             switch (NameOf(a)) {
                 case "Worker":
@@ -551,11 +564,14 @@ public static class ScriptCompiler {
     ///     Compiles the trees as C# against the reference assembly and returns the diagnostics:
     ///     warnings and errors.
     /// </summary>
-    public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees) {
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            "AtelCheck", trees, References.Value,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
-                .WithSpecificDiagnosticOptions(Suppressed));
+    public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null) {
+        CSharpCompilation compilation = Compilation("AtelCheck", trees, library is null || library.Trees.Count == 0 ? [] : [library.Reference]);
         return compilation.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning).ToList();
     }
+
+    internal static CSharpCompilation Compilation(string name, IEnumerable<SyntaxTree> trees, IEnumerable<MetadataReference> references) =>
+        CSharpCompilation.Create(
+            name, trees, [.. References.Value, .. references],
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
+                .WithSpecificDiagnosticOptions(Suppressed));
 }

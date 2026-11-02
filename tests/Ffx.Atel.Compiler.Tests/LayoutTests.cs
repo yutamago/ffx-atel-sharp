@@ -116,4 +116,72 @@ public sealed class LayoutTests {
         Assert.Equal(["Atel.slnx", "Battles.slnx", "Events.slnx", "Monsters.slnx"], files.Where(f => f.RelativePath.EndsWith(".slnx", StringComparison.Ordinal)).Select(f => f.RelativePath).Order(StringComparer.Ordinal));
         Assert.Contains("Library/Library.csproj", files.Single(f => f.RelativePath == "Events.slnx").Text, StringComparison.Ordinal);
     }
+
+    private static string Monster(string n) => $"ffx_ps2/ffx/master/jppc/battle/mon/_{n}/{n}.bin";
+
+    [Fact]
+    public void ExactCopiesDeriveFromALibraryClass() {
+        byte[] original = ThreeEntries();
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript a = ScriptDecompiler.Decompile(Monster("m997"), file), b = ScriptDecompiler.Decompile(Monster("m996"), file);
+        SharedLibrary shared = SharedWorkers.Build([a.Parts, b.Parts]);
+        SharedWorker c = Assert.Single(shared.Classes);
+        Assert.Equal(("Shared0001", "Worker2"), (c.Name, c.Base));
+        Assert.Equal(["Monsters.M996.W00", "Monsters.M997.W00"], c.Users);
+        Assert.Equal(2, shared.SharedWorkers);
+
+        List<SourceFile> libraryFiles = shared.Files();
+        Assert.Equal("Library/Shared0001.cs", Assert.Single(libraryFiles).RelativePath);
+        Assert.Contains("public abstract class Shared0001 : Worker2", libraryFiles[0].Text, StringComparison.Ordinal);
+        ScriptLibrary library = ScriptLibrary.FromTrees(Parse(libraryFiles));
+        Assert.Empty(library.Check());
+        foreach (ScriptSource script in shared.Scripts) {
+            List<SourceFile> files = SourceLayout.Files(script);
+            SourceFile worker = files.Single(f => f.RelativePath.EndsWith("/W00.cs", StringComparison.Ordinal));
+            Assert.Contains("using Library;", worker.Text, StringComparison.Ordinal);
+            Assert.Contains("public sealed class W00 : Shared0001\n{\n}\n", worker.Text, StringComparison.Ordinal);
+            List<SyntaxTree> trees = Parse(files);
+            Assert.Empty(ScriptCompiler.Check(trees, library));
+            Assert.Equal(original, ScriptCompiler.Compile(trees, library).ApplyTo(file).ToArray());
+            CompileException ex = Assert.Throws<CompileException>(() => ScriptCompiler.Compile(trees));
+            Assert.Contains("a library class", ex.Message, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void WorkersThatNameTheirScriptsVariablesAreNotShared() {
+        byte[] original = SourceTests.StatementsFile();
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript a = ScriptDecompiler.Decompile(Monster("m997"), file), b = ScriptDecompiler.Decompile(Monster("m996"), file);
+        SharedLibrary shared = SharedWorkers.Build([a.Parts, b.Parts]);
+        // W00 (`return;`) is shared; W01 assigns V0 and calls W00, both declared by its script.
+        Assert.Equal("Worker0", Assert.Single(shared.Classes).Base);
+        Assert.All(shared.Scripts, s => Assert.Equal(["Shared0001", "Worker2"], s.Workers.Select(w => w.Base)));
+        ScriptLibrary library = ScriptLibrary.FromTrees(Parse(shared.Files()));
+        foreach (ScriptSource script in shared.Scripts) {
+            Assert.Equal(original, ScriptCompiler.Compile(Parse(SourceLayout.Files(script)), library).ApplyTo(file).ToArray());
+        }
+    }
+
+    [Fact]
+    public void TheLibraryIsFoundAboveAScriptFolder() {
+        byte[] original = ThreeEntries();
+        ScriptFile file = ScriptFile.Parse(original);
+        SharedLibrary shared = SharedWorkers.Build([ScriptDecompiler.Decompile(Monster("m997"), file).Parts, ScriptDecompiler.Decompile(Monster("m996"), file).Parts]);
+        string root = Path.Combine(Path.GetTempPath(), "atel-library-" + Guid.NewGuid().ToString("N"));
+        try {
+            foreach (SourceFile f in shared.Files().Concat(SourceLayout.Files(shared.Scripts[0]))) {
+                string path = Path.Combine(root, f.RelativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, f.Text);
+            }
+            string folder = Path.Combine(root, "Monsters", "M997");
+            ScriptLibrary library = ScriptLibrary.Find(folder);
+            Assert.Single(library.Trees);
+            Assert.Equal(original, ScriptCompiler.Compile(ScriptCompiler.ParseFolder(folder), library).ApplyTo(file).ToArray());
+        }
+        finally {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

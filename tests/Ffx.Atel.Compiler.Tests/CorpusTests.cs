@@ -23,7 +23,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     ///     Phase 4's bar: every script decompiles to structured C# without any <c>Asm</c>, which compiles
     ///     as C# against the reference assembly without errors or warnings, and compiles back, from the
     ///     source text and the vanilla file's other sections, to the same file bytes. Since Phase 6 the
-    ///     source is the script's folder: the script class, a file per worker and the data.
+    ///     source is the script's folder: the script class, a file per worker and the data, with the
+    ///     workers that are exact copies deriving from library classes.
     /// </summary>
     [Fact]
     public void EveryScriptRoundTripsThroughSource() {
@@ -34,21 +35,33 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         long sourceBytes = 0, fileCount = 0, identical = 0, diagnostics = 0;
         DecompileTotals totals = new();
         Stopwatch clock = Stopwatch.StartNew();
-        Parallel.ForEach(Partitioner.Create(files, EnumerablePartitionerOptions.NoBuffering), f => {
-            (string path, byte[] original) = f;
+        // Every script first, then the library of the workers they share (Phase 6), then each script against it.
+        DecompiledScript[] decompiled = new DecompiledScript[files.Count];
+        Parallel.For(0, files.Count, i => {
+            decompiled[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes));
+            totals.Add(decompiled[i].Stats);
+        });
+        SharedLibrary shared = SharedWorkers.Build([.. decompiled.Select(d => d.Parts)]);
+        List<SourceFile> libraryFiles = shared.Files();
+        ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
+        IReadOnlyList<Diagnostic> libraryDiagnostics = library.Check();
+        diagnostics += libraryDiagnostics.Count;
+        foreach (Diagnostic d in libraryDiagnostics.Take(5)) failures.Add($"library: {d}");
+        sourceBytes += libraryFiles.Sum(f => (long)f.Text.Length);
+        fileCount += libraryFiles.Count;
+        Parallel.ForEach(Partitioner.Create(Enumerable.Range(0, files.Count).ToList(), EnumerablePartitionerOptions.NoBuffering), i => {
+            (string path, byte[] original) = files[i];
             try {
                 ScriptFile vanilla = ScriptFile.Parse(original);
-                DecompiledScript d = ScriptDecompiler.Decompile(path, vanilla);
                 // The folder layout: a file per worker, big workers in parts, the data in its own file.
-                List<SourceFile> sources = d.Files();
+                List<SourceFile> sources = SourceLayout.Files(shared.Scripts[i]);
                 Interlocked.Add(ref sourceBytes, sources.Sum(s => (long)s.Text.Length));
                 Interlocked.Add(ref fileCount, sources.Count);
-                totals.Add(d.Stats);
                 List<SyntaxTree> trees = [.. sources.Select(s => ScriptCompiler.Parse(s.Text, s.RelativePath))];
-                IReadOnlyList<Diagnostic> found = ScriptCompiler.Check(trees);
+                IReadOnlyList<Diagnostic> found = ScriptCompiler.Check(trees, library);
                 Interlocked.Add(ref diagnostics, found.Count);
                 if (found.Count > 0) failures.Add($"{path}: {found[0]}");
-                byte[] rebuilt = ScriptCompiler.Compile(trees).ApplyTo(vanilla).ToArray();
+                byte[] rebuilt = ScriptCompiler.Compile(trees, library).ApplyTo(vanilla).ToArray();
                 if (rebuilt.AsSpan().SequenceEqual(original)) Interlocked.Increment(ref identical);
                 else failures.Add($"{path}: file differs");
             }
@@ -57,11 +70,13 @@ public sealed class CorpusTests(ITestOutputHelper output) {
             }
         });
         output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
+        output.WriteLine($"{shared.SharedWorkers} workers derive from {shared.Classes.Count} library classes, {shared.SavedChars / 1e6:0.0} MB saved");
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
         Assert.Empty(failures.Take(20));
         Assert.Equal(1621, identical);
         Assert.Equal(0, totals.AsmInstructions);
         Assert.Equal(0, totals.FlatWorkers);
+        Assert.NotEmpty(shared.Classes);
     }
 }
