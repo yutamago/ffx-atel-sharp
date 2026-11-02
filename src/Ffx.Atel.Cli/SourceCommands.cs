@@ -74,7 +74,14 @@ internal static class SourceCommands {
             try {
                 byte[] original = f.Bytes;
                 ScriptFile vanilla = ScriptFile.Parse(original);
-                DecompiledScript d = ScriptDecompiler.Decompile(path, vanilla);
+                DecompiledScript d;
+                try {
+                    d = ScriptDecompiler.Decompile(path, vanilla);
+                }
+                catch (InvalidOperationException ex) {
+                    failures.Add($"{path}: {ex.Message}");
+                    return;
+                }
                 Interlocked.Add(ref sourceBytes, d.Source.Length);
                 totals.Add(d.Stats);
                 if (output is not null) {
@@ -103,6 +110,8 @@ internal static class SourceCommands {
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{identical} / {paths.Count} scripts round-trip byte for byte; {sourceBytes / 1e6:0.0} MB of source; {checks}{clock.Elapsed.TotalSeconds:0.0} s"));
         Console.WriteLine(totals.ToString());
+        Console.WriteLine(totals.FlowSummary());
+        Console.WriteLine("constructs dropped: " + string.Join(", ", ScriptDecompiler.DroppedReasons.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}")));
         return identical == paths.Count && errors == 0 ? 0 : 1;
     }
 }

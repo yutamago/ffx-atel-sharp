@@ -19,9 +19,9 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     Phase 3's bar: every script decompiles to C# statements (and what stays <c>Asm</c>) that
-    ///     compile as C# against the reference assembly without errors or warnings, and compile back,
-    ///     from the source text and the vanilla file's other sections, to the same file bytes.
+    ///     Phase 4's bar: every script decompiles to structured C# without any <c>Asm</c>, which compiles
+    ///     as C# against the reference assembly without errors or warnings, and compiles back, from the
+    ///     source text and the vanilla file's other sections, to the same file bytes.
     /// </summary>
     [Fact]
     public void EveryScriptRoundTripsThroughSource() {
@@ -53,7 +53,10 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         });
         output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine(totals.ToString());
+        output.WriteLine(totals.FlowSummary());
         Assert.Empty(failures.Take(20));
         Assert.Equal(1621, identical);
+        Assert.Equal(0, totals.AsmInstructions);
+        Assert.Equal(0, totals.FlatWorkers);
     }
 }

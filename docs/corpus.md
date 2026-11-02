@@ -153,6 +153,19 @@ l1:                         ; head
     popa_jz l0              ; exit, numbered first
 ```
 
+Phase 4's structurer settled the nested cases (plan.md, "Phase 4: control
+flow"): the rule is a counter per worker that each construct draws from as
+it starts, and only labels something jumps to get a number.
+
+| Construct | Labels, in number order |
+|---|---|
+| `if` | else (or end) at the condition; the end of an `if`/`else` when the `else` starts |
+| `while`, `while (1)`, `do` | exit, head (the exit numbered even where only a `break` uses it) |
+| `for` | exit, body, head, step; the code is `head: c; popa_jz exit; jmp body; step: …; jmp head; body: …; jmp step; exit:` |
+| `switch` | chain, break; each case's label when its section starts (after the labels of the sections before); range skips with the chain |
+
+With these, 26 methods in the whole corpus number their labels otherwise.
+
 ### Code no entry reaches
 
 2,506,757 instructions (12 %), nearly all of it code jumped over:
@@ -333,8 +346,6 @@ part (static, from `cdrom.fid` and the module table; not checked here).
 
 - The integer and float pool order where the models fail, and the variable
   table's declaration order.
-- Label numbering inside nested constructs; checking it needs the Phase 4
-  structurer.
 - `func` against `func_facc; pushfacc` for the 408 + 3,151 waiting calls: the
   source says which (`x = Foo();` or `Foo(); x = LastResult;`, plan.md
   "Phase 3: statements"); a rule would let Phase 5 merge the second form.

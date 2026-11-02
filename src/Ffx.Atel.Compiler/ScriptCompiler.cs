@@ -162,7 +162,7 @@ public static class ScriptCompiler {
             if (pinned) continue;
             foreach (var w in workers) {
                 if (w.Items.FirstOrDefault(i => i.Kind == AsmLineKind.Instruction && i.Op.Code == push && !i.Op.Pooled) is WorkerItem raw) {
-                    throw CompileException.At(raw.Where ?? w.Where, $"Asm refers to the constant pool by index; pin the pool with {attribute}");
+                    throw CompileException.At(raw.Where ?? w.Where, $"Asm or Pooled(…) refers to the constant pool by index; pin the pool with {attribute}");
                 }
             }
         }
@@ -288,72 +288,78 @@ public static class ScriptCompiler {
         }
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0);
 
-        // Entry methods in declaration order: each places its entries, then its code follows.
-        List<WorkerItem> items = [];
-        foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
-            if (member is FieldDeclarationSyntax) continue;
-            if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
-            List<AttributeSyntax> entries = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
-            if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry]");
-            foreach (AttributeSyntax e in entries) {
-                if (NameOf(e) != "Entry") throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
-                items.Add(new WorkerItem(AsmLineKind.Entry, I32(Positional(e, 0), e), default, e.GetLocation()));
+        // Entry methods in declaration order: each places its entries, then its code follows. The
+        // constructs' labels are numbered over the whole worker (FlowEmitter).
+        FlowEmitter emitter = new() { TagOf = reader.LocationOf };
+        Location where = parts[0].Identifier.GetLocation();
+        try {
+            foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
+                if (member is FieldDeclarationSyntax) continue;
+                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
+                where = method.Identifier.GetLocation();
+                List<AttributeSyntax> attributes = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
+                List<int> entries = [];
+                List<int>? pin = null;
+                foreach (AttributeSyntax e in attributes) {
+                    switch (NameOf(e)) {
+                        case "Entry": entries.Add(I32(Positional(e, 0), e)); break;
+                        case "Labels": (pin ??= []).AddRange(AllPositional(e).Select(v => I32(v, e))); break;
+                        default: throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
+                    }
+                }
+                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry]");
+                if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
+                List<Stmt> body = reader.Block(method.Body.Statements);
+                emitter.BeginMethod(pin);
+                foreach (int n in entries) emitter.Entry(n);
+                emitter.Block(body);
             }
-            if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
-            foreach (StatementSyntax statement in method.Body.Statements) Statement(statement, reader, items);
+            emitter.Number();
+        }
+        catch (FlowException ex) {
+            throw CompileException.At(ex.Tag as Location ?? where, ex.Message);
+        }
+        List<WorkerItem> items = [];
+        foreach (FlowItem it in emitter.Items) {
+            Location? at = it.Tag as Location;
+            switch (it.Kind) {
+                case FlowItemKind.Entry:
+                    items.Add(new WorkerItem(AsmLineKind.Entry, it.Entry, default, at));
+                    break;
+                case FlowItemKind.Label:
+                    if (it.Target!.Used || it.Target.Fixed is not null) items.Add(new WorkerItem(AsmLineKind.Label, it.Target.Number, default, at));
+                    break;
+                default:
+                    items.Add(new WorkerItem(AsmLineKind.Instruction, 0, it.Target is FlowLabel t ? it.Op with { Operand = (ushort)t.Number } : it.Op, at));
+                    break;
+            }
         }
         return (wi, items);
     }
 
-    private static void Statement(StatementSyntax statement, StatementReader reader, List<WorkerItem> items) {
-        switch (statement) {
-            case LabeledStatementSyntax labeled:
-                items.Add(new WorkerItem(AsmLineKind.Label,
-                    StatementReader.LabelNumber(labeled.Identifier.ValueText) ?? throw CompileException.At(labeled, "labels are lN"),
-                    default, labeled.Identifier.GetLocation()));
-                Statement(labeled.Statement, reader, items);
-                return;
-            case EmptyStatementSyntax:
-                return;
-            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Asm" } } call }: {
-                if (call.ArgumentList.Arguments.Count != 1 || call.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax { Token.Value: string text } literal) {
-                    throw CompileException.At(statement, "Asm takes one string literal");
-                }
-                // Line numbers in assembly errors are the source file's.
-                FileLinePositionSpan span = literal.GetLocation().GetLineSpan();
-                bool multiLine = literal.Token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken);
-                int first = span.StartLinePosition.Line + 1 + (multiLine ? 1 : 0);
-                string[] lines = text.Split('\n');
-                for (int n = 0; n < lines.Length; n++) {
-                    AsmLine? line;
-                    try {
-                        line = Bytecode.Script.Assembly.ParseLine(lines[n], first + n);
-                    }
-                    catch (AssemblyException ex) {
-                        throw new CompileException($"{span.Path}({(ex.Line > 0 ? ex.Line : first)}): {StripLine(ex)}");
-                    }
-                    if (line is not AsmLine l) continue;
-                    if (l.Kind == AsmLineKind.Worker) throw new CompileException($"{span.Path}({first + n}): `worker` inside an entry");
-                    items.Add(l.Kind == AsmLineKind.Instruction
-                        ? new WorkerItem(l.Kind, 0, new CodeOp(l.Instr.Code, l.Instr.Operand), literal.GetLocation())
-                        : new WorkerItem(l.Kind, l.Number, default, literal.GetLocation()));
-                }
-                return;
-            }
-            default: {
-                Location where = statement.GetLocation();
-                Stmt s = reader.Read(statement);
-                List<CodeOp> ops;
-                try {
-                    ops = Lowering.Lower(s);
-                }
-                catch (ArgumentException ex) {
-                    throw CompileException.At(statement, ex.Message);
-                }
-                foreach (CodeOp op in ops) items.Add(new WorkerItem(AsmLineKind.Instruction, 0, op, where));
-                return;
-            }
+    /// <summary>The lines of <c>Asm("""…""")</c>; line numbers in assembly errors are the source file's.</summary>
+    internal static AsmStmt AsmLines(ExpressionStatementSyntax statement, InvocationExpressionSyntax call) {
+        if (call.ArgumentList.Arguments.Count != 1 || call.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax { Token.Value: string text } literal) {
+            throw CompileException.At(statement, "Asm takes one string literal");
         }
+        FileLinePositionSpan span = literal.GetLocation().GetLineSpan();
+        bool multiLine = literal.Token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken);
+        int first = span.StartLinePosition.Line + 1 + (multiLine ? 1 : 0);
+        string[] lines = text.Split('\n');
+        List<AsmLine> result = [];
+        for (int n = 0; n < lines.Length; n++) {
+            AsmLine? line;
+            try {
+                line = Bytecode.Script.Assembly.ParseLine(lines[n], first + n);
+            }
+            catch (AssemblyException ex) {
+                throw new CompileException($"{span.Path}({(ex.Line > 0 ? ex.Line : first)}): {StripLine(ex)}");
+            }
+            if (line is not AsmLine l) continue;
+            if (l.Kind == AsmLineKind.Worker) throw new CompileException($"{span.Path}({first + n}): `worker` inside an entry");
+            result.Add(l);
+        }
+        return new AsmStmt(result);
     }
 
     /// <summary>Lays a worker's items out as code, entry and label tables, with the pools' indices.</summary>

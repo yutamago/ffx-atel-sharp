@@ -151,11 +151,10 @@ public sealed class SourceTests {
             "V2 = unchecked((sbyte)300);",
             "V0 = 0x11170;",
             "Common.MoveSetSpeed(2.5f);",
-            "if (!(V0 > 2 & AsBool(V2))) goto l0;",
+            "if (V0 > 2 & AsBool(V2))",
             "Request(1, 0, 0);",
             "F0 = I1;",
             "Call<W00>();",
-            "l0:",
             "return;",
             "[Register(1)] public int I1;",
         ];
@@ -205,6 +204,85 @@ public sealed class SourceTests {
         Assert.Equal(
             "pushv pushimm add pushimm mul popv pushv pushimm eq pushv pushimm lt lor popa_jnz pushv pushimm and func_facc end",
             string.Join(" ", code.Select(i => i.Opcode.Name)));
+    }
+
+    /// <summary>The structured statements, written by hand: what each lowers to, labels numbered per construct.</summary>
+    [Fact]
+    public void ControlFlowCompiles() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M999.M999;
+
+            namespace Monsters.M999;
+
+            [Monster("m999")]
+            [Workers(typeof(W00))]
+            public static partial class M999
+            {
+                [Var(Storage.Private, 0x0000)] public static int Count;
+                [Var(Storage.Private, 0x0004)] public static ushort Small;
+            }
+
+            public sealed class W00 : Worker2
+            {
+                [Entry(0)]
+                void Init()
+                {
+                    if (Count == 1) { Count = 2; } else { Count = 3; }
+                    while (Count < 9)
+                    {
+                        if (Count == 5) { break; }
+                        Count += 1;
+                    }
+                    for (Count = 0; Count < 3; Count += 1) { continue; }
+                    do { Count -= 1; } while (Count > 0);
+                    switch (Count)
+                    {
+                        case 1:
+                            Count = 4;
+                            goto case 2;
+                        case 2:
+                            break;
+                        case >= 5 and <= 7:
+                            return;
+                        default:
+                            break;
+                    }
+                    if (false) { Count = 8; }
+                    StoreClamped(ref Small, Small + 1);
+                    Nop(3);
+                    RequestParty(3, 0, 6);
+                    End(0, reset: true);
+                    Entry(1);
+                    return;
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "m999.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        ScriptBlock block = ScriptBlock.Parse(ScriptCompiler.Compile([tree]).Block());
+        Bytecode.Script.Worker w = block.Workers[0];
+        string text = string.Join("\n", block.Decode(w).Select(i => Bytecode.Script.Assembly.Render(block, 0, i)));
+        string[] expected = [
+            // if/else: the else label at the condition (l0), the end label when the else starts (l1).
+            "pushv v0\npushimm 1\neq\npopa_jz l0\npushimm 2\npopv v0\njmp l1",
+            // while: exit l2, head l3; the inner if's end label l4.
+            "pushv v0\npushimm 9\nlt\npopa_jz l2\npushv v0\npushimm 5\neq\npopa_jz l4\njmp l2",
+            "jmp l3",
+            // for: exit l5, body l6, head l7, step l8; the step comes before the body.
+            "pushimm 0\npopv v0\npushv v0\npushimm 3\nlt\npopa_jz l5\njmp l6\npushv v0\npushimm 1\nadd\npopv v0\njmp l7\njmp l8\njmp l8",
+            // do: popa_jnz back to its head l10 (its exit l9 unused).
+            "pushv v0\npushimm 0\ngt\npopa_jnz l9",
+            // switch: chain l10, break l11, cases l12-l14, default l15, the range skip l16; the fall-through has no jmp.
+            "pushv v0\npopb\njmp l10\npushimm 4\npopv v0\njmp l11\nend\njmp l11",
+            "pushimm 1\npushb\neq\npopa_jnz l12\npushimm 2\npushb\neq\npopa_jnz l13\npushb\npushimm 5\nge\npopa_jz l16\npushb\npushimm 7\nle\npopa_jnz l14\njmp l15",
+            "jmp l17\npushimm 8\npopv v0",
+            "pushv v1\npushimm 1\nadd\npopv_1 v1\nnop_76 0x0003\npushimm 3\npushimm 0\npushimm 6\nop_39\npopfacc\npushimm 0\nendp_1\nend",
+        ];
+        foreach (string part in expected) Assert.Contains(part, text, StringComparison.Ordinal);
+        Assert.Equal(2, w.Entries.Length);
+        Assert.Equal(block.Decode(w)[^1].Offset, w.Entries[1]);
     }
 
     private const string BadSource = """"

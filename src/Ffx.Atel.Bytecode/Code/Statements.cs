@@ -18,6 +18,12 @@ public sealed record FloatLit(uint Bits) : Expr {
     public float Value => BitConverter.UInt32BitsToSingle(Bits);
 }
 
+/// <summary>
+///     A constant by its pool index (<c>pushc</c>, <c>pushfc</c>), for a pool that holds the value twice and
+///     code that uses the later copy; <see cref="Value"/> is the integer or the float's bits.
+/// </summary>
+public sealed record PoolExpr(byte Code, ushort Index, uint Value) : Expr;
+
 /// <summary>A variable that is not an array: <c>pushv</c>.</summary>
 public sealed record VarExpr(int Var) : Expr;
 
@@ -65,9 +71,10 @@ public abstract record Stmt;
 /// <summary>
 ///     <c>target = value</c>: value, then <c>popv</c>/<c>popi0</c>/…; for an element the index is
 ///     pushed first and <c>popva</c> stores. Targets: <see cref="VarExpr"/>, <see cref="ElemExpr"/>,
-///     <see cref="Elem2Expr"/>, <see cref="RegExpr"/> (not <see cref="RegKind.Facc"/>).
+///     <see cref="Elem2Expr"/>, <see cref="RegExpr"/> (not <see cref="RegKind.Facc"/>). <see cref="Clamped"/>
+///     stores with mode 1 (<c>popv_1</c>, <c>popva_1</c>): the value is clamped to the variable's range.
 /// </summary>
-public sealed record AssignStmt(Expr Target, Expr Value) : Stmt;
+public sealed record AssignStmt(Expr Target, Expr Value, bool Clamped = false) : Stmt;
 
 /// <summary>
 ///     <c>a[i] op= value</c> on an array element: the index once, <c>op_2b</c> to keep a copy,
@@ -79,7 +86,7 @@ public sealed record CompoundStmt(Expr Target, byte Op, Expr Value) : Stmt;
 /// <summary>A native call as a statement: arguments, then <c>func_facc</c>.</summary>
 public sealed record CallStmt(ushort Native, IReadOnlyList<Expr> Args) : Stmt;
 
-/// <summary>A request to a worker's entry: level, worker, entry, the request opcode, <c>popfacc</c>.</summary>
+/// <summary>A request to a worker's entry: level, worker, entry, the request opcode (or <c>op_39</c>, a party member's worker by slot), <c>popfacc</c>.</summary>
 public sealed record RequestStmt(byte Op, Expr Level, Expr Worker, Expr Entry) : Stmt;
 
 /// <summary><c>call wN</c>: runs function worker N on this worker.</summary>
@@ -96,6 +103,9 @@ public sealed record OpStmt(byte Op) : Stmt;
 
 /// <summary>An opcode that pops its operands and pushes nothing (<c>op_77</c>, <c>op_78</c>, <c>op_79</c>): the operands, then it.</summary>
 public sealed record OpArgsStmt(byte Op, IReadOnlyList<Expr> Args) : Stmt;
+
+/// <summary><c>nop_76</c> with its operand: no operation (a marker the original compiler left).</summary>
+public sealed record NopStmt(ushort Operand) : Stmt;
 
 /// <summary>A value, then <c>endp</c> or <c>endp_1</c>.</summary>
 public sealed record EndWithStmt(byte Op, Expr Value) : Stmt;

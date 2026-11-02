@@ -85,8 +85,45 @@ public abstract class Worker {
     /// <summary>Opcode <c>op_79</c>: pops three values (<c>0x00870d30</c>), the last an address (<see cref="Addr{T}"/>); not yet understood.</summary>
     protected static void Op79(int a, int b, int c) => throw Runtime.NotRunnable();
 
-    /// <summary>Ends the entry with a value (<c>endp</c>).</summary>
-    protected static void End(int value) => throw Runtime.NotRunnable();
+    /// <summary>
+    ///     Ends the entry with a value (<c>endp</c>). With <paramref name="reset"/> (<c>endp_1</c>) the
+    ///     machine also resets the worker's level, which then starts again at entry 1's code.
+    /// </summary>
+    protected static void End(int value, bool reset = false) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     Requests entry <paramref name="entry"/> of the worker of party member <paramref name="slot"/> at
+    ///     priority <paramref name="level"/> and carries on (<c>op_39</c>); nothing when the slot is empty
+    ///     or the entry 0.
+    /// </summary>
+    protected static void RequestParty(int level, int slot, int entry) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     Stores a value clamped to the variable's range (store mode 1, <c>popv_1</c>, <c>popva_1</c>):
+    ///     <c>StoreClamped(ref Count, Count + 1)</c> stops at the type's maximum instead of wrapping.
+    /// </summary>
+    protected static void StoreClamped<T>(ref T variable, int value) => throw Runtime.NotRunnable();
+
+    /// <summary>As <see cref="StoreClamped{T}(ref T, int)"/>, for a float variable.</summary>
+    protected static void StoreClamped(ref float variable, float value) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     Constant <paramref name="value"/> by its pool index (<c>pushc</c>): for a pinned pool that holds the
+    ///     value twice, where the code uses the later copy (a literal takes the first).
+    /// </summary>
+    protected static int Pooled(int index, int value) => throw Runtime.NotRunnable();
+
+    /// <summary>As <see cref="Pooled(int, int)"/>, for the float pool (<c>pushfc</c>).</summary>
+    protected static float Pooled(int index, float value) => throw Runtime.NotRunnable();
+
+    /// <summary>No operation (<c>nop_76</c>), with an operand the machine ignores: a marker the original compiler left.</summary>
+    protected static void Nop(int operand) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     Entry point <paramref name="number"/> starts here: no code. For a method that holds the code of
+    ///     several entries because one jumps into another's (C# has no <c>goto</c> between methods).
+    /// </summary>
+    protected static void Entry(int number) => throw Runtime.NotRunnable();
 }
 
 /// <summary>Worker type 0: a function worker, the target of <c>call</c>; <c>return;</c> is <c>ret</c>.</summary>

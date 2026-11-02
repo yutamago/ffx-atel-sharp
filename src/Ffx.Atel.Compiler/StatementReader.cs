@@ -35,6 +35,45 @@ internal sealed class StatementReader(
 
     // ----- Statements ----------------------------------------------------------------------------
 
+    private readonly Dictionary<object, Location> _locations = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Where a statement read here came from, for errors in lowering.</summary>
+    public object? LocationOf(Stmt s) => _locations.GetValueOrDefault(s);
+
+    private T At<T>(T s, SyntaxNode node) where T : Stmt {
+        _locations[s] = node.GetLocation();
+        return s;
+    }
+
+    /// <summary>A block's statements; labels become <see cref="LabelStmt"/>s before the statement they label.</summary>
+    public List<Stmt> Block(IEnumerable<StatementSyntax> statements) {
+        List<Stmt> list = [];
+        foreach (StatementSyntax s in statements) Add(s, list);
+        return list;
+    }
+
+    private List<Stmt> Body(StatementSyntax s) => s is BlockSyntax b ? Block(b.Statements) : Block([s]);
+
+    private void Add(StatementSyntax s, List<Stmt> list) {
+        switch (s) {
+            case LabeledStatementSyntax labeled:
+                list.Add(At(new LabelStmt(LabelNumber(labeled.Identifier.ValueText) ?? throw Error(labeled, "labels are lN")), labeled));
+                Add(labeled.Statement, list);
+                return;
+            case EmptyStatementSyntax:
+                return;
+            case BlockSyntax b:
+                list.AddRange(Block(b.Statements));
+                return;
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Asm" } } call } e:
+                list.Add(At(ScriptCompiler.AsmLines(e, call), s));
+                return;
+            default:
+                list.Add(At(Read(s), s));
+                return;
+        }
+    }
+
     public Stmt Read(StatementSyntax s) {
         switch (s) {
             case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax a }:
@@ -45,14 +84,85 @@ internal sealed class StatementReader(
                 return new OpStmt(functionWorker ? Opcodes.Ret : Opcodes.End);
             case GotoStatementSyntax g when g.IsKind(SyntaxKind.GotoStatement):
                 return new GotoStmt(Label(g.Expression!));
+            case GotoStatementSyntax g when g.IsKind(SyntaxKind.GotoCaseStatement):
+                return ReadExpr(g.Expression!) is IntLit k ? new GotoCaseStmt(k.Value) : throw Error(g, "goto case takes an integer constant");
+            case GotoStatementSyntax g when g.IsKind(SyntaxKind.GotoDefaultStatement):
+                return new GotoCaseStmt(null);
+            case BreakStatementSyntax:
+                return new BreakStmt();
+            case ContinueStatementSyntax:
+                return new ContinueStmt();
+            // `if (c) goto lN;` without braces is the jump itself: popa_jnz, or popa_jz for `if (!c)`.
             case IfStatementSyntax { Else: null, Statement: GotoStatementSyntax g } i when g.IsKind(SyntaxKind.GotoStatement): {
                 ExpressionSyntax c = Strip(i.Condition, conversions: false);
                 return c is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } not
                     ? new CondGotoStmt(Label(g.Expression!), ReadExpr(not.Operand), false)
                     : new CondGotoStmt(Label(g.Expression!), ReadExpr(c), true);
             }
+            case IfStatementSyntax i:
+                return new IfStmt(Constant(i.Condition) == false ? null : Cond(i.Condition), Body(i.Statement), i.Else is null ? null : Body(i.Else.Statement));
+            case WhileStatementSyntax w:
+                return new WhileStmt(Constant(w.Condition) == true ? null : Cond(w.Condition), Body(w.Statement));
+            case DoStatementSyntax d:
+                return new DoStmt(Body(d.Statement), Cond(d.Condition));
+            case ForStatementSyntax f: {
+                if (f.Declaration is not null) throw Error(f.Declaration, "a for loop declares no variables (registers and variables are fields)");
+                List<Stmt> init = [.. f.Initializers.Select(e => At(Read(SyntaxFactory.ExpressionStatement(e)), e))];
+                List<Stmt> step = [.. f.Incrementors.Select(e => At(Read(SyntaxFactory.ExpressionStatement(e)), e))];
+                return new ForStmt(init, f.Condition is null ? null : Cond(f.Condition), step, Body(f.Statement));
+            }
+            case SwitchStatementSyntax sw:
+                return Switch(sw);
             default:
-                throw Error(s, "not a statement Atel compiles yet (Phase 3: assignments, calls, requests, return, goto, if (…) goto)");
+                throw Error(s, "not a statement Atel compiles");
+        }
+    }
+
+    /// <summary>The value of a <c>true</c> or <c>false</c> literal; null for anything else.</summary>
+    private static bool? Constant(ExpressionSyntax e) => Strip(e, conversions: false) switch {
+        LiteralExpressionSyntax l when l.IsKind(SyntaxKind.TrueLiteralExpression) => true,
+        LiteralExpressionSyntax l when l.IsKind(SyntaxKind.FalseLiteralExpression) => false,
+        _ => null,
+    };
+
+    private Expr Cond(ExpressionSyntax e) =>
+        Constant(e) is not null ? throw Error(e, "a constant condition is only `if (false)` (dead code) and `while (true)`") : ReadExpr(e);
+
+    private SwitchStmt Switch(SwitchStatementSyntax sw) {
+        List<SwitchSection> sections = [];
+        foreach (SwitchSectionSyntax section in sw.Sections) {
+            if (section.Labels.Count != 1) throw Error(section, "one label per switch section (the original had no shared case bodies)");
+            CaseLabel? label = section.Labels[0] switch {
+                DefaultSwitchLabelSyntax => null,
+                CaseSwitchLabelSyntax c => new CaseLabel(CaseKind.Equal, CaseValue(c.Value)),
+                CasePatternSwitchLabelSyntax { WhenClause: null } p => Pattern(p.Pattern),
+                var other => throw Error(other, "a case is a constant, a relational pattern or `>= lo and <= hi`"),
+            };
+            sections.Add(new SwitchSection(label, Block(section.Statements)));
+        }
+        return new SwitchStmt(ReadExpr(sw.Expression), sections);
+    }
+
+    private int CaseValue(ExpressionSyntax e) => ReadExpr(e) is IntLit k ? k.Value : throw Error(e, "a case value is an integer constant");
+
+    private CaseLabel Pattern(PatternSyntax p) {
+        switch (p) {
+            case ConstantPatternSyntax c:
+                return new CaseLabel(CaseKind.Equal, CaseValue(c.Expression));
+            case RelationalPatternSyntax r:
+                return new CaseLabel(r.OperatorToken.Kind() switch {
+                    SyntaxKind.LessThanToken => CaseKind.Less,
+                    SyntaxKind.LessThanEqualsToken => CaseKind.LessOrEqual,
+                    SyntaxKind.GreaterThanToken => CaseKind.Greater,
+                    _ => CaseKind.GreaterOrEqual,
+                }, CaseValue(r.Expression));
+            case ParenthesizedPatternSyntax pp:
+                return Pattern(pp.Pattern);
+            case BinaryPatternSyntax { RawKind: (int)SyntaxKind.AndPattern, Left: RelationalPatternSyntax lo, Right: RelationalPatternSyntax hi }
+                when lo.OperatorToken.IsKind(SyntaxKind.GreaterThanEqualsToken) && hi.OperatorToken.IsKind(SyntaxKind.LessThanEqualsToken):
+                return new CaseLabel(CaseKind.Range, CaseValue(lo.Expression), CaseValue(hi.Expression));
+            default:
+                throw Error(p, "a case is a constant, a relational pattern or `>= lo and <= hi`");
         }
     }
 
@@ -114,8 +224,20 @@ internal sealed class StatementReader(
             case IdentifierNameSyntax { Identifier.ValueText: "Op77" or "Op78" or "Op79" } id when args.Count == (id.Identifier.ValueText == "Op79" ? 3 : 2):
                 return new OpArgsStmt(id.Identifier.ValueText switch { "Op77" => Opcodes.Op77, "Op78" => Opcodes.Op78, _ => Opcodes.Op79 },
                     [.. args.Select(a => ReadExpr(a.Expression))]);
-            case IdentifierNameSyntax { Identifier.ValueText: "End" } when args.Count == 1:
-                return new EndWithStmt(Opcodes.EndP, ReadExpr(args[0].Expression));
+            case IdentifierNameSyntax { Identifier.ValueText: "End" } when args.Count is 1 or 2: {
+                bool reset = args.Count == 2 && (Constant(args[1].Expression) ?? throw Error(args[1], "reset is true or false"));
+                return new EndWithStmt(reset ? Opcodes.EndP1 : Opcodes.EndP, ReadExpr(args[0].Expression));
+            }
+            case IdentifierNameSyntax { Identifier.ValueText: "RequestParty" } when args.Count == 3:
+                return new RequestStmt(Opcodes.Op39, ReadExpr(args[0].Expression), ReadExpr(args[1].Expression), ReadExpr(args[2].Expression));
+            case IdentifierNameSyntax { Identifier.ValueText: "Nop" } when args.Count == 1:
+                return ReadExpr(args[0].Expression) is IntLit { Value: >= 0 and <= 0xffff } n ? new NopStmt((ushort)n.Value) : throw Error(args[0], "Nop takes a constant 0-65535");
+            case IdentifierNameSyntax { Identifier.ValueText: "Entry" } when args.Count == 1:
+                return ReadExpr(args[0].Expression) is IntLit { Value: >= 0 } en ? new EntryStmt(en.Value) : throw Error(args[0], "Entry takes an entry number");
+            case IdentifierNameSyntax { Identifier.ValueText: "StoreClamped" } when args.Count == 2 && args[0].RefKindKeyword.IsKind(SyntaxKind.RefKeyword): {
+                Expr target = Target(args[0].Expression);
+                return target is RegExpr ? throw Error(args[0], "a register has no clamped store") : new AssignStmt(target, ReadExpr(args[1].Expression), true);
+            }
             case MemberAccessExpressionSyntax:
                 (ushort id2, IReadOnlyList<Expr> a2) = Native(call);
                 return new CallStmt(id2, a2);
@@ -187,6 +309,14 @@ internal sealed class StatementReader(
                 return Name(id);
             case ElementAccessExpressionSyntax el:
                 return Element(el);
+            case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Pooled" }, ArgumentList.Arguments: [ArgumentSyntax index, ArgumentSyntax value] }: {
+                if (ReadExpr(index.Expression) is not IntLit { Value: >= 0 and <= 0xffff } k) throw Error(index, "the pool index is a constant 0-65535");
+                return ReadExpr(value.Expression) switch {
+                    IntLit i => new PoolExpr(Opcodes.PushC, (ushort)k.Value, (uint)i.Value),
+                    FloatLit f => new PoolExpr(Opcodes.PushFC, (ushort)k.Value, f.Bits),
+                    _ => throw Error(value, "the value is a constant"),
+                };
+            }
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "At" } } at:
                 return Element(at);
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Addr" }, ArgumentList.Arguments: [ArgumentSyntax a] }

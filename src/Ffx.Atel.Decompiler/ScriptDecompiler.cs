@@ -29,6 +29,24 @@ public sealed record DecompileStats {
     public bool IntRuleFails { get; init; }
 
     public bool FloatRuleFails { get; init; }
+
+    /// <summary>Structured constructs by kind (<c>If</c>, <c>IfElse</c>, <c>While</c>, <c>Switch</c>, …).</summary>
+    public IReadOnlyDictionary<string, int> Constructs { get; init; } = new Dictionary<string, int>();
+
+    /// <summary><c>goto</c> statements left (<c>goto lN;</c>, <c>if (…) goto lN;</c>).</summary>
+    public int Gotos { get; init; }
+
+    /// <summary>Methods whose labels are pinned with <c>[Labels(…)]</c>.</summary>
+    public int LabelPins { get; init; }
+
+    /// <summary>Constructs the structurer made but dropped, because their lowering or C# did not hold.</summary>
+    public int Fallbacks { get; init; }
+
+    /// <summary>Methods that hold several entries' code (<c>Entry(n);</c>).</summary>
+    public int MergedMethods { get; init; }
+
+    /// <summary>Workers written with gotos only, because the structured form did not give the original back.</summary>
+    public int FlatWorkers { get; init; }
 }
 
 /// <summary>
@@ -53,6 +71,9 @@ public sealed record DecompileStats {
 public static class ScriptDecompiler {
     private const string Indent = "    ";
 
+    /// <summary>Why constructs were dropped, over every script decompiled in this process (for tuning).</summary>
+    public static IReadOnlyDictionary<string, int> DroppedReasons => WorkerDecompiler.Reasons;
+
     /// <summary>Decompiles a script file's block; <paramref name="archivePath"/> names it.</summary>
     /// <exception cref="ScriptFormatException">The block has a shape the source cannot hold.</exception>
     public static DecompiledScript Decompile(string archivePath, ScriptFile file) {
@@ -69,10 +90,8 @@ public static class ScriptDecompiler {
         string[] workerNames = WorkerNames(image.Workers.Count);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, i))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
-        bool duplicates = image.IntConstants.Distinct().Count() != image.IntConstants.Count || image.FloatConstants.Distinct().Count() != image.FloatConstants.Count;
         foreach (WorkerDecompiler w in workers) {
-            if (duplicates) w.KeepDuplicateIndices(image);
-            w.PlaceLabels();
+            w.Structure();
         }
 
         // The pools follow the rules unless the original differs, or assembly names them by index.
@@ -87,6 +106,12 @@ public static class ScriptDecompiler {
             FloatPoolPinned = image.FloatConstants.Count > 0 && (!floatRule || asmFloats),
             IntRuleFails = !intRule,
             FloatRuleFails = !floatRule,
+            Constructs = workers.SelectMany(w => w.Flow.Constructs).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
+            Gotos = workers.Sum(w => w.Flow.Gotos),
+            LabelPins = workers.Sum(w => w.Flow.LabelPins),
+            Fallbacks = workers.Sum(w => w.Flow.Fallbacks),
+            MergedMethods = workers.Sum(w => w.Flow.MergedMethods),
+            FlatWorkers = workers.Sum(w => w.Flow.FlatWorkers),
         };
 
         WriteScriptClass(sb, names, image, workerNames, stats.IntPoolPinned, stats.FloatPoolPinned);
@@ -252,7 +277,8 @@ public static class ScriptDecompiler {
 
 /// <summary>Totals of <see cref="DecompileStats"/> over many scripts; safe to add to from several threads.</summary>
 public sealed class DecompileTotals {
-    private long _scripts, _statements, _asm, _intPins, _floatPins, _intRule, _floatRule;
+    private long _scripts, _statements, _asm, _intPins, _floatPins, _intRule, _floatRule, _gotos, _labelPins, _fallbacks, _merged, _flat;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _constructs = new(StringComparer.Ordinal);
 
     public long Scripts => _scripts;
     public long Statements => _statements;
@@ -266,7 +292,22 @@ public sealed class DecompileTotals {
         if (s.FloatPoolPinned) Interlocked.Increment(ref _floatPins);
         if (s.IntRuleFails) Interlocked.Increment(ref _intRule);
         if (s.FloatRuleFails) Interlocked.Increment(ref _floatRule);
+        Interlocked.Add(ref _gotos, s.Gotos);
+        Interlocked.Add(ref _labelPins, s.LabelPins);
+        Interlocked.Add(ref _fallbacks, s.Fallbacks);
+        Interlocked.Add(ref _merged, s.MergedMethods);
+        Interlocked.Add(ref _flat, s.FlatWorkers);
+        foreach ((string k, int n) in s.Constructs) _constructs.AddOrUpdate(k, n, (_, v) => v + n);
     }
+
+    public long Gotos => _gotos;
+    public long LabelPins => _labelPins;
+    public long FlatWorkers => _flat;
+
+    /// <summary>The control-flow numbers: constructs by kind, gotos left, label pins, fallbacks.</summary>
+    public string FlowSummary() => string.Create(CultureInfo.InvariantCulture,
+        $"constructs: {string.Join(", ", _constructs.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}"))}; {_gotos} gotos left; {_labelPins} methods with [Labels] pins; {_fallbacks} constructs dropped; {_merged} methods holding several entries; {_flat} workers flat")
+        ;
 
     /// <summary>One line: statements, instructions left in <c>Asm</c>, pool pins (of them, where the rule fails).</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
