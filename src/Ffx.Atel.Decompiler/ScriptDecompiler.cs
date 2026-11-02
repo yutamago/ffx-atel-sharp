@@ -94,8 +94,8 @@ public static class ScriptDecompiler {
         sb.Append(CultureInfo.InvariantCulture, $"using static {names.Namespace}.{names.ClassName};\n\n");
         sb.Append(CultureInfo.InvariantCulture, $"namespace {names.Namespace};\n\n");
 
-        string[] workerNames = WorkerNames(image.Workers.Count);
         string[] varNames = VariableNames(image.Variables);
+        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')]);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
         foreach (WorkerDecompiler w in workers) {
@@ -130,6 +130,8 @@ public static class ScriptDecompiler {
         WriteData(sb, names, image);
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
+        placed["entry-override"] = workers.Sum(w => w.Overrides);
+        placed["worker-named"] = workerNames.Count(n => !n.StartsWith('W') || !n[1..].All(char.IsAsciiDigit));
         foreach (VarEntry v in image.Variables.Where(v => v.Storage == 0)) {
             string k = GameNames.SaveFields.ContainsKey(v.Offset) ? "save-named" : "save-unnamed";
             placed[k] = placed.GetValueOrDefault(k) + 1;

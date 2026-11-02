@@ -31,7 +31,8 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
   constants (`if (StoryProgress < Story.S01340_Kami0400)`), save variables
   after Fahrenheit's save fields (`Save`), enums for battle natives
   (`Btl.SetActorsProperty(Target.Own, ActorProperty.Hp, 0)`) and messages as
-  `Text[12]`; see
+  `Text[12]`, workers named after the model they load, and `Init`/`Main`
+  overrides for the engine's entries 0 and 1; see
   [`docs/plan.md`](docs/plan.md), "Phase 5: typing and naming".
 - `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
   assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`

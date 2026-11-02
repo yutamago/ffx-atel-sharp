@@ -1,7 +1,9 @@
 {
   "comment": "Hand-maintained parameter types for tools/gen-natives.cs: native id -> parameter name -> \"Type\" or \"Type newName\". The types are the enums of src/Ffx.Atel.Game/Enums.g.cs (tools/gen-enums.cs) and TextId (a message of the script's table, written Text[n]). Sources: each native's doc (data/natives.json, from ffx-rust symbols/ffx.sym) names the argument (actor selector, property, command, motion, msg); the property ids are MsGetChrStatInfo's (ffx-rust docs/formats/battle.md).",
   "natives": {
+    "0x0001": { "chrId": "Model model" },
     "0x0064": { "msg": "TextId" },
+    "0x0134": { "a0": "Model model" },
     "0x0236": { "a0": "TextId msg" },
     "0x700b": { "targetSelector": "Target", "commandIdEG0x30480x4008": "Command command" },
     "0x700f": { "actorSelector": "Target", "property": "ActorProperty" },

@@ -591,6 +591,31 @@ replaces and the round trip stays byte for byte.
   `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
   casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
   `ActorProperty` 5), computed values cast 8,962; 33,759 `Text[n]`.
+- **Models and workers**: `Model` (`Enums.g.cs`, from `pc.ath`, `mon.ath`,
+  `npc.ath`, `sum.ath`, `wep.ath`, `obj.ath`, `skl.ath` through Fahrenheit's
+  `*Id` tables; one member per value, the `chr_` name where the header gives
+  one, else the file code) types `Common.SetModel` and `Common.ChrLoadAlias`
+  (`Common.SetModel(Model.Tidu);`). A worker that is not a function worker and
+  loads exactly one model, by a constant, is named after the model's `chr_`
+  name (`Takarabox002`, `RikkA`); several workers with the same model get
+  their number (`Takarabox002_14`); file codes (`W101`) name nothing, as they
+  read like default names; names the reference assembly or the script
+  already uses are skipped. Every other worker keeps `W03`. Base classes stay
+  `Worker0`-`Worker6`: what the types are (`Npc`, trigger, …) is measured
+  from the natives they call but not certain enough to name.
+- **Engine entries**: a method that holds only entry 0 or only entry 1 of a
+  worker (not a function worker) is `protected override void Init()` or
+  `Main()`, overriding the base class's virtual members, without `[Entry]`;
+  the compiler reads an `Init`/`Main` override without `[Entry]` as entry 0
+  or 1. Other entries keep `[Entry(n)] void En()`. A hand-written method
+  named `Init` without `override` now gets CS0114 (it hides the base's).
+- Not done yet: `AsBool`/`AsInt` (88,778 and 3,344 left; natives typed `bool`
+  where every use is a condition would remove most), register and variable
+  names beyond the save, `static class` function workers, storage 1 names,
+  entry names beyond 0 and 1, `Priority` and the `await` request forms.
+- Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
+  workers named after their model; 29,136 `Init`/`Main` overrides. The
+  corpus still round-trips 1,621/1,621 with 0 C# errors and 0 warnings.
 
 ## Toolchain
 

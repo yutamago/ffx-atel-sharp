@@ -41,9 +41,13 @@ catch (IOException) {
          ("com_mon.cs", "MonsterCommandId", "monmagic1.ath", ["MCOM_"]), ("com_boss.cs", "BossCommandId", "monmagic2.ath", ["MCOM2_"])]),
     ("BattleMotion", "A battle actor's standard motion (<c>T_XBtlMotionId</c>); the scripts may add bit <c>0x8000</c> (no blend).",
         [("mot_btl.cs", "BtlMotionId", "btlmot.ath", ["MOT_"])]),
+    ("Model", "A character model (<c>Common.SetModel</c>): party members (<c>pc.ath</c>, 1-), monsters (<c>0x1000</c>-), NPCs (<c>0x2000</c>-), summons (<c>0x3000</c>-), weapons (<c>0x4000</c>-), objects (<c>0x5000</c>-), skeletons (<c>0x6000</c>-). One member per value: the <c>chr_</c> name where the header gives one, else the file code (<c>w001</c>).",
+        [("PcModelId.cs", "PcModelId", "pc.ath", ["chr_"]), ("MonsterId.cs", "MonsterId", "mon.ath", ["chr_"]), ("NpcId.cs", "NpcId", "npc.ath", ["chr_"]),
+         ("SummonId.cs", "SummonId", "sum.ath", ["chr_"]), ("WeaponId.cs", "WeaponId", "wep.ath", ["chr_"]), ("ObjectId.cs", "ObjectId", "obj.ath", ["chr_"]),
+         ("SkeletonId.cs", "SkeletonId", "skl.ath", ["chr_"])]),
 ];
 
-Regex line = new(@"^\s*public const T_X\w+\s+(\w+)\s*=\s*(-?)(0x[0-9A-Fa-f_]+|[0-9_]+)\s*;");
+Regex line = new(@"^\s*public const (?:T_X\w+|int)\s+(\w+)\s*=\s*(-?)(0x[0-9A-Fa-f_]+|[0-9_]+)\s*;");
 
 static string Pascal(string s) {
     StringBuilder sb = new();
@@ -70,15 +74,22 @@ foreach ((string name, string summary, var sources) in enums) {
     List<(string Member, string Original, long Value)> members = [];
     HashSet<string> used = new(StringComparer.Ordinal);
     foreach ((string file, string cls, string header, string[] prefixes) in sources) {
+        List<(string Original, long Value)> raw = [];
         foreach (string text in File.ReadLines(Path.Combine(ids, file))) {
             Match m = line.Match(text);
             if (!m.Success) continue;
-            string original = m.Groups[1].Value;
             string digits = m.Groups[3].Value.Replace("_", "", StringComparison.Ordinal);
             long value = digits.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
                 ? long.Parse(digits[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture)
                 : long.Parse(digits, CultureInfo.InvariantCulture);
             if (m.Groups[2].Value == "-") value = -value;
+            raw.Add((m.Groups[1].Value, value));
+        }
+        // The model tables give each value a file code and often a chr_ name: one member, the chr_ name first.
+        if (name == "Model") {
+            raw = [.. raw.GroupBy(r => r.Value).Select(g => g.FirstOrDefault(r => r.Original.StartsWith("chr_", StringComparison.Ordinal)) is { Original: not null } c ? c : g.First())];
+        }
+        foreach ((string original, long value) in raw) {
             string rest = original;
             foreach (string p in prefixes) {
                 if (rest.StartsWith(p, StringComparison.Ordinal)) {

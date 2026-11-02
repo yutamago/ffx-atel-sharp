@@ -187,7 +187,7 @@ public sealed class SourceTests {
             public sealed class W00 : Worker2
             {
                 [Entry(0)]
-                void Init()
+                void E0()
                 {
                     Count = (Count + 1) * 2;
                     if (Count == 4 | Count < 0) goto done;
@@ -227,7 +227,7 @@ public sealed class SourceTests {
             public sealed class W00 : Worker2
             {
                 [Entry(0)]
-                void Init()
+                void E0()
                 {
                     if (Count == 1) { Count = 2; } else { Count = 3; }
                     while (Count < 9)
@@ -365,6 +365,51 @@ public sealed class SourceTests {
         Assert.Contains("pushimm -13\npushimm 0\npushimm 3\nfunc_facc 0x7018", text, StringComparison.Ordinal);
         Assert.Contains("pushimm -30\npushv v0\nfunc_facc 0x700b", text, StringComparison.Ordinal);
         Assert.Contains("pushimm 0\npushimm 7\nfunc_facc 0x0064", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Init and Main overrides are entries 0 and 1 (Phase 5); a Model argument compiles to its number.</summary>
+    [Fact]
+    public void EngineEntriesAreOverrides() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+
+            namespace Events.Zz.Zz0000;
+
+            [Event("zz0000")]
+            [Workers(typeof(Tidu))]
+            public static partial class Zz0000
+            {
+            }
+
+            public sealed class Tidu : Worker1
+            {
+                protected override void Init()
+                {
+                    Common.SetModel(Model.Tidu);
+                }
+
+                protected override void Main()
+                {
+                    return;
+                }
+
+                [Entry(2)]
+                void E2()
+                {
+                    return;
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "zz0000.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        ScriptBlock block = ScriptBlock.Parse(ScriptCompiler.Compile([tree]).Block());
+        Bytecode.Script.Worker w = block.Workers[0];
+        List<Instr> code = block.Decode(w);
+        Assert.Equal(3, w.Entries.Length);
+        Assert.Equal(code[0].Offset, w.Entries[0]);
+        Assert.Equal("pushimm 1", Bytecode.Script.Assembly.Render(block, 0, code[0]));
+        Assert.Equal(code[2].Offset, w.Entries[1]);
     }
 
     private const string BadSource = """"
