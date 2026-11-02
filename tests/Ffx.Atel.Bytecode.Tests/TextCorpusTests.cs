@@ -20,7 +20,8 @@ public sealed class TextCorpusTests(ITestOutputHelper output) {
         foreach (GameLanguage language in GameLanguages.All) {
             string prefix = $"ffx_ps2/ffx/master/new_{language.GameCode()}pc/";
             Charset charset = messages.Charset(language);
-            foreach (string path in archive.Entries.Select(e => e.Path).Where(p => p.StartsWith(prefix + "event/obj_ps3/", StringComparison.Ordinal) || p.StartsWith(prefix + "battle/btl/", StringComparison.Ordinal))) {
+            foreach (string path in archive.Entries.Select(e => e.Path).Where(p => (p.StartsWith(prefix + "event/obj_ps3/", StringComparison.Ordinal) || p.StartsWith(prefix + "battle/btl/", StringComparison.Ordinal))
+                         && p.EndsWith(".bin", StringComparison.Ordinal))) { // the Japanese folders also hold .ftc files
                 byte[] bytes = archive.Read(path);
                 try {
                     MessageTable table = MessageTable.Parse(bytes);
@@ -38,12 +39,21 @@ public sealed class TextCorpusTests(ITestOutputHelper output) {
                 }
             }
         }
-        int events = 0, originals = 0;
+        // An event with no table at all (none of its own, none in English) must not show messages.
+        int events = 0, originals = 0, without = 0;
         foreach (string path in GameData.ScriptPaths(archive).Where(p => p.StartsWith(GameData.EventPrefix, StringComparison.Ordinal))) {
             events++;
             if (ScriptMessages.OriginalTable(archive.Read(path)) is not null) originals++;
+            if (messages.Display(path, GameLanguage.English) is not null) continue;
+            without++;
+            string asm = Script.Assembly.Disassemble(Script.ScriptFile.Parse(archive.Read(path)).Script);
+            // memochek, a developer map: calls MsgSetText, but has no section 1 and no table in any language.
+            if ((asm.Contains(" 0x0064", StringComparison.Ordinal) || asm.Contains(" 0x0236", StringComparison.Ordinal)) && GameData.Identify(path)?.Name != "memochek") {
+                failures.Add($"{path}: shows messages but has no table");
+            }
         }
-        output.WriteLine($"{tables} tables, {texts} messages ({raw} undecodable bytes); {originals} of {events} events have their own table");
+        output.WriteLine($"{tables} tables, {texts} messages ({raw} undecodable bytes); {originals} of {events} events have their own table, {without} have no table at all");
+        foreach (string f in failures.Take(20)) output.WriteLine(f);
         Assert.Empty(failures.Take(20));
     }
 }

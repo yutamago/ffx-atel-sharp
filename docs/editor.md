@@ -24,7 +24,10 @@ From ffx-rust's `docs/formats/text.md` and `docs/formats/script.md`; the codec i
   event's first two letters; `new_uspc` English, `new_depc` German, …). An entry whose offset is 0, and
   every entry of an event that has no table in the language, is the same entry of the `.ebp`'s section 1,
   the original Japanese table (`AtelEventSetUp`, `0x00872ef0`); the export shows that text (Japanese, as
-  the game would). 317 of the 397 events have an English table.
+  the game would). 317 of the 397 events have an English table, 366 a table of their own; 368 have
+  messages in English one way or the other. Of the 29 with neither, only `memochek` (a developer map)
+  calls a message native; it has no text anywhere. The Japanese folders also hold `.ftc` files beside
+  the tables, which are not message tables.
 - **Battles**: `new_<lang>pc/battle/btl/<name>/<name>.bin`, 163 of the 863 battle scripts. The export
   writes them too, but no battle script calls `MsgSetText` or `MsgGetText_0236`, so their sources have
   no `Text[n]`: battle texts are shown through the battle natives (`0x7042`, `0x7072`, `0x70b7`,
