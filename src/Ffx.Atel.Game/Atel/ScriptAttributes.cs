@@ -148,6 +148,16 @@ public sealed class EntryAttribute(int number) : Attribute {
     public int Number { get; } = number;
 }
 
+/// <summary>
+///     The numbers of the jump labels the method's <c>if</c>, loops and <c>switch</c> make, in the order
+///     they start: a pin, written only where the original compiler numbered them otherwise than the
+///     rule (docs/plan.md, "Phase 4: control flow").
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+public sealed class LabelsAttribute(params int[] numbers) : Attribute {
+    public System.Collections.Generic.IReadOnlyList<int> Numbers { get; } = numbers;
+}
+
 /// <summary>Raw bytes of a region of the script block, <paramref name="length"/> long, as hex lines.</summary>
 public abstract class DataAttribute(int length, string hex) : Attribute {
     public int Length { get; } = length;

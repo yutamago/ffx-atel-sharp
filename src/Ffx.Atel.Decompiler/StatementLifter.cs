@@ -16,8 +16,23 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
     /// <summary>The copy <c>op_2b</c> pushes: legal only as the index of a compound element store.</summary>
     private sealed record Dup(Expr Inner) : Expr;
 
-    /// <summary>The code of each instruction, with pool constants as values.</summary>
-    public CodeOp Op(Instr i) => CodeOp.FromInstr(block, worker, i);
+    /// <summary>The code of each instruction, with pool constants as values (by index where the pool has the value at a lower index too).</summary>
+    public CodeOp Op(Instr i) => i is { Code: Opcodes.PushC or Opcodes.PushFC, Operand: ushort k } && !First(i.Code, k, Value(i.Code, k))
+        ? new CodeOp(i.Code, k)
+        : CodeOp.FromInstr(block, worker, i);
+
+    private uint Value(byte code, ushort k) => code == Opcodes.PushC
+        ? (uint)(block.IntConst(worker, k) ?? 0)
+        : BitConverter.SingleToUInt32Bits(block.FloatConst(worker, k) ?? 0);
+
+    /// <summary>Whether pool entry <paramref name="k"/> is the first with its value (the compiler gives a value its first index).</summary>
+    private bool First(byte code, ushort k, uint value) {
+        for (ushort j = 0; j < k; j++) {
+            if (code == Opcodes.PushC ? block.IntConst(worker, j) is int a && (uint)a == value
+                : block.FloatConst(worker, j) is float f && BitConverter.SingleToUInt32Bits(f) == value) return false;
+        }
+        return true;
+    }
 
     /// <summary>
     ///     Splits <paramref name="code"/>[<paramref name="from"/>..<paramref name="to"/>) into statements:
@@ -82,8 +97,16 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
             bool last = i == end - 1;
             switch (op) {
                 case Opcodes.PushImm: stack.Push(new IntLit((short)arg)); break;
-                case Opcodes.PushC: stack.Push(new IntLit(block.IntConst(worker, arg) ?? throw new InvalidOperationException())); break;
-                case Opcodes.PushFC: stack.Push(new FloatLit(BitConverter.SingleToUInt32Bits(block.FloatConst(worker, arg) ?? throw new InvalidOperationException()))); break;
+                case Opcodes.PushC: {
+                    int v = block.IntConst(worker, arg) ?? throw new InvalidOperationException();
+                    stack.Push(First(Opcodes.PushC, arg, (uint)v) ? new IntLit(v) : new PoolExpr(Opcodes.PushC, arg, (uint)v));
+                    break;
+                }
+                case Opcodes.PushFC: {
+                    uint bits = BitConverter.SingleToUInt32Bits(block.FloatConst(worker, arg) ?? throw new InvalidOperationException());
+                    stack.Push(First(Opcodes.PushFC, arg, bits) ? new FloatLit(bits) : new PoolExpr(Opcodes.PushFC, arg, bits));
+                    break;
+                }
                 case Opcodes.PushV: Var(arg, false); stack.Push(new VarExpr(arg)); break;
                 case Opcodes.PushVA: Var(arg, true); stack.Push(new ElemExpr(arg, Pop())); break;
                 case Opcodes.PushVRef: Var(arg, true); stack.Push(new AddrExpr(new ElemExpr(arg, Pop()))); break;
@@ -110,7 +133,12 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
 
                 // Statement ends.
                 case Opcodes.FuncFacc when last: return Done(new CallStmt(arg, Args(arg)));
-                case Opcodes.PopV when last: Var(arg, false); return Done(new AssignStmt(new VarExpr(arg), Pop()));
+                case Opcodes.PopV or Opcodes.PopV1 when last: Var(arg, false); return Done(new AssignStmt(new VarExpr(arg), Pop(), op == Opcodes.PopV1));
+                case Opcodes.PopVA1 when last: {
+                    Var(arg, true);
+                    Expr value = Pop(), index = Pop();
+                    return index is Dup ? null : Done(new AssignStmt(new ElemExpr(arg, index), value, true));
+                }
                 case Opcodes.PopVA when last: {
                     Var(arg, true);
                     Expr value = Pop(), index = Pop();
@@ -135,7 +163,8 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
                 case Opcodes.PopAJz when last: return Done(new CondGotoStmt(arg, Pop(), false));
                 case Opcodes.PopAJnz when last: return Done(new CondGotoStmt(arg, Pop(), true));
                 case Opcodes.End or Opcodes.Ret or Opcodes.Op54 or Opcodes.Op40 when last: return Done(new OpStmt(op));
-                case Opcodes.EndP when last: return Done(new EndWithStmt(op, Pop()));
+                case Opcodes.EndP or Opcodes.EndP1 when last: return Done(new EndWithStmt(op, Pop()));
+                case Opcodes.Nop76 when last && i == start: return new NopStmt(arg);
                 case Opcodes.Call when last: return Done(new CallWorkerStmt(arg));
                 case Opcodes.Op77 or Opcodes.Op78 or Opcodes.Op79 when last: {
                     Expr[] args = new Expr[op == Opcodes.Op79 ? 3 : 2];
@@ -157,8 +186,8 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
         }
     }
 
-    // Requests: the forms the reference assembly has a method for (req0-5, reqw0-5, reqe0-5).
-    private static bool IsRequest(byte op) => op is (>= Opcodes.Req0 and <= Opcodes.ReqE0) or (>= Opcodes.Req1 and <= 0x53);
+    // Requests: the forms the reference assembly has a method for (req0-5, reqw0-5, reqe0-5, and op_39 to a party member).
+    private static bool IsRequest(byte op) => op is (>= Opcodes.Req0 and <= Opcodes.Op39) or (>= Opcodes.Req1 and <= 0x53);
 
     /// <summary>Opcodes C# has a compound assignment for.</summary>
     public static bool IsCompound(byte op) => op is Opcodes.Add or Opcodes.Sub or Opcodes.Mul or Opcodes.Div or Opcodes.Mod
@@ -168,7 +197,7 @@ internal sealed class StatementLifter(ScriptBlock block, int worker, IReadOnlyLi
 
     /// <summary>Elements of 2-D arrays as <c>[row, col]</c> where the flat index has that shape (and lowers the same).</summary>
     private Stmt TwoD(Stmt s) => s switch {
-        AssignStmt a => new AssignStmt(TwoD(a.Target), TwoD(a.Value)),
+        AssignStmt a => a with { Target = TwoD(a.Target), Value = TwoD(a.Value) },
         CompoundStmt c => new CompoundStmt(TwoD(c.Target), c.Op, TwoD(c.Value)),
         CallStmt c => new CallStmt(c.Native, [.. c.Args.Select(TwoD)]),
         RequestStmt r => new RequestStmt(r.Op, TwoD(r.Level), TwoD(r.Worker), TwoD(r.Entry)),

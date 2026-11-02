@@ -277,17 +277,20 @@ carries only entry, worker and priority. The compiler provides both:
 
 - `if`/`else`, `while`, `do`, `for`, `?:`, `switch` with `case`,
   `default`, `break`, `goto case`; `goto` for flow that has no structured
-  form (1,504 jumps cross into another entry's code). Range and relational
-  cases are C# patterns (`case >= 380 and <= 401:`). Dead code the original
-  kept is `if (false) { … }`, compiled to a `jmp` over it.
+  form. Code of several entries that jump into each other is one method
+  with `Entry(n);` where each further entry starts (see "Phase 4: control
+  flow"). Range and relational cases are C# patterns (`case >= 380 and <=
+  401:`). Dead code the original kept is `if (false) { … }`, compiled to a
+  `jmp` over it.
 - How the compiler chooses, from Phase 0: `pushc` exactly for values outside
   `i16`; `func_facc` for a call statement, `func` when the result is used;
   `popa_jz` forward, `popa_jnz` back; labels numbered per construct
-  (`while`: exit, head; `switch`: chain, break, cases, default). Pinned
+  (Phase 4: `while`, `do`: exit, head; `for`: exit, body, head, step;
+  `switch`: chain, break, each case's label as its section starts). Pinned
   where no rule covers the original: constant-pool and variable-table order
   (pools match a first-use rule in 77 % (ints) and 71 % (floats) of
-  blocks), the 8 `popv_1`, label numbers the structurer does not
-  reproduce.
+  blocks), label numbers the rule does not give (`[Labels(…)]`). The 8
+  `popv_1` are `StoreClamped(ref x, v)`, a store that clamps.
 - Logic: C#'s `&` and `|` on `bool` evaluate both sides, as ATEL's `land`
   and `lor` do, so the decompiler writes those; `&&` and `||`
   short-circuit as in C# and compile to branches. How an `int` used as a
@@ -412,7 +415,8 @@ writes on top of the Phase 2 shape:
 - **Logic:** `land`/`lor` are `&`/`|` on two `bool`s; `and`/`or` the same
   operators on `int`s. The compiler decides by the operand syntax alone: a
   comparison, `!`, `AsBool(…)`, or `&`, `|`, `^` of those is a condition.
-  `&&` and `||` are errors until Phase 4 gives them branches.
+  `&&` and `||` are errors (the original never branched inside a
+  condition; new code may get them later).
 - **Constants:** integers in decimal, from `0x10000` up in hex (motion and
   model IDs); `pushimm` or `pushc` by the `i16` range. Floats with `f`, the
   shortest text that reads back (`R`), negative ones as `-28.2f`.
@@ -443,6 +447,85 @@ writes on top of the Phase 2 shape:
   compiles in 75-110 s (with server GC, about 4x faster here; the C# check
   takes most of it: Roslyn's flow analysis over 30,000 labels in one method
   of `bltz0201`, until Phase 4 removes the `goto`s).
+
+### Phase 4: control flow
+
+Decided 2026-11-02, with the structured round trip. What `atel decompile`
+writes on top of Phase 3:
+
+- **Structured statements.** `if`/`else` (and `else if`), `while`,
+  `while (true)`, `do … while`, `for`, `switch`, `break`, `continue`,
+  `goto case`/`goto default`, and `if (false) { … }` (also with `else`) for
+  the code the original kept behind a `jmp`. The model and its lowering are
+  in `Ffx.Atel.Bytecode.Code` (`Flow.cs`: the records and `FlowEmitter`),
+  shared by the compiler and the decompiler's check. The decompiler's
+  `Structurer` recognises the shapes the original compiler emitted, one
+  method at a time; jumps no construct accounts for stay `goto lN;` /
+  `if (…) goto lN;`, with `lN:` labels.
+- **The shapes**, as the compiler emits them. `if (c)`: `c; popa_jz else;
+  then; [jmp end; else: …;] end:`. `while (c)`: `head: c; popa_jz exit; …;
+  jmp head; exit:`; `while (true)` is the same without the test. `do`:
+  `head: …; c; popa_jnz head`. `for (init; c; step)`: the original put the
+  step before the body, `init; head: c; popa_jz exit; jmp body; step: …; jmp
+  head; body: …; jmp step; exit:`, and `continue` jumps to the step.
+  `switch`: the selector to B, `jmp chain`, the sections in source order,
+  the chain (`push k; pushb; eq; popa_jnz case` per case; the other compares
+  are relational patterns, `case < k:`, ranges `case >= lo and <= hi:`; then
+  `jmp default` if there is one), and the break label. Where C# can reach
+  the end of a section and the original falls through into the next, the
+  section ends in `goto case k;` (or `goto default;`) to that next section,
+  which compiles to no code; any other `goto case` is a `jmp`.
+- **Label numbers** come from a counter per worker that each construct
+  draws from as it starts (docs/corpus.md, "Labels"). `if`: the else (or
+  end) label at the condition, the end of an `if`/`else` when its else
+  starts. `while`, `do`: exit, head. `for`: exit, body, head, step.
+  `switch`: chain, break, then each section's label as the section starts
+  (after the labels of the sections before it), the range skips with the
+  chain. Only labels a jump goes to are numbered; source labels `lN` keep N,
+  and the counter skips those numbers. Where the original numbered a
+  method's labels otherwise, `[Labels(…)]` on the method lists them in that
+  order (a pin; the counter goes on after its highest number).
+- **Entries that jump into each other** (the 1,704 `jmp`s of Phase 3 and
+  the conditional jumps that do the same; C# has no `goto` between
+  methods): the methods from the jumping one to the target become one
+  method, and `Entry(n);` marks where each further entry starts (no code).
+  Code an entry starts in is not written as `if (false)`; that stays a
+  `goto` over it.
+- **The last opcodes.** `StoreClamped(ref V3, V3 + 1);` is `popv_1`
+  (`popva_1` for an element): store mode 1 clamps the value to the
+  variable's range. `End(0, reset: true);` is `endp_1`: it ends, and the
+  worker's level starts again at entry 1's code. `RequestParty(level, slot,
+  entry);` is `op_39`, a request to a party member's worker. `Nop(1);` is
+  `nop_76` with its operand. `Pooled(46, -44.018925f)` is a constant by pool
+  index, for a pinned pool that holds the value twice where the code uses
+  the later copy (`dome00_04`). `Asm` stays valid input, but the decompiler
+  writes none.
+- **The safety net.** The decompiler lowers the whole worker with
+  `FlowEmitter` and compares it with the original, labels by position. A
+  construct whose lowering differs, whose label a remaining `goto` needs, or
+  whose block holds a label that a `goto` from outside jumps to (C# cannot
+  jump into a block) is dropped, and the method is structured again without
+  it (all such constructs of a pass at once). Then the label numbers are
+  compared and pinned, and the result is checked byte for byte with the
+  pins. A worker that still differed would be written with gotos only; none
+  does.
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte; **0
+  instructions in `Asm`**; 559,559 constructs: 284,723 `if`, 114,012
+  `if`/`else`, 82,531 `switch`, 19,313 `if (false)` and 15,493
+  `if (false) … else`, 17,222 `while`, 10,957 `while (true)`, 13,801 `for`,
+  1,507 `do`. **8,448 `goto`s left** (6,814 `goto lN;`, 1,634
+  `if (…) goto lN;`, of 2.1 million jumps), mostly jumps out of nested
+  constructs to a shared end label, or to an outer loop's head, which C#
+  has no structured form for. 3,199 constructs dropped by the safety net:
+  3,107 because a `goto` from outside jumps into their block, 54 because a
+  `goto` needs their label, 38 switches whose last section runs into the
+  chain or falls into a range case; none because its lowering differed. **26
+  methods pinned with `[Labels]`.** 326 methods hold several entries. 402.8
+  MB of source (from 248.2 MB: the indentation of nested blocks). 0 C#
+  errors, 0 warnings. The corpus decompiles and compiles in 24 s, 60 s with
+  the C# check: Roslyn takes about 36 s of it, half of Phase 3's 72 s on the
+  same machine (89 s with the check, 17 s without), as structured code gives
+  its flow analysis no methods with tens of thousands of labels.
 
 ## Toolchain
 
@@ -573,6 +656,8 @@ count, names placed.
    "Phase 3: statements": 2,006 instructions left in `Asm`.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label
    order and branch polarity matching the original. Exit: no `Asm` left.
+   Done 2026-11-02, see "Phase 4: control flow": no `Asm`, 8,448 `goto`s
+   left, 26 label pins.
 5. **Typing and naming** (ongoing). Enums by use, properties, text IDs,
    story constants, base classes and engine entries, Fahrenheit's names.
 6. **Source layout.** Folders, one file per worker, `partial`, project

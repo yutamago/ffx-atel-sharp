@@ -39,14 +39,16 @@ public static class Lowering {
                 switch (a.Target) {
                     case VarExpr v:
                         Lower(a.Value, o);
-                        o.Add(CodeOp.Of(Opcodes.PopV, v.Var));
+                        o.Add(CodeOp.Of(a.Clamped ? Opcodes.PopV1 : Opcodes.PopV, v.Var));
                         break;
                     case ElemExpr or Elem2Expr:
                         (int var, Expr index) = Flat(a.Target);
                         Lower(index, o);
                         Lower(a.Value, o);
-                        o.Add(CodeOp.Of(Opcodes.PopVA, var));
+                        o.Add(CodeOp.Of(a.Clamped ? Opcodes.PopVA1 : Opcodes.PopVA, var));
                         break;
+                    case RegExpr when a.Clamped:
+                        throw new ArgumentException("a register has no clamped store");
                     case RegExpr r:
                         Lower(a.Value, o);
                         o.Add(CodeOp.Of(Pop(r)));
@@ -93,6 +95,9 @@ public static class Lowering {
             case OpStmt x:
                 o.Add(CodeOp.Of(x.Op));
                 break;
+            case NopStmt n:
+                o.Add(CodeOp.Of(Opcodes.Nop76, n.Operand));
+                break;
             case OpArgsStmt x:
                 foreach (Expr a in x.Args) Lower(a, o);
                 o.Add(CodeOp.Of(x.Op));
@@ -115,6 +120,9 @@ public static class Lowering {
                 break;
             case FloatLit f:
                 o.Add(new CodeOp(Opcodes.PushFC, null, f.Bits, true));
+                break;
+            case PoolExpr p:
+                o.Add(CodeOp.Of(p.Code, p.Index));
                 break;
             case VarExpr v:
                 o.Add(CodeOp.Of(Opcodes.PushV, v.Var));

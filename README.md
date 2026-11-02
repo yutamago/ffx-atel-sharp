@@ -10,21 +10,23 @@ The plan, the language and the phases are in [`docs/plan.md`](docs/plan.md).
 
 ## Status
 
-Phase 3 of the plan, expressions and statements (Phases 0-2 done):
+Phase 4 of the plan, control flow (Phases 0-3 done):
 
 - `Ffx.Atel.Bytecode` reads `FFX_Data.vbf`, the event, monster and battle
   files and their script blocks, and disassembles and reassembles them.
   All 1,621 scripts come back byte for byte, and the disassembly is the
   same text as ffx-rust's `ffx script disasm`.
 - `atel decompile` writes a script as C#: its declarations as attributes
-  and fields, and every entry's code as C# statements: assignments, native
-  calls (`Chr.PlayMotion(…)`), requests, `return;`, and `goto` between
-  labels until Phase 4 structures them. What has no C# form yet stays
-  `Asm("""…""")` (2,006 of 21.3 million instructions). `atel compile` turns
-  that C# back into the script file. All 1,621 scripts round-trip byte for
-  byte, and the source compiles as C# against `Ffx.Atel.Game` without
-  errors or warnings. The shape is in [`docs/plan.md`](docs/plan.md),
-  "Phase 2: the source shape" and "Phase 3: statements".
+  and fields, and every entry's code as C# statements (assignments, native
+  calls such as `Chr.PlayMotion(…)`, requests, `return;`), structured as
+  `if`/`else`, `while`, `do`, `for` and `switch` with `case` patterns,
+  `break`, `continue` and `goto case`, with the original's label numbers
+  and branch polarity. The 8,448 jumps that have no structured form stay
+  `goto`; no `Asm` is left. `atel compile` turns that C# back into the
+  script file. All 1,621 scripts round-trip byte for byte, and the source
+  compiles as C# against `Ffx.Atel.Game` without errors or warnings. The
+  shape is in [`docs/plan.md`](docs/plan.md), "Phase 2: the source shape",
+  "Phase 3: statements" and "Phase 4: control flow".
 - `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
   assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`
   output) onto the player's own file and serves the result through

@@ -26,7 +26,7 @@ internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLen
 ///     The compiler reads the text back into the same statement (<c>StatementReader</c>), so the
 ///     printer avoids the forms that would read back as something else: <c>&amp;</c> and <c>|</c> are
 ///     <c>land</c>/<c>lor</c> exactly when both operands are <c>bool</c>; <c>if (!x) goto</c> is
-///     <c>popa_jz</c>, so <c>popa_jnz</c> on a <c>not</c> stays assembly.
+///     <c>popa_jz</c>, so <c>popa_jnz</c> on a <c>not</c> is <c>if (AsBool(AsInt(!x))) goto</c>.
 /// </remarks>
 internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives, string[] workerNames, bool functionWorker) {
     private const int PPrimary = 15, PUnary = 14, PMul = 13, PAdd = 12, PShift = 11, PRel = 10, PEq = 9, PAnd = 8, PXor = 7, POr = 6;
@@ -48,7 +48,13 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
         RequestStmt r => Request(r),
         CallWorkerStmt c => c.Worker < workerNames.Length ? $"Call<{workerNames[c.Worker]}>();" : throw No("call to a worker that does not exist"),
         GotoStmt g => $"goto l{g.Label};",
-        CondGotoStmt { IfTrue: true, Condition: UnaryExpr { Op: Opcodes.Not } } => throw No("popa_jnz on a not reads back as popa_jz"),
+        BreakStmt => "break;",
+        ContinueStmt => "continue;",
+        GotoCaseStmt { Case: int k } => $"goto case {IntText(k)};",
+        GotoCaseStmt => "goto default;",
+        EntryStmt e => $"Entry({e.Entry});",
+        // `if (!x) goto` reads back as popa_jz; popa_jnz on a `not` keeps it inside conversions (no code).
+        CondGotoStmt { IfTrue: true, Condition: UnaryExpr { Op: Opcodes.Not } } g => $"if (AsBool(AsInt({Expr(g.Condition).Text}))) goto l{g.Label};",
         CondGotoStmt { IfTrue: true } g => $"if ({ToBool(Expr(g.Condition)).Text}) goto l{g.Label};",
         CondGotoStmt g => $"if (!{Wrap(ToBool(Expr(g.Condition)), PUnary)}) goto l{g.Label};",
         OpStmt { Op: Opcodes.End } when !functionWorker => "return;",
@@ -56,12 +62,31 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
         OpStmt { Op: Opcodes.Op54 } => "Halt();",
         OpStmt { Op: Opcodes.Op40 } => "Breakpoint();",
         EndWithStmt { Op: Opcodes.EndP } e => $"End({ToInt(Expr(e.Value)).Text});",
+        EndWithStmt { Op: Opcodes.EndP1 } e => $"End({ToInt(Expr(e.Value)).Text}, reset: true);",
+        NopStmt n => string.Create(CultureInfo.InvariantCulture, $"Nop({n.Operand});"),
         OpArgsStmt x => $"Op{x.Op:x2}({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         _ => throw No($"no C# for {s}"),
     };
 
+    /// <summary>A condition of <c>if</c>, <c>while</c> or <c>do</c>, as a C# <c>bool</c>.</summary>
+    public string Condition(Expr e) => ToBool(Expr(e)).Text;
+
+    /// <summary>
+    ///     A switch's selector, as an <c>int</c>; a narrow variable is cast where a case constant lies
+    ///     outside its type (CS0031).
+    /// </summary>
+    public string Selector(Expr e, IEnumerable<CaseLabel> cases) {
+        E x = ToInt(Expr(e));
+        if (IsNarrow(x.Type) && cases.Any(c => !InRange(c.Value, x.Type) || c.Kind == CaseKind.Range && !InRange(c.High, x.Type)
+            || c.Kind is CaseKind.Less or CaseKind.LessOrEqual or CaseKind.Greater or CaseKind.GreaterOrEqual)) {
+            x = Cast(CType.Int, x);
+        }
+        return x.Text;
+    }
+
     private string Request(RequestStmt r) {
         (string name, int variant) = r.Op switch {
+            Opcodes.Op39 => ("RequestParty", 0),
             >= Opcodes.Req0 and <= Opcodes.ReqE0 => (Names[r.Op - Opcodes.Req0], 0),
             >= Opcodes.Req1 and <= 0x53 => (Names[(r.Op - Opcodes.Req1) / 5], (r.Op - Opcodes.Req1) % 5 + 1),
             _ => throw No("not a request"),
@@ -86,6 +111,10 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
 
     private string Assign(AssignStmt a) {
         (string target, CType t) = Target(a.Target);
+        if (a.Clamped) {
+            if (a.Target is RegExpr) throw No("a register has no clamped store");
+            return $"StoreClamped(ref {target}, {(t == CType.Float ? ToNum(Expr(a.Value)) : ToInt(Expr(a.Value))).Text});";
+        }
         if (a.Target is VarExpr or RegExpr && a.Value is BinaryExpr b && StatementLifter.IsCompound(b.Op) && b.Left == a.Target
             && CompoundOperand(b.Op, b.Right, t, cast: false) is E rhs) {
             return $"{target} {Symbol(b.Op)}= {rhs.Text};";
@@ -125,6 +154,12 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
             case FloatLit f: {
                 string text = ScriptDecompiler.FloatLiteral(f.Bits) ?? throw No("a float no literal gives");
                 return new E(text, CType.Float, text.StartsWith('-') ? PUnary : PPrimary, f.Value);
+            }
+            case PoolExpr { Code: Opcodes.PushC } p:
+                return new E(string.Create(CultureInfo.InvariantCulture, $"Pooled({p.Index}, {IntText((int)p.Value)})"), CType.Int, PPrimary);
+            case PoolExpr p: {
+                string text = ScriptDecompiler.FloatLiteral(p.Value) ?? throw No("a float no literal gives");
+                return new E(string.Create(CultureInfo.InvariantCulture, $"Pooled({p.Index}, {text})"), CType.Float, PPrimary);
             }
             case VarExpr v:
                 return new E(vars[v.Var].Name, vars[v.Var].Type, PPrimary);
