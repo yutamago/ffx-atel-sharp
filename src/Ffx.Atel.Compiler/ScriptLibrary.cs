@@ -54,5 +54,5 @@ public sealed class ScriptLibrary {
     }
 
     /// <summary>The library's own C# diagnostics (warnings and errors).</summary>
-    public IReadOnlyList<Diagnostic> Check() => [.. _compilation.Value.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning)];
+    public IReadOnlyList<Diagnostic> Check() => ScriptCompiler.Diagnose(_compilation.Value);
 }

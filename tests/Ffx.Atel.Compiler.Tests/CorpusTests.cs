@@ -21,7 +21,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     Phase 4's bar: every script decompiles to structured C# without any <c>Asm</c>, which compiles
-    ///     as C# against the reference assembly without errors or warnings, and compiles back, from the
+    ///     as C# against the reference assembly without errors or warnings (but ATL0001), and compiles back, from the
     ///     source text and the vanilla file's other sections, to the same file bytes. Since Phase 6 the
     ///     source is the script's folder: the script class, a file per worker and the data, with the
     ///     workers that are exact copies deriving from library classes.
@@ -32,7 +32,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         // Largest first, one at a time: the biggest scripts take the longest to check.
         List<(string Path, byte[] Bytes)> files = [.. GameData.AllScriptPaths(archive).Select(p => (p, archive.Read(p))).OrderByDescending(f => f.Item2.Length)];
         ConcurrentBag<string> failures = [];
-        long sourceBytes = 0, fileCount = 0, identical = 0, diagnostics = 0;
+        long sourceBytes = 0, fileCount = 0, identical = 0, diagnostics = 0, registerWarnings = 0;
         DecompileTotals totals = new();
         Stopwatch clock = Stopwatch.StartNew();
         // Every script first, then the library of the workers they share (Phase 6), then each script against it.
@@ -44,7 +44,9 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         SharedLibrary shared = SharedWorkers.Build([.. decompiled.Select(d => d.Parts)]);
         List<SourceFile> libraryFiles = shared.Files();
         ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
-        IReadOnlyList<Diagnostic> libraryDiagnostics = library.Check();
+        IReadOnlyList<Diagnostic> libraryAll = library.Check();
+        List<Diagnostic> libraryDiagnostics = [.. libraryAll.Where(x => x.Id != "ATL0001")];
+        registerWarnings += libraryAll.Count - libraryDiagnostics.Count;
         diagnostics += libraryDiagnostics.Count;
         foreach (Diagnostic d in libraryDiagnostics.Take(5)) failures.Add($"library: {d}");
         sourceBytes += libraryFiles.Sum(f => (long)f.Text.Length);
@@ -58,7 +60,11 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 Interlocked.Add(ref sourceBytes, sources.Sum(s => (long)s.Text.Length));
                 Interlocked.Add(ref fileCount, sources.Count);
                 List<SyntaxTree> trees = [.. sources.Select(s => ScriptCompiler.Parse(s.Text, s.RelativePath))];
-                IReadOnlyList<Diagnostic> found = ScriptCompiler.Check(trees, library);
+                // ATL0001 (a register across a wait that another entry writes) is a warning the
+                // original code gives (docs/analyzers.md); counted, not a failure.
+                IReadOnlyList<Diagnostic> all = ScriptCompiler.Check(trees, library);
+                List<Diagnostic> found = [.. all.Where(x => x.Id != "ATL0001")];
+                Interlocked.Add(ref registerWarnings, all.Count - found.Count);
                 Interlocked.Add(ref diagnostics, found.Count);
                 if (found.Count > 0) failures.Add($"{path}: {found[0]}");
                 byte[] rebuilt = ScriptCompiler.Compile(trees, library).ApplyTo(vanilla).ToArray();
@@ -69,7 +75,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 failures.Add($"{path}: {ex.Message}");
             }
         });
-        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
+        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics (and {registerWarnings} ATL0001), {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine($"{shared.SharedWorkers} workers derive from {shared.Classes.Count} library classes, {shared.SavedChars / 1e6:0.0} MB saved");
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
