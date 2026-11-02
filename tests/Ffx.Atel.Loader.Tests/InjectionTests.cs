@@ -128,8 +128,9 @@ public sealed class InjectionTests : IDisposable {
         Assert.True(Injection.IsEvent("ka/kami0000", "KAMI0000"));
         Assert.False(Injection.IsEvent("ka/kami0000", "kami0001"));
         Assert.Equal(GameLanguage.English, Injection.Language(1));
-        Assert.Equal(GameLanguage.English, Injection.Language(18));
         Assert.Equal(GameLanguage.German, Injection.Language(4));
-        Assert.Null(Injection.Language(9));
+        Assert.Equal(GameLanguage.Korean, Injection.Language(9));
+        Assert.Equal(GameLanguage.Chinese, Injection.Language(10));
+        Assert.Null(Injection.Language(18));
     }
 }

@@ -81,7 +81,7 @@ public static partial class ScriptCompiler {
             WorkerImage wi = v.Workers[w];
             List<(string Name, int[] Entries, uint Start)> list = [];
             foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
-                int[] entries = [.. EntriesOf(m)];
+                int[] entries = [.. EntriesOf(m, wi.Type == 0)];
                 list.Add((m.Identifier.ValueText, entries, wi.Entries[entries[0]]));
             }
             Dictionary<string, (int[], uint, uint)> byMethod = new(StringComparer.Ordinal);

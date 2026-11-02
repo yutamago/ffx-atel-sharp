@@ -73,14 +73,20 @@ public static class Injection {
         return new MessageTable(list).Write();
     }
 
-    /// <summary>The language of <c>TkGetLang()</c> (<c>0x00887d00</c>): 0 Japanese, 1 English (US), 2-5, 18 English (UK); null for the others.</summary>
-    public static GameLanguage? Language(int tkLang) => tkLang switch {
+    /// <summary>
+    ///     The language of <c>TOGetFFXLang()</c> (<c>0x006410e0</c>), which picks the <c>new_&lt;lang&gt;pc</c> folder
+    ///     the event's messages come from: 0 Japanese, 1 English, 2 French, 3 Spanish, 4 German, 5 Italian,
+    ///     9 Korean, 10 Chinese; null for the others. (<c>TkGetLang</c> is the PS2 setting: 0 on PC.)
+    /// </summary>
+    public static GameLanguage? Language(int ffxLang) => ffxLang switch {
         0 => GameLanguage.Japanese,
-        1 or 18 => GameLanguage.English,
+        1 => GameLanguage.English,
         2 => GameLanguage.French,
         3 => GameLanguage.Spanish,
         4 => GameLanguage.German,
         5 => GameLanguage.Italian,
+        9 => GameLanguage.Korean,
+        10 => GameLanguage.Chinese,
         _ => null,
     };
 

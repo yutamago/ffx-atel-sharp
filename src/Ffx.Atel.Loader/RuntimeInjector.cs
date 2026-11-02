@@ -40,16 +40,16 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
     private const nint EventName = 0x01fcbc60;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int TkGetLangFn();
+    private delegate int GetLangFn();
 
-    /// <summary><c>TkGetLang</c> (<c>0x00887d00</c>).</summary>
-    private static FhCallHandle<TkGetLangFn> TkGetLang => new(new FhCallLocation("FFX.exe", 0x00487d00));
+    /// <summary><c>TOGetFFXLang</c> (<c>0x006410e0</c>): the language whose <c>new_&lt;lang&gt;pc</c> files the game reads.</summary>
+    private static FhCallHandle<GetLangFn> TOGetFFXLang => new(new FhCallLocation("FFX.exe", 0x002410e0));
 
     private readonly object _lock = new();
     private FileSystemWatcher? _watcher;
     private Timer? _debounce;
     private Dictionary<string, string> _seen = new(StringComparer.Ordinal);
-    private volatile object? _tkLang;     // boxed int, once the game is running
+    private volatile object? _lang;       // TOGetFFXLang, boxed, once the game is running
     private volatile bool _full;
 
     // Messages per event script, set by the background thread; Update applies them.
@@ -119,13 +119,13 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
             }
             // Messages, encoded in the game's language.
             Dictionary<string, List<(int, byte[])>> messages = new(StringComparer.OrdinalIgnoreCase);
-            if (_tkLang is not int tkLang) return;     // Update asks again once the game runs
+            if (_lang is not int ffxLang) return;     // Update asks again once the game runs
             foreach (ScriptPackage p in injected.Packages.Values.Where(p => p.Messages is { Count: > 0 })) {
                 if (GameData.Identify(p.File) is not (ScriptCategory.Event, _)) {
                     log.Warning($"Atel loader: inject: {p.Script}: messages are set only in an event's table; left out");
                     continue;
                 }
-                GameLanguage language = Injection.Language(tkLang) ?? GameLanguage.English;
+                GameLanguage language = Injection.Language(ffxLang) ?? GameLanguage.English;
                 archive ??= GameData.OpenArchive(gameDir);
                 Charset charset = new ScriptMessages(archive).Charset(language);
                 List<(int, byte[])> list = [];
@@ -137,11 +137,13 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
                         log.Error($"Atel loader: inject: {p.Script} message {m.Index}: {ex.Message}");
                     }
                 }
-                messages[p.Script] = list;
+                if (list.Count > 0) messages[p.Script] = list;
             }
             _messages = messages;
             Interlocked.Increment(ref _version);
-            if (messages.Count > 0) log.Info($"Atel loader: inject: messages for {string.Join(", ", messages.Keys)}; set when the event runs");
+            if (messages.Count > 0) {
+                log.Info($"Atel loader: inject: messages for {string.Join(", ", messages.Keys)} ({Injection.Language(ffxLang) ?? GameLanguage.English}); set when the event runs");
+            }
         }
         finally {
             archive?.Dispose();
@@ -178,15 +180,16 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
     /// <summary>Sets the running event's messages when they changed or the event loaded again. Game thread.</summary>
     public void Update() {
         try {
-            if (_tkLang is null) {
-                // The game runs: its language is set. Encode the packages' messages now.
-                _tkLang = TkGetLang.fnptr!();
+            byte* ctrl = FhUtil.ptr_at<byte>(CtrlWork0);
+            if ((ctrl[0] & 1) == 0) return;
+            if (_lang is null) {
+                // An event runs, so its messages were read in the game's language (TOGetFFXLang answers 0
+                // before its manager exists). Encode the packages' messages now.
+                _lang = GetLanguage();
                 _full = true;
                 _debounce?.Change(0, Timeout.Infinite);
                 return;
             }
-            byte* ctrl = FhUtil.ptr_at<byte>(CtrlWork0);
-            if ((ctrl[0] & 1) == 0) return;
             nint table = *(nint*)(ctrl + 0x34);
             if (table == 0) return;
             int version = Volatile.Read(ref _version);
@@ -224,6 +227,8 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
             log.Error($"Atel loader: inject: messages: {ex}");
         }
     }
+
+    private static int GetLanguage() => TOGetFFXLang.fnptr!();
 
     /// <summary>Points ctrl work 0's tables at <paramref name="table"/>: <c>+0x34</c>, and <c>+0x38</c> where it was the same table.</summary>
     private void Install(byte* ctrl, nint table) {
