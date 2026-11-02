@@ -1,0 +1,85 @@
+{
+  "name": "atel-text",
+  "displayName": "Atel# message text",
+  "description": "Shows the message text behind Text[n] in decompiled Atel# (FFX) C# sources, from your own game's message tables.",
+  "version": "0.1.0",
+  "publisher": "yutamago",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yutamago/ffx-atel-sharp"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:csharp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Atel#",
+      "properties": {
+        "atel.textLanguage": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en",
+            "ja",
+            "fr",
+            "es",
+            "de",
+            "it",
+            "ko",
+            "zh"
+          ],
+          "enumDescriptions": [
+            "English",
+            "Japanese",
+            "French",
+            "Spanish",
+            "German",
+            "Italian",
+            "Korean",
+            "Chinese"
+          ],
+          "description": "The language whose message text is shown for Text[n] (a folder of .atel/text, written by `atel text export`)."
+        },
+        "atel.textDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "The folder with one subfolder per language (`en/bjyt0400.json`, …). Empty: the nearest `.atel/text` above the file."
+        },
+        "atel.inlayHints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the message text after Text[n] as an inlay hint."
+        },
+        "atel.inlayHints.maxLength": {
+          "type": "number",
+          "default": 60,
+          "minimum": 8,
+          "description": "Inlay hints longer than this are cut with an ellipsis; the hover shows the whole message."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
+    "package": "npm run compile && vsce package --out atel-text.vsix",
+    "test:integration": "npm run compile && node out/test/integration/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -2,6 +2,7 @@
 
 using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Bytecode.Text;
 using Ffx.Atel.Bytecode.Vbf;
 
 namespace Ffx.Atel.Cli;
@@ -15,7 +16,7 @@ internal static class Program {
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
-        """ + "\n" + SourceCommands.Usage + CompileAllCommand.Usage + ExportCommand.Usage + ModCommands.Usage + "\n" + """
+        """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -45,7 +46,8 @@ internal static class Program {
         args.RemoveAt(0);
         string gameDir = game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>");
         // Whole-corpus commands take the machine-wide corpus lock: one at a time, they each use several GB.
-        bool wholeCorpus = command is "roundtrip" or "survey" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"));
+        bool wholeCorpus = command is "roundtrip" or "survey" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"))
+                        || (command == "text" && TextCommand.IsWholeCorpus(args));
         using VbfArchive archive = wholeCorpus ? GameData.OpenArchiveExclusive(gameDir) : GameData.OpenArchive(gameDir);
         switch (command) {
             case "list": {
@@ -70,8 +72,13 @@ internal static class Program {
                 File.WriteAllBytes(output, file.ReplaceScript(rebuilt).ToArray());
                 return 0;
             }
-            case "decompile":
-                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"));
+            case "decompile": {
+                string? comments = TakeOption(args, "--text-comments");
+                GameLanguage? language = comments is null ? null : TextCommand.ParseLanguage(comments);
+                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"), language);
+            }
+            case "text":
+                return TextCommand.Run(archive, args, output);
             case "compile": {
                 string? library = TakeOption(args, "--library");
                 return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"), library);
