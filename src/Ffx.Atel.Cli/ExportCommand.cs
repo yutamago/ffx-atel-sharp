@@ -16,7 +16,7 @@ namespace Ffx.Atel.Cli;
 /// </summary>
 internal static class ExportCommand {
     public const string Usage = """
-          export <repo> [--no-merge] [--no-compile] [--check] [--push]
+          export <repo> [--no-merge] [--no-compile] [--check] [--push] [--sdk <dir>|--no-sdk]
                                            decompile every script onto the `generated` branch of a git
                                            repo (the whole tree replaced; one commit naming this build
                                            and the game's hashes), merge it into `main` (checked out,
@@ -27,7 +27,8 @@ internal static class ExportCommand {
     public const string Generated = "generated";
     public const string Main = "main";
 
-    public static int Run(VbfArchive archive, string gameDir, List<string> args, bool merge, bool compile, bool check, bool push) {
+    public static int Run(VbfArchive archive, string gameDir, List<string> args, bool merge, bool compile, bool check, bool push,
+                          SourceCommands.ProjectOptions projects) {
         if (args.Count != 1) throw new ArgumentException("export <repo>");
         string repo = Git(args[0], "rev-parse", "--show-toplevel").Trim();
         string gitDir = Git(repo, "rev-parse", "--absolute-git-dir").Trim();
@@ -47,14 +48,15 @@ internal static class ExportCommand {
         try {
             if (Directory.Exists(tree)) Directory.Delete(tree, recursive: true);
             File.Delete(index);
-            SourceCommands.Decompile(archive, ["all"], tree, share: true);
+            SourceCommands.Decompile(archive, ["all"], tree, share: true, projects);
             File.WriteAllText(Path.Combine(tree, "README.md"), Readme);
             CheckForLocalNames(tree);
 
             Dictionary<string, string> env = new() { ["GIT_INDEX_FILE"] = index };
             string[] at = ["--git-dir", gitDir, "--work-tree", tree];
             Git(tree, env, [.. at, "add", "-A", "."]);
-            // The reference assembly: ignored by the tree's .gitignore (a local decompile writes it), committed here.
+            // The SDK package (or the reference assembly): ignored by the tree's .gitignore (a local decompile
+            // writes it), committed here, so a clone builds.
             Git(tree, env, [.. at, "add", "-f", "--", ".atel"]);
             string written = Git(tree, env, [.. at, "write-tree"]).Trim();
             int files = Git(tree, env, [.. at, "ls-files"]).Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
@@ -212,10 +214,13 @@ internal static class ExportCommand {
         worker, a project per map area (`Events/Bj/Events.Bj.csproj`; blitzball a
         project per script), `Library/` with the base classes of workers shared
         between scripts, `Atel.slnx` (everything) and `Events.slnx`,
-        `Battles.slnx`, `Monsters.slnx`. `.atel/Ffx.Atel.Game.dll` (with its XML
-        docs) is the reference assembly the source compiles against, from the same
-        ffx-atel-sharp build as the source (MIT, our code, not game data; committed so
-        the solution opens and builds after a clone).
+        `Battles.slnx`, `Monsters.slnx`. The projects use the `Ffx.Atel.Sdk` package
+        (the reference assembly the source compiles against, and the analyzers), of
+        the version in `global.json`, from the same ffx-atel-sharp build as the source;
+        the package is in `.atel/packages/`, which `nuget.config` names (MIT, our
+        code, not game data; committed so the solution opens and builds after a
+        clone). Exported with `--no-sdk`, `.atel/Ffx.Atel.Game.dll` is the reference
+        assembly instead.
 
         ## Working with it
 

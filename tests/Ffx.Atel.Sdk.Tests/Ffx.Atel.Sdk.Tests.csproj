@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- Packs Ffx.Atel.Sdk and builds the example mod with it, as a modder would (needs the game). -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- The test packs the SDK in the configuration it was built in. -->
+        <AssemblyMetadata Include="Configuration" Value="$(Configuration)" />
+    </ItemGroup>
+</Project>

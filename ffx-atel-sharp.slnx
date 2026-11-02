@@ -17,5 +17,6 @@
     <Project Path="tests/Ffx.Atel.Compiler.Tests/Ffx.Atel.Compiler.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Linker.Tests/Ffx.Atel.Linker.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Loader.Tests/Ffx.Atel.Loader.Tests.csproj" />
+    <Project Path="tests/Ffx.Atel.Sdk.Tests/Ffx.Atel.Sdk.Tests.csproj" />
   </Folder>
 </Solution>

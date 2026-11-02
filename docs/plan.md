@@ -740,8 +740,9 @@ how `atel compile` reads it:
   `Ffx.Atel.Game`: `$(AtelGameAssembly)`, by default the copy `atel
   decompile` puts in `.atel/Ffx.Atel.Game.dll` (with its XML docs), or,
   with `-p:AtelGameProject=<path to Ffx.Atel.Game.csproj>`, a project
-  reference to a checkout of this repo. Phase 8 replaces both with the SDK
-  package. The compiler ignores `obj/` and `bin/` in a script's folder.
+  reference to a checkout of this repo. Since Phase 8 the projects use the
+  SDK package instead (`--no-sdk` keeps this way; [sdk.md](sdk.md)). The
+  compiler ignores `obj/` and `bin/` in a script's folder.
 - **Library base classes** for duplicated workers ("Shared behaviour"):
   a worker whose type and body text equal another's, anywhere in the
   corpus, becomes `public sealed class W03 : Shared0001 { }` (with
@@ -792,7 +793,7 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
 | `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-mod`, `atel link`, `atel roundtrip` |
-| `Ffx.Atel.Sdk` | NuGet package: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package |
+| `Ffx.Atel.Sdk` | NuGet package, an MSBuild project SDK: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package ([sdk.md](sdk.md)) |
 
 ## Compiler output
 
@@ -1001,6 +1002,24 @@ count, names placed.
    language server of our own. Analyzers done 2026-11-02
    ([analyzers.md](analyzers.md)): 21 rules, run by `atel compile --check`;
    on the vanilla source no errors, ATL0001 136 times.
+   SDK done 2026-11-02 ([sdk.md](sdk.md)): `Ffx.Atel.Sdk` is an MSBuild
+   project SDK (`<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`) holding
+   `Ffx.Atel.Game` with its docs, the analyzers and code fixes, Atel's
+   settings and the `atel` CLI (framework-dependent, 4.4 MB packed). In a mod
+   project, `dotnet build` adds the vanilla source of the scripts the mod's
+   namespaces name (`AtelVanillaSource`) to the C# compilation, as generated
+   code, so the analyzers see only the mod. It then runs `atel compile-mod`
+   (needs `FFX_GAME_DIR`) and writes `bin/…/mods/<id>/`: the manifest
+   (depending on `yuta.atel`), `mod.toml` and `atel/<archive path>.json`. The
+   DLL holds vanilla code and is not copied. `atel decompile -o` writes
+   SDK projects (`global.json` pins the version; the package goes to
+   `.atel/packages/` with a `nuget.config` when found or given with `--sdk`),
+   `--no-sdk` the old `.atel/Ffx.Atel.Game.dll` reference. Example:
+   `examples/LarvaHp`; `tests/Ffx.Atel.Sdk.Tests` packs the SDK, decompiles
+   m209, builds the vanilla project and the example, and gets the same
+   package as `atel compile-mod`. CI packs it on all three OSes; it is not
+   published anywhere yet. Open: the editor extension for message text,
+   publishing the package, a `dotnet new` template.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report.

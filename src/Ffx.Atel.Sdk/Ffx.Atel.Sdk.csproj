@@ -1,8 +1,62 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- The NuGet package mod projects use: reference assembly, analyzers, MSBuild targets (Phase 8). -->
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- Ffx.Atel.Sdk, an MSBuild project SDK (docs/sdk.md): <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">.
+         The package holds no assembly of its own:
+           Sdk/Sdk.props, Sdk/Sdk.targets     what a project using the SDK imports
+           reference/Ffx.Atel.Game.dll, .xml  the game's API
+           analyzers/dotnet/cs/               the analyzers and code fixes
+           tools/atel/                        the atel CLI (framework-dependent, net10.0), which the
+                                              targets run for compile-mod; usable by hand too
+         It is only packed here (dotnet pack), not published anywhere. -->
     <PropertyGroup>
         <Description>Build Atel mods with dotnet build: the game's reference assembly, the analyzers and the targets that write the mod package.</Description>
+        <PackageType>MSBuildSdk</PackageType>
+        <PackageTags>ffx;atel;fahrenheit;msbuild-sdk</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IsPackable>true</IsPackable>
         <IncludeBuildOutput>false</IncludeBuildOutput>
-        <IsPackable>false</IsPackable>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <!-- NU5100: assemblies outside lib/ are the point here. NU5128: no lib/ or ref/, as an SDK package has none. -->
+        <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);AtelSdkPackageFiles</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
+    <ItemGroup>
+        <None Include="Sdk/Sdk.props;Sdk/Sdk.targets" Pack="true" PackagePath="Sdk/" />
+        <None Include="README.md" Pack="true" PackagePath="/" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Built first; their outputs are packed by AtelSdkPackageFiles. -->
+        <ProjectReference Include="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../Ffx.Atel.Analyzers.CodeFixes/Ffx.Atel.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../Ffx.Atel.Cli/Ffx.Atel.Cli.csproj" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <Target Name="AtelSdkPackageFiles">
+        <PropertyGroup>
+            <_AtelToolStage>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'atel'))</_AtelToolStage>
+        </PropertyGroup>
+        <MSBuild Projects="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+            <Output TaskParameter="TargetOutputs" PropertyName="_AtelGameDll" />
+        </MSBuild>
+        <MSBuild Projects="../Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+            <Output TaskParameter="TargetOutputs" ItemName="_AtelAnalyzerDll" />
+        </MSBuild>
+        <MSBuild Projects="../Ffx.Atel.Analyzers.CodeFixes/Ffx.Atel.Analyzers.CodeFixes.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+            <Output TaskParameter="TargetOutputs" ItemName="_AtelAnalyzerDll" />
+        </MSBuild>
+        <!-- The CLI as `dotnet publish` gives it, framework-dependent: runs on every OS with .NET 10. -->
+        <RemoveDir Directories="$(_AtelToolStage)" />
+        <MSBuild Projects="../Ffx.Atel.Cli/Ffx.Atel.Cli.csproj" Targets="Publish"
+                 Properties="Configuration=$(Configuration);PublishDir=$(_AtelToolStage)" />
+        <ItemGroup>
+            <!-- Without the native launcher (atel, atel.exe) of the OS that packed it: `dotnet atel.dll` runs anywhere. -->
+            <_AtelTool Include="$(_AtelToolStage)**/*" Exclude="$(_AtelToolStage)atel;$(_AtelToolStage)atel.exe" />
+            <TfmSpecificPackageFile Include="$(_AtelGameDll);$([System.IO.Path]::ChangeExtension('$(_AtelGameDll)', '.xml'))" PackagePath="reference/" />
+            <TfmSpecificPackageFile Include="@(_AtelAnalyzerDll)" PackagePath="analyzers/dotnet/cs/" />
+            <TfmSpecificPackageFile Include="@(_AtelTool)" PackagePath="tools/atel/%(RecursiveDir)" />
+        </ItemGroup>
+    </Target>
 </Project>

@@ -43,7 +43,11 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
   `atel export` writes it onto its `generated` branch, merges that into
   `main` (hand edits) and checks with `atel compile-all` that `main` still
   compiles to the game's bytes; see [`docs/source-repo.md`](docs/source-repo.md).
-- The analyzers, linker and SDK are empty so far.
+- The analyzers ([`docs/analyzers.md`](docs/analyzers.md)), the mod linker
+  and the loader's link step ([`docs/formats/mod-package.md`](docs/formats/mod-package.md)).
+- `Ffx.Atel.Sdk`: a mod is a C# project, `<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`,
+  and `dotnet build` writes its Fahrenheit mod folder; see
+  [`docs/sdk.md`](docs/sdk.md) and [`examples/LarvaHp`](examples/LarvaHp).
 
 ## Projects
 
@@ -56,8 +60,8 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that serves the linked scripts |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, compile-all, roundtrip, export; later link |
-| `Ffx.Atel.Sdk` | the NuGet package mod projects build with |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, decompile, compile, compile-all, roundtrip, export, compile-mod, link |
+| `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 
 ## Building
 
@@ -92,6 +96,8 @@ atel disasm m209 -o m209.asm      # first line: "; <archive path>"; keep it
 
 At start the loader writes the rebuilt files to `mods/yuta.atel/efl/x/`
 (it owns that folder) and logs what it built.
+
+To make a mod, see [`docs/sdk.md`](docs/sdk.md).
 
 No game files, extracted scripts or decompiled source go into this
 repository.

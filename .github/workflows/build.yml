@@ -30,3 +30,16 @@ jobs:
 
     - name: Test
       run: dotnet test -c Release --no-build ffx-atel-sharp.slnx
+
+    # The SDK package (docs/sdk.md), packed on every OS a modder may build on. It is not published
+    # anywhere: the repo is private, and where it goes is still to be decided.
+    - name: Pack the SDK
+      run: dotnet pack -c Release src/Ffx.Atel.Sdk -o artifacts/sdk-feed
+
+    - name: No checkout path in the SDK package
+      shell: bash
+      run: |
+        pkg=$(ls artifacts/sdk-feed/Ffx.Atel.Sdk.*.nupkg)
+        if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then
+          echo "the SDK package names the checkout's path"; exit 1
+        fi

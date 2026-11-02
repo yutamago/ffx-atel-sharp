@@ -15,6 +15,11 @@
         <!-- Test assemblies one at a time (dotnet test); the corpus tests also lock against other checkouts. -->
         <RunSettingsFilePath>$(MSBuildThisFileDirectory)test.runsettings</RunSettingsFilePath>
     </PropertyGroup>
+    <PropertyGroup Condition="!$(MSBuildProjectName.EndsWith('.Tests'))">
+        <!-- The SDK package and the copy atel decompile writes carry these assemblies: map the checkout's
+             path, so no PDB path names a user folder. -->
+        <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))=/_/</PathMap>
+    </PropertyGroup>
     <PropertyGroup>
         <!-- Shared package versions. -->
         <RoslynVersion>5.0.0</RoslynVersion>

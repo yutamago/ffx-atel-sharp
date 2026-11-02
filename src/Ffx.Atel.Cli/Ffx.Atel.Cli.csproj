@@ -6,6 +6,8 @@
         <RootNamespace>Ffx.Atel.Cli</RootNamespace>
         <!-- Decompiling and checking scripts in parallel allocates a lot: server GC is 4-5x faster. -->
         <ServerGarbageCollection>true</ServerGarbageCollection>
+        <!-- Roslyn's messages in English only: the SDK package carries this CLI. -->
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
