@@ -144,4 +144,19 @@ public sealed class RequestTests {
         }
         public sealed class W01 : Worker1 { }
         """, "", "CS1998");
+
+    /// <summary>An entry the engine runs may be <c>async void</c> to await requests (the decompiler writes them so).</summary>
+    [Fact]
+    public void AnEngineRunEntryMayBeAsyncVoid() => Verify(Script + """
+        public sealed class W00 : Worker1
+        {
+            [Entry(2)]
+            async void E2() { await W01.E3Async(); }
+        }
+        public sealed class W01 : Worker1
+        {
+            [Entry(3)]
+            public static async Task E3Async() { }
+        }
+        """, "", "CS1998");
 }

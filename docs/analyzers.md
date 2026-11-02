@@ -260,7 +260,10 @@ workers"): 0 is `Main`'s, 7 `Init`'s and the battle system's, 8 unused.
 **`async` method that does not return `Ffx.Atel.Task`** (error). An `async` method is a
 requestable entry, and its return type is the request: `async Task NameAsync()` or
 `async Task<int> NameAsync()` with the reference assembly's `Task`. (`async void`; a .NET `Task`
-is ATL1003.)
+is ATL1003.) The exception is an entry the engine runs rather than another worker
+(`[Entry(n)]` or an `override` of a base class entry): it may be `async void`, so that it can
+`await` requests, since nothing waits on its result. The decompiler writes such entries so
+since Phase 5 (requests as calls).
 
 ### ATL3001
 

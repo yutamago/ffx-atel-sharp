@@ -164,6 +164,9 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
     private static void AsyncMethod(SymbolAnalysisContext c, AtelModel model) {
         IMethodSymbol m = (IMethodSymbol)c.Symbol;
         if (!m.IsAsync || model.IsTask(m.ReturnType)) return;
+        // An entry the engine runs (not requested by name) may be `async void` so it can await requests:
+        // nothing waits on its result.
+        if (m.ReturnsVoid && (m.IsOverride || model.EntryNumbers(m).Any())) return;
         // A .NET Task is reported by name (ATL1003).
         if (!m.ReturnsVoid && AtelModel.IsBaseLibrary(m.ReturnType)) return;
         foreach (Location l in m.Locations) c.ReportDiagnostic(Diagnostic.Create(Rules.AsyncReturn, l, m.Name));

@@ -136,7 +136,7 @@ public static class Rules {
 
     public static readonly DiagnosticDescriptor AsyncReturn = Rule(
         "ATL2007", "async method without Ffx.Atel.Task",
-        "async method '{0}' must return Ffx.Atel.Task or Ffx.Atel.Task<T>, the reference assembly's request types",
+        "async method '{0}' must return Ffx.Atel.Task or Ffx.Atel.Task<T>, the reference assembly's request types (only an entry the engine runs may be async void)",
         RequestCategory, DiagnosticSeverity.Error,
         "An async method is a requestable entry; its return type is the request.");
 
