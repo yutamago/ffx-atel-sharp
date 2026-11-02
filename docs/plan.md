@@ -88,7 +88,7 @@ Everything below is valid C#; what makes it Atel is the reference assembly
 
 This section is the design. What the compiler accepts today, and where it
 differs from the design (function workers stay classes with `Run()`,
-requested entries are static, no helper methods yet), is in
+requested entries are static, entries without parameters yet), is in
 [language.md](language.md); the bytecode each construct compiles to is in
 [encoding.md](encoding.md).
 
@@ -918,7 +918,7 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   `partial class M209 { public static int Turns; }` adds variables (no
   `[Var]`: the linker allocates them in the shared data); `partial class
   W01 { … }` adds to a vanilla worker: a method without an attribute is a
-  new entry, `[Prefix(nameof(Init))]`, `[Postfix(…)]` and `[Replace(…)]`
+  new entry (an `async` one since helpers came, a plain one being a helper), `[Prefix(nameof(Init))]`, `[Postfix(…)]` and `[Replace(…)]`
   patch a vanilla method (`Ffx.Atel.Game/Atel/ModAttributes.cs`); a new
   class deriving from `Worker0` … `Worker6` is a new worker.
   A mod requests its new entries as any entry (`_ = W01.BoostAsync();`);

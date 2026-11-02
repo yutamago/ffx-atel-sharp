@@ -318,7 +318,7 @@ the code's jumps) and places each:
 
 | Slot | Home |
 |---|---|
-| live across a wait (a native that polls, `req*`, `op_39`, `call`, `op_54`, `op_77`-`op_79`) | a hidden variable |
+| live across a wait (a native that polls, `req*`, `op_39`, `call` of a function worker or of a helper that may wait, `op_54`, `op_77`-`op_79`) | a hidden variable |
 | otherwise | an integer register (`i3` down to `i0`) or float register (`f9` down to `f0`) that the worker's code does not name (its `[Register]` fields, any register opcode in the code, the `[Register]` fields of every function worker it calls, all registers in a function worker), and that no slot live at the same time has |
 | otherwise | a hidden variable |
 
@@ -328,6 +328,24 @@ package (`<local>name#n`), which the linker allocates in its new data area; in a
 whole a variable at the end of the variable table, at the end of the shared data (which grows by 4
 bytes each). Registers are per worker and only change while the worker runs, so a value that crosses
 no wait cannot be changed by other code; a hidden variable belongs to one slot of one method.
+
+### Helpers
+
+A helper method is a function worker of its own, numbered after the script's workers (in a mod, a
+new worker of the package after the mod's other new workers; the linker puts function workers last).
+
+| C# | Bytecode |
+|---|---|
+| `H(a, b);` | `a` and `b` evaluated (into temporaries if a later one needs statements), then `p0 = a; p1 = b; call wH` |
+| `x = H(a);` | `p0 = a; call wH; t = result; x = t` |
+| the helper's code | entry 0; `return v;` is `result = v; ret`; `ret` at the end |
+
+Parameters and the result are slots of the helper, placed before its callers' slots: a helper's
+slots avoid the registers named by every worker that calls it (directly or through other helpers) and
+those of its callees; its registers then count as changed by each `call` of it, so a caller's slot
+live across that call takes another register (or hidden storage if the helper may wait). A caller's
+slot live where it writes a parameter avoids that parameter's register. Calls nest at most 3 deep
+from an entry; recursion is an error.
 
 ## Mods
 

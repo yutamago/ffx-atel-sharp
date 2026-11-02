@@ -81,7 +81,7 @@ public sealed class ModTests {
                 Turns = 70000;
             }
 
-            public void Boost()
+            public static async Task BoostAsync()
             {
                 Hp = 1234;
             }
@@ -89,7 +89,7 @@ public sealed class ModTests {
             [Prefix(nameof(Main))]
             void First()
             {
-                Request(1, Link.Worker<Larva>(), Link.Entry<Larva>(nameof(Boost)));
+                Request(1, Link.Worker<Larva>(), Link.Entry<Larva>(nameof(BoostAsync)));
                 Request(1, Link.Worker<Spark>(), 0);
             }
         }
@@ -146,7 +146,7 @@ public sealed class ModTests {
         Assert.Null(p.Variables[0].Offset);
         Assert.Equal(4, p.Variables[0].Storage);
         Assert.Equal(["Spark"], p.Workers.Select(w => w.Name));
-        Assert.Equal([(PatchKind.Postfix, "MoreHp", "Init"), (PatchKind.Entry, "Boost", null), (PatchKind.Prefix, "First", "Main")],
+        Assert.Equal([(PatchKind.Postfix, "MoreHp", "Init"), (PatchKind.Entry, "BoostAsync", null), (PatchKind.Prefix, "First", "Main")],
             p.Patches.Select(x => (x.Kind, x.Name, x.Target)));
         // Attached to Larva (0), with Init and Main, using Fn (1) and Hp (0).
         Assert.Equal([0, 1], p.Vanilla.Workers.Select(w => w.Index));
@@ -235,7 +235,7 @@ public sealed class ModTests {
 
     [Fact]
     public void AModCannotGiveAnEntryNumber() {
-        string bad = Mod.Replace("public void Boost()", "[Entry(5)] public void Boost()", StringComparison.Ordinal);
+        string bad = Mod.Replace("public static async Task BoostAsync()", "[Entry(5)] public static async Task BoostAsync()", StringComparison.Ordinal);
         CompileException ex = Assert.Throws<CompileException>(() =>
             ScriptCompiler.CompileMod([ScriptCompiler.Parse(Vanilla, "M997.cs")], [ScriptCompiler.Parse(bad, "Larva.cs")]));
         Assert.Contains("[Replace(nameof", ex.Message, StringComparison.Ordinal);

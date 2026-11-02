@@ -69,6 +69,9 @@ internal sealed class SlotContext {
     /// <summary>Whether a <c>call</c> of the worker may wait.</summary>
     public required Func<int, bool> CallWaits { get; init; }
 
+    /// <summary>The registers a <c>call</c> of the worker may change: no slot live across that call takes one.</summary>
+    public Func<int, RegisterSet> CallClobbers { get; init; } = _ => RegisterSet.All;
+
     /// <summary>Makes a hidden variable for a slot and returns its index in the variable table.</summary>
     public required Func<Slot, int> Hide { get; init; }
 
@@ -178,6 +181,22 @@ internal static class SlotAllocator {
         foreach (Slot a in ctx.Parameters) {
             foreach (Slot b in ctx.Parameters) interferes[index[a], index[b]] = true;
         }
+        // Registers others change while a slot is live: a call's (the callee's code), and a placed slot's
+        // that this code writes (a helper's parameter, before the call).
+        RegisterSet[] blocked = new RegisterSet[k];
+        for (int i = 0; i < n; i++) {
+            if (items[i].Kind != FlowItemKind.Instruction) continue;
+            CodeOp op = items[i].Op;
+            RegisterSet changed = op switch {
+                { Code: Opcodes.Call, Operand: ushort w } => ctx.CallClobbers(w),
+                { Code: Opcodes.PopV, Symbol: Slot { Home: RegExpr r } } => RegisterSet.None.With(r),
+                _ => RegisterSet.None,
+            };
+            if (changed.Bits == 0) continue;
+            for (int b = 0; b < k; b++) {
+                if ((liveOut[i][b / 64] >> (b % 64) & 1) != 0) blocked[b] |= changed;
+            }
+        }
 
         RegisterSet given = RegisterSet.None;
         RegisterSet forbidden = ctx.Forbidden | named;
@@ -187,7 +206,7 @@ internal static class SlotAllocator {
                 RegKind kind = s.Float ? RegKind.Float : RegKind.Int;
                 // From the highest down: the original kept arguments and loop counters in the low ones.
                 for (int r = (s.Float ? 9 : 3); r >= 0 && s.Home is null; r--) {
-                    if (forbidden.Contains(kind, r)) continue;
+                    if (forbidden.Contains(kind, r) || blocked[b].Contains(kind, r)) continue;
                     bool taken = false;
                     for (int o = 0; o < b && !taken; o++) {
                         taken = interferes[b, o] && slots[o].Home is RegExpr { } h && h.Kind == kind && h.Number == r;

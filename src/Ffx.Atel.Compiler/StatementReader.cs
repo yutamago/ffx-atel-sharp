@@ -118,6 +118,8 @@ internal sealed partial class StatementReader(
                 return CallStatement(call);
             case ReturnStatementSyntax { Expression: null }:
                 return new OpStmt(functionWorker ? Opcodes.Ret : Opcodes.End);
+            case ReturnStatementSyntax r:
+                return ReturnValue(r);
             case GotoStatementSyntax g when g.IsKind(SyntaxKind.GotoStatement):
                 return new GotoStmt(Label(g.Expression!));
             case GotoStatementSyntax g when g.IsKind(SyntaxKind.GotoCaseStatement):
@@ -281,6 +283,7 @@ internal sealed partial class StatementReader(
         if (DebugCalls.MethodOf(call) is string debugMethod) {
             return DebugCalls.Read(call, debugMethod, ReadExpr) ?? throw Error(call, $"Debug.{debugMethod} cannot be left out here; make it a statement of its own");
         }
+        if (HelperOf(call) is Helper helper) return HelperStatement(helper, call);
         List<ArgumentSyntax> args = [.. call.ArgumentList.Arguments];
         switch (call.Expression) {
             case IdentifierNameSyntax { Identifier.ValueText: "Request" or "RequestWaitStart" or "RequestWaitEnd" } id: {
@@ -413,6 +416,8 @@ internal sealed partial class StatementReader(
                 return ReadExpr(index.Expression);
             case ElementAccessExpressionSyntax el:
                 return Element(el);
+            case InvocationExpressionSyntax helperCall when HelperOf(helperCall) is Helper helper:
+                return HelperValue(helper, helperCall);
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Pooled" }, ArgumentList.Arguments: [ArgumentSyntax index, ArgumentSyntax value] }: {
                 if (ReadExpr(index.Expression) is not IntLit { Value: >= 0 and <= 0xffff } k) throw Error(index, "the pool index is a constant 0-65535");
                 return ReadExpr(value.Expression) switch {

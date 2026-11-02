@@ -109,8 +109,8 @@ partial class W01
 - `partial class W01` adds to the vanilla worker `W01`. A mod does not repeat its attributes or base
   class.
 - `[Postfix(nameof(Init))]` runs the method after the vanilla `Init`, wherever `Init` ends the
-  entry. `[Prefix(…)]` runs before it, `[Replace(…)]` instead of it; a method without an attribute
-  would be a new entry ([language.md](language.md#mods)).
+  entry. `[Prefix(…)]` runs before it, `[Replace(…)]` instead of it; an `async` method without an
+  attribute would be a new entry, a plain one a helper ([language.md](language.md#mods)).
 - The `using static` line is what every decompiled file has: it makes the script's variables
   visible. This mod uses none, but keep it.
 

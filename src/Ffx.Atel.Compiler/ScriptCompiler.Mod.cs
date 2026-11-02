@@ -95,14 +95,17 @@ public static partial class ScriptCompiler {
         // ----- The mod's declarations ------------------------------------------------------------
         ScriptPackage package = new() { Script = vanilla.Name };
         Dictionary<string, List<ClassDeclarationSyntax>> modParts = new(StringComparer.Ordinal);
+        List<ClassDeclarationSyntax> mainModParts = [];
         List<(string Name, List<ClassDeclarationSyntax> Parts)> newWorkers = [];
         foreach (ClassDeclarationSyntax c in modTrees.SelectMany(t => t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())) {
             string n = c.Identifier.ValueText;
             if (c.Parent is ClassDeclarationSyntax) throw CompileException.At(c.Identifier.GetLocation(), "a nested class");
             if (n == mainName) {
                 if (Attributes(c).FirstOrDefault() is AttributeSyntax a) throw CompileException.At(a, "a mod does not change the script class's attributes");
+                mainModParts.Add(c);
                 foreach (MemberDeclarationSyntax member in c.Members) {
-                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables only");
+                    if (member is MethodDeclarationSyntax m && IsHelper(m, functionWorker: false)) continue;
+                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables and helper methods");
                     string fieldName = field.Declaration.Variables[0].Identifier.ValueText;
                     if (variables.ContainsKey(fieldName)) throw CompileException.At(field, $"{fieldName} is already a variable");
                     VarEntry entry = Variable(field, allocated: true);
@@ -135,11 +138,28 @@ public static partial class ScriptCompiler {
 
         // The patches and new entries on vanilla workers, numbered before any code is read, so that
         // Link.Entry can name a new entry anywhere in the mod.
+        // Helper methods (plain methods; an `async` method is a new entry) become function workers after
+        // the new workers.
+        HelperTable helpers = new(mainName);
+        AddHelpers(helpers, mainName, mainModParts, functionWorker: false, registers: false);
+        foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
+            List<ClassDeclarationSyntax> all = [.. vanillaParts[worker], .. parts];
+            foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
+                if (IsHelper(m, functionWorker: false)) helpers.Add(new Helper(worker, m, all));
+            }
+        }
+        foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
+            (List<ClassDeclarationSyntax> all, ushort type) = WorkerParts(parts, library);
+            AddHelpers(helpers, name, all, type == 0);
+        }
+        for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = vanillaWorkers.Count + newWorkers.Count + k;
+
         List<(string Worker, MethodDeclarationSyntax Method, EntryPatch Patch)> patches = [];
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
+                if (helpers.Contains(method)) continue;
                 if (method.Body is null) throw CompileException.At(method, "an entry has a block body");
                 PatchKind kind = PatchKind.Entry;
                 string? target = null;
@@ -215,31 +235,19 @@ public static partial class ScriptCompiler {
         RegisterSet[] vanillaReach = Reach([.. vanillaWorkers.Select((name, w) => (
             RegisterSet.Of(Registers(vanillaParts[name]).Values),
             CallsIn(v.Workers[w].Code)))]);
-        RegisterSet CalleeRegisters(IEnumerable<int> calls) =>
-            calls.Aggregate(RegisterSet.None, (s, c) => s | (c < vanillaReach.Length ? vanillaReach[c] : RegisterSet.All));
 
-        // ----- New workers ---------------------------------------------------------------------
-        foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
-            CompiledWorker cw = Worker(parts, library, variables, workers, entryMethods, Links, debug);
-            WorkerImage wi = cw.Image;
-            PlaceSlots(cw.Emitter, cw.Declared | CalleeRegisters(CallsIn(cw.Emitter.Items)), Hide);
-            List<WorkerItem> items = ItemsOf(cw.Emitter);
-            if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
-            (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
-            if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
-            uint[] table = new uint[entries.Keys.Max() + 1];
-            for (int e = 0; e < table.Length; e++) {
-                table[e] = entries.TryGetValue(e, out uint at) ? at : throw CompileException.At(parts[0].Identifier.GetLocation(), $"{name} has no entry {e}");
-            }
-            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table });
+        // ----- The code: read and lowered first, its locals placed once the helpers' are -----------
+        List<CompiledWorker> compiledNew = [];
+        for (int i = 0; i < newWorkers.Count; i++) {
+            (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
+            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers));
         }
-
-        // ----- Methods on vanilla workers ------------------------------------------------------
+        List<FlowEmitter> patchCode = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
             int number = workers[worker];
             bool function = v.Workers[number].Type == 0;
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
-                EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug,
+                EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName,
             };
             FlowEmitter emitter = new() { TagOf = reader.LocationOf };
             try {
@@ -253,8 +261,55 @@ public static partial class ScriptCompiler {
             catch (FlowException ex) {
                 throw CompileException.At(ex.Tag as Location ?? method.Identifier.GetLocation(), ex.Message);
             }
-            RegisterSet own = RegisterSet.Of(Registers([.. vanillaParts[worker], .. modParts[worker]]).Values);
-            PlaceSlots(emitter, own | vanillaReach[number] | CalleeRegisters(CallsIn(emitter.Items)) | (function ? RegisterSet.All : RegisterSet.None), Hide);
+            foreach (Helper h in reader.Called) h.CalledBy.Add(number);
+            patchCode.Add(emitter);
+        }
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workers, entryMethods, Links, RequestTargets, debug);
+
+        // The registers a worker's code may change: for a vanilla worker its [Register] fields (the mod's
+        // too) and those of the function workers it calls; all in a function worker (its callers' are not known).
+        RegisterSet WorkerRegisters(int w) {
+            if (w < vanillaWorkers.Count) {
+                string name = vanillaWorkers[w];
+                RegisterSet mod = modParts.TryGetValue(name, out List<ClassDeclarationSyntax>? parts) ? RegisterSet.Of(Registers([.. vanillaParts[name], .. parts]).Values) : RegisterSet.None;
+                return vanillaReach[w] | mod | (v.Workers[w].Type == 0 ? RegisterSet.All : RegisterSet.None);
+            }
+            int i = w - vanillaWorkers.Count;
+            return i < compiledNew.Count ? compiledNew[i].Declared | (compiledNew[i].Image.Type == 0 ? RegisterSet.All : RegisterSet.None) : RegisterSet.All;
+        }
+        PlaceHelpers(helpers, WorkerRegisters, Hide);
+        bool CallWaits(int w) => helpers.ByWorker(w)?.Waits ?? true;
+        RegisterSet CallClobbers(int w) => helpers.ByWorker(w)?.Total ?? (w < vanillaReach.Length ? vanillaReach[w] : RegisterSet.All);
+
+        // ----- New workers ---------------------------------------------------------------------
+        for (int i = 0; i < newWorkers.Count; i++) {
+            (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
+            CompiledWorker cw = compiledNew[i];
+            WorkerImage wi = cw.Image;
+            PlaceSlots(cw.Emitter, WorkerRegisters(vanillaWorkers.Count + i), Hide, CallWaits, callClobbers: CallClobbers);
+            List<WorkerItem> items = ItemsOf(cw.Emitter);
+            if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
+            (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
+            if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
+            uint[] table = new uint[entries.Keys.Max() + 1];
+            for (int e = 0; e < table.Length; e++) {
+                table[e] = entries.TryGetValue(e, out uint at) ? at : throw CompileException.At(parts[0].Identifier.GetLocation(), $"{name} has no entry {e}");
+            }
+            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table });
+        }
+
+        // ----- Helpers ---------------------------------------------------------------------------
+        foreach (Helper h in helpers.All) {
+            (Fragment code, Dictionary<int, uint> entries) = fragments.Build(ItemsOf(h.Emitter!), h.Method.Identifier.GetLocation());
+            package.Workers.Add(new NewWorker { Name = $"<helper>{h.Name}", Type = 0, Code = code, Entries = [entries[0]] });
+        }
+
+        // ----- Methods on vanilla workers ------------------------------------------------------
+        for (int k = 0; k < patches.Count; k++) {
+            (string worker, MethodDeclarationSyntax method, EntryPatch patch) = patches[k];
+            FlowEmitter emitter = patchCode[k];
+            int number = workers[worker];
+            PlaceSlots(emitter, WorkerRegisters(number), Hide, CallWaits, callClobbers: CallClobbers);
             (patch.Code, Dictionary<int, uint> stray) = fragments.Build(ItemsOf(emitter), method.Identifier.GetLocation());
             if (stray.Count > 0) throw CompileException.At(method.Identifier.GetLocation(), "Entry(n) inside a mod's method");
             fragments.Workers.Add(number);
