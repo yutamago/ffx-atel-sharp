@@ -12,5 +12,7 @@
     <ItemGroup>
         <!-- Hand-written names for workers, entries and variables (docs/source-repo.md, "Names"). -->
         <EmbeddedResource Include="../../data/names/**/*.toml" LogicalName="names/%(RecursiveDir)%(Filename)%(Extension)" />
+        <!-- Hand-written English names (docs/plan.md, Decisions 2026-11-02). -->
+        <EmbeddedResource Include="../../data/actor-names.json" LogicalName="actor-names.json" />
     </ItemGroup>
 </Project>

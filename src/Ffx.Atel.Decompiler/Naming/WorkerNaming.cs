@@ -9,8 +9,9 @@ namespace Ffx.Atel.Decompiler.Naming;
 /// <summary>
 ///     Names for workers where the bytes say what they are: a worker that loads exactly one model
 ///     (<c>Common.SetModel</c>, native <c>0x0001</c>, with a constant) is named after that model's member of
-///     <see cref="Ffx.Model"/> (the PS2 headers' <c>chr_</c> names): <c>Tidu</c>, <c>Takarabox002</c>. Several
-///     workers with the same model get their number (<c>Tidu_03</c>, <c>Tidu_07</c>); a model without a
+///     <see cref="Ffx.Model"/> (the PS2 headers' <c>chr_</c> names): <c>Takarabox002</c>, or the English name of
+///     an actor whose character is known (<see cref="ActorNames"/>: <c>Tidu</c> → <c>Tidus</c>). Several
+///     workers with the same model get their number (<c>Tidus_03</c>, <c>Tidus_07</c>); a model without a
 ///     <c>chr_</c> name (only its file code, <c>W101</c>) names nothing; all others keep
 ///     <c>W03</c>. Function workers keep theirs too.
 /// </summary>
@@ -60,6 +61,8 @@ internal static class WorkerNaming {
             if (unknown || loaded.Count != 1) continue;
             string? member = models.Member(loaded.First());
             string? name = member?[(member.IndexOf('.', StringComparison.Ordinal) + 1)..];
+            // An actor whose character is known gets its English name (Tidu → Tidus); the Model member keeps the code.
+            if (name is not null && ActorNames.Value.TryGetValue(name, out string? english)) name = english;
             // Only the headers' chr_ names: a file code (W101, C001) reads like a default name.
             if (name is not null && !(name.Length > 1 && char.IsAsciiLetterUpper(name[0]) && name[1..].All(char.IsAsciiDigit))) baseNames[w] = name;
         }
@@ -74,6 +77,19 @@ internal static class WorkerNaming {
         }
         return names;
     }
+
+    /// <summary>
+    ///     English names of actor models by <see cref="Ffx.Model"/> member (<c>data/actor-names.json</c>,
+    ///     hand-written: only models whose character is certain).
+    /// </summary>
+    internal static readonly Lazy<Dictionary<string, string>> ActorNames = new(() => {
+        using Stream stream = typeof(WorkerNaming).Assembly.GetManifestResourceStream("actor-names.json")
+                              ?? throw new InvalidOperationException("actor-names.json is not embedded");
+        using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(stream);
+        Dictionary<string, string> names = new(StringComparer.Ordinal);
+        foreach (System.Text.Json.JsonProperty p in doc.RootElement.GetProperty("actors").EnumerateObject()) names[p.Name] = p.Value.GetProperty("name").GetString()!;
+        return names;
+    });
 
     /// <summary>Names a worker class must not take: the reference assembly's types and the members of <c>Worker</c>.</summary>
     private static readonly Lazy<HashSet<string>> Reserved = new(() => {

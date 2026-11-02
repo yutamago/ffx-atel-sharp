@@ -664,6 +664,21 @@ replaces and the round trip stays byte for byte.
   embedded in the decompiler, so renames survive every decompile and every
   decompile names the same (`--names <dir>` uses another folder)
   ([source-repo.md](source-repo.md#names)).
+- **English actor names** (decided 2026-11-02): a worker named after an actor
+  model whose character is certain gets the English name instead of the code
+  (`Tidu` → `Tidus`, `Kima_02` → `Kimahri_02`, `GaOoaka218` → `Oaka`,
+  `GaMachen226` → `Maechen`; variants keep their suffix, `TiduH` → `TidusH`);
+  the `Model` enum keeps the codes, as they match the `chr_` files. The table
+  is hand-written, `data/actor-names.json` (59 models, each with its
+  evidence), embedded in the decompiler. Evidence: the party models follow
+  `pc.ath`'s order (Tidus 1 … Seymour 8), and the named NPC models
+  (`0x20d8`-, `chr_ga_gatta216` on) follow the order of the game's own
+  character-name dictionary (`macrodic.dcp` section 6: Gatta, Luzzu, O'aka,
+  O'aka XXIII, Dona, …), which the speakers of those workers' messages
+  confirm (`GaMachen226`'s workers speak as Maechen 112 times). Models whose
+  character is not certain (`Watasi243`, `Deadsummoner244`, `Beruge327`, the
+  `*mob*` and crowd models) keep their code. A mod names a worker by its
+  class, so a mod written against `Tidu` needs `Tidus` now.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
