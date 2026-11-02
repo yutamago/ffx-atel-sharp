@@ -304,6 +304,63 @@ carries only entry, worker and priority. The compiler provides both:
   and attributes that pin layout details (constant-pool order, a
   variable's storage area and offset, unknown header data).
 
+### Phase 2: the source shape
+
+Decided 2026-11-02, when the skeleton round trip went in. Later phases
+replace parts of it; until then it is what `atel decompile` writes and
+`atel compile` reads.
+
+- **One file per script**, `<Namespace as folders>/<Class>.cs`: namespace
+  `Events.<Group>.<Name>`, `Monsters.<Name>` or `Battles.<Name>`, class the
+  file name with its first letter upper case (`Events.Bl.Cn_bltz0000`,
+  `Events.Ka._200thunder_kami0400`: one event folder can hold several
+  scripts, so the namespace ends in the script, not the folder). The
+  folder and one-file-per-worker layout is Phase 6.
+- **The script class** (`public static partial class`; public, or C#
+  warns that the fields are never assigned) carries `[Event("…")]`,
+  `[Monster]` or `[Battle]` with the file name, `[Workers(typeof(W00), …)]`,
+  `[Header(Author = …, Name = …, Word14 = …)]` for the strings and the
+  header words not yet understood, `[Pin("shared", 0x…)]` for layout
+  deviations, `[Patch]` for bytes no rule produces (none in the corpus),
+  and the constant pools in pool order: `[Ints(…)]`, `[Floats(…)]`
+  (`[FloatBits(…)]` when a pool holds a value no float literal gives, a
+  NaN payload; none in the corpus).
+- **Variables** are its static fields `V0`, `V1`, … in table order, typed
+  by the variable's type: `[Var(Storage.Private, 0x0010)] public static int
+  V0;`, arrays sized by their length (`public static byte[] V4 = new
+  byte[6];`), with `Extra = …` (table `+6`) and `Bit24 = true` (location
+  bit 24, set in 4,597 of the 29,103 variables) where they are not 0. The
+  table is one per block, so private (storage 3) variables are declared
+  here too, not in their workers. Initial values stay in the data areas.
+- **Workers** are classes `W00`, `W01`, … in the same namespace; the base
+  class `Worker0` … `Worker6` gives the type (function workers stay
+  classes for now). `[Worker(PrivateLength = 0x10)]` and `[PrivateData]` for
+  the header word and private block.
+- **Entries:** one method per distinct entry offset, in code order, named
+  after its first entry (`E3`), with every entry there:
+  `[Entry(3)][Entry(5)]` (9,780 of 15,010 workers have entries that share
+  code). The entry table is in code order in every shipped script, but
+  `[Entry(n)]` is always written in Phase 2. Methods are laid out in
+  declaration order, so code that does not end in a jump runs on into the
+  next method, as in the original. The body is `Asm("""…""")` in the
+  syntax of `atel disasm`, labels `lN:` numbered per worker, with each
+  native's C# name as a comment.
+- **Data areas** (map entrances, shared, other, event, area, private) as
+  attributes with a length and hex lines (`HexText`): `offset: bytes` in
+  groups of four, zero lines and trailing zeros left out. In a second part
+  of the script class at the end of the file, so the declarations come
+  first.
+- **Text, not `SyntaxFactory`**: the decompiler writes the source as text;
+  the shape is fixed and raw strings come out as they read. The compiler
+  reads declarations from Roslyn's syntax trees, and checks the source as
+  C# with a `CSharpCompilation` against `Ffx.Atel.Game`
+  (`atel compile --check`, `atel roundtrip --check`).
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte; 649.5 MB
+  of source, of which 7.1 MB data hex and about 605 MB `Asm` lines (21.3
+  million instructions; 256 MB of that is indentation); 0 C# errors and
+  0 warnings; the whole corpus decompiles, checks and compiles in about
+  30 s.
+
 ## Toolchain
 
 A .NET 10 solution in this repo (Roslyn is MIT):
@@ -343,10 +400,15 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   checks the hashes against the player's files, applies the enabled
   packages in Fahrenheit's load order, assigns every new number (entries,
   workers, variable offsets, message indices) and gives the game the
-  linked files in place of the vanilla ones (in memory, or through a
-  generated folder, whichever Fahrenheit's file loading supports). Vanilla
-  files are never edited; disabling a mod is a relink without it. An Atel
-  mod is a Fahrenheit mod that carries packages and depends on the loader.
+  linked files in place of the vanilla ones. Vanilla files are never
+  edited; disabling a mod is a relink without it. An Atel mod is a
+  Fahrenheit mod that carries packages and depends on the loader.
+- Serving (decided 2026-11-02, Phase 2, `docs/research/loader.md`): a
+  generated folder. The loader links in its module constructor and writes
+  the linked files to its own `efl/x/<archive path>`; Fahrenheit's file
+  loader indexes every mod's `efl` folder in its `init`, which runs after
+  all constructors, and serves them. The loader owns `efl/x` and empties it
+  on each start. Checked in game with an event and a monster script.
 - Patches on entries, after Harmony and Mixins: `[Prefix(nameof(OnTalk))]`,
   `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry, `[Replace(…)]`;
   ordering with `[Before("mod")]` / `[After("mod")]`.
@@ -362,16 +424,27 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   can be redirected through the ctrl work's `+0x54` callback, which nothing
   uses, so the loader might give each mod its own saved variables in a side
   file. Needs research.
-- File sizes: the game sizes files from its own tables (`CDfileSize_CD`
-  `0x0076c320` from `cdrom.mdg`, `CDfileSize_PC` `0x00a428a0` from
-  `sizetbl.bin`). `CDfileSize_CD_EX` `0x0076c410` reads
-  `sizetbl.vita.bin`; on PC `CDfileSize_PC` asks it only for modules `0xe`,
-  `0x10`, `0x1a`, `0x1c`-`0x22`, `0x28`, `0x29`, and otherwise takes the
-  file's real size ([corpus.md](corpus.md#cdfilesize_cd_ex-on-pc)). A linked
-  script that grows needs its new size reported. `ffx-rust`'s hook solved
-  this by wrapping the two functions (`crates/ffx-hook/src/mods.rs`); find
-  out what Fahrenheit's file replacement already does, and add the same in
-  the loader if it doesn't.
+- File sizes (answered 2026-11-02, `docs/research/loader.md`): on PC the
+  PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
+  Fahrenheit hooks so that it reads the replacement's real size from disk.
+  A grown event (`kami0000`, +3,776 bytes) and a grown monster (`m209`,
+  +576 bytes) loaded whole in game with Fahrenheit alone, so the loader
+  adds no size hook. `CDfileSize_CD` (`0x0076c320`, not hooked by
+  Fahrenheit) is reached only in HDD and CD/DVD modes and, on PC, for
+  every `Cd_QueueRead` while an Eternal Calm map (393-399) is the graphic
+  map. A grown file read there would be cut; a hook like ffx-rust's would
+  fix it if a mod ever needs those maps. `CDfileSize_CD_EX` (`0x0076c410`, reads
+  `sizetbl.vita.bin`) is only called from `CDfileSize_PC`, for modules
+  `0xe`, `0x10`, `0x1a`, `0x1c`-`0x22`, `0x28`, `0x29`, on the path Fahrenheit
+  skips ([corpus.md](corpus.md#cdfilesize_cd_ex-on-pc)).
+  Decision (user, 2026-11-02): the loader hooks `CDfileSize_CD` too, so a
+  grown file reports its real size there as well (maps 393-399 only play a
+  few specific cutscenes, but it can't hurt).
+- Layout of grown code: the assembler moves a worker that outgrows its
+  range to the end of the block and leaves the old copy (one added
+  instruction in `kami0000` cost 3.7 KB). The compiler lays a changed
+  script out afresh from its image instead (`ScriptImage.Write`), so only
+  the real growth remains.
 
 ## Phases
 
@@ -402,7 +475,8 @@ count, names placed.
    with the cross-check against `ffx-script`, `atel decompile` and `atel
    compile`. Declarations plus every entry as `Asm("""…""")`; every script
    round-trips. Plus a first loader mod: one recompiled script served to the
-   game, then one with a visible change, checked in game.
+   game, then one with a visible change, checked in game (done 2026-11-02
+   with reassembled disassembly, `scripts/*.asm`; `docs/research/loader.md`).
 3. **Expressions and statements** (1 week). Stack code to expressions and
    calls, registers to locals and `[Register]` fields.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label

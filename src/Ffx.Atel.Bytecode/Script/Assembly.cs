@@ -83,13 +83,6 @@ public static class Assembly {
         };
     }
 
-    private sealed class Assembled(int entries, int labels) {
-        public bool Seen;
-        public readonly List<byte> Code = [];
-        public readonly uint?[] Entries = new uint?[entries];
-        public readonly uint?[] Labels = new uint?[labels];
-    }
-
     private static long? ParseNumber(string s) {
         bool negative = s.StartsWith('-');
         if (negative) s = s[1..];
@@ -115,68 +108,74 @@ public static class Assembly {
         };
     }
 
+    /// <summary>
+    ///     Parses one line of assembly: null for a blank or comment-only line, else a <c>worker N</c>
+    ///     line, an <c>eN:</c> or <c>lN:</c> definition or an instruction.
+    /// </summary>
+    /// <exception cref="AssemblyException">Unknown mnemonics, definitions or operands.</exception>
+    public static AsmLine? ParseLine(string line, int lineNo) {
+        int semicolon = line.IndexOf(';');
+        if (semicolon >= 0) line = line[..semicolon];
+        line = line.Trim();
+        if (line.Length == 0) return null;
+        string[] words = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        string first = words[0];
+        if (first == "worker") {
+            if (words.Length < 2 || !int.TryParse(words[1], NumberStyles.None, CultureInfo.InvariantCulture, out int w)) {
+                throw new AssemblyException(lineNo, "expected a worker number");
+            }
+            return new AsmLine(AsmLineKind.Worker, w, default);
+        }
+        if (first.EndsWith(':')) {
+            string name = first[..^1];
+            AsmLineKind kind = name.StartsWith('e') ? AsmLineKind.Entry
+                : name.StartsWith('l') ? AsmLineKind.Label
+                : throw new AssemblyException(lineNo, $"unknown definition {first}");
+            if (!int.TryParse(name.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out int i)) {
+                throw new AssemblyException(lineNo, $"unknown definition {first}");
+            }
+            if (words.Length > 1) throw new AssemblyException(lineNo, $"unexpected {words[1]}");
+            return new AsmLine(kind, i, default);
+        }
+        Opcode op = Opcodes.ByName(first) ?? throw new AssemblyException(lineNo, $"unknown instruction {first}");
+        ushort? operand = null;
+        if (words.Length > 1) {
+            operand = ParseOperand(words[1]) ?? throw new AssemblyException(lineNo, $"bad operand {words[1]}");
+        }
+        if (words.Length > 2) throw new AssemblyException(lineNo, $"unexpected {words[2]}");
+        return new AsmLine(AsmLineKind.Instruction, 0, new Instr(0, op.Code, operand));
+    }
+
     /// <summary>Assembles text onto the original script.</summary>
     /// <exception cref="AssemblyException">Unknown mnemonics or operands; missing or repeated workers, entries and labels.</exception>
     public static ScriptBlock Assemble(ScriptBlock original, string text) {
         IReadOnlyList<Worker> workers = original.Workers;
-        Assembled[] output = workers.Select(w => new Assembled(w.Entries.Length, w.Labels.Length)).ToArray();
-        int? current = null;
+        WorkerAssembler?[] output = new WorkerAssembler?[workers.Count];
+        WorkerAssembler? current = null;
         string[] lines = text.Split('\n');
         for (int n = 0; n < lines.Length; n++) {
             int lineNo = n + 1;
-            string line = lines[n];
-            int semicolon = line.IndexOf(';');
-            if (semicolon >= 0) line = line[..semicolon];
-            line = line.Trim();
-            if (line.Length == 0) continue;
-            string[] words = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            string first = words[0];
-            if (first == "worker") {
-                if (words.Length < 2 || !int.TryParse(words[1], NumberStyles.None, CultureInfo.InvariantCulture, out int w) || w >= output.Length) {
-                    throw new AssemblyException(lineNo, $"expected a worker number below {output.Length}");
-                }
-                if (output[w].Seen) throw new AssemblyException(lineNo, $"worker {w} appears twice");
-                output[w].Seen = true;
-                current = w;
+            if (ParseLine(lines[n], lineNo) is not AsmLine line) continue;
+            if (line.Kind == AsmLineKind.Worker) {
+                int w = line.Number;
+                if (w >= output.Length) throw new AssemblyException(lineNo, $"expected a worker number below {output.Length}");
+                if (output[w] is not null) throw new AssemblyException(lineNo, $"worker {w} appears twice");
+                current = output[w] = new WorkerAssembler(workers[w].Entries.Length, workers[w].Labels.Length) { Name = $"worker {w}" };
                 continue;
             }
-            if (current is not int cw) throw new AssemblyException(lineNo, "code before the first `worker` line");
-            Assembled a = output[cw];
-            uint here = (uint)a.Code.Count;
-            if (first.EndsWith(':')) {
-                string name = first[..^1];
-                (uint?[] table, string kind) = name.StartsWith('e') ? (a.Entries, "entry")
-                    : name.StartsWith('l') ? (a.Labels, "label")
-                    : throw new AssemblyException(lineNo, $"unknown definition {first}");
-                if (!int.TryParse(name.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out int i) || i >= table.Length) {
-                    throw new AssemblyException(lineNo, $"worker {cw} has no {kind} {name[1..]}");
-                }
-                if (table[i] is not null) throw new AssemblyException(lineNo, $"{kind} {i} placed twice");
-                table[i] = here;
-                continue;
-            }
-            Opcode op = Opcodes.ByName(first) ?? throw new AssemblyException(lineNo, $"unknown instruction {first}");
-            ushort? operand = null;
-            if (words.Length > 1) {
-                operand = ParseOperand(words[1]) ?? throw new AssemblyException(lineNo, $"bad operand {words[1]}");
-            }
-            if (words.Length > 2) throw new AssemblyException(lineNo, $"unexpected {words[2]}");
-            new Instr(here, op.Code, operand).Encode(a.Code);
+            if (current is null) throw new AssemblyException(lineNo, "code before the first `worker` line");
+            current.Add(line, lineNo);
         }
 
         List<byte[]> code = [];
         List<uint[]> entries = [];
         List<uint[]> labels = [];
         for (int w = 0; w < output.Length; w++) {
-            Assembled a = output[w];
-            if (!a.Seen) throw new AssemblyException(0, $"worker {w} is missing");
-            int e = Array.FindIndex(a.Entries, x => x is null);
-            if (e >= 0) throw new AssemblyException(0, $"worker {w}: entry {e} is not placed");
-            int l = Array.FindIndex(a.Labels, x => x is null);
-            if (l >= 0) throw new AssemblyException(0, $"worker {w}: label {l} is not placed");
-            entries.Add(a.Entries.Select(x => x!.Value).ToArray());
-            labels.Add(a.Labels.Select(x => x!.Value).ToArray());
-            code.Add([.. a.Code]);
+            WorkerAssembler a = output[w] ?? throw new AssemblyException(0, $"worker {w} is missing");
+            AssembledWorker done = a.Finish();
+            code.Add(done.Code);
+            entries.Add(done.Entries);
+            labels.Add(done.Labels);
         }
         try {
             return original.Rebuild(code, entries, labels);
@@ -184,6 +183,84 @@ public static class Assembly {
         catch (ScriptFormatException ex) {
             throw new AssemblyException(0, ex.Message);
         }
+    }
+}
+
+/// <summary>What a line of assembly is.</summary>
+public enum AsmLineKind {
+    /// <summary><c>worker N</c>: the code of worker N follows.</summary>
+    Worker,
+    /// <summary><c>eN:</c>: entry point N is here.</summary>
+    Entry,
+    /// <summary><c>lN:</c>: jump label N is here.</summary>
+    Label,
+    /// <summary>An instruction.</summary>
+    Instruction,
+}
+
+/// <summary>A parsed line of assembly: <see cref="Number"/> for workers, entries and labels, <see cref="Instr"/> for instructions.</summary>
+public readonly record struct AsmLine(AsmLineKind Kind, int Number, Instr Instr);
+
+/// <summary>A worker's assembled code, with entry points and labels as offsets into it.</summary>
+public sealed record AssembledWorker(byte[] Code, uint[] Entries, uint[] Labels);
+
+/// <summary>
+///     Assembles one worker's code: instructions are appended in order, entries and labels placed at
+///     the current offset. With counts given, every entry and label below them must be placed once;
+///     without, the tables are as long as the highest number placed and may have no gaps.
+/// </summary>
+public sealed class WorkerAssembler(int? entries = null, int? labels = null) {
+    private readonly List<byte> _code = [];
+    private readonly Dictionary<int, uint> _entries = [];
+    private readonly Dictionary<int, uint> _labels = [];
+
+    /// <summary>How errors name the worker (<c>worker 3</c>).</summary>
+    public string Name { get; init; } = "worker";
+
+    /// <summary>The offset the next instruction goes to.</summary>
+    public uint Offset => (uint)_code.Count;
+
+    public void PlaceEntry(int number, int lineNo = 0) => Place(_entries, entries, number, "entry", lineNo);
+
+    public void PlaceLabel(int number, int lineNo = 0) => Place(_labels, labels, number, "label", lineNo);
+
+    private void Place(Dictionary<int, uint> table, int? count, int number, string kind, int lineNo) {
+        if (number < 0 || number >= (count ?? 0x10000)) throw new AssemblyException(lineNo, $"{Name} has no {kind} {number}");
+        if (!table.TryAdd(number, Offset)) throw new AssemblyException(lineNo, $"{kind} {number} placed twice");
+    }
+
+    public void Emit(Instr instr) => (instr with { Offset = Offset }).Encode(_code);
+
+    /// <summary>Adds a parsed line; <c>worker</c> lines are not part of one worker's code.</summary>
+    public void Add(AsmLine line, int lineNo) {
+        switch (line.Kind) {
+            case AsmLineKind.Entry: PlaceEntry(line.Number, lineNo); break;
+            case AsmLineKind.Label: PlaceLabel(line.Number, lineNo); break;
+            case AsmLineKind.Instruction: Emit(line.Instr); break;
+            default: throw new AssemblyException(lineNo, $"`worker` inside {Name}");
+        }
+    }
+
+    /// <summary>Assembles text (lines without <c>worker</c>); <paramref name="firstLine"/> numbers its first line in errors.</summary>
+    public void Add(string text, int firstLine = 1) {
+        string[] lines = text.Split('\n');
+        for (int n = 0; n < lines.Length; n++) {
+            if (Assembly.ParseLine(lines[n], firstLine + n) is AsmLine line) Add(line, firstLine + n);
+        }
+    }
+
+    /// <summary>The code and tables.</summary>
+    /// <exception cref="AssemblyException">An entry or label is not placed.</exception>
+    public AssembledWorker Finish() {
+        uint[] Table(Dictionary<int, uint> placed, int? count, string kind) {
+            int n = count ?? (placed.Count == 0 ? 0 : placed.Keys.Max() + 1);
+            uint[] t = new uint[n];
+            for (int i = 0; i < n; i++) {
+                t[i] = placed.TryGetValue(i, out uint at) ? at : throw new AssemblyException(0, $"{Name}: {kind} {i} is not placed");
+            }
+            return t;
+        }
+        return new AssembledWorker([.. _code], Table(_entries, entries, "entry"), Table(_labels, labels, "label"));
     }
 }
 

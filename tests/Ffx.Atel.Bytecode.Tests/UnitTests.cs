@@ -63,4 +63,47 @@ public sealed class UnitTests {
         Assert.True(foo.KindsFromExe);
         Assert.Null(n[0x0013]);
     }
+
+    [Fact]
+    public void HexTextLeavesZerosOutAndReadsBack() {
+        byte[] data = new byte[0x90];
+        data[2] = 0x30;
+        data[0x41] = 0xff;
+        data[0x8f] = 1;
+        string text = HexText.Format(data);
+        Assert.Equal("0000: 000030\n0040: 00ff\n0080: 00000000 00000000 00000000 00000001\n", text);
+        Assert.Equal(data, HexText.Parse(text, data.Length));
+        Assert.Equal(new byte[8], HexText.Parse("", 8));
+        Assert.Throws<FormatException>(() => HexText.Parse("0000: 0102", 1));
+        Assert.Throws<FormatException>(() => HexText.Parse("0000: 012", 4));
+    }
+
+    [Fact]
+    public void AWorkerAssemblesWithoutAnOriginal() {
+        WorkerAssembler asm = new();
+        asm.PlaceEntry(0);
+        asm.Add("""
+            pushimm 1
+        l1:
+            popa_jz l0  ; comment
+        l0:
+            end
+        """);
+        asm.PlaceEntry(1);
+        asm.Add("end");
+        AssembledWorker w = asm.Finish();
+        Assert.Equal([0u, 7u], w.Entries);
+        Assert.Equal([6u, 3u], w.Labels);
+        Assert.Equal(8, w.Code.Length);
+    }
+
+    [Fact]
+    public void AWorkerAssemblerReportsGapsAndRepeats() {
+        WorkerAssembler asm = new();
+        asm.PlaceEntry(1);
+        asm.Add("end");
+        Assert.Throws<AssemblyException>(() => asm.Finish());
+        Assert.Throws<AssemblyException>(() => asm.PlaceEntry(1));
+        Assert.Throws<AssemblyException>(() => asm.Add("worker 1"));
+    }
 }

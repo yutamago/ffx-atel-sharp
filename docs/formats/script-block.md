@@ -94,7 +94,7 @@ ends unless the rule says otherwise.
 
 A region whose pointer is 0 is absent: "other", event data and area in the
 developer maps `sample01`, `sample02`, `test28`, `test33` and `test34`. The
-15 empty monster slots (`m346`–`m360`) have no workers, so nothing points
+15 empty monster slots (`m332` and `m347`–`m360`) have no workers, so nothing points
 at their shared data, but it is there, where rule 8 puts it.
 
 ## The data areas

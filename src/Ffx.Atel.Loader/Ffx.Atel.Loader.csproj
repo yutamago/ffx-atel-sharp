@@ -11,6 +11,7 @@
         <PublishDir>$(ArtifactsPath)/deploy/$(Configuration.ToLowerInvariant())/mods/$(AssemblyName)/</PublishDir>
     </PropertyGroup>
     <ItemGroup>
+        <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
     </ItemGroup>
 </Project>
