@@ -121,7 +121,11 @@ before it commits.
 
 ## Size
 
-The tree is about 405 MB in about 19,300 files; the largest file is
-`bltz0000`'s `W36` at 15.7 MB, far below GitHub's 100 MB limit per file
-(and its 50 MB warning). Git compresses the source well (see the numbers
-below), so Git LFS is not needed.
+The first export (2026-11-02, ffx-atel-sharp `bb8700c`, `generated` and `main`
+at `2fbaf85`): 19,373 files, about 405 MB; the largest is
+`Events/Bl/Cn_bltz0000/W36.cs` at 15.7 MB, far below GitHub's 100 MB limit
+per file (and its 50 MB warning). Packed, the repo is 15.6 MB. Git LFS is
+not needed. On `main`, `atel compile-all .` gave 1,621 / 1,621 scripts
+identical (42 s), and `dotnet build Atel.slnx -m:1
+-p:UseSharedCompilation=false` 0 errors and 0 warnings (7.7 min; build one
+project at a time: the blitzball projects take about 2 GB each).
