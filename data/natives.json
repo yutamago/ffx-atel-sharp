@@ -1452,7 +1452,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "worker",
           "kind": "int"
         }
       ],
@@ -1847,7 +1847,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "partyIndex",
           "kind": "int"
         }
       ],
@@ -2655,7 +2655,7 @@
     {
       "id": "0x0060",
       "class": "Common",
-      "method": "Ret",
+      "method": "WorkerSetFlag200To",
       "symbol": "CT_0060_ret",
       "slots": {
         "start": null,
@@ -3054,7 +3054,7 @@
       },
       "args": [
         {
-          "name": "floatV",
+          "name": "speed",
           "kind": "float"
         }
       ],
@@ -4128,7 +4128,7 @@
       },
       "args": [
         {
-          "name": "floatA",
+          "name": "yaw",
           "kind": "float"
         }
       ],
@@ -5843,7 +5843,7 @@
     {
       "id": "0x00d1",
       "class": "Common",
-      "method": "N00d101D1Ret",
+      "method": "StopMoveAllLevels",
       "symbol": "CT_01D1_ret",
       "slots": {
         "start": null,
@@ -6190,7 +6190,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "sfx",
           "kind": "int"
         }
       ],
@@ -6775,15 +6775,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "float"
         }
       ],
@@ -7051,15 +7051,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "sfx",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "pan",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "volume",
           "kind": "int"
         }
       ],
@@ -7976,11 +7976,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "data",
           "kind": "int"
         }
       ],
@@ -8009,7 +8009,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         }
       ],
@@ -8102,15 +8102,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "x",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "y",
           "kind": "int"
         }
       ],
@@ -8139,15 +8139,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "scaleX",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "scaleY",
           "kind": "float"
         }
       ],
@@ -8315,15 +8315,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "float"
         }
       ],
@@ -8412,19 +8412,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "red",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "blue",
           "kind": "int"
         },
         {
-          "name": "a3",
+          "name": "green",
           "kind": "int"
         }
       ],
@@ -9176,11 +9176,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "dictionary",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "entry",
           "kind": "int"
         }
       ],
@@ -10158,7 +10158,7 @@
     {
       "id": "0x0160",
       "class": "Common",
-      "method": "RetHasKeyItem",
+      "method": "HasKeyItem",
       "symbol": "CT_0160_ret_hasKeyItem",
       "slots": {
         "start": null,
@@ -13324,7 +13324,7 @@
     {
       "id": "0x01d1",
       "class": "Common",
-      "method": "WaitFrames_01d1",
+      "method": "WaitFramesUnlessHddMode",
       "symbol": "Native_WaitFrames_01d1",
       "slots": {
         "start": "0x0085fd20",
@@ -13334,7 +13334,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "frames",
           "kind": "int"
         }
       ],
@@ -14553,7 +14553,7 @@
     {
       "id": "0x01fc",
       "class": "Common",
-      "method": "RetTeachAbilityToPartyMemberSilently",
+      "method": "TeachAbilityToPartyMemberSilently",
       "symbol": "CT_01FC_ret_teachAbilityToPartyMemberSilently",
       "slots": {
         "start": null,
@@ -15182,7 +15182,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "point",
           "kind": "int"
         }
       ],
@@ -15263,7 +15263,7 @@
     {
       "id": "0x0216",
       "class": "Common",
-      "method": "RetTeachAbilityToPartyMemberWithMsg",
+      "method": "TeachAbilityToPartyMemberWithMsg",
       "symbol": "CT_0216_ret_teachAbilityToPartyMemberWithMsg",
       "slots": {
         "start": "0x0085b280",
@@ -16472,7 +16472,7 @@
     {
       "id": "0x0241",
       "class": "Common",
-      "method": "Ret_0241",
+      "method": "SetFieldFlag08",
       "symbol": "CT_0241_ret",
       "slots": {
         "start": null,
@@ -17692,7 +17692,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         }
       ],
@@ -19061,27 +19061,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "light",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "red",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "green",
           "kind": "int"
         },
         {
-          "name": "a3",
+          "name": "blue",
           "kind": "int"
         },
         {
-          "name": "a4",
+          "name": "pitch",
           "kind": "int"
         },
         {
-          "name": "a5",
+          "name": "yaw",
           "kind": "int"
         }
       ],
@@ -20664,7 +20664,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "motion",
           "kind": "int"
         }
       ],
@@ -20889,7 +20889,7 @@
       },
       "args": [
         {
-          "name": "hide01",
+          "name": "hide",
           "kind": "int"
         }
       ],
@@ -24473,7 +24473,7 @@
     {
       "id": "0x507e",
       "class": "Chr",
-      "method": "Ret",
+      "method": "SetAutoTalkOf",
       "symbol": "CT_507E_ret",
       "slots": {
         "start": null,
@@ -27143,7 +27143,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "depth",
           "kind": "float"
         }
       ],
@@ -31787,7 +31787,7 @@
     {
       "id": "0x703b",
       "class": "Btl",
-      "method": "RetSetCommandDisabled",
+      "method": "SetCommandUse",
       "symbol": "CT_703B_ret_setCommandDisabled",
       "slots": {
         "start": null,
@@ -37760,7 +37760,7 @@
     {
       "id": "0x7106",
       "class": "Btl",
-      "method": "RetDoesChrKnowCommand",
+      "method": "DoesChrKnowCommand",
       "symbol": "CT_7106_ret_doesChrKnowCommand",
       "slots": {
         "start": null,
