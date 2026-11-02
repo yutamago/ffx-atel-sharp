@@ -17,7 +17,7 @@ The loader links it onto the player's own file when the game starts.
   its README says, so that the game starts through it and reads mods from its `mods/` folder. The
   Atel loader was tested with Fahrenheit 1.0.0-alpha12.
 - **The .NET 10 SDK** (`dotnet --version` shows `10.…`).
-- A checkout of this repository.
+- A checkout of this repository, for the tools and the SDK package, which are not published yet.
 
 ## 2. Build the tools
 
@@ -26,10 +26,14 @@ From the repository's root:
 ```bash
 dotnet build -c Release src/Ffx.Atel.Cli      # the atel command
 dotnet build -c Release src/Ffx.Atel.Loader   # the Fahrenheit mod yuta.atel
+dotnet pack -c Release src/Ffx.Atel.Sdk -o ~/atel-feed   # the SDK a mod project uses
+dotnet nuget add source ~/atel-feed --name atel          # once: where NuGet finds it
 ```
 
 The command is `artifacts/bin/Ffx.Atel.Cli/release/atel`; the loader is written to
-`artifacts/deploy/release/mods/yuta.atel/`. For the rest of the tutorial:
+`artifacts/deploy/release/mods/yuta.atel/`; the SDK package is `~/atel-feed/Ffx.Atel.Sdk.0.1.0-alpha.nupkg`
+([sdk.md](sdk.md)). NuGet keeps a package version it has seen: after packing a changed SDK with the
+same version, delete `~/.nuget/packages/ffx.atel.sdk/0.1.0-alpha/`. For the rest of the tutorial:
 
 ```bash
 alias atel="$PWD/artifacts/bin/Ffx.Atel.Cli/release/atel"
@@ -46,7 +50,7 @@ your machine).
 
 ```bash
 mkdir -p ~/ffx-mods && cd ~/ffx-mods
-atel decompile m209 -o vanilla
+atel decompile m209 -o vanilla --sdk ~/atel-feed
 ```
 
 ```
@@ -54,8 +58,10 @@ atel decompile m209 -o vanilla
 ```
 
 `vanilla/Monsters/M209/` now holds the script: `M209.cs` (the script class: its workers
-`W00`-`W02` and its variables), `M209.Data.cs` (its data areas) and one file per worker.
-`dotnet build vanilla/Atel.slnx` compiles it as C#, and any C# IDE opens it.
+`W00`-`W02` and its variables), `M209.Data.cs` (its data areas) and one file per worker. The
+projects use the SDK (`--sdk` copies the package into `vanilla/.atel/packages/` and pins its version
+in `vanilla/global.json`), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
+analyzers, and any C# IDE opens it.
 
 Open `vanilla/Monsters/M209/W01.cs`. Worker 1 is the Larva's battle worker (a `Worker2`, as every
 monster worker), and its `Init` is entry 0, which the engine runs when the monster is set up:
@@ -79,12 +85,37 @@ in game ([research/loader.md](research/loader.md#notes)).
 
 ## 4. Write the mod
 
-A mod is a folder of C# files, separate from the vanilla source. Each file is in the namespace of
-the script it changes and extends its classes with `partial`.
+A mod is a C# project, separate from the vanilla source. Each file is in the namespace of the script
+it changes and extends its classes with `partial`.
 
 ```bash
 mkdir larva-hp
 ```
+
+`larva-hp/LarvaHp.csproj` makes it a project of the Atel SDK ([sdk.md](sdk.md), which lists every
+property):
+
+```xml
+<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+    <PropertyGroup>
+        <AtelModId>my.larva-hp</AtelModId>
+        <AtelModName>Larva HP</AtelModName>
+        <Description>The Larva (m209) starts with 1234 HP.</Description>
+        <Authors>you</Authors>
+        <Version>0.1.0</Version>
+        <AtelVanillaSource>../vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>
+```
+
+- `AtelModId` is the Fahrenheit mod id: the name of the mod's folder and of its manifest.
+- `AtelModName`, `Description`, `Authors` and `Version` go into the manifest.
+- `AtelVanillaSource` is the folder `atel decompile -o` wrote. The build adds the vanilla source of
+  every script the mod's namespaces name to the C# compilation, so `W01`, its `Init` and the
+  script's variables resolve, in the build and in the IDE.
+
+The same mod is in this repository as [`examples/LarvaHp`](../examples/LarvaHp) (with the id
+`yuta.larvahp`); copy it instead of typing it, and set `AtelVanillaSource`.
 
 `larva-hp/LarvaHp.cs`:
 
@@ -123,31 +154,58 @@ requires = []
 incompatible = []
 ```
 
-### In an IDE (until the SDK lands)
-
-`atel compile-mod` needs no project file. To get completion and C# errors in an IDE, put a project
-file next to the mod that pulls in the vanilla script, `larva-hp/LarvaHp.csproj`:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-    <!-- The decompiled tree's settings and its reference assembly. -->
-    <Import Project="../vanilla/Directory.Build.props" />
-    <ItemGroup>
-        <!-- The vanilla script the mod changes, so that the partial classes resolve. -->
-        <Compile Include="../vanilla/Monsters/M209/**/*.cs" Link="vanilla/%(RecursiveDir)%(Filename)%(Extension)" />
-    </ItemGroup>
-</Project>
-```
-
-`dotnet build larva-hp` then reports C# errors. It does not run the Atel analyzers; `atel
-compile-mod --check` does (next step). `compile-mod` ignores the project file and the `obj/` and
-`bin/` folders. Keep the mod folder outside `vanilla/`: the decompiled tree's own
-`Directory.Build.props` would apply twice, and `atel compile` of the vanilla script would read the
-mod's files as part of it.
+Open the folder in your IDE (Rider, Visual Studio, VS Code with C# Dev Kit): completion, hover
+documentation of the natives and the Atel analyzers work as in any C# project. Keep the mod folder
+outside `vanilla/`: the decompiled tree's own `Directory.Build.props` would apply to it, and `atel
+compile` of the vanilla script would read the mod's files as part of it.
 
 ## 5. Build the mod package
 
-### Today: `atel compile-mod`
+```bash
+export FFX_GAME_DIR=<the folder with FFX.exe>     # if not set yet: the package names the game's file
+dotnet build larva-hp
+```
+
+```
+  m209: 1 entries and patches, 0 new workers, 0 new variables -> …/larva-hp/bin/Debug/net10.0/mods/my.larva-hp/atel/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin.json
+  1 script package(s) in …/larva-hp/bin/Debug/net10.0/mods/my.larva-hp
+  LarvaHp -> …/larva-hp/bin/Debug/net10.0/mods/my.larva-hp/
+Build succeeded.
+```
+
+The build compiles the mod and the vanilla script together as C#, with the Atel analyzers: C#
+errors and Atel's (a `long` local is
+[ATL1009](analyzers.md#atl1009)) stop it, as in the IDE. Then it runs `atel compile-mod` from the
+package and writes the mod folder, `larva-hp/bin/Debug/net10.0/mods/my.larva-hp/`:
+
+```
+my.larva-hp.manifest.json                                    Fahrenheit's manifest, depending on yuta.atel
+mod.toml                                                     (if the project has one)
+atel/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin.json  the package for m209
+```
+
+The package lists the vanilla parts it attaches to (worker 1, the method `Init`, each with a hash)
+and the postfix's code. Nothing in it comes from the game's files. The project's DLL holds the
+vanilla code it was checked with, so it stays in `obj/` and goes nowhere.
+
+To see what the loader will make of it, link it here as the loader does:
+
+```bash
+atel link larva-hp/bin/Debug/net10.0/mods/my.larva-hp -o linked
+```
+
+```
+ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin: my.larva-hp
+info: my.larva-hp: m209: worker 1's Init: postfix MoreHp
+```
+
+`linked/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin` is the linked monster file (56,624 bytes;
+the vanilla one is 55,280). This step is only a check; the loader links on its own at game start.
+
+### Without the SDK: `atel compile-mod`
+
+`atel compile-mod` builds the same package from the mod's `.cs` files alone, without a project file
+(it ignores one, and the `obj/` and `bin/` folders):
 
 ```bash
 atel compile-mod larva-hp --vanilla vanilla -o out/my.larva-hp --id my.larva-hp --check
@@ -166,36 +224,8 @@ m209: 1 entries and patches, 0 new workers, 0 new variables -> out/my.larva-hp/a
   `yuta.atel`) if the output folder has none. Edit its `Name`, `Desc`, `Authors` and `Version` as
   you like; the id must stay the folder's name.
 
-`out/my.larva-hp/` is the whole mod:
-
-```
-my.larva-hp.manifest.json
-mod.toml                                                     (if the mod has one)
-atel/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin.json  the package for m209
-```
-
-The package lists the vanilla parts it attaches to (worker 1, the method `Init`, each with a hash)
-and the postfix's code. Nothing in it comes from the game's files.
-
-To see what the loader will make of it, link it here as the loader does:
-
-```bash
-atel link out/my.larva-hp -o linked
-```
-
-```
-ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin: my.larva-hp
-info: my.larva-hp: m209: worker 1's Init: postfix MoreHp
-```
-
-`linked/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin` is the linked monster file (56,624 bytes;
-the vanilla one is 55,280). This step is only a check; the loader links on its own at game start.
-
-### With the SDK: `dotnet build`
-
-> **To be updated when `Ffx.Atel.Sdk` is merged.** The SDK package (plan, Phase 8) is meant to make
-> `dotnet build` of a mod project do what `atel compile-mod` does, with the analyzers in the IDE.
-> This section will then replace the project file of step 4 and the command above.
+`out/my.larva-hp/` then holds the same files as the SDK's mod folder, the package byte for byte the
+same (`tests/Ffx.Atel.Sdk.Tests` checks this).
 
 ## 6. Install
 
@@ -203,8 +233,8 @@ Into Fahrenheit's `mods/` folder (`<Fahrenheit>/mods/`):
 
 1. **The loader**, once: copy `artifacts/deploy/release/mods/yuta.atel/` from this repository's
    build to `<Fahrenheit>/mods/yuta.atel/`.
-2. **The mod**: copy `out/my.larva-hp/` to `<Fahrenheit>/mods/my.larva-hp/`. The folder's name is the
-   mod's id.
+2. **The mod**: copy `larva-hp/bin/Debug/net10.0/mods/my.larva-hp/` (or `out/my.larva-hp/` from
+   `compile-mod`) to `<Fahrenheit>/mods/my.larva-hp/`. The folder's name is the mod's id.
 3. **The load order**: `<Fahrenheit>/mods/loadorder` lists the enabled mods, one id per line. Add
    both, the loader first:
 
