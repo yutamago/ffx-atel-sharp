@@ -1081,8 +1081,10 @@ count, names placed.
 11. **Documentation.** A language reference (which C# is Atel), the
     encoding rules, a first-mod tutorial. Done 2026-11-02:
     [language.md](language.md), [encoding.md](encoding.md),
-    [tutorial.md](tutorial.md); the tutorial's SDK section waits for the
-    SDK.
+    [tutorial.md](tutorial.md). The tutorial builds the mod with the SDK
+    (`dotnet build` of an `Ffx.Atel.Sdk` project) since 2026-11-02, with
+    `atel compile-mod` as the way without it; its steps were run up to the
+    linked file.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–11 follow and partly run alongside.
