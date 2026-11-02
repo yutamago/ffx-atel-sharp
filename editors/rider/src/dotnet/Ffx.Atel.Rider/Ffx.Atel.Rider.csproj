@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>Ffx.Atel.Rider</AssemblyName>
+    <RootNamespace>Ffx.Atel.Rider</RootNamespace>
+    <!-- No checkout path in the PDB the plugin ships. (Not in the tests: the test framework finds its data by the
+         source file's path.) -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+    <DefineConstants>$(DefineConstants);RIDER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Build output (Gradle, dotnet) and what the build and the tests download.
+/.gradle/
+/build/
+/.intellijPlatform/
+/.kotlin/
+/packages/
+bin/
+obj/
+*.tmp
+# Written by the ReSharper test framework when it restores its reference assemblies.
+NuGetLocks/

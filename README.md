@@ -78,8 +78,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   [`docs/sdk.md`](docs/sdk.md) and [`examples/LarvaHp`](examples/LarvaHp).
 - The message text in the editor: `atel text export` decodes the player's
   message tables, per language, beside the decompiled source, and the VS
-  Code extension in `editors/vscode` shows each `Text[n]`'s message as an
-  inlay hint and hover; `atel decompile --text-comments <lang>` writes it
+  Code extension in `editors/vscode` and the Rider plugin in `editors/rider`
+  show each `Text[n]`'s message as an inlay hint and hover (Rider: quick
+  documentation); `atel decompile --text-comments <lang>` writes it
   as comments instead; see [`docs/editor.md`](docs/editor.md).
 - Not done: `Debug.*` text and runtime packages (Phase 10).
 
@@ -97,6 +98,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, compile-mod, link |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text (TypeScript; `npm test`, `npm run package`) |
+| `editors/rider` | the Rider plugin that shows message text (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |
 
 ## Building
 

@@ -1,0 +1,2 @@
+﻿Message 1
+<html><body><p>No message text found. Run <code>atel text export -o &lt;source dir&gt;</code> (it writes <code>.atel/text</code>), or set the text folder in Settings → Tools → Atel# message text.</p></body></html>

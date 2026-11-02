@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Project>
+  <PropertyGroup>
+    <!-- https://www.nuget.org/packages/JetBrains.Rider.SDK; keep in step with ProductVersion in gradle.properties. -->
+    <SdkVersion>2026.3.0-eap08</SdkVersion>
+    <Title>Atel# message text</Title>
+    <Description>Shows the message text behind Text[n] in decompiled Atel# (FFX) C# sources, from your own game's message tables.</Description>
+    <Authors>Yutamago</Authors>
+    <Copyright>Copyright (c) 2026 Yutamago</Copyright>
+  </PropertyGroup>
+</Project>
