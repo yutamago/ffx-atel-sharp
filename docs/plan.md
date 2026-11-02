@@ -901,7 +901,9 @@ count, names placed.
    Yutamago, no user paths.
 8. **Tooling.** Analyzers and code fixes, the SDK package, the editor
    extension for message text (VS Code, Rider). No grammar, parser or
-   language server of our own.
+   language server of our own. Analyzers done 2026-11-02
+   ([analyzers.md](analyzers.md)): 21 rules, run by `atel compile --check`;
+   on the vanilla source no errors, ATL0001 136 times.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report.

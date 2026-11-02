@@ -8,6 +8,7 @@ using Ffx.Atel.Bytecode.Script;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Ffx.Atel.Compiler;
 
@@ -566,12 +567,18 @@ public static partial class ScriptCompiler {
         new Dictionary<string, ReportDiagnostic> { ["CS0162"] = ReportDiagnostic.Suppress, ["CS1998"] = ReportDiagnostic.Suppress };
 
     /// <summary>
-    ///     Compiles the trees as C# against the reference assembly and returns the diagnostics:
-    ///     warnings and errors.
+    ///     Compiles the trees as C# against the reference assembly, with the Atel analyzers
+    ///     (<c>Ffx.Atel.Analyzers</c>, docs/analyzers.md) attached, and returns the diagnostics:
+    ///     warnings and errors, C#'s and the ATL rules'.
     /// </summary>
-    public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null) {
-        CSharpCompilation compilation = Compilation("AtelCheck", trees, library is null || library.Trees.Count == 0 ? [] : [library.Reference]);
-        return compilation.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning).ToList();
+    public static IReadOnlyList<Diagnostic> Check(IReadOnlyList<SyntaxTree> trees, ScriptLibrary? library = null) =>
+        Diagnose(Compilation("AtelCheck", trees, library is null || library.Trees.Count == 0 ? [] : [library.Reference]));
+
+    /// <summary>A compilation's warnings and errors, with the Atel analyzers attached.</summary>
+    internal static IReadOnlyList<Diagnostic> Diagnose(CSharpCompilation compilation) {
+        CompilationWithAnalyzers analyzed = compilation.WithAnalyzers(Analyzers.AtelAnalyzers.All,
+            new CompilationWithAnalyzersOptions(new AnalyzerOptions([]), onAnalyzerException: null, concurrentAnalysis: false, logAnalyzerExecutionTime: false));
+        return analyzed.GetAllDiagnosticsAsync().GetAwaiter().GetResult().Where(d => d.Severity >= DiagnosticSeverity.Warning).ToList();
     }
 
     internal static CSharpCompilation Compilation(string name, IEnumerable<SyntaxTree> trees, IEnumerable<MetadataReference> references) =>

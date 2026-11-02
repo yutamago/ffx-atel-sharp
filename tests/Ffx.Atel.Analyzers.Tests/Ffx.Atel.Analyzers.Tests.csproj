@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <!-- The corpus test decompiles and analyzes scripts in parallel: server GC is 4-5x faster. -->
+        <ServerGarbageCollection>true</ServerGarbageCollection>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../src/Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" />
+        <ProjectReference Include="../../src/Ffx.Atel.Analyzers.CodeFixes/Ffx.Atel.Analyzers.CodeFixes.csproj" />
+        <ProjectReference Include="../../src/Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
+        <ProjectReference Include="../../src/Ffx.Atel.Compiler/Ffx.Atel.Compiler.csproj" />
+        <ProjectReference Include="../../src/Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
+    </ItemGroup>
+</Project>

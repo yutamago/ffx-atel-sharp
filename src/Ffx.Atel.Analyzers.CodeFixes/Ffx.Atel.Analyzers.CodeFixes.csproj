@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Code fixes need the Workspaces API, which an analyzer assembly must not reference (RS1038),
+         so they live apart. They load into the IDE, so they target netstandard2.0. -->
+    <PropertyGroup>
+        <Description>Code fixes for the Atel analyzers.</Description>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" PrivateAssets="all" />
+        <ProjectReference Include="../Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" />
+    </ItemGroup>
+</Project>
