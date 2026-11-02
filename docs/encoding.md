@@ -36,6 +36,7 @@ Assembly is in the syntax of `atel disasm`. `push k` stands for the constant rul
 | `true`, `false` inside a condition | `pushimm 1`, `pushimm 0` | |
 | `Story.S01340_Kami0400`, `Save.StoryProgress`, `Target.Own` | as the number | a constant of the reference assembly or an enum member |
 | `Text[12]` | as `12` | |
+| `Text.New("Hi")` | `pushimm` of the index the linker gives (a `newMessage` relocation) | mods only |
 | `Pooled(46, -44.018925f)` | `pushfc f46` | a fixed pool index |
 
 The `pushimm`/`pushc` rule holds for all 7,661,225 integer pushes of the corpus. Float parameters

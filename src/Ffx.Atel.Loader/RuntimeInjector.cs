@@ -129,12 +129,19 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
                 archive ??= GameData.OpenArchive(gameDir);
                 Charset charset = new ScriptMessages(archive).Charset(language);
                 List<(int, byte[])> list = [];
-                foreach (PackageMessage m in p.Messages!) {
+                // New messages (Text.New) at the indices the link gives them, after the enabled mods'.
+                List<(int Index, string Text)> texts = [.. p.Messages!.Where(m => m.Index is not null).Select(m => (m.Index!.Value, m.Text))];
+                if (ScriptLinker.NewMessages(p).Any()) {
+                    string path = p.File.Replace('\\', '/').ToLowerInvariant();
+                    LinkResult? relinked = Injection.Relink(linked, injected, path, readVanilla).FirstOrDefault()?.Result;
+                    texts.AddRange(relinked?.NewMessages.Where(m => m.Mod == Injection.ModId).Select(m => (m.Index, m.Text)) ?? []);
+                }
+                foreach ((int index, string text) in texts) {
                     try {
-                        list.Add((m.Index, charset.Encode(m.Text)));
+                        list.Add((index, charset.Encode(text)));
                     }
                     catch (TextEncodeException ex) {
-                        log.Error($"Atel loader: inject: {p.Script} message {m.Index}: {ex.Message}");
+                        log.Error($"Atel loader: inject: {p.Script} message {index}: {ex.Message}");
                     }
                 }
                 if (list.Count > 0) messages[p.Script] = list;
@@ -156,17 +163,22 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
             return;
         }
         string target = Path.Combine(eflDir, path.Replace('/', Path.DirectorySeparatorChar));
-        LinkedFile? f = Injection.Relink(linked, injected, path, readVanilla);
+        List<LinkedFile> files = Injection.Relink(linked, injected, path, readVanilla);
         List<LinkMessage> report = [];
         bool ok;
-        if (f is null) {
+        if (files.Count == 0) {
             // No package left for the file: the vanilla one.
             byte[]? vanilla = readVanilla(path);
             ok = vanilla is not null;
             if (ok) File.WriteAllBytes(target, vanilla!);
         }
         else {
-            ok = ModLoader.Write(f, eflDir, taken, report);
+            ok = ModLoader.Write(files[0], eflDir, taken, report);
+            // Its message tables (Text.New): only those served since startup reach the game.
+            foreach (LinkedFile table in files.Skip(1)) {
+                if (served.Contains(table.Path)) ModLoader.Write(table, eflDir, taken, report);
+                else log.Warning($"Atel loader: inject: {table.Path} was not served at startup; its new messages show from the next start");
+            }
         }
         foreach (LinkMessage m in report) {
             if (m.Severity is LinkSeverity.Error) log.Error($"Atel loader: inject: {m}");

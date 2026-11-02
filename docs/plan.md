@@ -277,6 +277,9 @@ carries only entry, worker and priority. The compiler provides both:
   loader links, so the source keeps `Text.New`; in hand edits of the
   vanilla source the formatter may rewrite it to `Text[173]`. Translators
   work in the per-language TOML (`ffx-rust`'s `ffx text export/import`, or a port of it).
+  Done 2026-11-02 for mods (see "Phase 9: mods", `Text.New`): the copy in
+  the other languages is the source text, marked untranslated in the
+  loader's report (not in the game's text).
 - Debug text is a real `string`, allowed only for `Debug.*`:
   `Debug.Print($"hp = {Hp}");`. It calls new natives in a group the game
   leaves empty (2, 3, a, e or f), provided by the loader mod; without them the compiler refuses it or drops it on request.
@@ -953,8 +956,22 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place; `Text.New`, per-field data edits and
-  `[Inject]`; private data for new workers.
+  out unchanged workers in place; per-field data edits and `[Inject]`;
+  private data for new workers.
+- **`Text.New`** (2026-11-02, [formats/mod-package.md](formats/mod-package.md#messages)):
+  `Text.New("Nice throw!")` in a mod is a `TextId` of the reference
+  assembly; the compiler puts each text once into the package's `messages`
+  without an index and pushes it through a `newMessage` relocation. The
+  linker (`ModSet.Link`, `MessageLinker`) numbers the mods' new messages in
+  load order from one past the longest of the script's tables (every
+  language's and the `.ebp`'s own), and gives every language that has a
+  table a copy grown to the new indices, each message encoded in that
+  language's charset: the mod's `source_language` the text, the others a
+  copy reported as untranslated. The loader serves the tables from its
+  `efl/x` like the scripts; `atel link` writes them too. A monster (no
+  table of its own) and a script compiled whole reject `Text.New`. A
+  runtime injection package's new messages are numbered after every mod's
+  and set in the running event's table.
 
 ### Phase 10: debug text and runtime packages
 
@@ -985,8 +1002,8 @@ in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime
   block, and event workers never stop.
 - Also fixed: `atel compile-mod` failed on a script with a function worker
   (`Run()` was not read as entry 0 in the vanilla method map).
-- Open: an on-screen line for `Debug.Print`; `Text.New` producing
-  `messages`; battle message tables; in-memory code swaps for a debugger
+- Open: an on-screen line for `Debug.Print`; battle message tables (in
+  memory; `Text.New` adds to the battle's table files when linking); in-memory code swaps for a debugger
   (copy the block, patch only methods no worker is in).
 
 ## Phases
@@ -1073,8 +1090,8 @@ count, names placed.
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
-   link step are done and checked in game; per-field data edits,
-   `Text.New` and `[Inject]` are open.
+   link step are done and checked in game, `Text.New` too; per-field data
+   edits and `[Inject]` are open.
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".

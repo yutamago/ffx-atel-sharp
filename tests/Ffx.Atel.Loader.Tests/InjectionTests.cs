@@ -73,7 +73,7 @@ public sealed class InjectionTests : IDisposable {
 
         // Changed: linked again from the vanilla file, not on top of the last result.
         Inject(Package(vanilla, 9));
-        LinkedFile? f = Injection.Relink(run.Linked, Injection.Read(Loader), Script, _ => vanilla);
+        LinkedFile? f = Assert.Single(Injection.Relink(run.Linked, Injection.Read(Loader), Script, _ => vanilla));
         Assert.NotNull(f?.Result);
         string code = Code(f!.Result!.File);
         Assert.Contains("pushimm 9\n    popi0\n    end", code, StringComparison.Ordinal);
@@ -81,7 +81,7 @@ public sealed class InjectionTests : IDisposable {
 
         // Removed: nothing left to link.
         File.Delete(Path.Combine(Loader, Injection.Folder, "sub", "m995.json"));
-        Assert.Null(Injection.Relink(run.Linked, Injection.Read(Loader), Script, _ => vanilla));
+        Assert.Empty(Injection.Relink(run.Linked, Injection.Read(Loader), Script, _ => vanilla));
     }
 
     [Fact]

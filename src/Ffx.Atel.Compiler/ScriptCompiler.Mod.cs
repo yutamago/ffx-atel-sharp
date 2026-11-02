@@ -225,6 +225,17 @@ public static partial class ScriptCompiler {
 
         FragmentBuilder fragments = new(v.Variables.Count, vanillaWorkers.Count);
 
+        // New messages (Text.New): each text once, numbered by the linker.
+        Expr NewText(string text) {
+            package.Messages ??= [];
+            int k = package.Messages.FindIndex(m => m.Index is null && m.Text == text);
+            if (k < 0) {
+                package.Messages.Add(new PackageMessage(null, text));
+                k = package.Messages.Count - 1;
+            }
+            return new SymbolExpr(new LinkSymbol(RelocKind.NewMessage, k));
+        }
+
         // New code's locals: registers no code of the worker names, else hidden variables the linker
         // allocates in the shared data. The registers a vanilla worker may change: its [Register] fields and
         // those of the function workers its code calls.
@@ -253,7 +264,7 @@ public static partial class ScriptCompiler {
         List<CompiledWorker> compiledNew = [];
         for (int i = 0; i < newWorkers.Count; i++) {
             (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
-            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets));
+            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets, NewText));
         }
         List<FlowEmitter> patchCode = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
@@ -261,7 +272,7 @@ public static partial class ScriptCompiler {
             bool function = v.Workers[number].Type == 0;
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
                 EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName,
-                Signatures = SignatureOf,
+                Signatures = SignatureOf, NewTexts = NewText,
             };
             EntrySignature? signature = patch.Kind == PatchKind.Entry ? SignatureOf(worker, method.Identifier.ValueText) : null;
             reader.Result = signature?.Result;
@@ -283,7 +294,7 @@ public static partial class ScriptCompiler {
             foreach (Helper h in reader.Called) h.CalledBy.Add(number);
             patchCode.Add(emitter);
         }
-        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workers, entryMethods, Links, RequestTargets, debug, SignatureOf);
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workers, entryMethods, Links, RequestTargets, debug, SignatureOf, NewText);
 
         // The registers a worker's code may change: for a vanilla worker its [Register] fields (the mod's
         // too) and those of the function workers it calls; all in a function worker (its callers' are not known).
