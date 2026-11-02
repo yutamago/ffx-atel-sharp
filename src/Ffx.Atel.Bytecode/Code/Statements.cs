@@ -24,6 +24,12 @@ public sealed record FloatLit(uint Bits) : Expr {
 /// </summary>
 public sealed record PoolExpr(byte Code, ushort Index, uint Value) : Expr;
 
+/// <summary>
+///     A number only the mod linker knows (a new worker's or entry's): <c>pushimm</c> with an operand it
+///     fills in. <see cref="Symbol"/> says which, for the compiler of mod packages.
+/// </summary>
+public sealed record SymbolExpr(object Symbol) : Expr;
+
 /// <summary>A variable that is not an array: <c>pushv</c>.</summary>
 public sealed record VarExpr(int Var) : Expr;
 

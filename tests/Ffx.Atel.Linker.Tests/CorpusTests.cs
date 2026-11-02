@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT
+
+using System.Collections.Concurrent;
+using Ffx.Atel.Bytecode;
+using Ffx.Atel.Bytecode.Script;
+using Ffx.Atel.Bytecode.Vbf;
+
+namespace Ffx.Atel.Linker.Tests;
+
+/// <summary>Linking onto every shipped script. Needs <c>FFX_GAME_DIR</c>; skipped without it.</summary>
+public sealed class CorpusTests(ITestOutputHelper output) {
+    /// <summary>
+    ///     A package with a prefix and a postfix on the first worker's first method, a new entry that
+    ///     requests itself and a new shared variable links onto every script with workers and shared
+    ///     data: the result parses, lays itself out again byte for byte, and keeps the vanilla data
+    ///     areas, the other workers' code and the file's other sections.
+    /// </summary>
+    [Fact]
+    public void EveryScriptTakesAPackage() {
+        string? dir = GameData.GameDir();
+        if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
+        using VbfArchive archive = GameData.OpenArchiveExclusive(dir!);
+        List<string> paths = GameData.AllScriptPaths(archive);
+        object read = new();
+        ConcurrentBag<string> failures = [];
+        int linked = 0, skipped = 0;
+        long growth = 0;
+        Parallel.ForEach(paths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, path => {
+            (string Path, byte[] Bytes) f;
+            lock (read) f = (path, archive.Read(path));
+            try {
+                ScriptFile vanilla = ScriptFile.Parse(f.Bytes);
+                ScriptImage image = ScriptImage.FromBlock(vanilla.Script);
+                if (image.Workers.Count == 0 || image.Shared is null) {
+                    Interlocked.Increment(ref skipped);
+                    return;
+                }
+                WorkerImage w0 = image.Workers[0];
+                uint start = w0.Entries[0];
+                uint end = w0.Entries.Where(e => e > start).DefaultIfEmpty((uint)w0.Code.Length).Min();
+                int[] entries = [.. Enumerable.Range(0, w0.Entries.Length).Where(e => w0.Entries[e] == start)];
+                ScriptPackage p = new() { File = f.Path, Script = f.Path };
+                p.Vanilla.Workers.Add(new WorkerRef(0, "W00", VanillaHash.Worker(w0)));
+                p.Vanilla.Entries.Add(new EntryRef(0, "First", entries, start, end, VanillaHash.Range(w0, start, end)));
+                p.Variables.Add(new NewVariable { Name = "Turns", Type = 5 });
+                string exit = w0.Type == 0 ? "ret" : "end";
+                p.Patches.Add(new EntryPatch { Kind = PatchKind.Prefix, Worker = 0, Name = "Before", Target = "First", Code = LinkerTests.Frag("pushimm 1\npopv @newvar:0") });
+                p.Patches.Add(new EntryPatch { Kind = PatchKind.Postfix, Worker = 0, Name = "After", Target = "First", Code = LinkerTests.Frag("pushc @int:1234567\npopv @newvar:0") });
+                p.Patches.Add(new EntryPatch {
+                    Kind = PatchKind.Entry, Worker = 0, Name = "Again",
+                    Code = LinkerTests.Frag($"pushimm 1\npushimm @worker:0\npushimm @newentry:2\nreq0\npopfacc\n{exit}"),
+                });
+                LinkResult r = ScriptLinker.Link(f.Bytes, [new ModScript("test", p)]);
+                if (!r.Changed) {
+                    failures.Add($"{f.Path}: {string.Join("; ", r.Messages.Where(m => m.Severity == LinkSeverity.Error))}");
+                    return;
+                }
+                ScriptFile result = ScriptFile.Parse(r.File);
+                ScriptBlock b = result.Script;
+                ScriptImage again = ScriptImage.FromBlock(b);
+                if (!again.Write().AsSpan().SequenceEqual(b.Bytes[..(int)b.U32(0x10)])) failures.Add($"{f.Path}: does not lay itself out again");
+                // Every data area keeps its bytes at its vanilla offset, and the pointers to it.
+                ScriptBlock vb = vanilla.Script;
+                int vh0 = vb.Workers[0].Header, lh0 = b.Workers[0].Header;
+                foreach ((string name, int at, int linkedAt, byte[]? bytes) in new[] {
+                    ("shared", (int)vb.U32(vh0 + 0x30), (int)b.U32(lh0 + 0x30), image.Shared),
+                    ("other", (int)vb.U32(0x2c), (int)b.U32(0x2c), image.Other),
+                    ("event", (int)vb.U32(0x20), (int)b.U32(0x20), image.Event),
+                    ("area", (int)vb.U32(0x28), (int)b.U32(0x28), image.Area),
+                }) {
+                    if (bytes is null) continue;
+                    if (at != linkedAt || !b.Bytes.Slice(at, bytes.Length).SequenceEqual(bytes)) failures.Add($"{f.Path}: the {name} data changed");
+                }
+                for (int w = 1; w < image.Workers.Count; w++) {
+                    if (!image.Workers[w].Code.AsSpan().SequenceEqual(again.Workers[w].Code)) failures.Add($"{f.Path}: worker {w}'s code changed");
+                }
+                if (again.Workers[0].Entries.Length != w0.Entries.Length + 1) failures.Add($"{f.Path}: no new entry");
+                // The sections after the script are the vanilla ones, shifted as a whole.
+                int tail = vanilla.Bytes.Length - (vanilla.SectionStart + vanilla.SectionLength);
+                if (!vanilla.Bytes[^tail..].SequenceEqual(result.Bytes[^tail..])) failures.Add($"{f.Path}: the later sections changed");
+                Interlocked.Increment(ref linked);
+                Interlocked.Add(ref growth, r.File.Length - f.Bytes.Length);
+            }
+            catch (Exception ex) when (ex is ScriptFormatException or ArgumentException) {
+                failures.Add($"{f.Path}: {ex.Message}");
+            }
+        });
+        output.WriteLine($"{linked} scripts linked, {skipped} without workers or shared data; files grew by {growth / Math.Max(linked, 1)} bytes on average");
+        foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
+        Assert.Empty(failures);
+        Assert.Equal(paths.Count, linked + skipped);
+    }
+
+}

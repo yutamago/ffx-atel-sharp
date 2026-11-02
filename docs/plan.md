@@ -791,7 +791,7 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Analyzers` | the subset rules, ATL warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
-| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel link`, `atel roundtrip` |
+| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-mod`, `atel link`, `atel roundtrip` |
 | `Ffx.Atel.Sdk` | NuGet package: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package |
 
 ## Compiler output
@@ -869,7 +869,81 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   range to the end of the block and leaves the old copy (one added
   instruction in `kami0000` cost 3.7 KB). The compiler lays a changed
   script out afresh from its image instead (`ScriptImage.Write`), so only
-  the real growth remains.
+  the real growth remains. Caution (found 2026-11-02, Phase 9): the data
+  areas hold block offsets. The "other" area points into the shared data
+  in 1,611 of 1,621 scripts (`+0x0c` is the shared data's offset in
+  1,316), and the shared data points into itself in 1,545. A layout that
+  moves the shared data when the code grows leaves those pointing at the
+  old place; whether the game reads them is not known. The mod linker
+  therefore keeps every vanilla byte in place (see "Phase 9: mods").
+
+### Phase 9: mods
+
+Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
+
+- **A package per script** (`atel/<archive path>.json` in the mod's
+  folder, JSON): the mod's new variables, new workers, new entries and
+  patches on vanilla entries (`prefix`, `postfix`, `replace`), as code
+  fragments whose operands the linker fills in (labels, pool constants,
+  variables, worker and entry numbers). Vanilla parts are named by number
+  and name with a hash (SHA-256 of the worker, of the patched method's
+  code range, of the variable's table entry); no game code is in it.
+- **`Ffx.Atel.Linker`** (no Roslyn; runs in the loader): checks the
+  hashes (a mismatch leaves that mod's package for that script out, with
+  an error in the report), numbers everything new in load order, chains
+  all mods' patches on one vanilla method (prefixes in load order, the
+  body, postfixes in load order; two replacements are a conflict and the
+  last wins), and writes the block without moving any vanilla byte: grown
+  tables, new headers, new variables' data and the whole code region go
+  after the block's end. `mod.toml` (`requires`, `incompatible`, `after`)
+  is read by `ModSet`.
+- Numbers (2026-11-02): a package with a prefix, a postfix, a new entry
+  that requests itself and a new variable links onto 1,598 scripts (the
+  other 23 have no workers or no shared data); each result parses, takes
+  itself apart and lays itself out again byte for byte, and keeps its data
+  areas, the other workers' code and the file's other sections. Files grow
+  by 36 KB on average, as the code region moves; laying the code out in two
+  runs is left for later.
+- **`atel compile-mod <mod dir> --vanilla <dir> -o <out> [--id <id>]`**
+  (`ScriptCompiler.CompileMod`): a mod is C# in the namespace of the script
+  it changes, next to the decompiled vanilla source (`atel decompile -o`).
+  `partial class M209 { public static int Turns; }` adds variables (no
+  `[Var]`: the linker allocates them in the shared data); `partial class
+  W01 { … }` adds to a vanilla worker: a method without an attribute is a
+  new entry, `[Prefix(nameof(Init))]`, `[Postfix(…)]` and `[Replace(…)]`
+  patch a vanilla method (`Ffx.Atel.Game/Atel/ModAttributes.cs`); a new
+  class deriving from `Worker0` … `Worker6` is a new worker.
+  A mod requests its new entries as any entry (`_ = W01.BoostAsync();`);
+  `Link.Worker<T>()` and `Link.Entry<T>(nameof(…))` give the numbers for
+  the explicit `Request(level, worker, entry)` form. Where the linker gives
+  the number, the code model has a `SymbolExpr`. The
+  compiler compiles the vanilla source, reads the mod's members against its
+  declarations, and keeps only the mod's code, as fragments. The decompiler
+  now writes every worker `partial`, so the mod and the vanilla source
+  compile together as C# (`--check`).
+- **`atel link <mod dir>… -o <dir>`** links mod folders onto the game's
+  files as the loader does and prints the report.
+- Numbers (2026-11-02): a postfix on the Larva's (`m209`) worker 1 `Init`
+  that sets its HP is a 9-byte package; a mod that adds a postfix which
+  requests a new entry links onto `m209`, and the linked file decompiles
+  to C# without errors and compiles back byte for byte, with workers 0 and
+  2 unchanged.
+- **The loader links** (`ModLoader`, in the module constructor as before):
+  it reads Fahrenheit's `mods/loadorder` itself (Fahrenheit publishes its
+  mod list only after the constructors), takes every listed mod with an
+  `atel/` folder as an Atel mod (a file-only Fahrenheit mod: manifest,
+  `mod.toml`, packages; `compile-mod --id` writes the manifest), resolves
+  `requires`/`incompatible`/`after`, links per file and writes the results
+  to its `efl/x`. The report goes to Fahrenheit's log (errors as errors,
+  conflicts and warnings as warnings). The Phase 2 `scripts/*.asm` path
+  stays for development and wins over mods for the same file (reported as
+  a conflict).
+- Not yet checked in game (2026-11-02): the Larva HP postfix links to a
+  56,624-byte `m209.bin` (vanilla 55,280), the same kind of growth the
+  Phase 2 loader test served, but with the code region moved and `+0x30`
+  changed, which no in-game test has covered yet. Open: that check; laying
+  out unchanged workers in place; `Text.New`, per-field data edits and
+  `[Inject]`; private data for new workers.
 
 ## Phases
 

@@ -3,15 +3,19 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 using Fahrenheit;
+
+using Ffx.Atel.Linker;
 
 namespace Ffx.Atel.Loader;
 
 /// <summary>
-///     The Atel loader: gives the game rebuilt scripts in place of the vanilla ones. Phase 2
-///     rebuilds edited disassembly (<c>scripts/*.asm</c>) onto the player's own files; the link
-///     step for compiled mod packages comes later (docs/plan.md).
+///     The Atel loader: links the enabled Atel mods onto the player's own scripts and gives the game
+///     the results in place of the vanilla ones (<see cref="ModLoader"/>, docs/formats/mod-package.md).
+///     For development it also rebuilds edited disassembly in its own folder (<c>scripts/*.asm</c>,
+///     Phase 2's path), which takes precedence over mods for the same file.
 /// </summary>
 /// <remarks>
 ///     The files are written in the constructor, into this mod's <c>efl/x</c> folder: Fahrenheit
@@ -25,6 +29,7 @@ namespace Ffx.Atel.Loader;
 [FhLoad(FhGameId.FFX)]
 public sealed class AtelLoaderModule : FhModule {
     private readonly List<BuiltScript> _built = [];
+    private readonly LinkRun?          _linked;
     private readonly ServedFiles       _served = ServedFiles.Empty;
     private readonly string?           _failure;
 
@@ -36,6 +41,9 @@ public sealed class AtelLoaderModule : FhModule {
                 ?? throw new IOException("cannot tell where the game is");
             string eflDir  = Path.Combine(modDir, "efl", "x");
             _built.AddRange(ScriptBuilder.Build(modDir, gameDir, eflDir));
+            HashSet<string> taken = [.. _built.Where(b => b.Error is null && b.ArchivePath is not null).Select(b => b.ArchivePath!)];
+            string modsDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(modDir)) ?? throw new IOException("cannot tell where the mods are");
+            _linked = ModLoader.Link(modsDir, gameDir, eflDir, taken);
             _served = ServedFiles.Scan(eflDir);
         }
         catch (Exception ex) {
@@ -49,8 +57,17 @@ public sealed class AtelLoaderModule : FhModule {
             _logger.Error($"Atel loader: no scripts built: {_failure}");
             return true;
         }
-        if (_built.Count == 0) {
-            _logger.Info($"Atel loader: nothing in {ScriptBuilder.SourceDir}/, the game runs its own scripts.");
+        if (_linked is not null) {
+            _logger.Info(_linked.Mods.Count == 0
+                ? "Atel loader: no Atel mods in the load order."
+                : $"Atel loader: Atel mods in load order: {string.Join(", ", _linked.Mods)}; {_linked.Written.Count} file(s) linked.");
+            foreach (LinkMessage m in _linked.Messages) {
+                string line = $"Atel loader: {m}";
+                if (m.Severity is LinkSeverity.Error) _logger.Error(line);
+                else if (m.Severity is LinkSeverity.Conflict or LinkSeverity.Warning) _logger.Warning(line);
+                else _logger.Info(line);
+            }
+            foreach (string path in _linked.Written) _logger.Info($"Atel loader: serving linked {path}");
         }
         foreach (BuiltScript s in _built) {
             if (s.Error is not null) {

@@ -19,6 +19,12 @@ internal sealed partial class StatementReader {
     /// <summary>For each worker class, its methods by name with the first entry each places.</summary>
     public IReadOnlyDictionary<string, Dictionary<string, int>> EntryMethods { get; init; } = new Dictionary<string, Dictionary<string, int>>();
 
+    /// <summary>
+    ///     A mod's requests (<c>atel compile-mod</c>): the worker and entry numbers of a worker class and
+    ///     method, which may be numbers only the linker gives; null where <see cref="EntryMethods"/> answers.
+    /// </summary>
+    public Func<string, string, (Expr Worker, Expr Entry)?>? RequestTargets { get; init; }
+
     /// <summary><c>_ = Lulu.E5Async();</c>: queues the entry (<c>req0</c>).</summary>
     private RequestStmt Discarded(AssignmentExpressionSyntax a) =>
         Strip(a.Right, conversions: false) is InvocationExpressionSyntax call
@@ -44,9 +50,16 @@ internal sealed partial class StatementReader {
             MemberAccessExpressionSyntax inner => inner.Name.Identifier.ValueText,
             _ => throw Error(m.Expression, "a request names the worker by its class"),
         };
-        if (!workers.TryGetValue(worker, out int w)) throw Error(m.Expression, $"no worker {worker} in [Workers]");
-        if (!EntryMethods.TryGetValue(worker, out Dictionary<string, int>? methods) || !methods.TryGetValue(method.Identifier.ValueText, out int entry)) {
-            throw Error(method, $"{worker} has no entry method {method.Identifier.ValueText}");
+        Expr workerNumber, entryNumber;
+        if (RequestTargets?.Invoke(worker, method.Identifier.ValueText) is (Expr tw, Expr te)) {
+            (workerNumber, entryNumber) = (tw, te);
+        }
+        else {
+            if (!workers.TryGetValue(worker, out int w)) throw Error(m.Expression, $"no worker {worker} in [Workers]");
+            if (!EntryMethods.TryGetValue(worker, out Dictionary<string, int>? methods) || !methods.TryGetValue(method.Identifier.ValueText, out int entry)) {
+                throw Error(method, $"{worker} has no entry method {method.Identifier.ValueText}");
+            }
+            (workerNumber, entryNumber) = (new IntLit(w), new IntLit(entry));
         }
         Expr level = new IntLit(DefaultPriority);
         switch (call.ArgumentList.Arguments) {
@@ -58,7 +71,7 @@ internal sealed partial class StatementReader {
             default:
                 throw Error(call.ArgumentList, "a request takes only its priority (entries have no parameters yet)");
         }
-        return new RequestStmt(op, level, new IntLit(w), new IntLit(entry));
+        return new RequestStmt(op, level, workerNumber, entryNumber);
     }
 
     private static bool IsDiscard(ExpressionSyntax e) => e is IdentifierNameSyntax { Identifier.ValueText: "_" };

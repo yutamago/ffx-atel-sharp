@@ -7,5 +7,6 @@
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
         <ProjectReference Include="../Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" />
+        <ProjectReference Include="../Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
     </ItemGroup>
 </Project>

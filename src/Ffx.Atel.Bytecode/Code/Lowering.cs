@@ -7,9 +7,10 @@ namespace Ffx.Atel.Bytecode.Code;
 /// <summary>
 ///     One instruction before the constant pools are laid out: a <c>pushc</c> or <c>pushfc</c> that
 ///     is <see cref="Pooled"/> carries its value (<see cref="Value"/>: the integer, or the float's
-///     bits) and gets its index later; every other instruction has its final operand.
+///     bits) and gets its index later; every other instruction has its final operand, but one whose
+///     <see cref="Symbol"/> is set (a <see cref="SymbolExpr"/>), whose operand the mod linker gives.
 /// </summary>
-public readonly record struct CodeOp(byte Code, ushort? Operand, uint Value = 0, bool Pooled = false) {
+public readonly record struct CodeOp(byte Code, ushort? Operand, uint Value = 0, bool Pooled = false, object? Symbol = null) {
     public static CodeOp Of(byte code) => new(code, null);
 
     public static CodeOp Of(byte code, int operand) => new(code, (ushort)operand);
@@ -123,6 +124,9 @@ public static class Lowering {
                 break;
             case PoolExpr p:
                 o.Add(CodeOp.Of(p.Code, p.Index));
+                break;
+            case SymbolExpr y:
+                o.Add(new CodeOp(Opcodes.PushImm, 0, Symbol: y.Symbol));
                 break;
             case VarExpr v:
                 o.Add(CodeOp.Of(Opcodes.PushV, v.Var));

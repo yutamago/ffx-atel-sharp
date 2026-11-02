@@ -12,8 +12,11 @@ namespace Ffx.Atel.Decompiler.Layout;
 /// <param name="Base">The base class: <c>Worker1</c>, or a library class that holds the body.</param>
 /// <param name="Body">The members (register fields, entry methods), indented, each line ending in <c>\n</c>; empty when the base holds them.</param>
 public sealed record WorkerSource(string Name, int Number, string Attributes, string Base, string Body) {
-    /// <summary>The class, as it stands in a single file.</summary>
-    public string Text => Attributes + Declaration(partial: false) + Body + "}\n";
+    /// <summary>
+    ///     The class, as it stands in a single file: <c>partial</c>, so that a mod can add to it
+    ///     (<c>partial class W03 { … }</c>, docs/formats/mod-package.md).
+    /// </summary>
+    public string Text => Attributes + Declaration(partial: true) + Body + "}\n";
 
     internal string Declaration(bool partial) =>
         string.Create(CultureInfo.InvariantCulture, $"public sealed {(partial ? "partial " : "")}class {Name} : {Base}\n{{\n");

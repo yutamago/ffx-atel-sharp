@@ -30,7 +30,8 @@ internal sealed partial class StatementReader(
     IReadOnlyDictionary<string, RegExpr> registers,
     IReadOnlyDictionary<string, NativeSignature> natives,
     IReadOnlyDictionary<string, int> workers,
-    bool functionWorker) {
+    bool functionWorker,
+    Func<InvocationExpressionSyntax, Expr?>? links = null) {
     private static CompileException Error(SyntaxNode node, string message) => CompileException.At(node, message);
 
     // ----- Statements ----------------------------------------------------------------------------
@@ -342,6 +343,9 @@ internal sealed partial class StatementReader(
                 Expr element = ReadExpr(a.Expression);
                 return element is ElemExpr or Elem2Expr ? new AddrExpr(element) : throw Error(a, "Addr takes an array element");
             }
+            // Link.Worker<T>() and Link.Entry<T>(nameof(…)): numbers, which a mod's linker may give.
+            case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Link" }, Name: GenericNameSyntax } } link:
+                return links?.Invoke(link) ?? LinkNumber(link);
             case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } call: {
                 (ushort id, IReadOnlyList<Expr> args) = Native(call);
                 return new CallExpr(id, args);
@@ -350,6 +354,28 @@ internal sealed partial class StatementReader(
                 throw Error(syntax, $"not an expression Atel compiles yet: {e.Kind()}");
         }
     }
+
+    /// <summary><c>Link.Worker&lt;T&gt;()</c> outside a mod: the worker's number from <c>[Workers]</c>.</summary>
+    private Expr LinkNumber(InvocationExpressionSyntax link) {
+        GenericNameSyntax g = (GenericNameSyntax)((MemberAccessExpressionSyntax)link.Expression).Name;
+        if (g.Identifier.ValueText == "Worker" && g.TypeArgumentList.Arguments is [TypeSyntax t] && link.ArgumentList.Arguments.Count == 0) {
+            return workers.TryGetValue(TypeNameOf(t), out int w) ? new IntLit(w) : throw Error(t, $"no worker {t} in [Workers]");
+        }
+        throw Error(link, "Link.Entry gives an entry's number in a mod (atel compile-mod); in a script write the number");
+    }
+
+    /// <summary>The method name in <c>nameof(W01.Boost)</c>, <c>nameof(Boost)</c> or <c>"Boost"</c>.</summary>
+    public static string? MethodName(ExpressionSyntax e) => e switch {
+        LiteralExpressionSyntax { Token.Value: string s } => s,
+        InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" }, ArgumentList.Arguments: [ArgumentSyntax a] } => a.Expression switch {
+            IdentifierNameSyntax id => id.Identifier.ValueText,
+            MemberAccessExpressionSyntax m => m.Name.Identifier.ValueText,
+            _ => null,
+        },
+        _ => null,
+    };
+
+    internal static string TypeName(TypeSyntax t) => TypeNameOf(t);
 
     private static Expr Number(object? value, SyntaxNode at, bool negate) {
         switch (value) {
