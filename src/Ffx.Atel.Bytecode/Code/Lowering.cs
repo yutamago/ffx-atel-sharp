@@ -48,6 +48,10 @@ public static class Lowering {
                         Lower(a.Value, o);
                         o.Add(CodeOp.Of(a.Clamped ? Opcodes.PopVA1 : Opcodes.PopVA, var));
                         break;
+                    case LocalExpr l when !a.Clamped:
+                        Lower(a.Value, o);
+                        o.Add(new CodeOp(Opcodes.PopV, 0, Symbol: l.Slot));
+                        break;
                     case RegExpr when a.Clamped:
                         throw new ArgumentException("a register has no clamped store");
                     case RegExpr r:
@@ -159,6 +163,11 @@ public static class Lowering {
                 foreach (Expr a in c.Args) Lower(a, o);
                 o.Add(CodeOp.Of(Opcodes.Func, c.Native));
                 break;
+            case LocalExpr l:
+                o.Add(new CodeOp(Opcodes.PushV, 0, Symbol: l.Slot));
+                break;
+            case AndAlsoExpr or OrElseExpr:
+                throw new ArgumentException("&& and || branch: they are only conditions of if, the loops and if (…) goto");
             default:
                 throw new ArgumentException($"unknown expression {e}");
         }

@@ -15,6 +15,9 @@ namespace Ffx.Atel.Bytecode.Analysis;
 /// <param name="Polls">Whether it has a poll handler: the call can wait.</param>
 public sealed record NativeSignature(ushort Id, string Name, string ArgKinds, string Result, string ArgcSource, bool KindsFromExe, bool Polls = false) {
     public int Argc => ArgKinds.Length;
+
+    /// <summary>The parameters' names, for named arguments; null where they are not known.</summary>
+    public string[]? ParamNames { get; init; }
 }
 
 /// <summary>The native signatures of <c>data/natives.json</c> (written by <c>tools/gen-natives.cs</c>).</summary>
@@ -42,7 +45,9 @@ public sealed class NativeSignatures {
                 n.GetProperty("result").GetString()!,
                 n.GetProperty("argc_source").GetString()!,
                 n.GetProperty("kinds_source").GetString() == "exe",
-                n.TryGetProperty("polls", out JsonElement polls) && polls.GetBoolean());
+                n.TryGetProperty("polls", out JsonElement polls) && polls.GetBoolean()) {
+                ParamNames = [.. n.GetProperty("args").EnumerateArray().Select(a => a.TryGetProperty("name", out JsonElement name) ? name.GetString() ?? "" : "")],
+            };
         }
         return new NativeSignatures(byId);
     }
@@ -65,7 +70,9 @@ public sealed class NativeSignatures {
                 bool polls = a.NamedArguments.Any(n => n.MemberName == "Polls" && n.TypedValue.Value is true);
                 string kinds = string.Concat(m.GetParameters().Select(p => p.ParameterType == typeof(float) ? 'f' : 'i'));
                 string result = m.ReturnType == typeof(float) ? "float" : m.ReturnType == typeof(void) ? "none" : m.ReturnType == typeof(bool) ? "bool" : "int";
-                byId.TryAdd(id, new NativeSignature(id, $"{t.Name}.{m.Name}", kinds, result, "reference", false, polls));
+                byId.TryAdd(id, new NativeSignature(id, $"{t.Name}.{m.Name}", kinds, result, "reference", false, polls) {
+                    ParamNames = [.. m.GetParameters().Select(p => p.Name ?? "")],
+                });
             }
         }
         return new NativeSignatures(byId);

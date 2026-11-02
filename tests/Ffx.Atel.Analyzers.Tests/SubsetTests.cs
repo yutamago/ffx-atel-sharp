@@ -4,7 +4,7 @@ using static Ffx.Atel.Analyzers.Tests.Harness;
 
 namespace Ffx.Atel.Analyzers.Tests;
 
-/// <summary>ATL1001-ATL1011: the C# that ATEL cannot run.</summary>
+/// <summary>ATL1001-ATL1010: the C# that ATEL cannot run.</summary>
 public sealed class SubsetTests {
     /// <summary>The shape the decompiler writes is Atel: nothing to report.</summary>
     [Fact]
@@ -217,13 +217,13 @@ public sealed class SubsetTests {
         """);
 
     [Fact]
-    public void ShortCircuit() => Verify("""
+    public void ShortCircuitIsAtel() => Verify("""
         public sealed class W00 : Worker1
         {
             int I;
             void E0()
             {
-                if (I > 1 {|ATL1011:&&|} I < 3 {|ATL1011:|||} I == 7) { }
+                if (I > 1 && I < 3 || I == 7) { }
                 if (I > 1 & I < 3 | I == 7) { }
                 if (I is > 1 and < 3) { }
             }

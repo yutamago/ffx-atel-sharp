@@ -205,9 +205,25 @@ public static partial class ScriptCompiler {
 
         FragmentBuilder fragments = new(v.Variables.Count, vanillaWorkers.Count);
 
+        // New code's locals: registers no code of the worker names, else hidden variables the linker
+        // allocates in the shared data. The registers a vanilla worker may change: its [Register] fields and
+        // those of the function workers its code calls.
+        int Hide(Slot slot) {
+            package.Variables.Add(new NewVariable { Name = $"<local>{slot.Name}#{package.Variables.Count}", Type = slot.Float ? 6 : 5, Storage = (int)Storage.Shared });
+            return v.Variables.Count + package.Variables.Count - 1;
+        }
+        RegisterSet[] vanillaReach = Reach([.. vanillaWorkers.Select((name, w) => (
+            RegisterSet.Of(Registers(vanillaParts[name]).Values),
+            CallsIn(v.Workers[w].Code)))]);
+        RegisterSet CalleeRegisters(IEnumerable<int> calls) =>
+            calls.Aggregate(RegisterSet.None, (s, c) => s | (c < vanillaReach.Length ? vanillaReach[c] : RegisterSet.All));
+
         // ----- New workers ---------------------------------------------------------------------
         foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workers, entryMethods, Links, debug);
+            CompiledWorker cw = Worker(parts, library, variables, workers, entryMethods, Links, debug);
+            WorkerImage wi = cw.Image;
+            PlaceSlots(cw.Emitter, cw.Declared | CalleeRegisters(CallsIn(cw.Emitter.Items)), Hide);
+            List<WorkerItem> items = ItemsOf(cw.Emitter);
             if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
             (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
             if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
@@ -237,6 +253,8 @@ public static partial class ScriptCompiler {
             catch (FlowException ex) {
                 throw CompileException.At(ex.Tag as Location ?? method.Identifier.GetLocation(), ex.Message);
             }
+            RegisterSet own = RegisterSet.Of(Registers([.. vanillaParts[worker], .. modParts[worker]]).Values);
+            PlaceSlots(emitter, own | vanillaReach[number] | CalleeRegisters(CallsIn(emitter.Items)) | (function ? RegisterSet.All : RegisterSet.None), Hide);
             (patch.Code, Dictionary<int, uint> stray) = fragments.Build(ItemsOf(emitter), method.Identifier.GetLocation());
             if (stray.Count > 0) throw CompileException.At(method.Identifier.GetLocation(), "Entry(n) inside a mod's method");
             fragments.Workers.Add(number);

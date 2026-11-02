@@ -88,7 +88,7 @@ Everything below is valid C#; what makes it Atel is the reference assembly
 
 This section is the design. What the compiler accepts today, and where it
 differs from the design (function workers stay classes with `Run()`,
-requested entries are static, no locals or helper methods yet), is in
+requested entries are static, no helper methods yet), is in
 [language.md](language.md); the bytecode each construct compiles to is in
 [encoding.md](encoding.md).
 
@@ -425,7 +425,8 @@ writes on top of the Phase 2 shape:
   operators on `int`s. The compiler decides by the operand syntax alone: a
   comparison, `!`, `AsBool(…)`, or `&`, `|`, `^` of those is a condition.
   `&&` and `||` are errors (the original never branched inside a
-  condition; new code may get them later).
+  condition; new code may get them later). Since 2026-11-02 new code has
+  them, with C#'s short-circuit (encoding.md, "New code").
 - **Constants:** integers in decimal, from `0x10000` up in hex (motion and
   model IDs); `pushimm` or `pushc` by the `i16` range. Floats with `f`, the
   shortest text that reads back (`R`), negative ones as `-28.2f`.

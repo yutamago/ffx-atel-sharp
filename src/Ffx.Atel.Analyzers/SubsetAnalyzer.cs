@@ -13,13 +13,13 @@ namespace Ffx.Atel.Analyzers;
 
 /// <summary>
 ///     The C# that ATEL cannot run (docs/plan.md, "Control flow and semantics": what is not
-///     available), ATL1001-ATL1011.
+///     available), ATL1001-ATL1010 (ATL1011, `&&` and `||`, is retired: they compile to branches).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SubsetAnalyzer : DiagnosticAnalyzer {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [
         Rules.ObjectCreation, Rules.String, Rules.BaseLibrary, Rules.Collection, Rules.Linq, Rules.Exceptions,
-        Rules.Delegates, Rules.Generics, Rules.Type, Rules.Checked, Rules.ShortCircuit,
+        Rules.Delegates, Rules.Generics, Rules.Type, Rules.Checked,
     ];
 
     public override void Initialize(AnalysisContext context) {
@@ -48,7 +48,6 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer {
                 SyntaxKind.AnonymousMethodExpression, SyntaxKind.LocalFunctionStatement, SyntaxKind.DelegateDeclaration, SyntaxKind.FunctionPointerType);
             start.RegisterSyntaxNodeAction(TypeParameters, SyntaxKind.TypeParameterList);
             start.RegisterSyntaxNodeAction(c => Report(c, Rules.Checked, c.Node.GetFirstToken()), SyntaxKind.CheckedExpression, SyntaxKind.CheckedStatement);
-            start.RegisterSyntaxNodeAction(ShortCircuit, SyntaxKind.LogicalAndExpression, SyntaxKind.LogicalOrExpression);
             start.RegisterSyntaxNodeAction(c => Report(c, Rules.ObjectCreation, c.Node.GetFirstToken(), "'stackalloc'"), SyntaxKind.StackAllocArrayCreationExpression);
         });
     }
@@ -366,11 +365,5 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer {
         };
         if (kind is null) return; // reported as ATL1007
         Report(c, Rules.Generics, id, kind, id.ValueText);
-    }
-
-    private static void ShortCircuit(SyntaxNodeAnalysisContext c) {
-        BinaryExpressionSyntax b = (BinaryExpressionSyntax)c.Node;
-        string replacement = b.IsKind(SyntaxKind.LogicalAndExpression) ? "&" : "|";
-        Report(c, Rules.ShortCircuit, b.OperatorToken, b.OperatorToken.ValueText, replacement);
     }
 }

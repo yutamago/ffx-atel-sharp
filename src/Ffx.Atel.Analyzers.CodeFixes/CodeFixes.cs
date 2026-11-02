@@ -13,11 +13,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Ffx.Atel.Analyzers.CodeFixes;
 
-/// <summary>The obvious fixes: ATL1009 (float literal), ATL1010 (checked), ATL1011 (&amp;&amp;, ||), ATL2001 (request).</summary>
+/// <summary>The obvious fixes: ATL1009 (float literal), ATL1010 (checked), ATL2001 (request).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AtelCodeFixes)), Shared]
 public sealed class AtelCodeFixes : CodeFixProvider {
     public override ImmutableArray<string> FixableDiagnosticIds { get; } = [
-        Rules.Type.Id, Rules.Checked.Id, Rules.ShortCircuit.Id, Rules.RequestNotAwaited.Id,
+        Rules.Type.Id, Rules.Checked.Id, Rules.RequestNotAwaited.Id,
     ];
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -37,13 +37,6 @@ public sealed class AtelCodeFixes : CodeFixProvider {
                     break;
                 case "ATL1010" when token.Parent is CheckedStatementSyntax s && s.IsKind(SyntaxKind.CheckedStatement):
                     Register(context, d, root, "Remove 'checked'", s, s.Block.WithTriviaFrom(s));
-                    break;
-                case "ATL1011" when token.Parent is BinaryExpressionSyntax b:
-                    bool and = b.IsKind(SyntaxKind.LogicalAndExpression);
-                    BinaryExpressionSyntax both = SyntaxFactory.BinaryExpression(
-                        and ? SyntaxKind.BitwiseAndExpression : SyntaxKind.BitwiseOrExpression, b.Left,
-                        SyntaxFactory.Token(and ? SyntaxKind.AmpersandToken : SyntaxKind.BarToken).WithTriviaFrom(b.OperatorToken), b.Right);
-                    Register(context, d, root, $"Use '{(and ? "&" : "|")}' (evaluates both sides)", b, both);
                     break;
                 case "ATL2001" when node.FirstAncestorOrSelf<InvocationExpressionSyntax>() is InvocationExpressionSyntax call && call.Parent is ExpressionStatementSyntax:
                     Register(context, d, root, "Queue it: '_ ='", call, SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,

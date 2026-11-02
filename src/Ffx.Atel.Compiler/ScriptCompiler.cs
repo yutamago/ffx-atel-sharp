@@ -177,11 +177,26 @@ public static partial class ScriptCompiler {
         }
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
+        List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            (WorkerImage wi, List<WorkerItem> items) = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug);
-            workers.Add((wi, items, $"worker {number} ({workerName})", parts[0].Identifier.GetLocation()));
-            image.Workers.Add(wi);
+            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug);
+            compiled.Add(cw);
+            image.Workers.Add(cw.Image);
+        }
+        // New code's locals: registers where free, else hidden variables at the end of the shared data.
+        int Hide(Slot slot) {
+            if (image.Shared is null) throw new CompileException($"local {slot.Name} needs hidden storage, and the script has no shared data (storage 4)");
+            int offset = (image.Shared.Length + 3) & ~3;
+            image.Shared = [.. image.Shared, .. new byte[offset + 4 - image.Shared.Length]];
+            image.Variables.Add(new VarEntry((uint)(slot.Float ? 6 : 5) << 28 | (uint)Storage.Shared << 25 | (uint)offset, 1, 0));
+            return image.Variables.Count - 1;
+        }
+        RegisterSet[] reach = Reach([.. compiled.Select(c => (c.Declared, CallsIn(c.Emitter.Items)))]);
+        for (int w = 0; w < compiled.Count; w++) {
+            CompiledWorker cw = compiled[w];
+            PlaceSlots(cw.Emitter, reach[w] | (cw.Image.Type == 0 ? RegisterSet.All : RegisterSet.None), Hide);
+            workers.Add((cw.Image, ItemsOf(cw.Emitter), $"worker {w} ({workerIndex.First(x => x.Value == w).Key})", cw.Where));
         }
 
         // The constant pools: pinned, or by the rules (docs/corpus.md); then the code.
@@ -281,7 +296,56 @@ public static partial class ScriptCompiler {
     /// <summary>An entry, a label or an instruction of a worker, in code order; where it came from for errors.</summary>
     private sealed record WorkerItem(AsmLineKind Kind, int Number, CodeOp Op, Location? Where);
 
-    private static (WorkerImage Image, List<WorkerItem> Items) Worker(
+    /// <summary>A worker's header and code before its locals are placed; <see cref="Declared"/> are its <c>[Register]</c> fields.</summary>
+    private sealed record CompiledWorker(WorkerImage Image, FlowEmitter Emitter, RegisterSet Declared, Location Where);
+
+    /// <summary>The workers a code's <c>call</c>s go to.</summary>
+    private static IEnumerable<int> CallsIn(IEnumerable<FlowItem> items) =>
+        items.Where(i => i.Kind == FlowItemKind.Instruction && i.Op.Code == Opcodes.Call && i.Op.Operand is not null).Select(i => (int)i.Op.Operand!.Value);
+
+    /// <summary>The workers a worker's bytecode <c>call</c>s.</summary>
+    private static IEnumerable<int> CallsIn(byte[] code) {
+        List<int> calls = [];
+        for (int pc = 0; pc < code.Length;) {
+            byte b = code[pc];
+            if ((b & 0x80) != 0 && pc + 2 < code.Length && (b & 0x7f) == Opcodes.Call) calls.Add(code[pc + 1] | code[pc + 2] << 8);
+            pc += (b & 0x80) != 0 ? 3 : 1;
+        }
+        return calls;
+    }
+
+    /// <summary>
+    ///     For each worker, the registers its code may change: its own <c>[Register]</c> fields and those of every
+    ///     function worker it calls, directly or not.
+    /// </summary>
+    private static RegisterSet[] Reach(IReadOnlyList<(RegisterSet Own, IEnumerable<int> Calls)> workers) {
+        RegisterSet[] result = new RegisterSet[workers.Count];
+        for (int w = 0; w < workers.Count; w++) {
+            HashSet<int> seen = [w];
+            Stack<int> todo = new([w]);
+            RegisterSet set = RegisterSet.None;
+            while (todo.TryPop(out int x)) {
+                set |= workers[x].Own;
+                foreach (int c in workers[x].Calls) {
+                    if (c < workers.Count && seen.Add(c)) todo.Push(c);
+                }
+            }
+            result[w] = set;
+        }
+        return result;
+    }
+
+    /// <summary>Places the slots of an emitter's code (<see cref="SlotAllocator"/>).</summary>
+    private static SlotAllocator.Placed PlaceSlots(FlowEmitter emitter, RegisterSet forbidden, Func<Slot, int> hide, Func<int, bool>? callWaits = null, IReadOnlyList<Slot>? parameters = null) =>
+        SlotAllocator.Place(emitter.Items, new SlotContext {
+            Forbidden = forbidden,
+            NativeWaits = id => Natives[id]?.Polls ?? true,
+            CallWaits = callWaits ?? (_ => true),
+            Hide = hide,
+            Parameters = parameters ?? [],
+        });
+
+    private static CompiledWorker Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
@@ -303,6 +367,7 @@ public static partial class ScriptCompiler {
         }
 
         Dictionary<string, RegExpr> registers = Registers(parts);
+        RegisterSet declared = RegisterSet.Of(registers.Values);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
         };
@@ -338,7 +403,7 @@ public static partial class ScriptCompiler {
         catch (FlowException ex) {
             throw CompileException.At(ex.Tag as Location ?? where, ex.Message);
         }
-        return (wi, ItemsOf(emitter));
+        return new CompiledWorker(wi, emitter, declared, parts[0].Identifier.GetLocation());
     }
 
     /// <summary>
