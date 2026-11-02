@@ -9,7 +9,7 @@ namespace Ffx.Atel.Bytecode.Analysis;
 /// <param name="Id">The <c>func</c> operand.</param>
 /// <param name="Name">Reference assembly name, <c>Class.Method</c>.</param>
 /// <param name="ArgKinds">One <c>'i'</c> or <c>'f'</c> per argument, first pushed first.</param>
-/// <param name="Result"><c>"int"</c>, <c>"float"</c> or <c>"none"</c> (the call still pushes 0).</param>
+/// <param name="Result"><c>"int"</c>, <c>"float"</c>, <c>"bool"</c> (an int the scripts use only as a condition, 0 or not) or <c>"none"</c> (the call still pushes 0).</param>
 /// <param name="ArgcSource">Where the count came from: <c>both</c>, <c>exe</c> or <c>bytecode</c>.</param>
 /// <param name="KindsFromExe">Whether the kinds come from the handler's own pops (not from the scripts).</param>
 /// <param name="Polls">Whether it has a poll handler: the call can wait.</param>
@@ -64,7 +64,7 @@ public sealed class NativeSignatures {
                 ushort id = (ushort)(int)a.ConstructorArguments[0].Value!;
                 bool polls = a.NamedArguments.Any(n => n.MemberName == "Polls" && n.TypedValue.Value is true);
                 string kinds = string.Concat(m.GetParameters().Select(p => p.ParameterType == typeof(float) ? 'f' : 'i'));
-                string result = m.ReturnType == typeof(float) ? "float" : m.ReturnType == typeof(void) ? "none" : "int";
+                string result = m.ReturnType == typeof(float) ? "float" : m.ReturnType == typeof(void) ? "none" : m.ReturnType == typeof(bool) ? "bool" : "int";
                 byId.TryAdd(id, new NativeSignature(id, $"{t.Name}.{m.Name}", kinds, result, "reference", false, polls));
             }
         }

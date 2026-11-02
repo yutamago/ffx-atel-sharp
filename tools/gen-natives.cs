@@ -346,7 +346,13 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         string result = s.Float is not null ? "float" : s.Int is not null ? "int" : "none";
         // C# types: int/float by kind, or the overlay's type (and name) for an int parameter.
         List<string> paramCs = [.. Enumerable.Range(0, argc).Select(k => kinds[k] == 'f' ? "float" : "int")];
+        string resultCs = result == "float" ? "float" : "int";
         if (paramTypes.Remove(id, out Dictionary<string, string>? typed)) {
+            // "result": "bool" for an int result the scripts use only as a condition.
+            if (typed.Remove("result", out string? resultType)) {
+                if (result != "int" || resultType != "bool") throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4}: result {resultType} for a {result} result");
+                resultCs = resultType;
+            }
             foreach ((string param, string spec) in typed) {
                 int k = paramNames.IndexOf(param);
                 if (k < 0 || kinds[k] != 'i') throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4} has no int parameter {param}");
@@ -382,12 +388,13 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             ["kinds_source"] = kindSource,
             ["doc"] = comment,
         };
+        if (resultCs == "bool") o.Insert(o.IndexOf("result") + 1, "result_type", "bool");
         natives.Add(o);
 
         string doc = comment.Length > 0 ? System.Security.SecurityElement.Escape(comment) : "Not yet described.";
         cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{doc}</summary>\n");
         cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>Native <c>0x{id:x4}</c>{(sym is null ? "" : $", <c>{sym.Value.Name}</c>")}; {calls.GetValueOrDefault(id)} calls in the shipped scripts.</remarks>\n");
-        string ret = result == "float" ? "float" : "int";
+        string ret = resultCs;
         string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{paramCs[k]} {paramNames[k]}"));
         cs.Append(CultureInfo.InvariantCulture, $"    [Atel.Native(0x{id:x4}{(s.Poll is not null ? ", Polls = true" : "")})]\n");
         cs.Append(CultureInfo.InvariantCulture, $"    public static {ret} {method}({ps}) => throw Atel.Runtime.NotRunnable();\n\n");

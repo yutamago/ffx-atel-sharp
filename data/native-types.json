@@ -1,5 +1,5 @@
 {
-  "comment": "Hand-maintained parameter types for tools/gen-natives.cs: native id -> parameter name -> \"Type\" or \"Type newName\". The types are the enums of src/Ffx.Atel.Game/Enums.g.cs (tools/gen-enums.cs) and TextId (a message of the script's table, written Text[n]). Sources: each native's doc (data/natives.json, from ffx-rust symbols/ffx.sym) names the argument (actor selector, property, command, motion, msg); the property ids are MsGetChrStatInfo's (ffx-rust docs/formats/battle.md).",
+  "comment": "Hand-maintained parameter types for tools/gen-natives.cs: native id -> parameter name -> \"Type\" or \"Type newName\", and \"result\": \"bool\" for a predicate (its doc says 1 or 0, a flag, a check) whose int result the shipped scripts use only as a condition (Common.PadIsPressedRaw and Btl.ActorPartnerReady nearly only; their few value uses read AsInt(...)). The types are the enums of src/Ffx.Atel.Game/Enums.g.cs (tools/gen-enums.cs) and TextId (a message of the script's table, written Text[n]). Sources: each native's doc (data/natives.json, from ffx-rust symbols/ffx.sym) names the argument (actor selector, property, command, motion, msg); the property ids are MsGetChrStatInfo's (ffx-rust docs/formats/battle.md).",
   "natives": {
     "0x0001": { "chrId": "Model model" },
     "0x0064": { "msg": "TextId" },
@@ -29,6 +29,31 @@
     "0x7092": { "selector": "Target" },
     "0x709f": { "selector": "Target" },
     "0x70a1": { "selector": "Target" },
-    "0x70aa": { "property": "ActorProperty" }
+    "0x70aa": { "property": "ActorProperty" },
+    "0x00d8": { "result": "bool" },
+    "0x019c": { "result": "bool" },
+    "0x7067": { "result": "bool" },
+    "0x70de": { "result": "bool" },
+    "0x0128": { "result": "bool" },
+    "0x1015": { "result": "bool" },
+    "0x0160": { "result": "bool" },
+    "0x023c": { "result": "bool" },
+    "0x023b": { "result": "bool" },
+    "0x0050": { "result": "bool" },
+    "0x7093": { "result": "bool" },
+    "0x00ee": { "result": "bool" },
+    "0x70df": { "result": "bool" },
+    "0x70f3": { "result": "bool" },
+    "0x00c4": { "result": "bool" },
+    "0x00cc": { "result": "bool" },
+    "0x01b6": { "result": "bool" },
+    "0x00e6": { "result": "bool" },
+    "0x7098": { "result": "bool" },
+    "0x7100": { "result": "bool" },
+    "0x70af": { "result": "bool" },
+    "0x0127": { "result": "bool" },
+    "0x70c5": { "result": "bool" },
+    "0x0051": { "result": "bool" },
+    "0x70e0": { "result": "bool" }
   }
 }

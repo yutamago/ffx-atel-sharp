@@ -655,8 +655,28 @@ replaces and the round trip stays byte for byte.
   method). Named functions (`Common.SetupModels()`) need names, which come
   later. Numbers: all 5,560 `call`s as `Run()`; 1,621/1,621 round-trip, 0 C#
   errors, 0 warnings; library sharing unchanged (2,990 workers, 431 classes).
-- Not done yet: `AsBool`/`AsInt` (88,778 and 3,344 left; natives typed `bool`
-  where every use is a condition would remove most), register and variable
+- **Fewer `AsBool`** (decided 2026-11-02). A constant 0 or 1 inside `!`, `&`
+  or `|` of a condition is `false` or `true` (`if (false & V102 < V165[57])`,
+  `pushimm 0` … `land`); the compiler reads the literals as 0 and 1. A whole
+  condition stays `AsBool(0)`: `if (false)` is dead code and `while (true)`
+  has no test. Natives that are predicates (their doc says 1 or 0, a flag, a
+  check) and whose result the scripts use only as a condition return `bool`
+  (`Common.VoiceIsPlaying`, `Common.PartyIsJoined`, `Btl.CheckRestMotion`, 25
+  in all: `"result": "bool"` in `data/native-types.json`, applied by
+  `tools/gen-natives.cs`, `"result_type": "bool"` in `data/natives.json`);
+  `Common.PadIsPressedRaw` and `Btl.ActorPartnerReady` are used so nearly
+  always, and their 5 value uses read `AsInt(…)`. The compiler's test for a
+  condition (`land`/`lor` against `and`/`or`) knows those natives. Natives
+  only tested for non-zero that return something else (a count, a button
+  mask, a side or -1: `PadPressed`, `SelCountField415`, `LineGetCrossSide`,
+  11 of them, about 8,000 more `AsBool`) stay `int`, so the type does not
+  mislead. No `x != 0` is written: it would add an `ne`.
+- Numbers (2026-11-02, without library classes): `AsBool` 88,778 → 40,771
+  (32,687 constants now `false`/`true`, about 14,300 bool natives); `AsInt`
+  3,344 → 3,349. 1,621/1,621 round-trip, 0 C# errors, 0 warnings. What is left
+  is mostly variables and bit tests (`AsBool(V3)`, `AsBool(V3 & 4)`) and
+  natives that return values.
+- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register and variable
   names beyond the save, names for function workers, storage 1 names,
   entry names beyond 0 and 1 (requested entries are `E5Async`).
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
