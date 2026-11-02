@@ -32,6 +32,9 @@ internal sealed class MiniVm(ScriptImage image, Func<ushort, MiniVm.Value[], Min
     /// <summary>Natives called, in order: id and arguments.</summary>
     public List<(ushort Id, Value[] Args)> Calls { get; } = [];
 
+    /// <summary>Runs a requested entry at once, as if it ran to its end before the requester goes on.</summary>
+    public bool RunRequests { get; init; }
+
     /// <summary>Requests made: opcode, level, worker, entry.</summary>
     public List<(byte Op, int Level, int Worker, int Entry)> Requests { get; } = [];
 
@@ -151,6 +154,7 @@ internal sealed class MiniVm(ScriptImage image, Func<ushort, MiniVm.Value[], Min
                 case Opcodes.Req0 or Opcodes.ReqW0 or Opcodes.ReqE0 or >= Opcodes.Req1 and < Opcodes.Op54: {
                     int e = Pop().AsInt, target = Pop().AsInt, level = Pop().AsInt;
                     Requests.Add((op, level, target, e));
+                    if (RunRequests) steps += Run(target, e, limit - steps);
                     Push(Value.Int(1));
                     break;
                 }

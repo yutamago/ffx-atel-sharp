@@ -418,6 +418,8 @@ internal sealed partial class StatementReader(
                 return Element(el);
             case InvocationExpressionSyntax helperCall when HelperOf(helperCall) is Helper helper:
                 return HelperValue(helper, helperCall);
+            case AwaitExpressionSyntax awaited:
+                return AwaitValue(awaited);
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Pooled" }, ArgumentList.Arguments: [ArgumentSyntax index, ArgumentSyntax value] }: {
                 if (ReadExpr(index.Expression) is not IntLit { Value: >= 0 and <= 0xffff } k) throw Error(index, "the pool index is a constant 0-65535");
                 return ReadExpr(value.Expression) switch {

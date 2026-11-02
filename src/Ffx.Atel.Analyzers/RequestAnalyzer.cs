@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -10,7 +11,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Ffx.Atel.Analyzers;
 
-/// <summary>Requests between workers (docs/plan.md, "Requests between workers"), ATL2001-ATL2007.</summary>
+/// <summary>Requests between workers (docs/plan.md, "Requests between workers"), ATL2001-ATL2008.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RequestAnalyzer : DiagnosticAnalyzer {
     /// <summary>The level entry 0 (<c>Init</c>) runs at.</summary>
@@ -21,8 +22,17 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [
         Rules.RequestNotAwaited, Rules.RequestToNonAsync, Rules.AwaitNothing, Rules.SelfRequestDeadlock, Rules.SelfRequest,
-        Rules.Priority, Rules.AsyncReturn,
+        Rules.Priority, Rules.AsyncReturn, Rules.EntryFieldsOverlap,
     ];
+
+    /// <summary>A request to an entry with parameters or a result: where, from which method, and whether it waits for the end.</summary>
+    private readonly struct FieldRequest(IMethodSymbol entry, ISymbol from, Location where, bool finished, bool inLoop) {
+        public IMethodSymbol Entry { get; } = entry;
+        public ISymbol From { get; } = from;
+        public Location Where { get; } = where;
+        public bool Finished { get; } = finished;
+        public bool InLoop { get; } = inLoop;
+    }
 
     public override void Initialize(AnalysisContext context) {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -31,6 +41,9 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
             if (AtelModel.Create(start.Compilation) is not AtelModel model) return;
             start.RegisterOperationAction(c => ExpressionStatement(c, model), OperationKind.ExpressionStatement);
             start.RegisterOperationAction(c => Invocation(c, model), OperationKind.Invocation);
+            ConcurrentBag<FieldRequest> fieldRequests = [];
+            start.RegisterOperationAction(c => EntryFields(c, model, fieldRequests), OperationKind.Invocation);
+            start.RegisterCompilationEndAction(c => ReportOverlaps(c, fieldRequests));
             start.RegisterOperationAction(c => Await(c, model), OperationKind.Await);
             start.RegisterOperationAction(PriorityValue, OperationKind.FieldReference);
             start.RegisterSymbolAction(c => AsyncMethod(c, model), SymbolKind.Method);
@@ -157,6 +170,40 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
         if (!f.Field.HasConstantValue || f.Field.ConstantValue is null) return;
         int level = System.Convert.ToInt32(f.Field.ConstantValue, System.Globalization.CultureInfo.InvariantCulture);
         if (level is 0 or >= 7) c.ReportDiagnostic(Diagnostic.Create(Rules.Priority, f.Syntax.GetLocation(), f.Field.Name, LevelUse(level)));
+    }
+
+    // ----- ATL2008 ------------------------------------------------------------------------------
+
+    /// <summary>Whether an entry passes values through hidden fields: parameters besides its priority, or a result.</summary>
+    private static bool HasFields(AtelModel model, IMethodSymbol m) =>
+        model.IsTask(m.ReturnType) && (m.ReturnType is INamedTypeSymbol { IsGenericType: true } || m.Parameters.Any(p => p.Type.Name != "Priority"));
+
+    private static void EntryFields(OperationAnalysisContext c, AtelModel model, ConcurrentBag<FieldRequest> requests) {
+        IInvocationOperation i = (IInvocationOperation)c.Operation;
+        IMethodSymbol target = i.TargetMethod.OriginalDefinition;
+        if (!AtelModel.IsSource(target) || !HasFields(model, target) || IsBaseCall(i, c.ContainingSymbol)) return;
+        // `await X()` or `await X().Finished` waits for the end; `_ = X()` and `.Started` do not.
+        SyntaxNode? up = i.Syntax.Parent;
+        while (up is ParenthesizedExpressionSyntax) up = up.Parent;
+        if (up is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Finished" } m) up = m.Parent;
+        while (up is ParenthesizedExpressionSyntax) up = up.Parent;
+        bool finished = up is AwaitExpressionSyntax;
+        bool inLoop = i.Syntax.Ancestors().TakeWhile(a => a is not MemberDeclarationSyntax)
+            .Any(a => a is WhileStatementSyntax or DoStatementSyntax or ForStatementSyntax or ForEachStatementSyntax);
+        requests.Add(new FieldRequest(target, c.ContainingSymbol, i.Syntax.GetLocation(), finished, inLoop));
+    }
+
+    private static void ReportOverlaps(CompilationAnalysisContext c, IEnumerable<FieldRequest> all) {
+        foreach (IGrouping<ISymbol, FieldRequest> g in all.GroupBy(r => (ISymbol)r.Entry, SymbolEqualityComparer.Default)) {
+            List<FieldRequest> sites = [.. g];
+            int methods = sites.Select(s => s.From).Distinct(SymbolEqualityComparer.Default).Count();
+            string? why = methods > 1 ? $"it is requested from {methods} methods"
+                : sites.Count > 1 && sites.Any(s => !s.Finished) ? "it is requested more than once without waiting for it to finish"
+                : sites.Any(s => !s.Finished && s.InLoop) ? "it is requested in a loop without waiting for it to finish"
+                : null;
+            if (why is null) continue;
+            foreach (FieldRequest s in sites) c.ReportDiagnostic(Diagnostic.Create(Rules.EntryFieldsOverlap, s.Where, g.Key.Name, why));
+        }
     }
 
     // ----- ATL2007 ------------------------------------------------------------------------------

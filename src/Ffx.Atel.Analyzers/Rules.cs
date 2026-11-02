@@ -136,6 +136,12 @@ public static class Rules {
         RequestCategory, DiagnosticSeverity.Error,
         "An async method is a requestable entry; its return type is the request.");
 
+    public static readonly DiagnosticDescriptor EntryFieldsOverlap = Rule(
+        "ATL2008", "Entry with parameters or a result requested where requests may overlap",
+        "'{0}' takes its parameters and gives its result through hidden fields of its worker; {1}, so one request can overwrite them before another has run",
+        RequestCategory, DiagnosticSeverity.Warning,
+        "An entry's parameters are written when it is requested and read when it runs; its result is written when it ends and read after .Finished. That is safe while one request at a time is pending: requests from several methods, or ones that do not wait for the entry to finish, may overlap.");
+
     // ----- ATL3xxx: call ------------------------------------------------------------------------
 
     public static readonly DiagnosticDescriptor Recursion = Rule(

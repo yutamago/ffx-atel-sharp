@@ -137,8 +137,8 @@ An entry method's attributes or signature say which entries start at it:
   `End(value, reset: true)` end it with a value (`endp`, `endp_1`); `Halt();` is `op_54`.
 - Entry numbers are explicit in vanilla source. In a mod, new entries get their numbers when the
   loader links ("Mods" below).
-- Entries take no parameters and return no value yet. **Planned**: parameters and results through
-  hidden fields ([plan.md](plan.md), "Parameters and return values").
+- A requestable entry may take parameters and return a value ("Parameters and results" under
+  "Requests").
 
 ## Function workers and helpers
 
@@ -214,8 +214,8 @@ calls of the entry's method:
   ([ATL2002](analyzers.md#atl2002)); a request that is neither awaited nor discarded gets a hint
   ([ATL2001](analyzers.md#atl2001)).
 - To pass a priority, the entry declares the parameter:
-  `public static async Task E7Async(Priority priority = Priority.P1)`. It is the only parameter an
-  entry has today.
+  `public static async Task E7Async(Priority priority = Priority.P1)`. It is the request's level, not
+  a value the entry sees.
 - `Priority` is `P0_Main`, `P1` … `P6`, `P7_Init`, `P8`. Scripts use 1-6; 0, 7 and 8 are the
   engine's levels and give a warning ([ATL2006](analyzers.md#atl2006)).
 - `await` only takes a request. Awaiting a native is a C# error (natives return `int`, `bool` or
@@ -229,6 +229,42 @@ calls of the entry's method:
   request to a party member's worker). It is used for a computed worker or entry, requests to the
   worker's own entries, entries without a method of their own, and the variants. In a mod,
   `Link.Worker<T>()` and `Link.Entry<T>(nameof(…))` give the numbers for it.
+
+### Parameters and results
+
+**Available** (new code). An entry other workers request may take parameters and return a value
+(plan, "Parameters and return values"):
+
+```csharp
+public sealed partial class Larva
+{
+    public static async Task<int> DamageAsync(int amount, Priority priority = Priority.P1)
+    {
+        Btl.SetActorProperty(0, Btl.GetActorProperty(Target.Own, ActorProperty.Hp) - amount);
+        return Btl.GetActorProperty(Target.Own, ActorProperty.Hp);
+    }
+}
+
+// in another worker's entry:
+int left = await Larva.DamageAsync(100);
+_ = Larva.DamageAsync(amount: 5, priority: Priority.P3);   // queued; the result is not read
+```
+
+- ATEL's requests carry only level, worker and entry. Each parameter and the result are **hidden
+  fields of the receiving worker**: variables of the shared data, one per parameter and entry. The
+  request writes the arguments, then requests; the entry reads its parameters as locals (they live
+  in their fields, so they survive waits); `return v;` writes the result field before `end`, and
+  `await` reads it after the entry has finished.
+- A value needs `await …` or `await ….Finished`. `.Started` and `_ =` do not wait for the end, so
+  they give none.
+- Types as for helpers: `int`, `float`, `bool`, enums; a `Priority` parameter is the level.
+- **One request at a time.** The fields are the entry's, not the request's: a second request that
+  writes them before the first has run, or reads the result after another request ran the entry,
+  sees the other's values. [ATL2008](analyzers.md#atl2008) warns where the compilation requests such
+  an entry from more than one method, more than once without waiting for the end, or in a loop
+  without waiting.
+- Works in vanilla source as well (a script compiled whole gets the fields at the end of its shared
+  data). Decompiled code has none: the original had no parameters.
 
 ## Variables
 
@@ -402,8 +438,8 @@ Operands are evaluated left to right, as in C#, also where a later one needs sta
 (`Out = Hp++ * 10 + ++Hp;`, `Table[i++] += Foo();`): the compiler evaluates the earlier ones into
 temporaries first. How each of these lowers is in [encoding.md](encoding.md#new-code).
 
-**Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): entries
-with parameters or return values, `foreach`, an assignment used as a value (`a = b = 0`).
+**Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): `foreach`,
+an assignment used as a value (`a = b = 0`).
 
 **Not Atel at all** (analyzer errors, [analyzers.md](analyzers.md)): `new` for objects and local
 arrays (ATL1001), `string` (ATL1002), the .NET base library (ATL1003), collections (ATL1004),
