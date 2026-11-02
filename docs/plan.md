@@ -318,7 +318,8 @@ replace parts of it; until then it is what `atel decompile` writes and
   file name with its first letter upper case (`Events.Bl.Cn_bltz0000`,
   `Events.Ka._200thunder_kami0400`: one event folder can hold several
   scripts, so the namespace ends in the script, not the folder). The
-  folder and one-file-per-worker layout is Phase 6.
+  folder and one-file-per-worker layout came with Phase 6 (see "Phase 6:
+  source layout").
 - **The script class** (`public static partial class`; public, or C#
   warns that the fields are never assigned) carries `[Event("…")]`,
   `[Monster]` or `[Battle]` with the file name, `[Workers(typeof(W00), …)]`,
@@ -526,6 +527,34 @@ writes on top of Phase 3:
   the C# check: Roslyn takes about 36 s of it, half of Phase 3's 72 s on the
   same machine (89 s with the check, 17 s without), as structured code gives
   its flow analysis no methods with tens of thousands of labels.
+
+### Phase 6: source layout
+
+Decided 2026-11-02. What `atel decompile -o` writes on top of Phase 4, and
+how `atel compile` reads it:
+
+- **A script is a folder and a namespace**, `Events/Bj/Bjyt0400/` (the
+  namespace as folders, as in Phase 2): `Bjyt0400.cs` holds the script
+  class (`[Event]`, `[Workers]`, `[Header]`, the pins and pools, the
+  variables), each worker has its own file named after its class
+  (`W03.cs`, with `[Worker]` and `[PrivateData]`), and the data areas are a
+  second part of the script class in `Bjyt0400.Data.cs`. Every file starts
+  with the same comment, usings and namespace.
+- **Big workers are `partial`.** A worker of more than 4,000 lines is cut
+  between members into parts of at least 2,000 lines: `W36.cs` (attributes,
+  base class, registers and the first methods), `W36.2.cs`, … (`W36.02.cs`
+  from 10 parts). One method is never cut, so the largest file is still a
+  single method (`bltz0000`'s `W36`, 191k lines, 15.7 MB).
+- **Order.** The workers' order is `[Workers]`'s alone. A worker's methods
+  are laid out in the order of its parts, then in declaration order; the
+  parts' order is the order of their paths without `.cs`, ordinal
+  (`SourceOrder`: `W36` before `W36.2`), whatever order the files are
+  given in.
+- **The compiler reads a folder**: every `.cs` under it except in `obj/`
+  and `bin/` (`ScriptCompiler.SourceFiles`); `atel compile <folder>`.
+- Numbers (2026-11-02): all 1,621 scripts come back byte for byte from
+  18,778 files (1,621 script classes, 1,621 data files, 15,010 workers, 526
+  further parts of 160 workers), 405.5 MB; 0 C# errors, 0 warnings.
 
 ## Toolchain
 

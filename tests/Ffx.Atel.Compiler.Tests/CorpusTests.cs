@@ -6,6 +6,7 @@ using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Bytecode.Vbf;
 using Ffx.Atel.Decompiler;
+using Ffx.Atel.Decompiler.Layout;
 using Microsoft.CodeAnalysis;
 
 namespace Ffx.Atel.Compiler.Tests;
@@ -21,7 +22,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     /// <summary>
     ///     Phase 4's bar: every script decompiles to structured C# without any <c>Asm</c>, which compiles
     ///     as C# against the reference assembly without errors or warnings, and compiles back, from the
-    ///     source text and the vanilla file's other sections, to the same file bytes.
+    ///     source text and the vanilla file's other sections, to the same file bytes. Since Phase 6 the
+    ///     source is the script's folder: the script class, a file per worker and the data.
     /// </summary>
     [Fact]
     public void EveryScriptRoundTripsThroughSource() {
@@ -29,7 +31,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         // Largest first, one at a time: the biggest scripts take the longest to check.
         List<(string Path, byte[] Bytes)> files = [.. GameData.AllScriptPaths(archive).Select(p => (p, archive.Read(p))).OrderByDescending(f => f.Item2.Length)];
         ConcurrentBag<string> failures = [];
-        long sourceBytes = 0, identical = 0, diagnostics = 0;
+        long sourceBytes = 0, fileCount = 0, identical = 0, diagnostics = 0;
         DecompileTotals totals = new();
         Stopwatch clock = Stopwatch.StartNew();
         Parallel.ForEach(Partitioner.Create(files, EnumerablePartitionerOptions.NoBuffering), f => {
@@ -37,13 +39,16 @@ public sealed class CorpusTests(ITestOutputHelper output) {
             try {
                 ScriptFile vanilla = ScriptFile.Parse(original);
                 DecompiledScript d = ScriptDecompiler.Decompile(path, vanilla);
-                Interlocked.Add(ref sourceBytes, d.Source.Length);
+                // The folder layout: a file per worker, big workers in parts, the data in its own file.
+                List<SourceFile> sources = d.Files();
+                Interlocked.Add(ref sourceBytes, sources.Sum(s => (long)s.Text.Length));
+                Interlocked.Add(ref fileCount, sources.Count);
                 totals.Add(d.Stats);
-                SyntaxTree tree = ScriptCompiler.Parse(d.Source, path);
-                IReadOnlyList<Diagnostic> found = ScriptCompiler.Check([tree]);
+                List<SyntaxTree> trees = [.. sources.Select(s => ScriptCompiler.Parse(s.Text, s.RelativePath))];
+                IReadOnlyList<Diagnostic> found = ScriptCompiler.Check(trees);
                 Interlocked.Add(ref diagnostics, found.Count);
                 if (found.Count > 0) failures.Add($"{path}: {found[0]}");
-                byte[] rebuilt = ScriptCompiler.Compile([tree]).ApplyTo(vanilla).ToArray();
+                byte[] rebuilt = ScriptCompiler.Compile(trees).ApplyTo(vanilla).ToArray();
                 if (rebuilt.AsSpan().SequenceEqual(original)) Interlocked.Increment(ref identical);
                 else failures.Add($"{path}: file differs");
             }
@@ -51,7 +56,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 failures.Add($"{path}: {ex.Message}");
             }
         });
-        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
+        output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics, {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
         Assert.Empty(failures.Take(20));

@@ -9,10 +9,10 @@ namespace Ffx.Atel.Compiler.Tests;
 
 /// <summary>Decompiling and compiling without the game: a made-up script and hand-written source.</summary>
 public sealed class SourceTests {
-    private const string MonsterPath = "ffx_ps2/ffx/master/jppc/battle/mon/_m999/m999.bin";
+    internal const string MonsterPath = "ffx_ps2/ffx/master/jppc/battle/mon/_m999/m999.bin";
 
     /// <summary>A small monster file with one of everything the source has to carry.</summary>
-    private static byte[] MadeUpFile() {
+    internal static byte[] MadeUpFile() {
         ScriptImage image = new() {
             Header14 = 3, Header18 = 0xffff, Header24 = 0x8000_0001,
             Author = "test"u8.ToArray(), Name = "999"u8.ToArray(),

@@ -53,9 +53,26 @@ public static class ScriptCompiler {
     /// <summary>Parses source files; <paramref name="path"/> names each in messages.</summary>
     public static SyntaxTree Parse(string text, string path = "") => CSharpSyntaxTree.ParseText(text, ParseOptions, path, Encoding.UTF8);
 
-    /// <summary>Compiles one script from its source files.</summary>
+    /// <summary>
+    ///     The source files of a script's folder: every <c>.cs</c> under it, but those under <c>obj</c> and
+    ///     <c>bin</c> (build output), in <see cref="SourceOrder"/>.
+    /// </summary>
+    public static List<string> SourceFiles(string folder) =>
+        [.. Directory.EnumerateFiles(folder, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !Path.GetRelativePath(folder, f).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(d => d is "obj" or "bin"))
+            .Order(SourceOrder.Comparer)];
+
+    /// <summary>Parses the source files of a script's folder (<see cref="SourceFiles"/>).</summary>
+    public static List<SyntaxTree> ParseFolder(string folder) => [.. SourceFiles(folder).Select(f => Parse(File.ReadAllText(f), f))];
+
+    /// <summary>
+    ///     Compiles one script from its source files. The trees are taken in <see cref="SourceOrder"/> of
+    ///     their paths, so the parts of a <c>partial</c> worker lay their methods out in that order; the
+    ///     workers' order is <c>[Workers]</c>'s.
+    /// </summary>
     /// <exception cref="CompileException">Syntax errors, or source the compiler cannot read or assemble.</exception>
     public static CompiledScript Compile(IReadOnlyList<SyntaxTree> trees) {
+        trees = [.. trees.OrderBy(t => t.FilePath, SourceOrder.Comparer)];
         foreach (SyntaxTree tree in trees) {
             if (tree.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is Diagnostic d) {
                 throw CompileException.At(d.Location, d.GetMessage(System.Globalization.CultureInfo.InvariantCulture));
