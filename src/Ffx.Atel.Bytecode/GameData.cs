@@ -29,6 +29,40 @@ public static class GameData {
     /// <summary>Opens <c>data/FFX_Data.vbf</c> in a game folder.</summary>
     public static VbfArchive OpenArchive(string gameDir) => VbfArchive.Open(Path.Combine(gameDir, "data", "FFX_Data.vbf"));
 
+    /// <summary>
+    ///     Opens the archive for a whole-corpus job, holding a machine-wide lock until the archive is
+    ///     disposed, so such jobs (the corpus tests of several checkouts, say) run one at a time: each
+    ///     uses every core and several GB, and together they exhaust the machine's memory.
+    /// </summary>
+    /// <remarks>
+    ///     The lock is <c>ffx-atel-corpus.lock</c> in the temp folder, opened without sharing; it is
+    ///     released when the process ends, however it ends. Set <c>ATEL_CORPUS_LOCK=0</c> to skip it.
+    /// </remarks>
+    public static VbfArchive OpenArchiveExclusive(string gameDir) {
+        IDisposable? held = Environment.GetEnvironmentVariable("ATEL_CORPUS_LOCK") == "0" ? null : AcquireCorpusLock();
+        try {
+            VbfArchive archive = OpenArchive(gameDir);
+            archive.Owned = held;
+            return archive;
+        }
+        catch {
+            held?.Dispose();
+            throw;
+        }
+    }
+
+    private static FileStream AcquireCorpusLock() {
+        string path = Path.Combine(Path.GetTempPath(), "ffx-atel-corpus.lock");
+        while (true) {
+            try {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) {
+                Thread.Sleep(2000);
+            }
+        }
+    }
+
     /// <summary>The event (<c>.ebp</c>) and monster (<c>mNNN.bin</c>) scripts, sorted: the 758 the round trip covers.</summary>
     public static List<string> ScriptPaths(VbfArchive archive) => archive.Entries
         .Select(e => e.Path)

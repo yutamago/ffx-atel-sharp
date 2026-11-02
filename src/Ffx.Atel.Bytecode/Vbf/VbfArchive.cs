@@ -183,7 +183,14 @@ public sealed class VbfArchive : IDisposable {
     public byte[] Read(string path) =>
         Read(Find(path) ?? throw new FileNotFoundException($"{path} is not in the archive"));
 
-    public void Dispose() => _file.Dispose();
+    /// <summary>Something released together with the archive (see <see cref="GameData.OpenArchiveExclusive"/>).</summary>
+    internal IDisposable? Owned { get; set; }
+
+    public void Dispose() {
+        _file.Dispose();
+        Owned?.Dispose();
+        Owned = null;
+    }
 
     private static void ReadExact(SafeFileHandle file, Span<byte> buffer, long offset) {
         while (!buffer.IsEmpty) {

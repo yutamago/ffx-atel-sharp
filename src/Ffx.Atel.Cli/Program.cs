@@ -43,7 +43,10 @@ internal static class Program {
         }
         string command = args[0];
         args.RemoveAt(0);
-        using VbfArchive archive = GameData.OpenArchive(game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>"));
+        string gameDir = game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>");
+        // Whole-corpus commands take the machine-wide corpus lock: one at a time, they each use several GB.
+        bool wholeCorpus = command is "roundtrip" or "survey" || (command == "decompile" && args.Contains("all"));
+        using VbfArchive archive = wholeCorpus ? GameData.OpenArchiveExclusive(gameDir) : GameData.OpenArchive(gameDir);
         switch (command) {
             case "list": {
                 string filter = args.Count > 0 ? args[0] : "";

@@ -12,7 +12,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
     internal static VbfArchive OpenOrSkip() {
         string? dir = GameData.GameDir();
         if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
-        return GameData.OpenArchive(dir!);
+        return GameData.OpenArchiveExclusive(dir!);
     }
 
     [Fact]

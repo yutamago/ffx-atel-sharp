@@ -9,7 +9,7 @@ namespace Ffx.Atel.Bytecode.Tests;
 /// <summary>The Phase 0 facts the decompiler and compiler build on, checked over every script.</summary>
 public sealed class SurveyTests(ITestOutputHelper output) {
     private static readonly Lazy<Survey> s_survey = new(() => {
-        using VbfArchive archive = GameData.OpenArchive(GameData.GameDir()!);
+        using VbfArchive archive = GameData.OpenArchiveExclusive(GameData.GameDir()!);
         return Survey.Load(archive, NativeSignatures.Load(NativeSignatures.Find() ?? throw new InvalidOperationException("data/natives.json not found")));
     });
 

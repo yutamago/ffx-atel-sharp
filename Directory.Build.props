@@ -12,6 +12,8 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/yutamago/ffx-atel-sharp</RepositoryUrl>
         <Version>0.1.0-alpha</Version>
+        <!-- Test assemblies one at a time (dotnet test); the corpus tests also lock against other checkouts. -->
+        <RunSettingsFilePath>$(MSBuildThisFileDirectory)test.runsettings</RunSettingsFilePath>
     </PropertyGroup>
     <PropertyGroup>
         <!-- Shared package versions. -->
