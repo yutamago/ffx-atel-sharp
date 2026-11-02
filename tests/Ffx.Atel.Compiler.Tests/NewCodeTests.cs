@@ -443,7 +443,8 @@ public sealed class NewCodeTests {
     [InlineData("long a = 1;", "a local cannot be long")]
     [InlineData("var a;", "var needs an initializer")]
     public void WhatALocalCannotBe(string declaration, string message) {
-        string source = Vanilla.Replace("        Hp = 1;\n        return;", $"        {declaration}\n        return;", StringComparison.Ordinal);
+        // Main's one statement before its return (line endings differ by checkout).
+        string source = Vanilla.Replace("Hp = 1;", declaration, StringComparison.Ordinal);
         Assert.NotEqual(Vanilla, source);
         CompileException ex = Assert.Throws<CompileException>(() => ScriptCompiler.Compile(source, "M996.cs"));
         Assert.Contains(message, ex.Message, StringComparison.Ordinal);
