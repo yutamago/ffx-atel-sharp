@@ -196,7 +196,21 @@ the same package works on Windows, Linux and macOS.
 
 ## Not yet
 
-- The package is not published (nuget.org or a GitHub feed); CI only packs it.
+- The package is not published yet; CI only packs it. Publishing is prepared (below) and waits
+  for a decision.
 - A `dotnet new` template; for now copy `examples/LarvaHp`.
 - `atel compile-mod` reads every `.cs` under the project folder (but `obj/`
   and `bin/`), not the project's `Compile` items.
+
+## Publishing
+
+The plan is nuget.org (the id `Ffx.Atel.Sdk` was free on 2026-11-02). `.github/workflows/release-sdk.yml`
+publishes when a tag `sdk-v<version>` is pushed (`git tag sdk-v0.1.0-alpha && git push origin
+sdk-v0.1.0-alpha`): it packs that version, checks the package for the checkout path and pushes it with
+the repository secret `NUGET_API_KEY` (a nuget.org API key limited to pushing `Ffx.Atel.Sdk`). Nothing is
+published before both exist. Before the first push:
+
+- A nuget.org package is public and permanent (a version can be unlisted, not deleted). The package
+  holds the reference assembly, whose enums carry names from Fahrenheit's ID tables (used with
+  permission from their lead for this project); check that the permission covers a public package.
+- The package's project URL points at this repository, which is private.
