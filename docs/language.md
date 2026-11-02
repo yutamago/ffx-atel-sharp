@@ -1,0 +1,484 @@
+<!-- SPDX-License-Identifier: MIT -->
+
+# The Atel language
+
+Atel is standard C#, restricted to what FFX's script machine (ATEL) can run. Files are `.cs`, the
+compiler is Roslyn plus our own backend, and the IDE is any C# IDE. What makes C# Atel is:
+
+- the **reference assembly** `Ffx.Atel.Game` (`src/Ffx.Atel.Game`): the game's natives, enums and
+  constants, the worker base classes and the attributes that describe a script;
+- the **analyzers** ([analyzers.md](analyzers.md)): errors for C# that ATEL cannot run;
+- the **compiler** (`src/Ffx.Atel.Compiler`), which accepts a narrower set of statements and
+  expressions than the analyzers allow. Where it does not compile something yet, this page says so.
+
+This page describes what is on `main`. [plan.md](plan.md) has the design and the decisions behind
+it, including parts not built yet; how each construct becomes bytecode is in
+[encoding.md](encoding.md); a first mod is in [tutorial.md](tutorial.md).
+
+Status marks used below: **available** (the compiler compiles it), **decompiler only** (the
+decompiler writes it so vanilla source compiles back to the same bytes; new code rarely needs it),
+**planned** (in the plan, not built).
+
+## The machine in brief
+
+An ATEL script is one block of bytecode in an event (`.ebp`), monster or battle file. It has
+**workers**, each with numbered **entries** (code offsets). The engine runs entries 0 and 1 of each
+worker; workers ask each other to run entries with **requests**. Each worker runs one request at a
+time per **priority level**; a higher level interrupts a lower one. Code is a stack machine with:
+
+- **variables** in storage areas (the save game, common variables, the worker's private data, the
+  script's shared data, the event data), typed `u8` … `f32`, scalar or array;
+- per worker 4 integer registers (`i0`-`i3`), 10 float registers (`f0`-`f9`), registers A and B and
+  a float accumulator;
+- **natives**: about 1,500 game functions by number (`func 0x0000`), which may wait (poll) for
+  frames;
+- integer and float **constant pools** per script.
+
+There are no strings, objects, pointers (beyond the address of a variable), exceptions or
+short-circuit operators. The stack is empty at every jump and label, so a statement is an
+expression tree between jumps ([corpus.md](corpus.md#stack)).
+
+## Scripts
+
+A script is a folder and a namespace. `atel decompile <script> -o <dir>` writes
+`<dir>/Monsters/M209/`, `<dir>/Events/Bj/Bjyt0400/`, `<dir>/Battles/Kino/Kino00_00/`:
+
+| File | Holds |
+|---|---|
+| `M209.cs` | the **script class**: the file it is, its workers in order, layout pins, its variables |
+| `M209.Data.cs` | the second part of the script class: the data areas as hex |
+| `W01.cs`, `RikkA.cs`, … | one file per worker; a big worker is `partial` over `W36.cs`, `W36.2.cs`, … |
+
+The script class is `public static partial class`, with one of `[Event("bjyt0400")]`,
+`[Monster("m209")]` or `[Battle("kino00_00")]` and the worker order:
+
+```csharp
+[Monster("m999")]
+[Workers(typeof(W00), typeof(Larva), typeof(W02))]
+public static partial class M999
+{
+    [Var(Storage.Shared, 0x0000)] public static int Turns;
+}
+```
+
+A worker's number is its position in `[Workers]`. Nothing else about the order of files or
+classes matters, except the order of a worker's methods (see "Layout").
+
+Every file starts with `using Ffx; using Ffx.Atel; using static <Namespace>.<ScriptClass>;` so that
+natives, attributes and the script's variables need no prefix.
+
+## Workers
+
+A worker is a class deriving from `Worker0` … `Worker6`, the worker type (worker header `+0x00`):
+
+| Base | Type | Where |
+|---|---|---|
+| `Worker0` | function worker, the target of `call` | events |
+| `Worker1` | actors and the director | events |
+| `Worker2` | every monster and battle worker; in events, line triggers and map changes | all |
+| `Worker3` | point triggers | events |
+| `Worker4` | screen and map parts (no position block) | events |
+| `Worker5`, `Worker6` | characters with a walk-line table; triggers with a position | events |
+
+The meanings of types 1-6 are measured from the natives each calls
+([corpus.md](corpus.md#workers)); the base classes have no type-specific members yet.
+
+```csharp
+[Worker(PrivateLength = 0x18)]
+public sealed partial class Larva : Worker2
+{
+    [Register(0)] public static int I0;
+
+    protected override void Init() { … }
+    protected override void Main() { … }
+
+    [Entry(2)]
+    void E2() { … }
+}
+```
+
+- The decompiler names a worker after the model it loads (`RikkA`, `Takarabox002_14`), else `W03`.
+- `[Worker(Word0C = …, PrivateLength = …)]` carries two header words; `[PrivateData(length, hex)]`
+  the worker's private data block. **Decompiler only.**
+- A worker holds only entry methods and `[Register]` fields. Other members are compile errors.
+- **Library classes**: workers that are identical across scripts derive from a shared class in
+  `Library/` (`public sealed partial class W03 : Shared0001 { }`); the compiler lays the library
+  class's members out before the worker's own. `atel compile` finds the nearest `Library/` above
+  the script folder, or takes `--library <dir>`.
+
+## Entries
+
+An entry method's attributes or signature say which entries start at it:
+
+| Declaration | Entries | Notes |
+|---|---|---|
+| `protected override void Init()` | 0 | the engine runs it when the worker starts, at level 7 |
+| `protected override void Main()` | 1 | the worker's main entry, level 0 |
+| `[Entry(5)] void E5()` | 5 | an entry nothing in the script requests by name |
+| `[Entry(5)] public static async Task E5Async()` | 5 | an entry other workers request (see "Requests") |
+| `[Entry(2)][Entry(3)] void E2()` | 2 and 3 | entries that start at the same code |
+| `public static void Run()` in a `Worker0` | 0 | a function worker's one entry |
+
+**Available.** Notes:
+
+- `async void` is allowed on an entry the engine runs (`protected override async void Main()`,
+  `[Entry(4)] async void E4()`) so that it can `await` requests; nothing waits on its result
+  ([ATL2007](analyzers.md#atl2007)).
+- Requested entries are `static`: C# reads `Lulu.E5Async()` as a member of the class `Lulu`. The
+  worker's registers are `static` with them. There is one instance of each worker class, so this
+  changes nothing.
+- A method named `Init` without `override` hides the base's (CS0114) and is not entry 0.
+- `Entry(n);` inside a method marks where entry `n` starts in the middle of it (no code). The
+  decompiler writes it where one entry's code jumps into another's: C# has no `goto` between
+  methods, so those entries' methods become one. **Decompiler only.**
+- `return;` ends the entry (`end`; `ret` in a function worker). `End(value)` and
+  `End(value, reset: true)` end it with a value (`endp`, `endp_1`); `Halt();` is `op_54`.
+- Entry numbers are explicit in vanilla source. In a mod, new entries get their numbers when the
+  loader links ("Mods" below).
+- Entries take no parameters and return no value yet. **Planned**: parameters and results through
+  hidden fields ([plan.md](plan.md), "Parameters and return values").
+
+## Function workers and helpers
+
+A function worker (`Worker0`) runs on its caller's worker, with the caller's registers, as a
+subroutine (`call`). Its one entry is `public static void Run()`; the call is `W48.Run();`
+(`Call<W48>();` reads the same). A function worker may use `return;` (`ret`). Calls nest at most 3
+deep and must not recurse ([ATL3001](analyzers.md#atl3001), [ATL3002](analyzers.md#atl3002)).
+
+Function workers stay classes deriving from `Worker0`, not `static class`es as the plan first said:
+a static class cannot derive, and the type, the `Worker` helpers and library classes all need the
+base class.
+
+**Helper methods** (a plain method that the compiler would turn into a hidden function worker) are
+**planned**. Today a method call that is not a native, a request, `Run()` or one of the `Worker`
+members below is a compile error ("no ATEL call").
+
+## Requests
+
+A request asks a worker to run one of its entries at a priority level. Requests are written as
+calls of the entry's method:
+
+| C# | Opcode | Does |
+|---|---|---|
+| `_ = Lulu.E5Async();` | `req0` | queues entry 5 of `Lulu` and carries on |
+| `await Lulu.E5Async();` | `reqe0` | waits until it has ended |
+| `await Lulu.E5Async().Finished;` | `reqe0` | the same |
+| `await Lulu.E5Async().Started;` | `reqw0` | waits until it has begun |
+| `_ = Lulu.E5Async(Priority.P3);` | `req0` at level 3 | the level; level 1 without it |
+
+**Available.**
+
+- The entry must be declared `async Task` (`Ffx.Atel.Task`, not .NET's) and have an entry number
+  (`[Entry(n)]`, `Init`/`Main`). Requesting a method that is not `async Task` is an error
+  ([ATL2002](analyzers.md#atl2002)); a request that is neither awaited nor discarded gets a hint
+  ([ATL2001](analyzers.md#atl2001)).
+- To pass a priority, the entry declares the parameter:
+  `public static async Task E7Async(Priority priority = Priority.P1)`. It is the only parameter an
+  entry has today.
+- `Priority` is `P0_Main`, `P1` … `P6`, `P7_Init`, `P8`. Scripts use 1-6; 0, 7 and 8 are the
+  engine's levels and give a warning ([ATL2006](analyzers.md#atl2006)).
+- `await` only takes a request. Awaiting a native is a C# error (natives return `int`, `bool` or
+  `float`); a native that waits does so by itself.
+- Requests within one worker: awaiting a worker's own entry only works when the request's level is
+  above the level the caller runs at, else the caller waits for ever
+  ([ATL2004](analyzers.md#atl2004), [ATL2005](analyzers.md#atl2005)).
+- **The fallback form** for requests the call form cannot express, written by the decompiler:
+  `Request(level, worker, entry)`, `RequestWaitStart(…)`, `RequestWaitEnd(…)` (`req0`, `reqw0`,
+  `reqe0`; `variant: n` for `req1` … `req5`), and `RequestParty(level, slot, entry)` (`op_39`, a
+  request to a party member's worker). It is used for a computed worker or entry, requests to the
+  worker's own entries, entries without a method of their own, and the variants. In a mod,
+  `Link.Worker<T>()` and `Link.Entry<T>(nameof(…))` give the numbers for it.
+
+## Variables
+
+Variables are static fields of the script class, typed by the variable's type, with their storage
+area and offset:
+
+```csharp
+[Var(Storage.Save, Save.StoryProgress)] public static ushort StoryProgress;
+[Var(Storage.Event, 0x0040)] public static float[] Heights = new float[4];
+[Var(Storage.Private, 0x0010)] public static byte[,] Grid = new byte[3, 8];
+```
+
+| `Storage` | Area | Notes |
+|---|---|---|
+| `Save` (0) | the save game | storage 0 offset = save offset − `0x1ec`; `Save.*` names the known fields |
+| `Common` (1) | variables common to all scripts | no names yet |
+| `Private` (3) | the worker's private data | each worker its own copy, declared once in the script class |
+| `Shared` (4) | the script's shared data | |
+| `Event` (6) | the event data | |
+
+- Types: `byte` (`u8`), `sbyte` (`i8`), `ushort` (`u16`), `short` (`i16`), `uint` (`u32`), `int`
+  (`i32`), `float` (`f32`); arrays of those, 1-D or 2-D. The size is the initializer
+  (`new byte[6]`; a 2-D array's second dimension is the row length). `[Var(…, Length = n)]` is the
+  alternative for a 1-D array.
+- A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
+  variable table has a bit for it.
+- Field initializers on scalars are errors: initial values are in the data areas
+  (`[SharedData(…)]` and the others in `M209.Data.cs`), as hex. **Planned**: initial values
+  as initializers.
+- The order of the fields is the order of the script's variable table. The decompiler names
+  variables `V0`, `V1`, …, save variables after the field at their offset
+  (`StoryProgress`) or by offset (`Save_0a4a`), with `_2` for a second declaration of the same
+  location.
+- `Save` holds the storage 0 offsets of 65 save fields named after Fahrenheit's `SaveData`;
+  `Story` holds the 509 story progress values the scripts store
+  (`Story.S01340_Kami0400`), named by the scripts that store them. Both are `int` constants, so
+  `if (StoryProgress < Story.S01340_Kami0400)` and `StoryProgress = Story.S01340_Kami0400;` need no
+  cast.
+- `At(Grid, i)` is an element of a 2-D array by its flat index; `Addr(ref Heights[2])` is the
+  address of an element, for natives that take one (`pushvref`).
+- A mod's variables are fields of the script class without `[Var]`: the linker places them in the
+  shared data. With `[Var]` they name a fixed location (a save or common variable).
+
+### Registers
+
+A worker's registers are `static` fields with `[Register(n)]`: `int` for integer registers 0-3,
+`float` for float registers 0-9.
+
+```csharp
+[Register(0)] public static int I0;
+[Register(1)] public static float F1;
+```
+
+**Available**, with an explicit number. A function worker's register fields alias its caller's
+registers. Registers keep their value across waits and across entries of the same worker, so a
+register used across a wait while another entry writes it gets
+[ATL0001](analyzers.md#atl0001).
+
+`RegA`, `RegB` and `LastResult` are the machine's register A, register B and float accumulator
+(`Worker` members). The decompiler writes `RegB = LastResult;` after a native that waits for an
+answer (`Common.MsgShowWaitResult(…); RegB = LastResult;`): the answer is in the accumulator.
+**Decompiler only.**
+
+**Planned**: `[Register]` without a number (slots in declaration order), and locals. Today a
+local variable declaration is a compile error; use a register field or a variable.
+
+## Types and values
+
+- `int` is 32 bits and wraps (C#'s default `unchecked`); `checked` is an error
+  ([ATL1010](analyzers.md#atl1010)). `uint`, `short`, `ushort`, `sbyte`, `byte` are the variable
+  types; values on the stack are 32 bits.
+- `float` is `f32`. Float literals need `f` (`35f`); a `double` literal is an error
+  ([ATL1009](analyzers.md#atl1009), with a code fix).
+- `bool` exists for conditions. ATEL has no `bool` type: a comparison pushes 0 or 1, and a
+  condition tests any value against 0.
+- Enums of the reference assembly type native parameters: `Target`, `ActorProperty`, `Command`,
+  `BattleMotion`, `Model` (`Btl.GetActorProperty(Target.Own, ActorProperty.Hp)`,
+  `Common.SetModel(Model.Tidu)`). A member compiles to its number; a cast (`(Target)V2`) compiles
+  to nothing.
+- `Text[12]` is a message ID (`TextId`, see "Text"); an `int` converts to `TextId` implicitly.
+- ATEL has no conversions, so every cast compiles to nothing. Where C# needs one the decompiler
+  writes it: `(int)` for a float passed to an `int` parameter, `(byte)(V2 + I0)` to store an `int`
+  into a `byte`, `unchecked((byte)-65)` for a constant out of range.
+
+## Natives
+
+Natives are static methods of `Common`, `Calc`, `Screen`, `Chr`, `Cam`, `Btl`, `Fx`, `Movie`,
+`Group9`, `GroupC` and `GroupD` (`src/Ffx.Atel.Game/Natives.g.cs`, generated from
+`data/natives.json`). Each has `[Native(id)]` (`Polls = true` for natives that wait) and an XML doc
+comment with what is known about it, which the IDE shows on hover.
+
+```csharp
+Common.WaitFrames(30);
+if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
+{
+    Btl.UseCommand(Target.Own, Command.Thundara);
+}
+```
+
+- A call as a statement is `func_facc` (the result goes to the float accumulator); a call whose
+  result is used is `func`.
+- Arguments are positional; named arguments to natives are a compile error for now.
+- 25 natives that are predicates return `bool` (`Common.VoiceIsPlaying()`,
+  `Common.PartyIsJoined(…)`); the others return `int` (or `float`), also when the scripts only
+  test them.
+- Many natives still have generated names (`Btl.ActorSetField505`, `Common.MsgGetText_0236`) and
+  untyped parameters (`a0`, `a1`). Names and types come from `data/native-types.json` and the
+  generator `tools/gen-natives.cs`.
+
+## Text
+
+| Form | Status |
+|---|---|
+| `Common.MsgSetText(0, Text[12]);` | **available**: `Text[n]` is message `n` of the script's table; compiles to the number |
+| `Common.MsgSetText(0, V3);` | **available**: a computed index converts from `int` |
+| `Text.New("Nice throw!")` | **planned**: a new message, numbered by the loader; not in the reference assembly yet |
+| `Debug.Print($"hp = {Hp}")` | **planned** (Phase 10): debug output through natives the loader provides; not in the reference assembly yet |
+
+`string` is an error everywhere except attribute arguments and the reference-assembly members that
+take one (`Asm`) ([ATL1002](analyzers.md#atl1002)). The editor extension shows each `Text[n]`'s
+message from your own game's tables ([editor.md](editor.md)).
+
+## Statements and expressions
+
+**Available:**
+
+| C# | Notes |
+|---|---|
+| `x = e;` | a variable, array element or register |
+| `x += e;` and `-= *= /= %= &= \|= ^= <<= >>=` | on a scalar the same code as `x = x + e` |
+| `Native(…);` | a native call as a statement |
+| requests, `W48.Run();` | see above |
+| `return;` | `end`, or `ret` in a function worker |
+| `+ - * / %`, `<< >>`, `& \| ^ ~ !`, `== != < > <= >=` | `>>` is arithmetic (`sar`) |
+| `-5`, `-1.5f` | a negative literal; negating any other expression is not compiled yet |
+| `true`, `false` | inside a condition: 1 and 0 |
+| `Type.Member` | an `int` constant of the reference assembly or an enum member: its number |
+
+**Not compiled yet** (the compiler reports "not a statement/expression Atel compiles"): `++`/`--`
+(write `x += 1`), local variables, `?:`, unary minus on a non-literal, entries with parameters or
+return values, helper methods, `foreach`. `&&` and `||` are errors for now
+([ATL1011](analyzers.md#atl1011)).
+
+**Not Atel at all** (analyzer errors, [analyzers.md](analyzers.md)): `new` for objects and local
+arrays (ATL1001), `string` (ATL1002), the .NET base library (ATL1003), collections (ATL1004),
+LINQ (ATL1005), exceptions (ATL1006), lambdas, delegates and local functions (ATL1007), generic
+declarations (ATL1008), `long`, `double`, `decimal`, `char`, `object` (ATL1009), `checked`
+(ATL1010), recursion (ATL3001), `call` deeper than 3 (ATL3002), and `async` methods that do not
+return `Ffx.Atel.Task` (ATL2007).
+
+### Conditions
+
+C# needs a `bool` where ATEL takes any value. The compiler decides by the syntax alone whether an
+expression is a condition: a comparison, `!`, `true`/`false`, `AsBool(…)`, a native that returns
+`bool`, or `&`, `|`, `^` of conditions.
+
+- **`&` and `|` evaluate both sides.** On two conditions they are ATEL's `land` and `lor`, which do
+  not short-circuit; C#'s `&` and `|` on `bool` do the same, so the meaning is unchanged. On
+  integers they are the bitwise `and`/`or`. `&&` and `||` are errors for now: they need branches
+  inside an expression, which the original compiler never made.
+- `AsBool(x)` is an `int` (or `float`) used as a condition, `if (AsBool(V3 & 4))`: no code, the
+  machine tests against 0. `if (V3 != 0)` would add an `ne`, so different bytes. **Decompiler
+  only**, but fine in new code.
+- `AsInt(c)` is a condition used as a value, `V3 = AsInt(I0 > 2);` (0 or 1): no code.
+- Constant conditions: `if (false) { … }` is code that is jumped over (the original kept such dead
+  code), `while (true)` a loop without a test. Any other constant condition is an error.
+
+### Control flow
+
+**Available:** `if`/`else`, `while`, `while (true)`, `do … while`, `for`, `switch`, `break`,
+`continue`, `goto case`, `goto default`, `goto lN;` with labels `lN:`.
+
+- `for` declares no variables: `for (I0 = 0; I0 < 4; I0 += 1)`.
+- `continue` works in `while` and `for` (it goes to the step); not in `do … while`.
+- `switch` takes any `int` expression. Each section has exactly one label (no `case 1: case 2:`):
+  a constant `case 3:`, a relational pattern `case < 5:`, `case >= 10:`, or a range
+  `case >= 380 and <= 401:`. No `when`. `default` may be anywhere. The decompiler names story values
+  in cases (`case >= Story.S02400_Nagi0000 and <= Story.S02875_Zkrn0600:`).
+- **Fall-through.** C# requires a section to end in a jump. Where the original runs from one section
+  into the next, the section ends in `goto case k;` (or `goto default;`) naming the next section,
+  which compiles to no code. Any other `goto case` is a jump.
+- **Labels** are `l` plus a number (`l12:`), and are the worker's label numbers. The decompiler
+  keeps `goto` only where no structured statement fits (8,448 in the corpus: jumps out of nested
+  constructs to a shared end, or to an outer loop's head). `if (c) goto l3;` without braces is one
+  conditional jump.
+- `[Labels(4, 2, 3)]` on a method pins the numbers of its labels where the original compiler
+  numbered them otherwise than the rule (26 methods in the corpus). **Decompiler only.**
+
+## Machine-level helpers
+
+`Worker` members that compile to fixed bytecode. They exist so that every vanilla script
+decompiles to C# that compiles back to the same bytes; most are **decompiler only**. All compile to
+the instructions shown or to nothing.
+
+| Member | Bytecode | Why it exists |
+|---|---|---|
+| `AsBool(x)` | none | an `int` as a condition; C# needs a `bool` |
+| `AsInt(c)` | none | a condition as a value; C# needs an `int` |
+| `At(a, i)` | `pushva` | a 2-D array indexed by its flat index |
+| `Addr(ref a[i])` | `pushvref` | the address of an element, for natives |
+| `StoreClamped(ref x, v)` | `popv_1`, `popva_1` | a store that clamps to the variable's range (8 in the corpus) |
+| `Pooled(index, value)` | `pushc`, `pushfc` with that index | a pinned pool that holds the value twice, where the code uses the later copy (1 script) |
+| `Nop(n)` | `nop_76 n` | a no-op with an operand the original compiler left (38 in the corpus) |
+| `Entry(n);` | none | entry `n` starts here, inside a method holding several entries' code |
+| `Request`, `RequestWaitStart`, `RequestWaitEnd`, `RequestParty` | `req*`, `op_39` | requests the call form cannot express |
+| `Call<W>()` | `call` | the older form of `W.Run()` |
+| `Halt()`, `Breakpoint()` | `op_54`, `op_40` | |
+| `End(v)`, `End(v, reset: true)` | `endp`, `endp_1` | |
+| `Op77(a, b)`, `Op78(a, b)`, `Op79(a, b, c)` | `op_77` … `op_79` | opcodes not yet understood |
+| `RegA`, `RegB`, `LastResult` | `pusha`/`popa`, `pushb`/`popb`, `pushfacc` | the machine's registers |
+| `Asm("""…""")` | the lines | assembly in `atel disasm` syntax; the decompiler writes none since Phase 4, but it stays valid input |
+
+`Asm` takes one string literal; its `lN:` lines are the worker's labels. A mod cannot refer to a
+constant by pool index (`Pooled`, or `pushc`/`pushfc` in `Asm`).
+
+## Layout pins
+
+Attributes on the script class for what the language has no construct for, so that the compiler
+gives back the original block. **Decompiler only.**
+
+| Attribute | Pins |
+|---|---|
+| `[Header(Author = …, Name = …, Word14 = …)]` | the header's strings and the words not yet understood |
+| `[Ints(…)]`, `[Floats(…)]`, `[FloatBits(…)]` | the constant pools' order, where the first-use rules fail |
+| `[Pin("shared", 0x…)]` | a region at another offset than the layout rules give |
+| `[Patch(offset, hex)]` | bytes no rule produces (none in the corpus) |
+| `[SharedData]`, `[EventData]`, `[OtherData]`, `[AreaData]`, `[MapData]` | the data areas, as hex |
+
+See [encoding.md](encoding.md) for the rules these pin.
+
+## Layout of code
+
+A worker's code is its methods in order: library class first, then the worker's files in path
+order (`W36` before `W36.2`), then declaration order. Code that does not end in a jump or `end`
+runs on into the next method, as in the original. Keep that in mind when moving methods around
+in vanilla source: it changes the bytes, and can change behaviour.
+
+## Mods
+
+A mod is C# in the namespace of the script it changes, compiled against the decompiled vanilla
+source (`atel compile-mod`, [tutorial.md](tutorial.md); the package format is
+[formats/mod-package.md](formats/mod-package.md)). A mod's files start with the same usings as the
+decompiled ones, `using static` of the script class included.
+
+```csharp
+using Ffx;
+using Ffx.Atel;
+using static Monsters.M999.M999;
+
+namespace Monsters.M999;
+
+partial class M999
+{
+    public static int Turns;                 // a new variable; the linker places it
+}
+
+partial class Larva
+{
+    [Postfix(nameof(Init))]
+    static void MoreHp() { Btl.SetActorProperty(0, 1234); }
+
+    [Prefix(nameof(E2))]
+    static void SkipWhenLow()
+    {
+        if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 10) { return; }
+    }
+
+    public static async Task CountAsync() { Turns += 1; }   // a new entry
+}
+
+public sealed partial class Helper : Worker2  // a new worker
+{
+    protected override void Init() { return; }
+    protected override void Main() { Common.WaitForever(); }
+}
+```
+
+| Declaration | Does |
+|---|---|
+| a field of the script class | a new variable (shared data, or a fixed location with `[Var]`) |
+| `[Prefix(nameof(M))]` | runs before vanilla method `M`; `return;` ends the entry, so `M` does not run |
+| `[Postfix(nameof(M))]` | runs after `M`, wherever `M` ends the entry |
+| `[Replace(nameof(M))]` | runs instead of `M` |
+| a method without attribute | a new entry; its number is given when linking |
+| a new class deriving from `Worker0` … `Worker6` | a new worker |
+| `[Register(n)]` fields | name registers, as in vanilla |
+
+**Available.** A mod does not change attributes or base classes of vanilla classes, and a new
+worker has no private data yet. Patches apply to every entry the vanilla method starts. Several
+mods' prefixes and postfixes on one method chain in load order; two replacements conflict and the
+later wins. **Planned**: `[Inject]`, `[Before]`/`[After]`, `Text.New`, per-field data edits.
+
+A patch is not an engine-run entry, so it cannot be `async void` and cannot `await`; request an
+entry of your own (`_ = Larva.CountAsync();`) and await there.

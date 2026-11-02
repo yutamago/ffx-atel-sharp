@@ -84,7 +84,7 @@ and another entry of the same worker writes the field.
 [Entry(1)]
 void E1()
 {
-    for (I0 = 0; I0 < 10; I0++)
+    for (I0 = 0; I0 < 10; I0 += 1)
         Common.WaitFrames(1);   // ATL0001: I0 across this wait, and E3 writes it
 }
 
