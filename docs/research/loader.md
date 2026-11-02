@@ -18,7 +18,8 @@ and names are ffx-rust's (`symbols/ffx.sym`).
 | Changed, grown | `m209`: worker 1's init ends with `SetActorProperty(0, 1234)` | grew to 55,856 bytes, sections 1 to 6 moved by `0x240` | in battle 34 the Larva has 1234 HP instead of 1498. The file in memory equals the grown file byte for byte, including all 576 bytes past the vanilla size |
 
 So grown event and monster scripts load whole with Fahrenheit alone. The
-loader adds no size hook.
+loader still hooks `CDfileSize_CD` for its own files, the one size function
+Fahrenheit leaves alone ("The `CDfileSize_CD` hook" below).
 
 ## How the loader serves files
 
@@ -84,14 +85,68 @@ What is left:
 - **Eternal Calm maps** (the 7 maps from `g_EternalCalmFirstMap`,
   `0x00c33468` = 393, so maps 393-399). While one is the
   graphic map, every `Cd_QueueRead` sizes through `CDfileSize_CD`, which
-  Fahrenheit does not hook. A grown file read there would be cut. Not
-  tested in game. A hook like ffx-rust's (`crates/ffx-hook/src/mods.rs`:
-  the replacement's size, rounded up to 16, for a file number whose
-  `CDfileName_PC` path has a replacement) would close it.
+  Fahrenheit does not hook. Most of those sizes come from the CD's tables,
+  so a grown file read there would be cut. The loader now hooks it for the
+  files it serves (next section). The map's own `.ebp` was never at risk:
+  see below.
 - **HDD mode** uses `CDfileSize_CD` too. Nothing on PC was seen setting
   `g_FFXHddMode`.
 - `CDfileSize_CD_EX` (`0x0076c410`) is called only from `CDfileSize_PC`
   (`0x00a4294a`), on the path Fahrenheit's module override skips.
+
+## The `CDfileSize_CD` hook
+
+Decided by the user on 2026-11-02 ("can't hurt") and added the same day
+(`src/Ffx.Atel.Loader/CdFileSizeHook.cs`, `ServedFiles.cs`). It is put in
+the module's `init` only when the loader serves at least one file.
+
+- Signatures (disassembly of FFX.exe, matching ffx-rust's): `CDfileSize_CD`
+  (`0x0076c320`) and `CDfileName_PC` (`0x00a42830`) are cdecl with one
+  `int` (the file number within the current module) on the stack, result
+  in `eax`. `CDfileName_PC` adds the module's first file (`GetCD()+0x20`)
+  and tail-jumps to `0x00a42c00`, which builds the path in a static buffer
+  (`0x01a85c30`) or returns NULL for an empty entry. Fahrenheit alpha12's
+  `FhCall` has neither with a signature (only the untyped generated
+  `FUN_0036c320` and `FUN_00642830_0074E7D0`), so the loader declares its own
+  call handles, as Debug Revival does (`FhCallLocation("FFX.exe", offset)`).
+- The path: `Cd_QueueRead` asks `CDfileName_PC` right after the size, and
+  when that is NULL it uses the built-in name of an Eternal Calm map's
+  `.ebp` (file `map * 18`, `getEternalCalmSceneName` `0x0067aac0`) or
+  `.mgrp` (`map * 18 + 3`, `0x0067aa50`, table `0x00c334d4`); both return
+  NULL outside 393-399. The table entries of maps 393-399 are empty (Debug
+  Revival's `docs/research/maps.md`), so a lookup through `CDfileName_PC`
+  alone, like ffx-rust's `mod_size`, never finds those maps' own files. The
+  hook makes the same three calls the game makes.
+- The answer: for a path whose archive path (`host0:/ffx/master/…` is
+  `ffx_ps2/ffx/master/…`, case and slashes ignored) is a file in the
+  loader's `efl/x`, that file's size rounded up to 16, as `CDfileSize_PC`
+  rounds `sceFileSize`. Every other file goes to the next hook in
+  Fahrenheit's chain (`chain_from`), or the original, with the same
+  argument, so other mods' hooks on the function still run and files the
+  loader does not serve keep the game's size. An exception inside the hook
+  is logged once and answered with the next hook's size. Fahrenheit chains
+  only its own mods' hooks; a detour from outside Fahrenheit on the same
+  address (ffx-rust's `ffx-hook` has one) must stay off.
+- Unit tests: the path mapping, the Eternal Calm name fallback and the
+  rounding (`tests/Ffx.Atel.Loader.Tests/ServedFilesTests.cs`).
+
+Checked in game on 2026-11-02:
+
+| Run | Served | Result |
+|---|---|---|
+| Normal play | `kami0000` grown (worker 0's `Main` waits one frame first; 79,872 -> 83,648 bytes), `m209` grown (`SetActorProperty(0, 1234)` at the end of worker 1's init; 55,280 -> 55,856) | log: "CDfileSize_CD hooked for 2 served file(s)"; developer save 51 loads map 140 and the screenshot shows the normal scene; battle 34 runs and the Larva has 1234 HP |
+| Eternal Calm | `kami0000` with `MapJump(393, 0)` (`0x010b`) after 90 frames in worker 0's `Main`; `scene1.ebp` grown (`WaitFrames(1)` at the start of worker 0's init; 32,512 -> 33,216) | `CDfileSize_CD` starts with a `jmp` (the detour); the map jump from developer save 51 reaches map 393 with `g_GraphicMapId` 393 and the scene plays (Wakka, subtitles). The hook answered once: `CDfileSize_CD(7074)` (= 393 * 18) for `host0:/ffx/master/jppc/event/obj/sc/scene1/scene1.ebp`, 33,216 bytes, through the built-in name. The `.ebp` in memory (`g_AtelEventEbpAddr64`, `0x013270f8`) equals the grown file except 24 bytes from offset 22,140 on, all inside the vanilla part, which the running scene changed (not looked at further; `kami0000` had 23 such bytes); all 704 bytes past the vanilla size match |
+| Same, without the hook (a local build that skips it) | same | the same: the grown `scene1.ebp` loads whole |
+| Same, with a local build that logs every call | same | 8 calls on map 393: `scene1.ebp` and `scene100.mgrp` (built-in names), `bsil00`'s `mapout.vpa`, `c102.chr`, `c105.chr` and three `.mgrp` motion groups (table names). The original returned 33,216 for `scene1.ebp`, the grown size |
+
+So the map's own `.ebp` loads whole without the hook: `CDfileSize_CD`
+starts from `getEternalCalmSceneSize`, which measures the file with
+`sceOpen`/`sceFileSize` (`0x0067a9f0`, so the EFL file, rounded up to 16)
+and keeps it for this entry. The hook made no difference for any file
+tested; it covers the files on that list that come from the CD's tables,
+should the loader ever serve one of them, and any other file a script
+loads while an Eternal Calm map is the graphic map. Monster and battle
+files on those maps were not seen.
 
 ## How it was run
 
@@ -107,8 +162,11 @@ and size hooks were turned off (`FFX_HOOK_DISABLE` with
 Fahrenheit served and sized files. The harness commands used: `devsave
 51`, `press`, `shot`, `read`/`readabs`, and the battle request ffx-rust's
 `screens::start_battle` makes (field 34 at `0x0112c256`, group and
-formation at `0x0112c258`, `call 0x780ff0 1`, `0x0112a8e2` = 1). Monster
-HP is at `*0x011334d4 + n * 0xf90 + 0x5d0` (actor 20 is the first
+formation at `0x0112c258`, `call 0x780ff0 1`, `0x0112a8e2` = 1). The
+Eternal Calm runs used the same setup; the jump to map 393 is the edited
+`kami0000`'s own `MapJump`, so no harness call had to take the control.
+The two runs without the hook or with every call logged used local builds
+that were thrown away. Monster HP is at `*0x011334d4 + n * 0xf90 + 0x5d0` (actor 20 is the first
 monster). A monster's file in memory starts `0x30` before its script
 block, found through battle ctrl work 2's block table (`+0x1f8`, Debug
 Revival's `docs/research/script.md`).
