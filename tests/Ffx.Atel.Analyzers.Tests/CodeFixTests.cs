@@ -33,7 +33,8 @@ public sealed class CodeFixTests {
         ImmutableArray<CodeActionOperation> operations = await action.GetOperationsAsync(cancel);
         Solution changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution;
         SourceText text = await changed.GetDocument(document.Id)!.GetTextAsync(cancel);
-        return text.ToString()[Harness.Usings.Length..];
+        // The formatter writes the platform's line ending (\r\n on Windows); compare with \n.
+        return text.ToString()[Harness.Usings.Length..].Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     [Fact]
