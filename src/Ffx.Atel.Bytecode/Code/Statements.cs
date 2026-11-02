@@ -89,6 +89,14 @@ public sealed record OrElseExpr(Expr Left, Expr Right) : Expr;
 /// </summary>
 public sealed record LocalExpr(object Slot) : Expr;
 
+/// <summary>
+///     Where a store to a local starts, before its value: a <c>nop</c> with this as
+///     <see cref="CodeOp.Symbol"/>. A local whose hidden variable has one element per level needs its
+///     element's index pushed before the value (<c>popva</c> pops the value, then the index); the compiler
+///     rewrites the mark to that push, or drops it.
+/// </summary>
+public sealed record LocalStoreMark(object Slot);
+
 /// <summary>A statement: code from an empty stack to an empty stack.</summary>
 public abstract record Stmt;
 

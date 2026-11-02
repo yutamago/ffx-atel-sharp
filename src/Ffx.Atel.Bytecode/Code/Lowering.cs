@@ -49,6 +49,7 @@ public static class Lowering {
                         o.Add(CodeOp.Of(a.Clamped ? Opcodes.PopVA1 : Opcodes.PopVA, var));
                         break;
                     case LocalExpr l when !a.Clamped:
+                        o.Add(new CodeOp(Opcodes.Nop, null, Symbol: new LocalStoreMark(l.Slot)));
                         Lower(a.Value, o);
                         o.Add(new CodeOp(Opcodes.PopV, 0, Symbol: l.Slot));
                         break;

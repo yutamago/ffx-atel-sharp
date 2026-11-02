@@ -323,12 +323,35 @@ the code's jumps) and places each:
 | otherwise | an integer register (`i3` down to `i0`) or float register (`f9` down to `f0`) that the worker's code does not name (its `[Register]` fields, any register opcode in the code, the `[Register]` fields of every function worker it calls, all registers in a function worker), and that no slot live at the same time has |
 | otherwise | a hidden variable |
 
-A placed slot is `pushi3`/`popi3` (`pushf9`/`popf9`, …) or `pushv`/`popv` of its variable. A hidden
-variable is an `i32` (`f32` for a float) in storage 4, one per slot: in a mod a new variable of the
-package (`<local>name#n`), which the linker allocates in its new data area; in a script compiled
-whole a variable at the end of the variable table, at the end of the shared data (which grows by 4
-bytes each). Registers are per worker and only change while the worker runs, so a value that crosses
-no wait cannot be changed by other code; a hidden variable belongs to one slot of one method.
+A placed slot is `pushi3`/`popi3` (`pushf9`/`popf9`, …) or its hidden variable. Registers are per
+worker and only change while the worker runs, so a value that crosses no wait cannot be changed by
+other code; a hidden variable belongs to one slot of one method.
+
+A hidden variable is an array of nine `i32` (`f32` for a float) in **storage 3**, the private data of
+the worker that runs the code, with one element per level (0-8):
+
+| C# | Bytecode |
+|---|---|
+| `x` (read) | `func 0x00eb; pushva vX` |
+| `x = e;` | `func 0x00eb; e; popva vX` |
+
+Native `0x00eb` (`GetFieldU832_00856980`) returns work `+0x32`, the level the worker runs; it does
+not poll. Both choices follow from where the game keeps things
+([formats/script-block.md](formats/script-block.md#private-data-at-run-time)): the shared data
+(storage 4) is one per script block, and in battle two monsters of one kind share their block; the
+private data is one per worker, and in battle one per actor. A worker runs one level at a time, but
+an entry that waits can be interrupted by a request at a higher level, which may run the same
+method again; the element per level keeps the two apart. The index goes before the value
+(`popva` pops the value, then the index), so a store is marked where it starts and the mark becomes
+`func 0x00eb` once the slot is placed.
+
+`call` keeps the caller's work, so a helper's hidden variables are its caller's private data. Every
+worker (not a function worker) whose code uses a hidden variable, its own or that of a function
+worker it calls, gets the new variables at one offset past the longest private data among those
+workers: in a mod a new variable of the package (`<local>name#n`, storage 3, length 9), which the
+linker places in the private data it adds ([formats/mod-package.md](formats/mod-package.md#linking));
+in a script compiled whole a variable at the end of the variable table, and the workers'
+`[Worker(PrivateLength)]` and private data grow by 36 bytes each.
 
 ### Helpers
 
@@ -352,7 +375,11 @@ from an entry; recursion is an error.
 
 An entry another worker requests (`async Task<int> FooAsync(int x)`) gets a hidden variable per
 parameter (besides a `Priority` one, the level) and for its result: slots whose home is fixed when the
-compilation starts, so every requester can write them.
+compilation starts, so every requester can write them. One plain `i32`/`f32` each, not one per level
+(the requester and the entry run at different levels): in the worker's private data (storage 3) when
+every request of the entry in the compilation is made by the entry's own worker, from an entry or a
+patch; else in the shared data (storage 4), since storage 3 is always the running worker's, so a
+requester in another worker would write its own copy.
 
 | C# | Bytecode |
 |---|---|

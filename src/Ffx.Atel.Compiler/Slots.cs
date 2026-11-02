@@ -27,6 +27,12 @@ internal sealed class Slot(string name, bool isFloat) {
     /// <summary>Where it lives: a <see cref="RegExpr"/> or a <see cref="VarExpr"/>; null until placed.</summary>
     public Expr? Home { get; set; }
 
+    /// <summary>
+    ///     Its <see cref="Home"/> is a hidden array with one element per level (<see cref="SlotAllocator.Levels"/>),
+    ///     read and written at the level the worker runs (native <c>0x00eb</c>, work <c>+0x32</c>).
+    /// </summary>
+    public bool PerLevel { get; set; }
+
     public override string ToString() => Name;
 }
 
@@ -72,7 +78,10 @@ internal sealed class SlotContext {
     /// <summary>The registers a <c>call</c> of the worker may change: no slot live across that call takes one.</summary>
     public Func<int, RegisterSet> CallClobbers { get; init; } = _ => RegisterSet.All;
 
-    /// <summary>Makes a hidden variable for a slot and returns its index in the variable table.</summary>
+    /// <summary>
+    ///     Makes a hidden variable for a slot and returns its index in the variable table: an array of
+    ///     <see cref="SlotAllocator.Levels"/> elements in the worker's private data (storage 3).
+    /// </summary>
     public required Func<Slot, int> Hide { get; init; }
 
     /// <summary>Slots the code starts with (a helper's parameters): live at its start, each in its own place, placed even when unused.</summary>
@@ -89,6 +98,16 @@ internal sealed class SlotContext {
 ///     worker names holds the value safely.
 /// </summary>
 internal static class SlotAllocator {
+    /// <summary>
+    ///     Elements of a hidden local: one per level a worker runs (0-8; <c>Script_WorkerLevel</c> keeps
+    ///     nine, types 5 and 6 two). An entry may run on two levels of one worker at once (a higher level
+    ///     interrupts it while it waits), so each level keeps its own copy.
+    /// </summary>
+    public const int Levels = 9;
+
+    /// <summary>The native that returns the level the worker runs (<c>GetFieldU832_00856980</c>: work <c>+0x32</c>); it does not poll.</summary>
+    public const ushort LevelNative = 0x00eb;
+
     /// <summary>The result: the registers the code uses (its own and those given to slots), and whether it may wait.</summary>
     public readonly record struct Placed(RegisterSet Registers, bool Waits);
 
@@ -217,7 +236,10 @@ internal static class SlotAllocator {
                     }
                 }
             }
-            s.Home ??= new VarExpr(ctx.Hide(s));
+            if (s.Home is null) {
+                s.Home = new VarExpr(ctx.Hide(s));
+                s.PerLevel = true;
+            }
         }
         Rewrite(items);
         return new Placed(named | given, waits);
@@ -233,18 +255,40 @@ internal static class SlotAllocator {
         _ => false,
     };
 
-    /// <summary>Rewrites the placeholders (<c>pushv</c>/<c>popv</c> of a slot) to their homes.</summary>
+    /// <summary>
+    ///     Rewrites the placeholders (<c>pushv</c>/<c>popv</c> of a slot) to their homes. A per-level home is
+    ///     <c>func 0x00eb; pushva v</c> to read and <c>func 0x00eb; …value…; popva v</c> to write (the index at
+    ///     the store's mark, before the value); other homes drop the mark.
+    /// </summary>
     private static void Rewrite(List<FlowItem> items) {
-        for (int i = 0; i < items.Count; i++) {
-            FlowItem it = items[i];
-            if (it.Kind != FlowItemKind.Instruction || it.Op.Symbol is not Slot s) continue;
+        List<FlowItem> output = new(items.Count);
+        foreach (FlowItem it in items) {
+            if (it.Kind == FlowItemKind.Instruction && it.Op.Symbol is LocalStoreMark { Slot: Slot marked }) {
+                if (marked.Home is null) throw new InvalidOperationException($"local {marked.Name} has no place");
+                if (marked.PerLevel) output.Add(it with { Op = CodeOp.Of(Opcodes.Func, LevelNative) });
+                continue;
+            }
+            if (it.Kind != FlowItemKind.Instruction || it.Op.Symbol is not Slot s) {
+                output.Add(it);
+                continue;
+            }
             bool push = it.Op.Code == Opcodes.PushV;
-            CodeOp op = s.Home switch {
-                RegExpr r => CodeOp.Of(push ? Lowering.Push(r) : Lowering.Pop(r)),
-                VarExpr v => CodeOp.Of(push ? Opcodes.PushV : Opcodes.PopV, v.Var),
-                _ => throw new InvalidOperationException($"local {s.Name} has no place"),
-            };
-            items[i] = it with { Op = op };
+            switch (s.Home) {
+                case RegExpr r:
+                    output.Add(it with { Op = CodeOp.Of(push ? Lowering.Push(r) : Lowering.Pop(r)) });
+                    break;
+                case VarExpr v when s.PerLevel:
+                    if (push) output.Add(it with { Op = CodeOp.Of(Opcodes.Func, LevelNative) });
+                    output.Add(it with { Op = CodeOp.Of(push ? Opcodes.PushVA : Opcodes.PopVA, v.Var) });
+                    break;
+                case VarExpr v:
+                    output.Add(it with { Op = CodeOp.Of(push ? Opcodes.PushV : Opcodes.PopV, v.Var) });
+                    break;
+                default:
+                    throw new InvalidOperationException($"local {s.Name} has no place");
+            }
         }
+        items.Clear();
+        items.AddRange(output);
     }
 }

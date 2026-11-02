@@ -47,6 +47,43 @@ and moved here when work began.
   player's scripts and serves the results. The Rust port may load the same
   packages later; nothing here depends on it.
 
+2026-11-02, after a review of `ffx-atel-src` from a scenario writer's view
+(an FFX fan new to C#):
+
+- **Actors get English names** in the source (`Tidus`, `Wakka`, `Oaka`);
+  the `Model` enum keeps the developers' codes (they match the `chr_` files).
+- **Hand-written English proper names** (monsters, areas, NPCs) may go into
+  this repo; anything extracted in bulk from the game only through a local
+  export on the player's machine.
+- **Names live in an overlay in `ffx-atel-src`**, applied by the decompiler,
+  so renames survive regeneration (not hand edits on `main`).
+- **Folders: map code plus an English suffix**
+  (`Events/Ka_ThunderPlains/Kami0000/`), plus a generated index per area.
+- **Two levels of cleanup.** Phase 1 changes keep the bytecode identical and
+  go to `main`. Phase 2 cleanups (dead code, dialogue as one call) may change
+  the bytecode as long as the game behaves the same; they live on a separate
+  branch built by a tool from `main`, which stays byte-identical.
+- **Dialogue text as comments on `main`** of the private source repo
+  (`Text[71] // "…"`, English).
+- **Only verified names.** A name inferred from call patterns (`Op77`, roles
+  like `Director`, save-flag meanings) is used only once confirmed in FFX.exe
+  or in game.
+- **Inline macros for dialogue come after `Text.New`**, which unblocks
+  writing new scenarios.
+- **The dead `if (false)` blocks stay**, in every form of the source,
+  including the Phase 2 branch: they hold code the original compiler kept
+  behind constant conditions (34,806 blocks; alternate versions of scenes,
+  e.g. a per-character sequence in Macalania Woods, `mcfr0100`, with other
+  character entries and `SetLegendAbility` values; dialogue only dead code
+  shows). They are the best lead to hidden and cut content.
+- **Later: find out what each one does and make it switchable at run
+  time.** Each block gets a name (`if (Cut.MacalaniaLegendV1)`) instead of
+  `false` in the source, and a mod can turn a block on through a flag the
+  loader provides (a native in its group, set from a config or a debug UI),
+  so the game runs the hidden variant while vanilla stays as shipped. The
+  vanilla source keeps compiling to the shipped bytes: the flags are names
+  for `false` until a mod links in the switch.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
@@ -224,7 +261,11 @@ carries only entry, worker and priority. The compiler provides both:
   order unless pinned. Function and helper parameters also use registers
   (see "Parameters and return values").
 - Locals survive waits, as in C#: where a local is still needed after a
-  wait, the compiler saves and restores it through hidden storage.
+  wait, the compiler saves and restores it through hidden storage: the
+  private data of the worker that runs the code (storage 3), one copy per
+  level (decided 2026-11-02; the shared data is one per script block, which
+  two monsters of one kind share in battle, and one entry can run on two
+  levels of its worker at once; [encoding.md](encoding.md#locals)).
   Decompiled locals that do not cross a wait stay plain locals; registers
   the original kept across a wait become `[Register]` fields.
 - Register fields used across a wait while another entry of the same
@@ -958,6 +999,28 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
   out unchanged workers in place; per-field data edits and `[Inject]`;
   private data for new workers.
+- **Hidden locals in private data** (2026-11-02). Hidden locals used to be
+  4-byte variables of the shared data (storage 4). FFX.exe
+  ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
+  storage 3 goes through the running worker's work (header `+0x2c`, in
+  battle the ctrl work's `+0x54` callback to the work's own buffer at
+  `+0xb8`, sized by `+0x10`, cleared at set-up); `call` keeps the caller's
+  work; two monsters of one kind share one script block (one shared data)
+  and get a set of works each. So a hidden local is now an array of nine in
+  storage 3, indexed by the level the worker runs (native `0x00eb`, work
+  `+0x32`): `func 0x00eb; pushva v` to read, `func 0x00eb; …; popva v` to
+  write. An entry's parameter and result fields are one plain variable
+  each, private when only the entry's own worker requests it, else still
+  shared (storage 3 is the running worker's, so another worker could not
+  write the entry's copy). The linker allocates new storage-3 variables in
+  one area that every worker running the code (its own or a function
+  worker's it calls) gets past its private data, copying a vanilla private
+  block to the block's end when it grows ([formats/mod-package.md](formats/mod-package.md#linking));
+  a script compiled whole grows those workers' private data. The linker's
+  corpus package now has such a local: 1,598 scripts link and lay
+  themselves out again byte for byte; the vanilla round trip is unchanged
+  (no new code). In game, the two Larvas of `kami03_02` each kept their own
+  hidden local ([research/loader.md](research/loader.md#hidden-locals-in-private-data-two-larvas)).
 - **`Text.New`** (2026-11-02, [formats/mod-package.md](formats/mod-package.md#messages)):
   `Text.New("Nice throw!")` in a mod is a `TextId` of the reference
   assembly; the compiler puts each text once into the package's `messages`

@@ -126,8 +126,30 @@ Format and design: [formats/debug.md](../formats/debug.md).
 
 The game is relocated at run time (the ctrl works were at `0x01325ba0`
 plus a different offset each run); the harness's `read` rebases static
-addresses, so pointers read from memory need `readabs`. The two Larvas of
-battle 34 are in ctrl work 3, not 2.
+addresses, so pointers read from memory need `readabs`. The monsters of
+battle 34 are in ctrl work 3, not 2. (Battle 34, `kami00_00`, is a Larva and
+a Gold Element; `kami03_02`, field 35 formation 2, is two Larvas: `ffx
+battle list`.)
+
+## Hidden locals in private data: two Larvas
+
+Checked on 2026-11-02 from the `atel/private-locals` branch (merged
+locally with `atel/text-new` for one loader), in the same harness:
+
+- The mod (`m209`): a variable `Seen` (shared data) and a prefix on worker
+  1's `Main` (which only waits for ever): `Seen += 1; int mine = Seen;
+  Common.WaitFrames(30); Debug.Print($"m209 private local: larva {mine},
+  shared count {Seen}");`. `mine` lives across the wait, so it is a hidden
+  local: private, nine elements. The loader linked it with "worker 1's
+  private data grows to 60 bytes" (vanilla 24).
+- Battle `kami03_02` (two Larvas, one script block): "worker 1: m209
+  private local: larva 1, shared count 2" and "worker 4: m209 private
+  local: larva 2, shared count 2". Both Larvas counted before either wait
+  ended, and each kept its own `mine`. As a shared variable it would have
+  read 2 in both. Worker 4 is the second Larva's worker 1: the two
+  registrations of the block number their works on.
+- First tried in battle 34, which has one Larva: one line. A postfix on
+  `Init` that waits printed only for the first instance there too.
 
 Run the same way as above (ffx-rust's game-slot tool, `ffx-hook` harness
 in the background with its file and size hooks off, `fhstage0.exe`); the

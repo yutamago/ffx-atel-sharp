@@ -71,6 +71,10 @@ public sealed class EntryParameterTests {
         Assert.Equal(11, p.Variables.Count);
         Assert.Contains(p.Variables, v => v.Name.Contains("Larva.AddAsync.a", StringComparison.Ordinal));
         Assert.Contains(p.Variables, v => v.Name.Contains("Larva.HalfAsync.result", StringComparison.Ordinal) && v.Type == 6);
+        // Spark requests Larva's entries, so their fields are shared (storage 3 is the running worker's);
+        // the locals are private, one element per level.
+        Assert.All(p.Variables.Where(v => v.Name.Contains("Async.", StringComparison.Ordinal)), v => Assert.Equal((4, 1), (v.Storage, v.Length)));
+        Assert.All(p.Variables.Where(v => !v.Name.Contains("Async.", StringComparison.Ordinal)), v => Assert.Equal((3, 9), (v.Storage, v.Length)));
         RoundTrips(linked);
     }
 
@@ -111,6 +115,9 @@ public sealed class EntryParameterTests {
         Assert.NotEqual(Vanilla, source);
         ScriptImage image = ScriptCompiler.Compile(source, "M996.cs").Image;
         Assert.Equal(6, image.Variables.Count);
+        // Only Larva requests E2Async: its fields are Larva's private variables, plain (both levels share them).
+        Assert.All(image.Variables.Skip(4), v => Assert.Equal((3, 1), (v.Storage, (int)v.Length)));
+        Assert.Equal(8u, image.Workers[0].PrivateLength);
         MiniVm vm = new(image) { RunRequests = true };
         vm.Run(0, 3);
         Assert.Equal(42, vm.Var(Out).AsInt);

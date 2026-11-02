@@ -147,7 +147,7 @@ public static class ScriptLinker {
             if (v.Offset is int o && o is < 0 or > 0xff_ffff) errors.Add($"variable {v.Name}: offset out of range");
             if (v.Offset is null && v.Storage == 4 && (vanilla.Shared is null || workerCount == 0)) errors.Add($"variable {v.Name}: the script has no shared data (storage 4)");
             if (v.Offset is null && v.Storage == 6 && vanilla.Event is null) errors.Add($"variable {v.Name}: the script has no event data (storage 6)");
-            if (v.Offset is null && v.Storage is not (4 or 6)) errors.Add($"variable {v.Name}: the linker allocates only in storage 4 (shared) and 6 (event); give an offset");
+            if (v.Offset is null && v.Storage is not (3 or 4 or 6)) errors.Add($"variable {v.Name}: the linker allocates only in storage 3 (private), 4 (shared) and 6 (event); give an offset");
         }
         if ((p.Workers.Count > 0 || p.Patches.Count > 0) && workerCount == 0) errors.Add("the script has no workers to add code to");
         foreach (NewWorker w in p.Workers) {
@@ -206,7 +206,10 @@ public static class ScriptLinker {
         public string Name = "";
     }
 
-    /// <summary>A variable table entry; <see cref="DataOffset"/> when its storage is allocated in the new data area.</summary>
+    /// <summary>
+    ///     A variable table entry; <see cref="DataOffset"/> when its storage is allocated in the new data area
+    ///     (storage 4, 6) or, for storage 3, in the new private area every worker running its code gets.
+    /// </summary>
     private sealed record VarSlot(VarEntry Entry, int? DataOffset);
 
     /// <summary>What a mod's numbers became.</summary>
@@ -225,6 +228,7 @@ public static class ScriptLinker {
         private readonly List<uint> _ints = [.. vanilla.IntConstants];
         private readonly List<uint> _floats = [.. vanilla.FloatConstants];
         private readonly List<byte> _data = [];
+        private int _private;
         private WorkerState[] _byVanilla = [];
         private bool _callsRewritten;
 
@@ -256,6 +260,10 @@ public static class ScriptLinker {
                 int? data = null;
                 if (v.Offset is int fixedOffset) {
                     location |= (uint)fixedOffset;
+                }
+                else if (v.Storage == 3) {
+                    data = _private;
+                    _private += (v.ElementSize * v.Length + 3) & ~3;
                 }
                 else {
                     while (_data.Count % Math.Max(v.ElementSize, 4) != 0) _data.Add(0);
@@ -540,8 +548,48 @@ public static class ScriptLinker {
             return WriteBlock();
         }
 
-        private byte[] WriteBlock() => BlockWriter.Write(block, vanilla, new BlockWriter.Linked(
-            [.. _workers.Select(w => new BlockWriter.LinkedWorker(w.VanillaIndex, w.Type, w.Word0C, w.PrivateLength, [.. w.Code], [.. w.Entries], [.. w.Labels], w.CodeChanged || _callsRewritten))],
-            [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data]));
+        private byte[] WriteBlock() {
+            (HashSet<WorkerState> grown, int start) = PrivateLayout();
+            return BlockWriter.Write(block, vanilla, new BlockWriter.Linked(
+                [.. _workers.Select(w => new BlockWriter.LinkedWorker(w.VanillaIndex, w.Type, w.Word0C, w.PrivateLength, [.. w.Code], [.. w.Entries], [.. w.Labels], w.CodeChanged || _callsRewritten,
+                    grown.Contains(w) ? (uint)(start + _private) : null))],
+                [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data], start));
+        }
+
+        /// <summary>
+        ///     The workers whose private data (storage 3) grows by the new private area, and where the area
+        ///     starts in each. Storage 3 is resolved through the worker that runs the code (header
+        ///     <c>+0x2c</c>, in battle the work's own buffer sized by <c>+0x10</c>), also inside a function
+        ///     worker it calls; so every worker that is not a function worker and runs code using a new
+        ///     private variable, its own or a function worker's it calls, gets the area, at one offset past
+        ///     the longest private data among them.
+        /// </summary>
+        private (HashSet<WorkerState> Grown, int Start) PrivateLayout() {
+            HashSet<int> vars = [.. Enumerable.Range(0, _vars.Count).Where(i => _vars[i].DataOffset is not null && _vars[i].Entry.Storage == 3)];
+            if (vars.Count == 0) return ([], 0);
+            Dictionary<WorkerState, bool> uses = [];
+            Dictionary<WorkerState, List<int>> calls = [];
+            foreach (WorkerState w in _workers) {
+                List<int> called = [];
+                bool used = false;
+                foreach (Instr i in Decode(w.Code, 0, (uint)w.Code.Count)) {
+                    if (i.Operand is not ushort operand) continue;
+                    if (i.Code == Opcodes.Call) called.Add(operand);
+                    else if (Opcodes.All[i.Code].Operand == OperandKind.Var && vars.Contains(operand)) used = true;
+                }
+                uses[w] = used;
+                calls[w] = called;
+            }
+            for (bool changed = true; changed;) {
+                changed = false;
+                foreach (WorkerState w in _workers) {
+                    if (!uses[w] && calls[w].Any(c => c < _workers.Count && uses[_workers[c]])) changed = uses[w] = true;
+                }
+            }
+            HashSet<WorkerState> grown = [.. _workers.Where(w => uses[w] && w.Type != 0)];
+            int start = grown.Count == 0 ? 0 : (int)((grown.Max(w => w.PrivateLength) + 3) & ~3u);
+            foreach (WorkerState w in grown) messages.Add(new(LinkSeverity.Info, "", $"{w.Name}'s private data grows to {start + _private} bytes for the mods' hidden locals"));
+            return (grown, start);
+        }
     }
 }

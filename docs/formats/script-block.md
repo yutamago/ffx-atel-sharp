@@ -119,3 +119,47 @@ are understood, the compiler carries what no variable covers as raw bytes.
 7. By type: `u8` 274,907, `i8` 14,198, `u16` 39,693, `i16` 85,688, `i32`
 181,250, `f32` 183,458; never `u32` (type 4). No variable has length 0;
 638,711 have length 1.
+
+## Private data at run time
+
+Where storage 3 lives while the game runs (FFX.exe, ffx-rust's names; checked
+2026-11-02). `AtelGetRealVarAdrs` (`0x0086c2e0`) resolves a variable through
+the work it is given, the worker that runs the code: storage 3 is the block
+plus the work's header `+0x2c`, unless the current ctrl work's `+0x54`
+callback is set, which then gives the address.
+
+| Where | Who sets it | Storage 3 is |
+|---|---|---|
+| events, the menu | nothing sets `+0x54` | the block's own private data of that worker (header `+0x2c`); one copy per worker, since an event runs each worker once |
+| battle (`AtelBattleSetUp`, `0x008756d0`) | `+0x54` = `0x008756b0` (`work +0xb8 + offset`) | a buffer of the work's own |
+
+`MsAtelSetUp` (`0x00798390`) sizes the battle buffer as the sum, over the
+registered blocks, of each actor worker's `+0x10` rounded up to 16
+(`AtelGetMyBufferSize`, `0x0086c0c0`; the first `+0x36` workers, those that
+are not function workers) and allocates it (`user_malloc`; the camera
+scripts' manager 2 uses a fixed 0x800-byte area for this and the actor
+buffers together and stops with `MsBattleError` past it).
+`AtelBattleSetUp` then gives each actor work its slice
+(`AtelSetMyWorkAdrs`, `0x00870870`: `+0xb8` = the slice, `+0x10` bytes
+cleared) and advances by `AtelGetMyWorkSize` (`+0x10` rounded up to 16).
+So in battle `+0x2c` is not read, only `+0x10`, and the private data starts
+at zero whatever the block holds. Function workers get no slice: storage 3
+in their code is their caller's.
+
+`call` (opcode `0x33`, in `Script_Run`) keeps the work and its header: it
+saves the return offset and the callee's number in the level, and only the
+program counter (and the label table, `Script_Jump`) is the callee's. A
+function worker's variables therefore resolve through the calling worker:
+its storage 3 is the caller's private data, at the same offsets.
+
+Several monsters of one kind: `MsBtlReadMonster` (`0x00783680`) loads a
+monster file once per battle; a later slot with the same monster takes the
+earlier slot's buffer (`mon +0x48`), so both slots' `+0xf78`
+(`Mon_AttachData`, `0x00783b00`) point at **the same script block**.
+`Mon_LoadAll` (`0x00784070`) registers each slot's block with `MsAtelRegist`
+(`0x00797a40`), the shared one twice, and `AtelBattleSetUp` makes a set of
+works for each registration. Two Larvas therefore share the block's shared
+data (storage 4) and event data (storage 6), while each Larva's workers have
+their own private data (storage 3). A worker runs one level at a time; the
+level running is work `+0x32`, which native `0x00eb`
+(`GetFieldU832_00856980`) returns.
