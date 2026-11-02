@@ -12,11 +12,12 @@ The plan, its decisions and the phases are in [`docs/plan.md`](docs/plan.md).
 
 For modders, in reading order:
 
-1. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
-2. [`docs/language.md`](docs/language.md): the language reference, which C# is Atel.
-3. [`docs/analyzers.md`](docs/analyzers.md): the rules that report C# ATEL cannot run.
-4. [`docs/editor.md`](docs/editor.md): message text in the editor.
-5. [`docs/formats/mod-package.md`](docs/formats/mod-package.md): what a mod ships and how the loader links it.
+1. [`docs/unity.md`](docs/unity.md): Atel for Unity people, how FFX's scripts read if you know C# from Unity.
+2. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
+3. [`docs/language.md`](docs/language.md): the language reference, which C# is Atel.
+4. [`docs/analyzers.md`](docs/analyzers.md): the rules that report C# ATEL cannot run.
+5. [`docs/editor.md`](docs/editor.md): message text in the editor.
+6. [`docs/formats/mod-package.md`](docs/formats/mod-package.md): what a mod ships and how the loader links it.
 
 How it works:
 

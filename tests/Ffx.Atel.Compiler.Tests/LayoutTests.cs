@@ -103,18 +103,40 @@ public sealed class LayoutTests {
         SourceNames kino = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/battle/btl/kino00_00/kino00_00.bin");
         SourceNames m001 = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/battle/mon/_m001/m001.bin");
         Dictionary<string, string> projects = ProjectLayout.Assign([(bj, 1000), (bl, ProjectLayout.AreaLimit + 1), (kino, 1000), (m001, 1000)]);
-        Assert.Equal("Events/Bj", projects[bj.Namespace]);
-        Assert.Equal("Events/Bl/Bltz0000", projects[bl.Namespace]);
-        Assert.Equal("Battles/Kino", projects[kino.Namespace]);
+        Assert.Equal("Events/Bj_BaajTemple", projects[bj.Namespace]);
+        Assert.Equal("Events/Bl_Blitzball/Bltz0000", projects[bl.Namespace]);
+        Assert.Equal("Battles/Kino_MushroomRock", projects[kino.Namespace]);
         Assert.Equal("Monsters", projects[m001.Namespace]);
 
         List<SourceFile> files = ProjectLayout.Files(projects.Values, ["Library"]);
-        Assert.Contains(files, f => f.RelativePath == "Events/Bj/Events.Bj.csproj" && f.Text.Contains("<ProjectReference Include=\"../../Library/Library.csproj\" />", StringComparison.Ordinal));
-        Assert.Contains(files, f => f.RelativePath == "Events/Bl/Bltz0000/Events.Bl.Bltz0000.csproj" && f.Text.Contains("\"../../../Library/Library.csproj\"", StringComparison.Ordinal));
+        Assert.Contains(files, f => f.RelativePath == "Events/Bj_BaajTemple/Events.Bj_BaajTemple.csproj" && f.Text.Contains("<ProjectReference Include=\"../../Library/Library.csproj\" />", StringComparison.Ordinal));
+        Assert.Contains(files, f => f.RelativePath == "Events/Bl_Blitzball/Bltz0000/Events.Bl_Blitzball.Bltz0000.csproj" && f.Text.Contains("\"../../../Library/Library.csproj\"", StringComparison.Ordinal));
         Assert.DoesNotContain("ProjectReference", files.Single(f => f.RelativePath == "Library/Library.csproj").Text, StringComparison.Ordinal);
         Assert.Contains("HintPath=\"$(AtelGameAssembly)\"", files.Single(f => f.RelativePath == "Directory.Build.props").Text, StringComparison.Ordinal);
-        Assert.Equal(["Atel.slnx", "Battles.slnx", "Events.slnx", "Monsters.slnx"], files.Where(f => f.RelativePath.EndsWith(".slnx", StringComparison.Ordinal)).Select(f => f.RelativePath).Order(StringComparer.Ordinal));
+        Assert.Equal(["Atel.slnx", "Battles.slnx", "Blitzball.slnx", "Events.slnx", "Monsters.slnx", "Start.slnx"], files.Where(f => f.RelativePath.EndsWith(".slnx", StringComparison.Ordinal)).Select(f => f.RelativePath).Order(StringComparer.Ordinal));
         Assert.Contains("Library/Library.csproj", files.Single(f => f.RelativePath == "Events.slnx").Text, StringComparison.Ordinal);
+        // A single blitzball script is a project of about 2 GB to compile: only in Blitzball.slnx.
+        foreach (string sln in new[] { "Atel.slnx", "Events.slnx" }) Assert.DoesNotContain("Bltz0000", files.Single(f => f.RelativePath == sln).Text, StringComparison.Ordinal);
+        Assert.Contains("Events/Bl_Blitzball/Bltz0000/", files.Single(f => f.RelativePath == "Blitzball.slnx").Text, StringComparison.Ordinal);
+        Assert.Contains(files, f => f.RelativePath == ".vscode/extensions.json");
+    }
+
+    [Fact]
+    public void TheStartSolutionHoldsTheThunderPlainsAndTheMonsters() {
+        List<SourceFile> files = ProjectLayout.Files(["Monsters", "Events/Ka_ThunderPlains", "Events/Bj_BaajTemple", "Battles/Kami_ThunderPlains"], ["Library"]);
+        string start = files.Single(f => f.RelativePath == "Start.slnx").Text;
+        Assert.Contains("Events/Ka_ThunderPlains/", start, StringComparison.Ordinal);
+        Assert.Contains("Battles/Kami_ThunderPlains/", start, StringComparison.Ordinal);
+        Assert.Contains("Monsters/Monsters.csproj", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("Bj_BaajTemple", start, StringComparison.Ordinal);
+        Assert.Contains("\"dotnet.defaultSolution\": \"Start.slnx\"", files.Single(f => f.RelativePath == ".vscode/settings.json").Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ScriptsThePcBuildDoesNotLoadSayItAtTheTop() {
+        Assert.Contains("Not loaded by the PC build", AreaNames.ScriptNote("cn_bltz0000"), StringComparison.Ordinal);
+        Assert.Contains("debug-menu switch", AreaNames.ScriptNote("200thunder_kami0400"), StringComparison.Ordinal);
+        Assert.Null(AreaNames.ScriptNote("kami0400"));
     }
 
     [Fact]

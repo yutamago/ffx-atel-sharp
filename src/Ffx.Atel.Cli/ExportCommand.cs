@@ -17,18 +17,20 @@ namespace Ffx.Atel.Cli;
 internal static class ExportCommand {
     public const string Usage = """
           export <repo> [--no-merge] [--no-compile] [--check] [--push] [--sdk <dir>|--no-sdk]
+                 [--text-comments <lang>|--no-text-comments]
                                            decompile every script onto the `generated` branch of a git
                                            repo (the whole tree replaced; one commit naming this build
-                                           and the game's hashes), merge it into `main` (checked out,
-                                           clean; conflicts are listed, not resolved), then compile-all
-                                           on main; --push pushes both branches to origin if all passed
+                                           and the game's hashes), with the dialogue as comments (English
+                                           by default), merge it into `main` (checked out, clean;
+                                           conflicts are listed, not resolved), then compile-all on main;
+                                           --push pushes both branches to origin if all passed
         """;
 
     public const string Generated = "generated";
     public const string Main = "main";
 
     public static int Run(VbfArchive archive, string gameDir, List<string> args, bool merge, bool compile, bool check, bool push,
-                          SourceCommands.ProjectOptions projects) {
+                          SourceCommands.ProjectOptions projects, Bytecode.Text.GameLanguage? textComments = Bytecode.Text.GameLanguage.English) {
         if (args.Count != 1) throw new ArgumentException("export <repo>");
         string repo = Git(args[0], "rev-parse", "--show-toplevel").Trim();
         string gitDir = Git(repo, "rev-parse", "--absolute-git-dir").Trim();
@@ -48,7 +50,8 @@ internal static class ExportCommand {
         try {
             if (Directory.Exists(tree)) Directory.Delete(tree, recursive: true);
             File.Delete(index);
-            SourceCommands.Decompile(archive, ["all"], tree, share: true, projects);
+            // The dialogue as comments (Text[71] // "…"): the source repo is private and may hold game text (plan, Decisions 2026-11-02).
+            SourceCommands.Decompile(archive, ["all"], tree, share: true, projects, textComments);
             File.WriteAllText(Path.Combine(tree, "README.md"), Readme);
             CheckForLocalNames(tree);
 
@@ -217,19 +220,49 @@ internal static class ExportCommand {
         applies them, so they survive every new export. The format is in
         ffx-atel-sharp's `docs/source-repo.md`, "Names".
 
+        ## Start here
+
+        New to C# beyond Unity? Read ffx-atel-sharp's `docs/unity.md` ("Atel for
+        Unity people") first: it maps `Start()`, `Update()` and coroutines onto
+        the scripts here.
+
+        1. Install the .NET 10 SDK and VS Code with C# Dev Kit (VS Code offers
+           it: `.vscode/extensions.json`), or Rider, or Visual Studio.
+        2. Open the folder. VS Code opens `Start.slnx`: the Thunder Plains
+           (`Events/Ka_ThunderPlains/`, `Battles/Kami_ThunderPlains/`) and the
+           monsters. Other areas: `Events.slnx`, `Battles.slnx`; everything but
+           blitzball: `Atel.slnx`; blitzball alone: `Blitzball.slnx` (each of its
+           scripts takes about 2 GB to load).
+        3. Find a scene in `AREAS.md`: every area with its scripts, the place the
+           game shows for each, the workers that have names, and the monsters of
+           each battle.
+        4. Read the dialogue: each `Text[71]` is followed by its English line as a
+           comment (`// "…"`). For another language, or as hints in the editor:
+           ffx-atel-sharp's `atel text export` and its VS Code extension
+           (`docs/editor.md`).
+        5. Rename what you understand in ffx-atel-sharp's `data/names/` (above),
+           not in the `.cs` files here.
+
         ## Layout
 
-        A folder and namespace per script (`Events/Bj/Bjyt0400/`), a file per
-        worker, a project per map area (`Events/Bj/Events.Bj.csproj`; blitzball a
+        A folder and namespace per script, named by its map code and the area
+        (`Events/Ka_ThunderPlains/Kami0000/`, namespace
+        `Events.Ka_ThunderPlains.Kami0000`): the script class (`Kami0000.cs`: its
+        workers in order and its variables), a file per worker (`Tidus.cs`,
+        `W18.cs`) and `Kami0000.Data.cs` (the header, pools and data that keep the
+        bytes the game's; nothing to edit there). A project per map area
+        (`Events/Ka_ThunderPlains/Events.Ka_ThunderPlains.csproj`; blitzball a
         project per script), `Library/` with the base classes of workers shared
-        between scripts, `Atel.slnx` (everything) and `Events.slnx`,
-        `Battles.slnx`, `Monsters.slnx`. The projects use the `Ffx.Atel.Sdk` package
-        (the reference assembly the source compiles against, and the analyzers), of
-        the version in `global.json`, from the same ffx-atel-sharp build as the source;
-        the package is in `.atel/packages/`, which `nuget.config` names (MIT, our
+        between scripts. Scripts the PC build never loads (the `cn_`, `psv_`,
+        `psvcn_` copies and `testpub0`) or loads only behind a debug switch
+        (`200thunder_kami0400`, `full_nagi0700`, `dbg_nagi0000`) say so at the top
+        of each file. The projects use the `Ffx.Atel.Sdk` package (the reference
+        assembly the source compiles against, and the analyzers), of the version
+        in `global.json`, from the same ffx-atel-sharp build as the source; the
+        package is in `.atel/packages/`, which `nuget.config` names (MIT, our
         code, not game data; committed so the solution opens and builds after a
-        clone). Exported with `--no-sdk`, `.atel/Ffx.Atel.Game.dll` is the reference
-        assembly instead.
+        clone). Exported with `--no-sdk`, `.atel/Ffx.Atel.Game.dll` is the
+        reference assembly instead.
 
         ## Working with it
 
@@ -237,10 +270,10 @@ internal static class ExportCommand {
         with `FFX_GAME_DIR` set to the game folder (the one with `FFX.exe`):
 
         ```bash
-        dotnet build Atel.slnx                 # the source as C#: 0 errors expected
-        atel compile-all .                     # every script compiled and compared with the game
-        atel compile-all . Events/Bj --check   # one area, also as C#
-        atel compile Events/Bj/Bjyt0400 -o bjyt0400.ebp
+        dotnet build Start.slnx                            # the source as C#: 0 errors expected
+        atel compile-all .                                 # every script compiled and compared with the game
+        atel compile-all . Events/Ka_ThunderPlains --check # one area, also as C#
+        atel compile Events/Ka_ThunderPlains/Kami0000 -o kami0000.ebp
         ```
 
         `atel compile-all` lists the scripts that no longer compile to the game's

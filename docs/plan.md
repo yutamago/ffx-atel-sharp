@@ -803,7 +803,8 @@ how `atel compile` reads it:
   is too much, and so is any category. **A project is a map area**:
   `Events/Bj/Events.Bj.csproj` (48 event areas), `Battles/Kino/…` (battle
   scripts by the letters their name starts with, their map area; the
-  namespace became `Battles.Kino.Kino00_00`), all monsters in
+  namespace became `Battles.Kino.Kino00_00`; since 2026-11-02 the folders
+  carry the area's English name, see "Area folders"), all monsters in
   `Monsters/Monsters.csproj`; an area of more than 64 million characters
   (only blitzball) is a project per script. 104 projects, each found by the
   SDK's default glob; the largest are the blitzball scripts (about 2 GB).
@@ -818,6 +819,40 @@ how `atel compile` reads it:
   reference to a checkout of this repo. Since Phase 8 the projects use the
   SDK package instead (`--no-sdk` keeps this way; [sdk.md](sdk.md)). The
   compiler ignores `obj/` and `bin/` in a script's folder.
+- **Area folders** (decided 2026-11-02): an area folder is the map code plus
+  the area's English name, `Events/Ka_ThunderPlains/Kami0000/`,
+  `Battles/Kami_ThunderPlains/Kami00_00/`, from the hand-written
+  `data/areas.json` (36 event folders, 27 battle areas; the developer maps,
+  `Zzzz`, `Tori`, `System`, the ending and the opening keep the bare code).
+  Each name is the place the game's own location names give for the area:
+  an event's save location is its script block's `u16 +0x1e` (or, with bit
+  15, an `i16` table at `+0x28`; `AtelSetSaveDicIndex`), an index into
+  section 11 of `menu/macrodic.dcp` (`kami0000` → "Thunder Plains - South").
+  **Namespaces follow the folders** (`Events.Ka_ThunderPlains.Kami0000`):
+  the SDK and `atel compile-mod` find a mod's vanilla script by its
+  namespace as folders, so the two must agree. Renaming costs nothing in the
+  bytes, but a mod names its script by namespace: a mod written against
+  `Events.Ka.Kami0000` needs `Events.Ka_ThunderPlains.Kami0000` now (monsters
+  are unchanged). `AREAS.md` at the root (written by `atel decompile -o`)
+  lists per folder the scripts with their place names, named workers and
+  notes, and per battle the monsters of its formation (section 2 `+0x0c`).
+- **Scripts the PC build does not load** (2026-11-02, from FFX.exe): its map
+  table `event/header/eventid.bin` names 376 of the 397 events; the 21
+  others are the `cn_`, `psv_` and `psvcn_` copies (no string in FFX.exe
+  names those prefixes: other builds' files), `testpub0`, and three that the
+  file-name code (`0x00a42c00`, `read_debug.c`) loads in place of the
+  original only behind debug-menu switches: `200thunder_kami0400`,
+  `full_nagi0700`, `dbg_nagi0000`. Each of their files says so at the top
+  (`data/areas.json`, "scripts"), as does `AREAS.md`. They stay in their
+  folders, so their namespaces do not change.
+- **Solutions** (2026-11-02): the single-script projects (blitzball, about
+  2 GB each; `W36` of `bltz0000` is one 15.7 MB method) are only in
+  `Blitzball.slnx`, not in `Atel.slnx` or `Events.slnx`; `Start.slnx` holds
+  the Thunder Plains (events and battles), the monsters and the library, and
+  `.vscode/` recommends C# Dev Kit and opens `Start.slnx`. The layout pins
+  (`[Header]`, `[Pin]`, `[Patch]`, the pools) moved from the main file to
+  the data part (`Kami0000.Data.cs`), so the main file reads as the script's
+  outline: its workers and variables.
 - **Library base classes** for duplicated workers ("Shared behaviour"):
   a worker whose type and body text equal another's, anywhere in the
   corpus, becomes `public sealed class W03 : Shared0001 { }` (with

@@ -127,7 +127,8 @@ set:
   with `<repo>` a clean checkout of the source repo on `main`:
   1. hashes `FFX_Data.vbf` and `FFX.exe` (SHA-256) while it decompiles every
      script into `<repo>/.git/atel-export/` (with this repo's `data/names/`
-     applied) and writes the README;
+     applied), with the dialogue as comments (`Text[71] // "…"`, English;
+     `--text-comments <lang>`, `--no-text-comments`), and writes the README;
   2. refuses to go on if any file names the user's home folder or the
      machine name;
   3. commits that tree onto `generated` through a separate index (`git add
@@ -145,6 +146,21 @@ Both take the machine-wide corpus lock (`GameData.OpenArchiveExclusive`,
 `ffx-atel-corpus.lock` in the temp folder) as `roundtrip` and `decompile all`
 do: each uses every core and several GB, so they wait for one another.
 `dotnet build Atel.slnx` takes no lock; run it on its own too.
+
+## What the tree holds
+
+- `Events/<code>_<Area>/<Script>/`, `Battles/<code>_<Area>/<Script>/`,
+  `Monsters/<Mnnn>/`: a folder and namespace per script (the area's English
+  name from `data/areas.json`; plan, Phase 6, "Area folders").
+- `AREAS.md`: per area its scripts with the game's place names, the named
+  workers, notes on scripts the PC build does not load, and per battle its
+  monsters.
+- `Start.slnx` (the Thunder Plains and the monsters: open this first),
+  `Atel.slnx` (everything but blitzball), `Events.slnx`, `Battles.slnx`,
+  `Monsters.slnx`, `Blitzball.slnx` (each blitzball script is its own
+  project of about 2 GB to compile), `.vscode/`.
+- The dialogue as comments after each `Text[n]`, in English. Comments only:
+  the round trip is unchanged.
 
 ## Workflows
 

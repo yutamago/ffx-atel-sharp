@@ -146,10 +146,10 @@ public static class ScriptDecompiler {
             Inline = workers.SelectMany(w => w.InlineCounts).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
         };
 
-        StringBuilder main = new(), data = new();
-        WriteScriptClass(main, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
+        StringBuilder main = new(), layout = new(), data = new();
+        WriteScriptClass(main, layout, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
         WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]))];
-        WriteData(data, names, image);
+        WriteData(data, layout.ToString(), names, image);
         ScriptSource parts = new(names, shortPath, main.ToString(), workerSources, data.Length > 0 ? data.ToString() : null);
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
@@ -217,10 +217,15 @@ public static class ScriptDecompiler {
 
     // ----- The script class ------------------------------------------------------------------
 
-    private static void WriteScriptClass(StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, bool pinInts, bool pinFloats) {
-        sb.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
+    /// <summary>
+    ///     The script class's main part: its attribute, <c>[Workers]</c> and the variables. The attributes that
+    ///     only pin the layout (<c>[Header]</c>, <c>[Pin]</c>, <c>[Patch]</c>, the pools) go to <paramref name="layout"/>,
+    ///     which heads the data part (<c>Bjyt0400.Data.cs</c>), so the main file reads as the script's outline.
+    /// </summary>
+    private static void WriteScriptClass(StringBuilder main, StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, bool pinInts, bool pinFloats) {
+        main.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
         if (workerNames.Length > 0) {
-            WriteList(sb, "Workers", workerNames.Select(n => $"typeof({n})").ToList(), 6);
+            WriteList(main, "Workers", workerNames.Select(n => $"typeof({n})").ToList(), 6);
         }
         List<string> header = [$"Author = {Str(image.AuthorText)}", $"Name = {Str(image.NameText)}"];
         foreach ((string name, uint v) in new[] { ("Word14", image.Header14), ("Word18", image.Header18), ("Word1C", image.Header1C), ("Word24", image.Header24) }) {
@@ -239,11 +244,11 @@ public static class ScriptDecompiler {
             if (literals.All(l => l is not null)) WriteList(sb, "Floats", literals.Select(l => l!).ToList(), 8);
             else WriteList(sb, "FloatBits", image.FloatConstants.Select(v => Hex(v, 8)).ToList(), 8);
         }
-        sb.Append(CultureInfo.InvariantCulture, $"public static partial class {names.ClassName}\n{{\n");
+        main.Append(CultureInfo.InvariantCulture, $"public static partial class {names.ClassName}\n{{\n");
         for (int i = 0; i < image.Variables.Count; i++) {
-            sb.Append(Indent).Append(VarDeclaration(image.Variables[i], i, varNames[i])).Append('\n');
+            main.Append(Indent).Append(VarDeclaration(image.Variables[i], i, varNames[i])).Append('\n');
         }
-        sb.Append("}\n");
+        main.Append("}\n");
     }
 
     /// <summary><c>[Var(Storage.Private, 0x0012)] public static byte[] V3 = new byte[4];</c></summary>
@@ -298,12 +303,15 @@ public static class ScriptDecompiler {
 
     // ----- Data ------------------------------------------------------------------------------
 
-    private static void WriteData(StringBuilder sb, SourceNames names, ScriptImage image) {
+    /// <summary>The data part of the script class: the layout pins (<paramref name="layout"/>), then the data areas as hex.</summary>
+    private static void WriteData(StringBuilder sb, string layout, SourceNames names, ScriptImage image) {
         (string Name, byte[]? Data)[] areas = [
             ("MapData", image.Map), ("SharedData", image.Shared), ("OtherData", image.Other),
             ("EventData", image.Event), ("AreaData", image.Area),
         ];
-        if (areas.All(a => a.Data is null)) return;
+        if (areas.All(a => a.Data is null) && layout.Length == 0) return;
+        sb.Append("// What keeps the compiled script byte for byte the game's: the header, the layout and the\n// constant pools, then the data areas. Nothing here needs editing.\n");
+        sb.Append(layout);
         foreach ((string name, byte[]? data) in areas) {
             if (data is not null) WriteDataAttribute(sb, name, data);
         }
