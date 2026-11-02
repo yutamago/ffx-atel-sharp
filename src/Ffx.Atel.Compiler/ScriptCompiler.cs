@@ -186,11 +186,14 @@ public static partial class ScriptCompiler {
         }
         for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = workerIndex.Count + k;
         // Entries with parameters or a result: their hidden fields.
+        PrivateArea hidden = new(image);
         Dictionary<(string, string), EntrySignature> signatures = [];
         foreach (string workerName in workerIndex.Keys) {
             (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts([.. byName[workerName]], library);
             foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
-                if (EntriesOf(m, type == 0).Count > 0 && Signature(workerName, m, Hide) is EntrySignature sig) signatures.TryAdd((workerName, m.Identifier.ValueText), sig);
+                if (EntriesOf(m, type == 0).Count > 0 && Signature(workerName, m, HideField(RequestedOnlyByItself(workerName, m.Identifier.ValueText, trees))) is EntrySignature sig) {
+                    signatures.TryAdd((workerName, m.Identifier.ValueText), sig);
+                }
             }
         }
         EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));
@@ -202,14 +205,18 @@ public static partial class ScriptCompiler {
             image.Workers.Add(cw.Image);
         }
         foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workerIndex, entryMethods, links: null, debug: debug, signatures: SignatureOf);
-        // New code's locals: registers where free, else hidden variables at the end of the shared data.
-        int Hide(Slot slot) {
-            if (image.Shared is null) throw new CompileException($"local {slot.Name} needs hidden storage, and the script has no shared data (storage 4)");
+        // New code's locals: registers where free, else hidden variables in the private data of the workers
+        // that run the code, one element per level. An entry's parameter fields: private when only its own
+        // worker requests it, else at the end of the shared data.
+        int Hide(Slot slot) => hidden.Add(slot.Float, SlotAllocator.Levels);
+        Func<Slot, int> HideField(bool own) => slot => {
+            if (own) return hidden.Add(slot.Float, 1);
+            if (image.Shared is null) throw new CompileException($"{slot.Name} needs hidden storage, and the script has no shared data (storage 4)");
             int offset = (image.Shared.Length + 3) & ~3;
             image.Shared = [.. image.Shared, .. new byte[offset + 4 - image.Shared.Length]];
             image.Variables.Add(new VarEntry((uint)(slot.Float ? 6 : 5) << 28 | (uint)Storage.Shared << 25 | (uint)offset, 1, 0));
             return image.Variables.Count - 1;
-        }
+        };
         RegisterSet[] reach = Reach([.. compiled.Select(c => (c.Declared, CallsIn(c.Emitter.Items)))]);
         RegisterSet WorkerRegisters(int w) => w < compiled.Count ? reach[w] | (compiled[w].Image.Type == 0 ? RegisterSet.All : RegisterSet.None) : RegisterSet.All;
         PlaceHelpers(helpers, WorkerRegisters, Hide);
@@ -242,6 +249,7 @@ public static partial class ScriptCompiler {
         foreach ((WorkerImage wi, List<WorkerItem> items, string label, Location where) in workers) {
             Assemble(wi, items, label, where, intIndex, floatIndex);
         }
+        hidden.Lay();
         return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings] };
     }
 

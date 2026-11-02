@@ -11,9 +11,10 @@ namespace Ffx.Atel.Linker.Tests;
 public sealed class CorpusTests(ITestOutputHelper output) {
     /// <summary>
     ///     A package with a prefix and a postfix on the first worker's first method, a new entry that
-    ///     requests itself and a new shared variable links onto every script with workers and shared
-    ///     data: the result parses, lays itself out again byte for byte, and keeps the vanilla data
-    ///     areas, the other workers' code and the file's other sections.
+    ///     requests itself, a new shared variable and a private one with an element per level (a hidden
+    ///     local) links onto every script with workers and shared data: the result parses, lays itself
+    ///     out again byte for byte, and keeps the vanilla data areas, the other workers' code, the first
+    ///     worker's private bytes (copied into its grown private data) and the file's other sections.
     /// </summary>
     [Fact]
     public void EveryScriptTakesAPackage() {
@@ -43,8 +44,9 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 p.Vanilla.Workers.Add(new WorkerRef(0, "W00", VanillaHash.Worker(w0)));
                 p.Vanilla.Entries.Add(new EntryRef(0, "First", entries, start, end, VanillaHash.Range(w0, start, end)));
                 p.Variables.Add(new NewVariable { Name = "Turns", Type = 5 });
+                p.Variables.Add(new NewVariable { Name = "<local>kept#1", Type = 5, Storage = 3, Length = 9, Array = true });
                 string exit = w0.Type == 0 ? "ret" : "end";
-                p.Patches.Add(new EntryPatch { Kind = PatchKind.Prefix, Worker = 0, Name = "Before", Target = "First", Code = LinkerTests.Frag("pushimm 1\npopv @newvar:0") });
+                p.Patches.Add(new EntryPatch { Kind = PatchKind.Prefix, Worker = 0, Name = "Before", Target = "First", Code = LinkerTests.Frag("pushimm 1\npopv @newvar:0\nfunc 0x00eb\npushimm 5\npopva @newvar:1") });
                 p.Patches.Add(new EntryPatch { Kind = PatchKind.Postfix, Worker = 0, Name = "After", Target = "First", Code = LinkerTests.Frag("pushc @int:1234567\npopv @newvar:0") });
                 p.Patches.Add(new EntryPatch {
                     Kind = PatchKind.Entry, Worker = 0, Name = "Again",
@@ -75,6 +77,17 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                     if (!image.Workers[w].Code.AsSpan().SequenceEqual(again.Workers[w].Code)) failures.Add($"{f.Path}: worker {w}'s code changed");
                 }
                 if (again.Workers[0].Entries.Length != w0.Entries.Length + 1) failures.Add($"{f.Path}: no new entry");
+                // The first worker's private data grows by the hidden local (36 bytes past its own, rounded
+                // to 4), with its vanilla bytes; a function worker's does not (storage 3 is its caller's).
+                WorkerImage l0 = again.Workers[0];
+                uint grown = w0.Type == 0 ? w0.PrivateLength : ((w0.PrivateLength + 3) & ~3u) + 36;
+                if (l0.PrivateLength != grown) failures.Add($"{f.Path}: private data {l0.PrivateLength} bytes, not {grown}");
+                else if (w0.Type != 0 && (l0.Private is null || w0.Private is not null && !l0.Private.AsSpan(0, (int)w0.PrivateLength).SequenceEqual(w0.Private.AsSpan(0, (int)w0.PrivateLength)))) {
+                    failures.Add($"{f.Path}: the private data lost its vanilla bytes");
+                }
+                if (w0.Private is not null && vb.U32(vh0 + 0x2c) is uint vp && !b.Bytes.Slice((int)vp, w0.Private.Length).SequenceEqual(w0.Private)) {
+                    failures.Add($"{f.Path}: the vanilla private block changed");
+                }
                 // The sections after the script are the vanilla ones, shifted as a whole.
                 int tail = vanilla.Bytes.Length - (vanilla.SectionStart + vanilla.SectionLength);
                 if (!vanilla.Bytes[^tail..].SequenceEqual(result.Bytes[^tail..])) failures.Add($"{f.Path}: the later sections changed");

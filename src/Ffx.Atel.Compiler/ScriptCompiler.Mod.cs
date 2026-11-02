@@ -226,10 +226,15 @@ public static partial class ScriptCompiler {
         FragmentBuilder fragments = new(v.Variables.Count, vanillaWorkers.Count);
 
         // New code's locals: registers no code of the worker names, else hidden variables the linker
-        // allocates in the shared data. The registers a vanilla worker may change: its [Register] fields and
-        // those of the function workers its code calls.
-        int Hide(Slot slot) {
-            package.Variables.Add(new NewVariable { Name = $"<local>{slot.Name}#{package.Variables.Count}", Type = slot.Float ? 6 : 5, Storage = (int)Storage.Shared });
+        // allocates in the private data of the workers that run the code, one element per level. An entry's
+        // parameter fields: private when only its own worker requests it, else shared. The registers a
+        // vanilla worker may change: its [Register] fields and those of the function workers its code calls.
+        int Hide(Slot slot) => HideIn(slot, Storage.Private, SlotAllocator.Levels);
+        Func<Slot, int> HideField(bool own) => slot => HideIn(slot, own ? Storage.Private : Storage.Shared, 1);
+        int HideIn(Slot slot, Storage storage, int length) {
+            package.Variables.Add(new NewVariable {
+                Name = $"<local>{slot.Name}#{package.Variables.Count}", Type = slot.Float ? 6 : 5, Storage = (int)storage, Length = length, Array = length > 1,
+            });
             return v.Variables.Count + package.Variables.Count - 1;
         }
         RegisterSet[] vanillaReach = Reach([.. vanillaWorkers.Select((name, w) => (
@@ -239,12 +244,16 @@ public static partial class ScriptCompiler {
         // Entries with parameters or a result (the mod's new entries and new workers'): their hidden fields.
         Dictionary<(string, string), EntrySignature> signatures = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
-            if (patch.Kind == PatchKind.Entry && Signature(worker, method, Hide) is EntrySignature sig) signatures[(worker, method.Identifier.ValueText)] = sig;
+            if (patch.Kind == PatchKind.Entry && Signature(worker, method, HideField(RequestedOnlyByItself(worker, method.Identifier.ValueText, modTrees))) is EntrySignature sig) {
+                signatures[(worker, method.Identifier.ValueText)] = sig;
+            }
         }
         foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
             (List<ClassDeclarationSyntax> all, ushort type) = WorkerParts(parts, library);
             foreach (MethodDeclarationSyntax m in all.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
-                if (EntriesOf(m, type == 0).Count > 0 && Signature(name, m, Hide) is EntrySignature sig) signatures.TryAdd((name, m.Identifier.ValueText), sig);
+                if (EntriesOf(m, type == 0).Count > 0 && Signature(name, m, HideField(RequestedOnlyByItself(name, m.Identifier.ValueText, modTrees))) is EntrySignature sig) {
+                    signatures.TryAdd((name, m.Identifier.ValueText), sig);
+                }
             }
         }
         EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));

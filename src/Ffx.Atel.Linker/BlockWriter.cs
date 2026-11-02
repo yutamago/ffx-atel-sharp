@@ -12,14 +12,20 @@ namespace Ffx.Atel.Linker;
 /// <remarks>
 ///     After the vanilla block, each 4- or 16-aligned: the variable table and the constant pools
 ///     when they grew, worker headers (new workers', and vanilla ones that sat where the larger
-///     header table needs room), entry and label tables that grew, the data of new variables, and
+///     header table needs room), entry and label tables that grew, the data of new variables, the
+///     private data of workers whose private data grew (a copy of the vanilla block, then zeros), and
 ///     the code region when any code changed. Tables that keep their size are rewritten in place.
 /// </remarks>
 internal static class BlockWriter {
-    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged);
+    /// <param name="GrownPrivate">The worker's new private data length (<c>+0x10</c>), when its private data grew.</param>
+    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged, uint? GrownPrivate = null);
 
-    /// <summary>The linked parts: workers in their final order, variables (with their offset in <see cref="Data"/> when allocated there), pools.</summary>
-    public sealed record Linked(List<LinkedWorker> Workers, List<(VarEntry Entry, int? DataOffset)> Vars, List<uint> Ints, List<uint> Floats, byte[] Data);
+    /// <summary>
+    ///     The linked parts: workers in their final order, variables (with their offset in <see cref="Data"/>
+    ///     when allocated there; for storage 3 in the new private area, which starts at
+    ///     <see cref="PrivateStart"/> in each grown worker's private data), pools.
+    /// </summary>
+    public sealed record Linked(List<LinkedWorker> Workers, List<(VarEntry Entry, int? DataOffset)> Vars, List<uint> Ints, List<uint> Floats, byte[] Data, int PrivateStart = 0);
 
     private static int Align(int x, int n) => (x + n - 1) / n * n;
 
@@ -88,6 +94,12 @@ internal static class BlockWriter {
 
         int dataAt = l.Data.Length > 0 ? Alloc(l.Data.Length, 16) : 0;
 
+        // Private data that grew: a new block (storage 3 is the block plus +0x2c), with the vanilla bytes.
+        int[] privateAt = new int[n];
+        for (int i = 0; i < n; i++) {
+            if (l.Workers[i].GrownPrivate is uint grown) privateAt[i] = Alloc(ScriptImage.PrivateSize(grown), 16);
+        }
+
         int codeAt = block.CodeStart, codeLength = block.CodeLength;
         uint[] starts = new uint[n];
         if (codeChanged) {
@@ -116,6 +128,14 @@ internal static class BlockWriter {
                 (VarEntry v, int? data) = l.Vars[i];
                 uint location = v.Location;
                 if (data is int d) {
+                    if (v.Storage == 3) {
+                        long at = (long)l.PrivateStart + d;
+                        if (at > 0xff_ffff) throw new ScriptLinker.LinkException($"variable {i}: its private offset is out of reach");
+                        U32(varsAt + 8 * i, (location & ~0xff_ffffu) | (uint)at);
+                        U16(varsAt + 8 * i + 4, v.Length);
+                        U16(varsAt + 8 * i + 6, v.RowLength);
+                        continue;
+                    }
                     int baseAt = v.Storage switch {
                         4 => sharedAt,
                         6 => eventAt,
@@ -154,7 +174,16 @@ internal static class BlockWriter {
             U16(h + 0x08, w.Entries.Length);
             U16(h + 0x0a, w.Labels.Length);
             U32(h + 0x0c, w.Word0C);
-            U32(h + 0x10, w.PrivateLength);
+            U32(h + 0x10, w.GrownPrivate ?? w.PrivateLength);
+            if (w.GrownPrivate is not null) {
+                // The vanilla private bytes, then zeros (Alloc's); in battle the game clears the work's own
+                // copy at set-up anyway (AtelSetMyWorkAdrs).
+                if (w.VanillaIndex >= 0 && block.U32(vanillaHeaders[w.VanillaIndex] + 0x2c) is uint from and not 0) {
+                    int count = (int)Math.Min(w.PrivateLength, (uint)Math.Max(0, length - (int)from));
+                    Bytes(privateAt[i], raw.Slice((int)from, count).ToArray());
+                }
+                U32(h + 0x2c, (uint)privateAt[i]);
+            }
             U32(h + 0x14, (uint)varsAt);
             U32(h + 0x18, (uint)intsAt);
             U32(h + 0x1c, (uint)floatsAt);
