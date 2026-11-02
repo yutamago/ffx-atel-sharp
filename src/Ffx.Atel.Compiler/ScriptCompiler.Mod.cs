@@ -140,7 +140,7 @@ public static partial class ScriptCompiler {
         // Link.Entry can name a new entry anywhere in the mod.
         // Helper methods (plain methods; an `async` method is a new entry) become function workers after
         // the new workers.
-        HelperTable helpers = new(mainName);
+        HelperTable helpers = new(mainName) { Inlines = InlineMethods.With([.. vanillaTrees, .. modTrees]) };
         AddHelpers(helpers, mainName, mainModParts, functionWorker: false, registers: false);
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             List<ClassDeclarationSyntax> all = [.. vanillaParts[worker], .. parts];
@@ -159,7 +159,7 @@ public static partial class ScriptCompiler {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
-                if (helpers.Contains(method)) continue;
+                if (helpers.Contains(method) || InlineMethods.IsInline(method)) continue;
                 if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "an entry has a body");
                 PatchKind kind = PatchKind.Entry;
                 string? target = null;
@@ -280,7 +280,7 @@ public static partial class ScriptCompiler {
             int number = workers[worker];
             bool function = v.Workers[number].Type == 0;
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
-                EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName,
+                EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName, Inlines = helpers.Inlines,
                 Signatures = SignatureOf, NewTexts = NewText,
             };
             EntrySignature? signature = patch.Kind == PatchKind.Entry ? SignatureOf(worker, method.Identifier.ValueText) : null;

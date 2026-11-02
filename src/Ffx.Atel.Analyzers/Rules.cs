@@ -157,4 +157,17 @@ public static class Rules {
         CallCategory, DiagnosticSeverity.Error,
         "A worker level keeps at most 3 return addresses for 'call'. Each function or helper call is one 'call'.",
         WellKnownDiagnosticTags.CompilationEnd);
+
+    public static readonly DiagnosticDescriptor InlineRecursion = Rule(
+        "ATL3003", "Inline method calls itself",
+        "Inline method {0}; its code is written out in place of each call, so it cannot call itself",
+        CallCategory, DiagnosticSeverity.Error,
+        "An [Inline] method is not called: the compiler writes its code where the call is. A method that calls itself, directly or through other inline methods, would be written out without end.",
+        WellKnownDiagnosticTags.CompilationEnd);
+
+    public static readonly DiagnosticDescriptor InlineArgument = Rule(
+        "ATL3004", "Argument of an inline method with an effect",
+        "This argument of inline method '{0}' is substituted where its parameter is used and evaluated there, perhaps several times or none; pass a constant, a variable or an expression of them",
+        CallCategory, DiagnosticSeverity.Error,
+        "An [Inline] method's arguments are substituted like a C macro's: each is evaluated where its parameter is used. An argument that calls something, assigns, or increments would run as often as the parameter is used. Compute the value into a variable first.");
 }

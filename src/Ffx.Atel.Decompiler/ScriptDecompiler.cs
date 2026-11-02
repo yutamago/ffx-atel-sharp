@@ -61,6 +61,14 @@ public sealed record DecompileStats {
     ///     <c>Command-cast</c>), variables named after the save (<c>save-named</c>, <c>save-unnamed</c>).
     /// </summary>
     public IReadOnlyDictionary<string, int> Names { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>
+    ///     Inline method calls by method (<c>inline Dialogue.Say</c>), the folds dropped by reason
+    ///     (<c>inline-fallback-print</c>, <c>inline-fallback-verify</c>), and the lines of dialogue
+    ///     (<c>MsgOpen</c> calls): all (<c>dialogue-lines</c>), inside a call (<c>dialogue-one-call</c>), in dead
+    ///     <c>if (false)</c> code, which stays as it is (<c>dialogue-dead</c>).
+    /// </summary>
+    public IReadOnlyDictionary<string, int> Inline { get; init; } = new Dictionary<string, int>();
 }
 
 /// <summary>
@@ -89,8 +97,14 @@ public static class ScriptDecompiler {
     public static IReadOnlyDictionary<string, int> DroppedReasons => WorkerDecompiler.Reasons;
 
     /// <summary>Decompiles a script file's block; <paramref name="archivePath"/> names it.</summary>
+    /// <param name="archivePath">The file's path in the game's archive.</param>
+    /// <param name="file">The script file.</param>
+    /// <param name="inline">
+    ///     The inline methods whose calls the source may use where they give the original code back
+    ///     (docs/encoding.md, "Inline methods"): the reference assembly's when null, none when empty.
+    /// </param>
     /// <exception cref="ScriptFormatException">The block has a shape the source cannot hold.</exception>
-    public static DecompiledScript Decompile(string archivePath, ScriptFile file) {
+    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null) {
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
         ScriptImage image = ScriptImage.FromBlock(block);
@@ -100,8 +114,10 @@ public static class ScriptDecompiler {
         string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')]);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
+        inline ??= Compiler.InlineMethods.Game.All;
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
+            w.FoldInline(inline);
         }
         RequestNaming.Assign(workers, workerNames);
 
@@ -123,6 +139,7 @@ public static class ScriptDecompiler {
             Fallbacks = workers.Sum(w => w.Flow.Fallbacks),
             MergedMethods = workers.Sum(w => w.Flow.MergedMethods),
             FlatWorkers = workers.Sum(w => w.Flow.FlatWorkers),
+            Inline = workers.SelectMany(w => w.InlineCounts).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
         };
 
         StringBuilder main = new(), data = new();
@@ -324,6 +341,7 @@ public sealed class DecompileTotals {
     private long _scripts, _statements, _asm, _intPins, _floatPins, _intRule, _floatRule, _gotos, _labelPins, _fallbacks, _merged, _flat;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _constructs = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _names = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _inline = new(StringComparer.Ordinal);
 
     public long Scripts => _scripts;
     public long Statements => _statements;
@@ -344,7 +362,14 @@ public sealed class DecompileTotals {
         Interlocked.Add(ref _flat, s.FlatWorkers);
         foreach ((string k, int n) in s.Constructs) _constructs.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Names) _names.AddOrUpdate(k, n, (_, v) => v + n);
+        foreach ((string k, int n) in s.Inline) _inline.AddOrUpdate(k, n, (_, v) => v + n);
     }
+
+    /// <summary>Inline calls and dialogue lines over all scripts (<see cref="DecompileStats.Inline"/>).</summary>
+    public IReadOnlyDictionary<string, long> Inline => _inline;
+
+    /// <summary>The inline numbers: calls by method, dialogue lines as one call of all, fallbacks by reason.</summary>
+    public string InlineSummary() => "inline: " + string.Join(", ", _inline.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")));
 
     public long Gotos => _gotos;
 

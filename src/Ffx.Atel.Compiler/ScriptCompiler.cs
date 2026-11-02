@@ -178,7 +178,7 @@ public static partial class ScriptCompiler {
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         // Helper methods (of the workers and the script class) become function workers after the others.
-        HelperTable helpers = new(mainClass.Identifier.ValueText);
+        HelperTable helpers = new(mainClass.Identifier.ValueText) { Inlines = InlineMethods.With(trees) };
         AddHelpers(helpers, mainClass.Identifier.ValueText, mainParts, functionWorker: false, registers: false);
         foreach (string workerName in workerIndex.Keys) {
             (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts([.. byName[workerName]], library);
@@ -408,7 +408,7 @@ public static partial class ScriptCompiler {
         RegisterSet declared = RegisterSet.Of(registers.Values);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
-            Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass,
+            Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass, Inlines = helpers?.Inlines,
             Signatures = signatures, RequestTargets = requestTargets, NewTexts = newTexts,
         };
 
@@ -420,7 +420,7 @@ public static partial class ScriptCompiler {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only (for now)");
-                if (helpers?.Contains(method) == true) continue;
+                if (helpers?.Contains(method) == true || InlineMethods.IsInline(method)) continue;
                 where = method.Identifier.GetLocation();
                 List<AttributeSyntax> attributes = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
                 List<int> entries = EntriesOf(method, wi.Type == 0);
@@ -583,7 +583,7 @@ public static partial class ScriptCompiler {
 
     private static readonly Lazy<NativeSignatures> s_natives = new(() => NativeSignatures.FromAssembly(typeof(Atel.Worker).Assembly));
 
-    private static readonly Lazy<Dictionary<string, NativeSignature>> NativesByName = new(() => Natives.All.ToDictionary(n => n.Name, StringComparer.Ordinal));
+    internal static readonly Lazy<Dictionary<string, NativeSignature>> NativesByName = new(() => Natives.All.ToDictionary(n => n.Name, StringComparer.Ordinal));
 
     private static string StripLine(AssemblyException ex) =>
         ex.Line > 0 && ex.Message.StartsWith($"line {ex.Line}: ", StringComparison.Ordinal) ? ex.Message[$"line {ex.Line}: ".Length..] : ex.Message;
@@ -629,7 +629,7 @@ public static partial class ScriptCompiler {
     private static IEnumerable<AttributeSyntax> Attributes(MemberDeclarationSyntax m) => m.AttributeLists.SelectMany(l => l.Attributes);
 
     /// <summary><c>Event</c> for <c>[Event]</c>, <c>[EventAttribute]</c> and <c>[Ffx.Atel.Event]</c>.</summary>
-    private static string NameOf(AttributeSyntax a) {
+    internal static string NameOf(AttributeSyntax a) {
         string n = a.Name switch {
             QualifiedNameSyntax q => q.Right.Identifier.ValueText,
             AliasQualifiedNameSyntax q => q.Name.Identifier.ValueText,

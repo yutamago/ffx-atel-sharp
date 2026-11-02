@@ -21,6 +21,7 @@ internal sealed class AtelModel {
     public INamedTypeSymbol? Task { get; }
     public INamedTypeSymbol? TaskOfT { get; }
     public INamedTypeSymbol? NativeAttribute { get; }
+    public INamedTypeSymbol? InlineAttribute { get; }
     public INamedTypeSymbol? EntryAttribute { get; }
     public INamedTypeSymbol? RegisterAttribute { get; }
     public INamedTypeSymbol? WorkersAttribute { get; }
@@ -35,6 +36,7 @@ internal sealed class AtelModel {
         Task = compilation.GetTypeByMetadataName("Ffx.Atel.Task");
         TaskOfT = compilation.GetTypeByMetadataName("Ffx.Atel.Task`1");
         NativeAttribute = compilation.GetTypeByMetadataName("Ffx.Atel.NativeAttribute");
+        InlineAttribute = compilation.GetTypeByMetadataName("Ffx.Atel.InlineAttribute");
         EntryAttribute = compilation.GetTypeByMetadataName("Ffx.Atel.EntryAttribute");
         RegisterAttribute = compilation.GetTypeByMetadataName("Ffx.Atel.RegisterAttribute");
         WorkersAttribute = compilation.GetTypeByMetadataName("Ffx.Atel.WorkersAttribute");
@@ -101,12 +103,17 @@ internal sealed class AtelModel {
     ///     a static method of a static class (a function).
     /// </summary>
     public bool IsCallable(IMethodSymbol method) =>
-        method.MethodKind == MethodKind.Ordinary && IsSource(method) && !IsEntry(method);
+        method.MethodKind == MethodKind.Ordinary && IsSource(method) && !IsEntry(method) && !IsInline(method);
+
+    /// <summary>An inline method (<c>[Inline]</c>): its code is written in place of each call, so a call is no <c>call</c>.</summary>
+    public bool IsInline(IMethodSymbol method) =>
+        InlineAttribute is not null && method.OriginalDefinition.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, InlineAttribute));
 
     /// <summary>A native: a method of the reference assembly with <c>[Native]</c>.</summary>
+    /// <summary>A native that polls, or an inline method that waits (<c>[Inline(Waits = true)]</c>).</summary>
     public bool Polls(IMethodSymbol method) => polls.GetOrAdd(method.OriginalDefinition, m => m.GetAttributes().Any(a =>
-        SymbolEqualityComparer.Default.Equals(a.AttributeClass, NativeAttribute)
-        && a.NamedArguments.Any(n => n.Key == "Polls" && n.Value.Value is true)));
+        (SymbolEqualityComparer.Default.Equals(a.AttributeClass, NativeAttribute) && a.NamedArguments.Any(n => n.Key == "Polls" && n.Value.Value is true))
+        || (SymbolEqualityComparer.Default.Equals(a.AttributeClass, InlineAttribute) && a.NamedArguments.Any(n => n.Key == "Waits" && n.Value.Value is true))));
 
     /// <summary>Whether a <c>Worker</c> member named <paramref name="name"/> is <paramref name="method"/>.</summary>
     public bool IsWorkerMember(IMethodSymbol method, string name) =>

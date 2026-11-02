@@ -84,6 +84,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
         output.WriteLine(totals.NameSummary());
+        output.WriteLine(totals.InlineSummary());
         Assert.Empty(failures.Take(20));
         Assert.Equal(1621, identical);
         Assert.Equal(0, totals.AsmInstructions);

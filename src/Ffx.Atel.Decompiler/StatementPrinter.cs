@@ -80,6 +80,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         EndWithStmt { Op: Opcodes.EndP1 } e => $"End({ToInt(Expr(e.Value)).Text}, reset: true);",
         NopStmt n => string.Create(CultureInfo.InvariantCulture, $"Nop({n.Operand});"),
         OpArgsStmt x => $"Op{x.Op:x2}({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
+        InlineStmt i => InlineCall(i),
         _ => throw No($"no C# for {s}"),
     };
 
