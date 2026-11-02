@@ -1129,8 +1129,10 @@ count, names placed.
    tables, decoded, as `.atel/text/<lang>/<script>.json`, never committed),
    the VS Code extension (`editors/vscode`: inlay hint and hover, language
    setting) and `atel decompile --text-comments <lang>`; all 33,759
-   `Text[n]` are in event scripts. Rider: options written down, a frontend
-   plugin spike is the follow-up.
+   `Text[n]` are in event scripts. Rider plugin done 2026-11-02
+   (`editors/rider`, a ReSharper backend plugin): inlay hint and quick
+   documentation on `Text[n]`, a settings page; built against Rider 263.*,
+   tested headless in CI, not published ([editor.md](editor.md)).
    SDK done 2026-11-02 ([sdk.md](sdk.md)): `Ffx.Atel.Sdk` is an MSBuild
    project SDK (`<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`) holding
    `Ffx.Atel.Game` with its docs, the analyzers and code fixes, Atel's
