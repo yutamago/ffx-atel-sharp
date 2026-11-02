@@ -6,8 +6,5 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);CS1591</NoWarn>
-        <!-- atel decompile copies this assembly into the source it writes (.atel/), which goes into the
-             private source repo: map the checkout's path so the PDB path in the DLL names no user folder. -->
-        <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))=/_/</PathMap>
     </PropertyGroup>
 </Project>

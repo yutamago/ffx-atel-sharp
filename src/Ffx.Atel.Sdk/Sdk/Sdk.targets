@@ -1,0 +1,130 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+    Ffx.Atel.Sdk targets (docs/sdk.md). For a mod project (AtelProjectKind=Mod):
+
+    1. AtelAddVanillaSource, before CoreCompile (also in the IDE's design-time builds): adds the vanilla
+       source of every script the mod's files name (their namespace, Monsters.M209 is
+       $(AtelVanillaSource)/Monsters/M209/), and the shared Library/, to the compilation, so the mod's
+       partial classes compile with the decompiled ones and the IDE knows the vanilla members. The
+       vanilla files count as generated code: the analyzers report only on the mod's own files.
+    2. AtelWriteModPackage, after Build: runs `atel compile-mod` (the tool in this package) and writes
+       the Fahrenheit mod folder to $(AtelModOutputDir): atel/<archive path>.json per script, mod.toml,
+       and <id>.manifest.json. The compiled DLL holds vanilla code and is not copied anywhere.
+-->
+<Project>
+    <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+    <PropertyGroup Condition="'$(AtelProjectKind)' == 'Mod'">
+        <AtelModId Condition="'$(AtelModId)' == ''">$(AssemblyName)</AtelModId>
+        <AtelModName Condition="'$(AtelModName)' == ''">$(AssemblyTitle)</AtelModName>
+        <AtelModName Condition="'$(AtelModName)' == ''">$(AtelModId)</AtelModName>
+        <!-- A folder to copy into the Fahrenheit folder as it is: <Fahrenheit>/mods/<id>/. -->
+        <AtelModOutputDir Condition="'$(AtelModOutputDir)' == ''">$(OutDir)mods/$(AtelModId)/</AtelModOutputDir>
+        <!-- Normalized apart: a property given on the command line (-p:) cannot be changed. -->
+        <_AtelModDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(AtelModOutputDir)'))</_AtelModDir>
+        <!-- The root `atel decompile -o` wrote (or a clone of ffx-atel-src), relative to the project or absolute. -->
+        <_AtelVanillaDir Condition="'$(AtelVanillaSource)' != ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(AtelVanillaSource)'))</_AtelVanillaDir>
+        <!-- The game folder (with FFX.exe): FFX_GAME_DIR, as for the atel CLI. -->
+        <AtelGameDir Condition="'$(AtelGameDir)' == ''">$(FFX_GAME_DIR)</AtelGameDir>
+        <AtelWritePackage Condition="'$(AtelWritePackage)' == ''">true</AtelWritePackage>
+        <!-- false when the package goes into another Fahrenheit mod's folder, which has its own manifest. -->
+        <AtelWriteManifest Condition="'$(AtelWriteManifest)' == ''">true</AtelWriteManifest>
+        <AtelModDependencies Condition="'$(AtelModDependencies)' == ''">yuta.atel</AtelModDependencies>
+        <AtelToolPath Condition="'$(AtelToolPath)' == ''">$(AtelSdkRoot)tools/atel/atel.dll</AtelToolPath>
+        <AtelDotnet Condition="'$(AtelDotnet)' == ''">$(DOTNET_HOST_PATH)</AtelDotnet>
+        <AtelDotnet Condition="'$(AtelDotnet)' == ''">dotnet</AtelDotnet>
+
+        <!-- The DLL is only the C# check; it holds the vanilla code, so it stays in obj/. -->
+        <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+        <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <_AtelVanillaConfig>$(IntermediateOutputPath)Atel.Vanilla.globalconfig</_AtelVanillaConfig>
+        <_AtelModStamp>$(IntermediateOutputPath)Atel.ModPackage.stamp</_AtelModStamp>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(AtelProjectKind)' == 'Mod'">
+        <_AtelModToml Include="$(MSBuildProjectDirectory)/mod.toml" Condition="Exists('$(MSBuildProjectDirectory)/mod.toml')" />
+    </ItemGroup>
+
+    <Target Name="AtelAddVanillaSource" BeforeTargets="CoreCompile"
+            Condition="'$(AtelProjectKind)' == 'Mod' and '$(_AtelVanillaDir)' != ''">
+        <Error Condition="!Exists('$(_AtelVanillaDir)')" Code="ATLSDK002"
+               Text="AtelVanillaSource is $(_AtelVanillaDir), which does not exist. Set it to the folder `atel decompile -o` wrote (docs/sdk.md)." />
+        <ItemGroup>
+            <_AtelModSource Include="@(Compile)" Condition="'%(Compile.AtelVanilla)' != 'true'" />
+            <!-- The script a file changes is its namespace (atel compile-mod reads it the same way). -->
+            <_AtelModNamespace Include="$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('%(_AtelModSource.FullPath)')), '(?m)^[ \t]*namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)').Groups[1].Value)" />
+            <_AtelModNamespace Remove="@(_AtelModNamespace)" Condition="'%(Identity)' == ''" />
+        </ItemGroup>
+        <RemoveDuplicates Inputs="@(_AtelModNamespace)">
+            <Output TaskParameter="Filtered" ItemName="_AtelScriptNamespace" />
+        </RemoveDuplicates>
+        <ItemGroup>
+            <_AtelVanillaFolder Include="$(_AtelVanillaDir)$([System.String]::Copy('%(_AtelScriptNamespace.Identity)').Replace('.', '/'))/" />
+        </ItemGroup>
+        <Warning Condition="!Exists('%(_AtelVanillaFolder.Identity)')" Code="ATLSDK003"
+                 Text="No vanilla source for this mod's namespace in %(_AtelVanillaFolder.Identity): decompile the script into $(_AtelVanillaDir) (atel decompile &lt;script&gt; -o &lt;dir&gt;)." />
+        <ItemGroup>
+            <_AtelVanillaCompile Include="%(_AtelVanillaFolder.Identity)**/*.cs" Exclude="%(_AtelVanillaFolder.Identity)**/obj/**;%(_AtelVanillaFolder.Identity)**/bin/**"
+                                 Condition="Exists('%(_AtelVanillaFolder.Identity)')" />
+            <_AtelVanillaCompile Include="$(_AtelVanillaDir)Library/**/*.cs" Exclude="$(_AtelVanillaDir)Library/**/obj/**;$(_AtelVanillaDir)Library/**/bin/**" />
+            <_AtelVanillaCompile Remove="@(Compile)" />
+            <Compile Include="@(_AtelVanillaCompile)" AtelVanilla="true" />
+        </ItemGroup>
+        <ItemGroup>
+            <_AtelVanillaConfigLine Include="is_global = true" />
+            <_AtelVanillaConfigLine Include="[$([System.String]::Copy('%(_AtelVanillaCompile.FullPath)').Replace('\', '/'))];generated_code = true"
+                                    Condition="'%(_AtelVanillaCompile.FullPath)' != ''" />
+        </ItemGroup>
+        <!-- The vanilla files are the decompiler's output: the analyzers skip them (generated_code). -->
+        <WriteLinesToFile File="$(_AtelVanillaConfig)" Lines="@(_AtelVanillaConfigLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <GlobalAnalyzerConfigFiles Include="$(_AtelVanillaConfig)" />
+            <FileWrites Include="$(_AtelVanillaConfig)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="AtelWriteModPackage" AfterTargets="Build"
+            Condition="'$(AtelProjectKind)' == 'Mod' and '$(AtelWritePackage)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' != 'false'"
+            Inputs="@(Compile);@(_AtelModToml);$(MSBuildProjectFullPath);$(AtelToolPath)"
+            Outputs="$(_AtelModStamp)">
+        <Error Condition="'$(_AtelVanillaDir)' == ''" Code="ATLSDK001"
+               Text="Set AtelVanillaSource to the vanilla source the mod changes: the folder `atel decompile -o` wrote, or a clone of the source repo (docs/sdk.md). Or AtelWritePackage=false to only check the C#." />
+        <Error Condition="'$(AtelGameDir)' == ''" Code="ATLSDK004"
+               Text="Set FFX_GAME_DIR (or AtelGameDir) to the game folder, the one with FFX.exe: the package names each script by its archive path. Or AtelWritePackage=false to only check the C#." />
+        <RemoveDir Directories="$(_AtelModDir)atel" />
+        <Exec Command="&quot;$(AtelDotnet)&quot; &quot;$(AtelToolPath)&quot; compile-mod &quot;$(MSBuildProjectDirectory.TrimEnd('\').TrimEnd('/'))&quot; --vanilla &quot;$(_AtelVanillaDir.TrimEnd('\').TrimEnd('/'))&quot; -o &quot;$(_AtelModDir.TrimEnd('\').TrimEnd('/'))&quot; --game &quot;$(AtelGameDir)&quot;"
+              EnvironmentVariables="DOTNET_gcServer=0" StandardErrorImportance="high" />
+        <PropertyGroup>
+            <_AtelJsonDescription>$(Description.Replace('\', '\\').Replace('"', '\"'))</_AtelJsonDescription>
+            <_AtelJsonName>$(AtelModName.Replace('\', '\\').Replace('"', '\"'))</_AtelJsonName>
+            <_AtelJsonAuthors>$(Authors.Replace('\', '\\').Replace('"', '\"'))</_AtelJsonAuthors>
+            <_AtelJsonDependencies>&quot;$(AtelModDependencies.Trim().Replace(';', '&quot;, &quot;'))&quot;</_AtelJsonDependencies>
+            <_AtelManifestLines>
+{
+    "Id": "$(AtelModId)",
+    "Name": "$(_AtelJsonName)",
+    "Desc": "$(_AtelJsonDescription)",
+    "Authors": "$(_AtelJsonAuthors)",
+    "Version": "$(Version)",
+    "Link": "$(RepositoryUrl)",
+    "Dependencies": [ $(_AtelJsonDependencies) ],
+    "Flags": "NONE"
+}
+            </_AtelManifestLines>
+        </PropertyGroup>
+        <!-- Fahrenheit's manifest for a mod without a DLL; it depends on the loader (yuta.atel). -->
+        <WriteLinesToFile Condition="'$(AtelWriteManifest)' == 'true'" File="$(_AtelModDir)$(AtelModId).manifest.json"
+                          Lines="$(_AtelManifestLines.Trim())" Overwrite="true" />
+        <Touch Files="$(_AtelModStamp)" AlwaysCreate="true" />
+        <ItemGroup>
+            <FileWrites Include="$(_AtelModStamp)" />
+        </ItemGroup>
+        <Message Importance="high" Text="$(MSBuildProjectName) -> $(_AtelModDir)" />
+    </Target>
+
+    <Target Name="AtelCleanModPackage" AfterTargets="Clean" Condition="'$(AtelProjectKind)' == 'Mod'">
+        <RemoveDir Directories="$(_AtelModDir)" />
+        <Delete Files="$(_AtelModStamp)" />
+    </Target>
+</Project>

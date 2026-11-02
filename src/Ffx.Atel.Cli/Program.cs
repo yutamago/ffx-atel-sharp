@@ -75,7 +75,7 @@ internal static class Program {
             case "decompile": {
                 string? comments = TakeOption(args, "--text-comments");
                 GameLanguage? language = comments is null ? null : TextCommand.ParseLanguage(comments);
-                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"), language);
+                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"), ProjectOptions(args), language);
             }
             case "text":
                 return TextCommand.Run(archive, args, output);
@@ -92,7 +92,9 @@ internal static class Program {
             case "export": {
                 bool merge = !TakeFlag(args, "--no-merge"), compile = !TakeFlag(args, "--no-compile");
                 bool check = TakeFlag(args, "--check"), push = TakeFlag(args, "--push");
-                return ExportCommand.Run(archive, game, args, merge, compile, check, push);
+                // The source repo must build after a clone: with the SDK, its package goes into the tree.
+                SourceCommands.ProjectOptions projects = ProjectOptions(args) with { RequirePackage = true };
+                return ExportCommand.Run(archive, game, args, merge, compile, check, push, projects);
             }
             case "compile-mod":
                 return ModCommands.CompileMod(archive, args, output, TakeOption(args, "--vanilla"), TakeOption(args, "--id"), TakeFlag(args, "--check"));
@@ -103,6 +105,13 @@ internal static class Program {
             default:
                 throw new UsageException($"unknown command {command}\n{Usage}");
         }
+    }
+
+    private static SourceCommands.ProjectOptions ProjectOptions(List<string> args) {
+        string? sdk = TakeOption(args, "--sdk");
+        bool noSdk = TakeFlag(args, "--no-sdk");
+        if (noSdk && sdk is not null) throw new UsageException("--sdk and --no-sdk exclude each other");
+        return new(noSdk ? Decompiler.Layout.GameReference.Assembly : Decompiler.Layout.GameReference.Sdk, sdk);
     }
 
     private static string Resolve(VbfArchive archive, List<string> args) {

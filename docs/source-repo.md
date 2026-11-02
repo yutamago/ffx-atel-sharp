@@ -105,19 +105,29 @@ anyway, and the merge would then undo it on `main`.
 
 ## The reference assembly
 
-`atel decompile -o` copies `Ffx.Atel.Game.dll` and its XML docs to
-`.atel/`, which the tree's `Directory.Build.props` references, and its
-`.gitignore` ignores `.atel/` (a local decompile is not a repo).
-`atel export` commits both anyway (`git add -f`), so a clone of the source
-repo opens and builds without a checkout of this repo, against exactly the
-API the source was decompiled with. It is our MIT code, not game data, about
-1.2 MB per version. To build against a checkout of this repo instead:
+The tree's projects use the SDK package, `<Project Sdk="Ffx.Atel.Sdk">`, of
+the version in `global.json` ([sdk.md](sdk.md)): the reference assembly, the
+analyzers and the build settings. `atel decompile -o` copies the package to
+`.atel/packages/` and writes a `nuget.config` naming it when it finds the
+package (beside `atel`, or in this repo's `artifacts/package/<configuration>/`
+after `dotnet pack src/Ffx.Atel.Sdk`) or is given it (`--sdk <dir>`). The
+tree's `.gitignore` ignores `.atel/` (a local decompile is not a repo).
+`atel export` requires the package and commits it anyway (`git add -f`), so a
+clone of the source repo opens and builds without a checkout of this repo,
+against exactly the API the source was decompiled with. It is our MIT code,
+not game data, about 4.4 MB per version (the `atel` CLI with Roslyn is most of
+it).
+
+`atel decompile --no-sdk` and `atel export --no-sdk` write the earlier layout:
+`Ffx.Atel.Game.dll` and its XML docs in `.atel/`, which `Directory.Build.props`
+references (about 1.2 MB, no analyzers). To build that against a checkout of
+this repo instead:
 `dotnet build Atel.slnx -p:AtelGameProject=<ffx-atel-sharp>/src/Ffx.Atel.Game/Ffx.Atel.Game.csproj`.
 
-`Ffx.Atel.Game.csproj` maps the checkout's path to `/_/` (`PathMap`), so the
-PDB path in the DLL's debug directory names no user folder;
-`atel export` checks the tree for the home folder and the machine name
-before it commits.
+Every shipped project maps the checkout's path to `/_/` (`PathMap` in
+`Directory.Build.props`), so no PDB path in the package or the DLL names a
+user folder. `atel export` checks the tree for the home folder and the
+machine name before it commits.
 
 ## Size
 

@@ -71,12 +71,17 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   `atel export` writes it onto its `generated` branch, merges that into
   `main` (hand edits) and checks with `atel compile-all` that `main` still
   compiles to the game's bytes; see [`docs/source-repo.md`](docs/source-repo.md).
+- The analyzers ([`docs/analyzers.md`](docs/analyzers.md)), the mod linker
+  and the loader's link step ([`docs/formats/mod-package.md`](docs/formats/mod-package.md)).
+- `Ffx.Atel.Sdk`: a mod is a C# project, `<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`,
+  and `dotnet build` writes its Fahrenheit mod folder; see
+  [`docs/sdk.md`](docs/sdk.md) and [`examples/LarvaHp`](examples/LarvaHp).
 - The message text in the editor: `atel text export` decodes the player's
   message tables, per language, beside the decompiled source, and the VS
   Code extension in `editors/vscode` shows each `Text[n]`'s message as an
-  inlay hint and hover; see [`docs/editor.md`](docs/editor.md).
-- Not done: the SDK package (`dotnet build` of a mod project), `Debug.*`
-  text and runtime packages (Phase 10).
+  inlay hint and hover; `atel decompile --text-comments <lang>` writes it
+  as comments instead; see [`docs/editor.md`](docs/editor.md).
+- Not done: `Debug.*` text and runtime packages (Phase 10).
 
 ## Projects
 
@@ -90,7 +95,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, compile-mod, link |
-| `Ffx.Atel.Sdk` | the NuGet package mod projects build with |
+| `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text (TypeScript; `npm test`, `npm run package`) |
 
 ## Building
@@ -128,6 +133,8 @@ atel disasm m209 -o m209.asm      # first line: "; <archive path>"; keep it
 
 At start the loader writes the rebuilt and linked files to
 `mods/yuta.atel/efl/x/` (it owns that folder) and logs what it built.
+
+To make a mod, see [`docs/sdk.md`](docs/sdk.md).
 
 No game files, extracted scripts or decompiled source go into this
 repository.

@@ -1,0 +1,46 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+    Ffx.Atel.Sdk: an MSBuild project SDK for Atel source (docs/sdk.md).
+
+        <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+
+    It builds on Microsoft.NET.Sdk and adds the game's reference assembly (Ffx.Atel.Game), the analyzers
+    and code fixes, and the settings the decompiled source uses. A project is one of two kinds:
+
+    - AtelProjectKind=Mod (the default): a mod. dotnet build checks the C# against the vanilla source
+      ($(AtelVanillaSource)) and writes the mod package to $(AtelModOutputDir) (Sdk.targets).
+    - AtelProjectKind=Vanilla: decompiled source (atel decompile, the ffx-atel-src repo). dotnet build
+      only checks the C#.
+-->
+<Project>
+    <PropertyGroup>
+        <AtelSdkRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</AtelSdkRoot>
+        <!-- Set before Microsoft.NET.Sdk: the SDK reads them, and Directory.Build.props or the project may override them. -->
+        <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+    </PropertyGroup>
+
+    <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+    <PropertyGroup>
+        <AtelProjectKind Condition="'$(AtelProjectKind)' == ''">Mod</AtelProjectKind>
+        <OutputType Condition="'$(OutputType)' == ''">Library</OutputType>
+        <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
+        <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+        <!-- Atel names only the game's API (Ffx, Ffx.Atel): System's global usings would bring the .NET library in. -->
+        <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">disable</ImplicitUsings>
+        <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">false</GenerateDocumentationFile>
+        <!-- CS0162: the original kept unreachable code (if (false) { … }, code after return).
+             CS1998: a requested entry is async Task whether or not it awaits. -->
+        <NoWarn>$(NoWarn);CS0162;CS1998</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- The game's API, with its XML docs beside it for the IDE. Compile-time only: nothing runs on .NET. -->
+        <Reference Include="Ffx.Atel.Game">
+            <HintPath>$(AtelSdkRoot)reference/Ffx.Atel.Game.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Analyzer Include="$(AtelSdkRoot)analyzers/dotnet/cs/Ffx.Atel.Analyzers.dll" />
+        <Analyzer Include="$(AtelSdkRoot)analyzers/dotnet/cs/Ffx.Atel.Analyzers.CodeFixes.dll" />
+    </ItemGroup>
+</Project>

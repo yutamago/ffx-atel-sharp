@@ -3,6 +3,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
 using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Bytecode.Text;
@@ -31,9 +32,19 @@ internal static class SourceCommands {
                                            filter), compare with the game's bytes
           --no-library                     (decompile, roundtrip) keep duplicated workers in
                                            every script instead of library base classes
+          --sdk <dir|nupkg>                (decompile, export) the Ffx.Atel.Sdk package to copy into
+                                           <dir>/.atel/packages/ with a nuget.config naming it; else
+                                           looked for beside atel, or left to your NuGet sources
+          --no-sdk                         (decompile, export) projects reference .atel/Ffx.Atel.Game.dll
+                                           instead of using the SDK (no analyzers)
         """;
 
-    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share, GameLanguage? textComments = null) {
+    /// <summary>How <c>decompile -o</c> writes the projects: by the SDK, with its package if found or given, or the old way.</summary>
+    internal sealed record ProjectOptions(GameReference Reference, string? SdkPackage, bool RequirePackage = false) {
+        public static readonly ProjectOptions Default = new(GameReference.Sdk, null);
+    }
+
+    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share, ProjectOptions? projectOptions = null, GameLanguage? textComments = null) {
         if (args.Count == 0) throw new ArgumentException("decompile <script>... [-o <dir>]");
         List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
             : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
@@ -59,7 +70,7 @@ internal static class SourceCommands {
         });
         WriteFiles(output, library.Files());
         Dictionary<string, string> projects = ProjectLayout.Assign(decompiled.Select((d, i) => (d.Names, sizes[i])));
-        WriteProjects(output, projects.Values, library.Classes.Count > 0 ? [SharedLibrary.Namespace] : []);
+        WriteProjects(output, projects.Values, library.Classes.Count > 0 ? [SharedLibrary.Namespace] : [], projectOptions ?? ProjectOptions.Default);
         Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{decompiled.Length} scripts in {projects.Values.Distinct().Count()} projects; {LibrarySummary(library)}; dotnet build {Path.Combine(output, ProjectLayout.Solution)}"));
         return 0;
@@ -73,17 +84,68 @@ internal static class SourceCommands {
         $"{library.SharedWorkers} workers derive from {library.Classes.Count} library classes, {library.SavedChars / 1e6:0.0} MB of source saved");
 
     /// <summary>
-    ///     The project files at the root (<see cref="ProjectLayout"/>), and the reference assembly beside
-    ///     them in <c>.atel/</c>, which <c>Directory.Build.props</c> points at.
+    ///     The project files at the root (<see cref="ProjectLayout"/>). With the SDK: <c>global.json</c> names
+    ///     this build's version, and the SDK package, when found, goes to <c>.atel/packages/</c> with a
+    ///     <c>nuget.config</c> naming it, so the tree builds without any other package source. Without
+    ///     it: the reference assembly beside them in <c>.atel/</c>, which <c>Directory.Build.props</c> points at.
     /// </summary>
-    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders) {
-        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders));
-        string game = typeof(Atel.Worker).Assembly.Location;
+    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders, ProjectOptions options) {
         string tools = Path.Combine(root, ProjectLayout.ToolFolder);
-        Directory.CreateDirectory(tools);
-        File.Copy(game, Path.Combine(tools, ProjectLayout.GameAssembly), overwrite: true);
-        string docs = Path.ChangeExtension(game, ".xml");
-        if (File.Exists(docs)) File.Copy(docs, Path.Combine(tools, Path.GetFileName(docs)), overwrite: true);
+        if (options.Reference == GameReference.Assembly) {
+            WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Assembly, null, localFeed: false));
+            string game = typeof(Atel.Worker).Assembly.Location;
+            Directory.CreateDirectory(tools);
+            File.Copy(game, Path.Combine(tools, ProjectLayout.GameAssembly), overwrite: true);
+            string docs = Path.ChangeExtension(game, ".xml");
+            if (File.Exists(docs)) File.Copy(docs, Path.Combine(tools, Path.GetFileName(docs)), overwrite: true);
+            return;
+        }
+        string version = SdkVersion();
+        string? package = FindSdkPackage(options.SdkPackage, version);
+        if (package is null && (options.SdkPackage is not null || options.RequirePackage)) {
+            throw new ArgumentException($"no {ProjectLayout.SdkPackage}.{version}.nupkg {(options.SdkPackage is null ? "beside atel" : "in " + options.SdkPackage)}: " +
+                                        "dotnet pack src/Ffx.Atel.Sdk, then --sdk <dir>; or --no-sdk");
+        }
+        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Sdk, version, localFeed: package is not null));
+        if (package is not null) {
+            string feed = Path.Combine(tools, ProjectLayout.PackageFolder);
+            if (Directory.Exists(feed)) Directory.Delete(feed, recursive: true);
+            Directory.CreateDirectory(feed);
+            // NuGet's file name, whatever the case of the copy found (the package cache's is lower case).
+            File.Copy(package, Path.Combine(feed, $"{ProjectLayout.SdkPackage}.{version}.nupkg"));
+        }
+        else {
+            Console.Error.WriteLine($"the projects use {ProjectLayout.SdkPackage} {version}: a NuGet source must have it (docs/sdk.md), or decompile again with --sdk <dir> or --no-sdk");
+        }
+    }
+
+    /// <summary>This build's version without the commit (<c>0.1.0-alpha</c>): the SDK package's version.</summary>
+    internal static string SdkVersion() {
+        string version = typeof(SourceCommands).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+        int plus = version.IndexOf('+', StringComparison.Ordinal);
+        return plus < 0 ? version : version[..plus];
+    }
+
+    /// <summary>
+    ///     The SDK package of <paramref name="version"/>: <paramref name="given"/> (the file, or a folder
+    ///     holding it), else beside atel: in the package itself (atel runs from <c>tools/atel/</c> of the
+    ///     extracted package, which NuGet keeps next to its <c>.nupkg</c>), or in this repo's
+    ///     <c>artifacts/package/&lt;configuration&gt;/</c> (<c>dotnet pack src/Ffx.Atel.Sdk</c>).
+    /// </summary>
+    internal static string? FindSdkPackage(string? given, string version) {
+        string name = $"{ProjectLayout.SdkPackage}.{version}.nupkg";
+        if (given is not null) {
+            if (File.Exists(given)) return given;
+            return Directory.Exists(given) ? FindIn(given) : null;
+        }
+        string here = AppContext.BaseDirectory;
+        string configuration = Path.GetFileName(Path.TrimEndingDirectorySeparator(here));
+        foreach (string dir in new[] { here, Path.Combine(here, "..", ".."), Path.Combine(here, "..", "..", "..", "package", configuration) }) {
+            if (Directory.Exists(dir) && FindIn(dir) is string found) return found;
+        }
+        return null;
+
+        string? FindIn(string dir) => Directory.EnumerateFiles(dir, "*.nupkg").FirstOrDefault(f => string.Equals(Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Writes source files under a root folder.</summary>

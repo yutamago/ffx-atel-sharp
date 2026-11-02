@@ -1,0 +1,16 @@
+<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod: the Larva (m209) starts with 1234 HP. docs/sdk.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id: the build writes bin/<configuration>/net10.0/mods/yuta.larvahp/. -->
+        <AtelModId>yuta.larvahp</AtelModId>
+        <AtelModName>Larva HP</AtelModName>
+        <Description>The Larva (m209) starts with 1234 HP. An example Atel mod.</Description>
+        <Authors>Yutamago</Authors>
+        <Version>0.1.0</Version>
+        <!-- The vanilla source this mod changes: the folder `atel decompile m209 -o <dir>` wrote, or a clone
+             of the source repo. Never inside this project. Set it here, in Directory.Build.props, or with
+             dotnet build -p:AtelVanillaSource=<dir>. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>
