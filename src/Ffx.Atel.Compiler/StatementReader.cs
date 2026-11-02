@@ -25,7 +25,7 @@ internal sealed record VariableSymbol(int Index, VarEntry Entry);
 ///     operands are conditions (a comparison, <c>!</c>, <c>AsBool</c>, or <c>&amp;</c>, <c>|</c>, <c>^</c> of
 ///     conditions), else <c>and</c>/<c>or</c>.
 /// </remarks>
-internal sealed class StatementReader(
+internal sealed partial class StatementReader(
     IReadOnlyDictionary<string, VariableSymbol> variables,
     IReadOnlyDictionary<string, RegExpr> registers,
     IReadOnlyDictionary<string, NativeSignature> natives,
@@ -76,6 +76,10 @@ internal sealed class StatementReader(
 
     public Stmt Read(StatementSyntax s) {
         switch (s) {
+            case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax a } when IsDiscard(a.Left) && a.IsKind(SyntaxKind.SimpleAssignmentExpression):
+                return Discarded(a);
+            case ExpressionStatementSyntax { Expression: AwaitExpressionSyntax aw }:
+                return Awaited(aw);
             case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax a }:
                 return Assignment(a);
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }:

@@ -21,7 +21,7 @@ internal sealed class FlowStats {
 ///     (<see cref="Structurer"/>), else <c>goto</c>. Methods that jump into each other's code are one
 ///     method with <c>Entry(n);</c> where each further entry starts.
 /// </summary>
-internal sealed class WorkerDecompiler {
+internal sealed partial class WorkerDecompiler {
     private sealed class Method {
         public required List<int> Entries;
         public required List<Unit> Units;
@@ -62,7 +62,7 @@ internal sealed class WorkerDecompiler {
         _functionWorker = w.Type == 0;
         _code = block.Decode(w);
         _lifter = new StatementLifter(block, worker, table, natives);
-        _printer = new StatementPrinter(vars, natives, workerNames, _functionWorker);
+        _printer = new StatementPrinter(vars, natives, workerNames, _functionWorker) { Self = worker };
 
         for (int i = 0; i < _code.Count; i++) _indexOf[_code[i].Offset] = i;
         List<int>[] labelsAt = new List<int>[_code.Count];
@@ -541,16 +541,7 @@ internal sealed class WorkerDecompiler {
             Method method = _methods[m];
             if (m > 0) sb.Append('\n');
             if (method.Pin is not null) sb.Append(Indent).Append("[Labels(").Append(string.Join(", ", method.Pin.Select(n => n.ToString(CultureInfo.InvariantCulture)))).Append(")]\n");
-            // The engine's entries 0 and 1 are the base class's Init and Main, where a method holds only that one.
-            string? engine = _functionWorker ? null : method.Entries switch { [0] => "Init", [1] => "Main", _ => null };
-            if (engine is not null) {
-                Overrides++;
-                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"protected override void {engine}()\n");
-            }
-            else {
-                sb.Append(Indent).Append(string.Join("", method.Entries.Select(n => string.Create(CultureInfo.InvariantCulture, $"[Entry({n})]")))).Append('\n');
-                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"void E{method.Entries[0]}()\n");
-            }
+            WriteHeader(sb, method);
             sb.Append(Indent).Append("{\n");
             writer.Block(method.Body, 2);
             sb.Append(Indent).Append("}\n");

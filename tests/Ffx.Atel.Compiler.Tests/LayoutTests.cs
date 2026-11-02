@@ -60,7 +60,7 @@ public sealed class LayoutTests {
             ["Monsters/M997/M997.cs", "Monsters/M997/M997.Data.cs", "Monsters/M997/W00.cs", "Monsters/M997/W00.2.cs", "Monsters/M997/W00.3.cs", "Monsters/M997/W00.4.cs"],
             files.Select(f => f.RelativePath));
         Assert.Contains("public sealed partial class W00 : Worker2", files[2].Text, StringComparison.Ordinal);
-        Assert.Contains("[Register(0)] public int I0;", files[2].Text, StringComparison.Ordinal);
+        Assert.Contains("[Register(0)] public static int I0;", files[2].Text, StringComparison.Ordinal);
         Assert.Contains("public sealed partial class W00\n", files[5].Text, StringComparison.Ordinal);
 
         // Shuffled, the parts are still taken in path order, so the methods keep their layout.

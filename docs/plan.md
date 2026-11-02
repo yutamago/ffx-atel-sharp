@@ -197,8 +197,8 @@ carries only entry, worker and priority. The compiler provides both:
   confirm in Phase 0); the analyzer reports that as an error where it
   knows the caller's priority (`Main` P0, `Init` P7) and warns elsewhere.
   A helper method is usually the better choice.
-- Priorities: `Priority.P0_Main` … `Priority.P8_…`, an enum, zero-based,
-  sorted by level, names after the number from Phase 0. Scripts push only
+- Priorities: `Priority.P0_Main`, `P1` … `P6`, `P7_Init`, `P8`, an enum,
+  zero-based, sorted by level (`Ffx.Atel.Priority`; done in Phase 5). Scripts push only
   levels 1-7 (level 1 in 78 % of requests, 3 in 14 %), and only the forms
   `req0`, `reqw0`, `reqe0` (plus `req2` 32 times). P1–P6 are for
   scripts; P0 (`Main`'s level), P7 (`Init`, battle system) and P8 (unused)
@@ -391,8 +391,8 @@ writes on top of the Phase 2 shape:
   two opcodes not yet understood (13,191 and 1,566 statements). `RegA`, `RegB` and `LastResult` (the float
   accumulator, `pushfacc`) are `Worker` members, so the 3,151 waiting calls
   read as `Msg.Choice(…); RegB = LastResult;`. The forms are
-  explicit helpers for now; the `await` forms of "Requests between workers"
-  come when entries get names.
+  explicit helpers for now; Phase 5 writes most requests in the `await` forms
+  of "Requests between workers" (see "Phase 5: typing and naming").
 - **Control flow stays flat:** `goto lN;`, `if (c) goto lN;` (`popa_jnz`) and
   `if (!c) goto lN;` (`popa_jz`), with C# labels `lN:` at the method level.
   A label is a C# label when every jump to it is a C# `goto` in the same
@@ -610,10 +610,38 @@ replaces and the round trip stays byte for byte.
   the compiler reads an `Init`/`Main` override without `[Entry]` as entry 0
   or 1. Other entries keep `[Entry(n)] void En()`. A hand-written method
   named `Init` without `override` now gets CS0114 (it hides the base's).
+- **Requests as calls** (decided 2026-11-02): an entry another worker of the
+  script requests by constants is declared `[Entry(5)] public static async
+  Task E5Async()`, and the requests become calls of it: `_ = Lulu.E5Async();`
+  (`req0`), `await Lulu.E5Async();` (`reqe0`; `.Finished` reads the same),
+  `await Lulu.E5Async().Started;` (`reqw0`). The level is an optional
+  `Priority` argument, `Lulu.E5Async(Priority.P3)`, level 1 without it; the
+  entry declares `(Priority priority = Priority.P1)` only where some request
+  passes one. A method holding an `await` is `async`: `protected override
+  async void Main()`, `async void E4()` (the engine runs those, nothing awaits
+  them). **Static**, because C# reads `Lulu.E5Async()` as the class `Lulu`
+  (the script class's members cannot shadow a type of the namespace), so the
+  entry is a static method, and with it the worker's registers
+  (`[Register(1)] public static int I1;`, one worker per class, so one copy
+  either way) and `RegA`, `RegB`, `LastResult`. The compiler finds the entry
+  from the method's first `[Entry(n)]` (or `Init`/`Main`) in the named worker
+  class. CS1998 (an `async` method without `await`) is suppressed like CS0162:
+  an entry others request is `async Task` whether or not it awaits. The
+  fallback form `Request(level, worker, entry)` (and `RequestWaitStart`,
+  `RequestWaitEnd`) stays for a computed operand, a request to the worker's own
+  entries (the in-game question of Phase 0 is still open), an entry that has no
+  method of its own (it shares its offset with a lower entry, or a merged method
+  starts it with `Entry(n);`, or it is `Init`/`Main`), the variants (`req2`) and
+  `RequestParty`.
+- Numbers (2026-11-02): 104,074 of 106,583 requests as calls (77,332
+  `_ =`, 23,863 `await`, 2,879 `.Started`); 2,509 fallbacks: 1,504 computed,
+  741 to the worker's own entries, 229 to an entry without a method of its own,
+  32 `req2`, 3 `RequestParty`. 43,371 methods `async Task`, 1,903 `async void`.
+  1,621/1,621 round-trip, 0 C# errors, 0 warnings.
 - Not done yet: `AsBool`/`AsInt` (88,778 and 3,344 left; natives typed `bool`
   where every use is a condition would remove most), register and variable
   names beyond the save, `static class` function workers, storage 1 names,
-  entry names beyond 0 and 1, `Priority` and the `await` request forms.
+  entry names beyond 0 and 1 (requested entries are `E5Async`).
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
   workers named after their model; 29,136 `Init`/`Main` overrides. The
   corpus still round-trips 1,621/1,621 with 0 C# errors and 0 warnings.

@@ -103,6 +103,7 @@ public static class ScriptDecompiler {
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
         }
+        RequestNaming.Assign(workers, workerNames);
 
         // The pools follow the rules unless the original differs, or assembly names them by index.
         List<IReadOnlyList<CodeOp>> ops = [.. workers.Select(w => (IReadOnlyList<CodeOp>)w.Ops())];
@@ -132,6 +133,8 @@ public static class ScriptDecompiler {
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
         placed["entry-override"] = workers.Sum(w => w.Overrides);
+        placed["entry-async-task"] = workers.Sum(w => w.AsyncTaskMethods);
+        placed["entry-async-void"] = workers.Sum(w => w.AsyncVoidMethods);
         placed["worker-named"] = workerNames.Count(n => !n.StartsWith('W') || !n[1..].All(char.IsAsciiDigit));
         foreach (VarEntry v in image.Variables.Where(v => v.Storage == 0)) {
             string k = GameNames.SaveFields.ContainsKey(v.Offset) ? "save-named" : "save-unnamed";
@@ -241,7 +244,7 @@ public static class ScriptDecompiler {
         sb.Clear();
         SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
         foreach ((RegKind kind, int n) in registers) {
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public {(kind == RegKind.Int ? "int" : "float")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
+            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public static {(kind == RegKind.Int ? "int" : "float")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);

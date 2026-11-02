@@ -115,8 +115,9 @@ public static class ProjectLayout {
                 <ImplicitUsings>disable</ImplicitUsings>
                 <OutputType>Library</OutputType>
                 <GenerateDocumentationFile>false</GenerateDocumentationFile>
-                <!-- CS0162: the original kept unreachable code (if (false) { … }, code after return). -->
-                <NoWarn>$(NoWarn);CS0162</NoWarn>
+                <!-- CS0162: the original kept unreachable code (if (false) { … }, code after return).
+                     CS1998: a requested entry is async Task whether or not it awaits. -->
+                <NoWarn>$(NoWarn);CS0162;CS1998</NoWarn>
                 <!-- The reference assembly: a path to Ffx.Atel.Game.dll, or a project to build it from. -->
                 <AtelGameAssembly Condition="'$(AtelGameAssembly)' == ''">$(MSBuildThisFileDirectory).atel/Ffx.Atel.Game.dll</AtelGameAssembly>
             </PropertyGroup>
