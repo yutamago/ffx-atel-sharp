@@ -2,6 +2,7 @@
 
 using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -28,14 +29,19 @@ internal sealed partial class StatementReader {
     /// </summary>
     public Func<string, string, (Expr Worker, Expr Entry)?>? RequestTargets { get; init; }
 
+    /// <summary>An entry's parameters and result (<c>async Task&lt;int&gt; FooAsync(int x)</c>) by worker class and method; null for one without.</summary>
+    public Func<string, string, EntrySignature?>? Signatures { get; init; }
+
     /// <summary><c>_ = Lulu.E5Async();</c>: queues the entry (<c>req0</c>).</summary>
     private RequestStmt Discarded(AssignmentExpressionSyntax a) =>
         Strip(a.Right, conversions: false) is InvocationExpressionSyntax call
-            ? RequestCall(call, Opcodes.Req0)
+            ? RequestCall(call, Opcodes.Req0).Request
             : throw Error(a, "`_ = …` is a request: `_ = Worker.EntryAsync();`");
 
     /// <summary><c>await Lulu.E5Async();</c> (<c>reqe0</c>) or <c>await Lulu.E5Async().Started;</c> (<c>reqw0</c>).</summary>
-    private RequestStmt Awaited(AwaitExpressionSyntax a) =>
+    private RequestStmt Awaited(AwaitExpressionSyntax a) => AwaitedRequest(a).Request;
+
+    private (RequestStmt Request, EntrySignature? Signature) AwaitedRequest(AwaitExpressionSyntax a) =>
         Strip(a.Expression, conversions: false) switch {
             InvocationExpressionSyntax call => RequestCall(call, Opcodes.ReqE0),
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Started", Expression: InvocationExpressionSyntax call } => RequestCall(call, Opcodes.ReqW0),
@@ -43,7 +49,20 @@ internal sealed partial class StatementReader {
             _ => throw Error(a, "await takes a request: `await Worker.EntryAsync();`, `.Started` or `.Finished`"),
         };
 
-    private RequestStmt RequestCall(InvocationExpressionSyntax call, byte op) {
+    /// <summary>
+    ///     <c>await Lulu.CountAsync(3)</c> as a value: the request waits until the entry has ended, then its
+    ///     result (a hidden field of the entry) is copied into a temporary.
+    /// </summary>
+    private Expr AwaitValue(AwaitExpressionSyntax a) {
+        (RequestStmt request, EntrySignature? signature) = AwaitedRequest(a);
+        if (request.Op != Opcodes.ReqE0 || signature?.Result is not Slot result) throw Error(a, "only a request to an entry that returns a value (async Task<T>), awaited until it has finished, has a value");
+        _pre.Add(request);
+        Slot t = Temp(result.Float);
+        _pre.Add(Set(t, new LocalExpr(result)));
+        return new LocalExpr(t);
+    }
+
+    private (RequestStmt Request, EntrySignature? Signature) RequestCall(InvocationExpressionSyntax call, byte op) {
         if (call.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax method } m) {
             throw Error(call, "a request names the worker and the entry: `Worker.EntryAsync()`");
         }
@@ -65,17 +84,51 @@ internal sealed partial class StatementReader {
             (workerNumber, entryNumber) = (new IntLit(w), new IntLit(entry));
         }
         Expr level = new IntLit(DefaultPriority);
-        switch (call.ArgumentList.Arguments) {
-            case []:
-                break;
-            case [ArgumentSyntax p] when p.NameColon is null || p.NameColon.Name.Identifier.ValueText == "priority":
-                level = ReadExpr(p.Expression);
-                break;
-            default:
-                throw Error(call.ArgumentList, "a request takes only its priority (entries have no parameters yet)");
+        EntrySignature? signature = Signatures?.Invoke(worker, method.Identifier.ValueText);
+        if (signature is null) {
+            switch (call.ArgumentList.Arguments) {
+                case []:
+                    break;
+                case [ArgumentSyntax p] when p.NameColon is null || p.NameColon.Name.Identifier.ValueText == "priority":
+                    level = ReadExpr(p.Expression);
+                    break;
+                default:
+                    throw Error(call.ArgumentList, "a request to an entry without parameters takes only its priority");
+            }
+            return (new RequestStmt(op, level, workerNumber, entryNumber), null);
         }
-        return new RequestStmt(op, level, workerNumber, entryNumber);
+        // The arguments into the entry's hidden fields (in the order written), the priority as the level.
+        SeparatedSyntaxList<ArgumentSyntax> args = call.ArgumentList.Arguments;
+        int[] position = new int[args.Count];
+        for (int k = 0; k < args.Count; k++) {
+            ArgumentSyntax a = args[k];
+            position[k] = a.NameColon is null ? k : Array.IndexOf(signature.Names, a.NameColon.Name.Identifier.ValueText);
+            if (position[k] < 0 || position[k] >= signature.Names.Length) throw Error(a, $"{method.Identifier.ValueText} has no such parameter");
+        }
+        for (int p = 0; p < signature.Names.Length; p++) {
+            if (signature.Slots[p] is not null && !position.Contains(p)) throw Error(call.ArgumentList, $"{method.Identifier.ValueText} needs {signature.Names[p]}");
+        }
+        List<Expr> values = ReadArgs(args.Select(a => a.Expression));
+        for (int k = 0; k < values.Count; k++) {
+            if (signature.Slots[position[k]] is Slot field) _pre.Add(Set(field, values[k]));
+            else level = values[k];
+        }
+        return (new RequestStmt(op, level, workerNumber, entryNumber), signature);
     }
 
     private static bool IsDiscard(ExpressionSyntax e) => e is IdentifierNameSyntax { Identifier.ValueText: "_" };
+}
+
+/// <summary>
+///     An entry's parameters and result (docs/plan.md, "Parameters and return values"): hidden fields of the
+///     receiving worker, which the requester writes before the request and reads after <c>.Finished</c>.
+///     <see cref="Slots"/> follows the declared parameters; null for the <c>Priority</c> one (the level).
+/// </summary>
+internal sealed class EntrySignature(string[] names, Slot?[] slots, Slot? result) {
+    public string[] Names { get; } = names;
+    public Slot?[] Slots { get; } = slots;
+    public Slot? Result { get; } = result;
+
+    /// <summary>The parameters in scope in the entry's body.</summary>
+    public IEnumerable<(string Name, Slot Slot)> Parameters => Names.Zip(Slots).Where(x => x.Second is not null).Select(x => (x.First, x.Second!));
 }

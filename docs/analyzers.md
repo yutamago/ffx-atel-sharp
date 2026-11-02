@@ -42,6 +42,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL2005](#atl2005) | warning | awaited request to the worker's own entry | |
 | [ATL2006](#atl2006) | warning | priority the engine uses (0, 7, 8) | |
 | [ATL2007](#atl2007) | error | `async` method that does not return `Ffx.Atel.Task` | |
+| [ATL2008](#atl2008) | warning | entry with parameters or a result requested where requests may overlap | |
 | [ATL3001](#atl3001) | error | recursion | |
 | [ATL3002](#atl3002) | error | `call` deeper than 3 | |
 
@@ -266,6 +267,28 @@ is ATL1003.) The exception is an entry the engine runs rather than another worke
 (`[Entry(n)]` or an `override` of a base class entry): it may be `async void`, so that it can
 `await` requests, since nothing waits on its result. The decompiler writes such entries so
 since Phase 5 (requests as calls).
+
+### ATL2008
+
+**Entry with parameters or a result requested where requests may overlap** (warning). An entry's
+parameters and result are hidden fields of its worker (language.md, "Parameters and results"):
+written when it is requested, read when it runs; its result written when it ends, read after
+`.Finished`. That is safe while one request at a time is pending (plan, "Parameters and return
+values"). The rule looks at every request in the compilation to an entry that takes parameters
+(besides its priority) or returns a value, and reports each of them when that entry is requested
+
+- from more than one method (their workers may request it at the same time), or
+- more than once, and some request does not wait for it to finish (`_ =`, `.Started`), or
+- in a loop without waiting for it to finish.
+
+```csharp
+int a = await W01.AddAsync(1, 2);         // fine: one method, waits for the end
+_ = W01.SetAsync(1);                      // ATL2008: requested twice,
+await W01.SetAsync(2).Started;            //          neither waits for the end
+```
+
+Fix: await the request to its end, request from one place, or suppress it where the requests
+cannot overlap (`#pragma warning disable ATL2008`).
 
 ### ATL3001
 

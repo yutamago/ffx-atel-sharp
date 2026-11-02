@@ -128,7 +128,7 @@ internal sealed class Helper {
         if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "a helper has a body");
     }
 
-    private static bool ParameterIsFloat(TypeSyntax type) => type switch {
+    internal static bool ParameterIsFloat(TypeSyntax type) => type switch {
         PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } => true,
         PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword or (int)SyntaxKind.UIntKeyword or (int)SyntaxKind.ShortKeyword
             or (int)SyntaxKind.UShortKeyword or (int)SyntaxKind.ByteKeyword or (int)SyntaxKind.SByteKeyword or (int)SyntaxKind.BoolKeyword } => false,

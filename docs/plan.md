@@ -88,7 +88,7 @@ Everything below is valid C#; what makes it Atel is the reference assembly
 
 This section is the design. What the compiler accepts today, and where it
 differs from the design (function workers stay classes with `Run()`,
-requested entries are static, entries without parameters yet), is in
+requested entries are static), is in
 [language.md](language.md); the bytecode each construct compiles to is in
 [encoding.md](encoding.md).
 

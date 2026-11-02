@@ -4,7 +4,7 @@ using static Ffx.Atel.Analyzers.Tests.Harness;
 
 namespace Ffx.Atel.Analyzers.Tests;
 
-/// <summary>ATL2001-ATL2007: requests between workers.</summary>
+/// <summary>ATL2001-ATL2008: requests between workers.</summary>
 public sealed class RequestTests {
     private const string Script = """
         [Event("test")]
@@ -157,6 +157,34 @@ public sealed class RequestTests {
         {
             [Entry(3)]
             public static async Task E3Async() { }
+        }
+        """, "", "CS1998");
+
+    [Fact]
+    public void EntryWithFieldsRequestedWhereRequestsMayOverlap() => Verify(Script + """
+        public sealed class W00 : Worker1
+        {
+            async Task E2Async()
+            {
+                int a = await W01.AddAsync(1, 2);
+                int b = await W01.AddAsync(3, 4).Finished;
+                _ = {|ATL2008:W01.SetAsync(1)|};
+                await {|ATL2008:W01.SetAsync(2)|}.Started;
+                while (a < b) { _ = {|ATL2008:W01.LoopAsync(a)|}; a++; }
+                await W01.PlainAsync();
+                _ = W01.PlainAsync(Priority.P2);
+                await {|ATL2008:W01.TwoAsync()|};
+            }
+            [Entry(3)]
+            async void E3() { await {|ATL2008:W01.TwoAsync()|}; }
+        }
+        public sealed class W01 : Worker1
+        {
+            public static async Task<int> AddAsync(int x, int y) => x + y;
+            public static async Task SetAsync(int v) { }
+            public static async Task LoopAsync(int v) { }
+            public static async Task PlainAsync(Priority priority = Priority.P1) { }
+            public static async Task<int> TwoAsync() => 2;
         }
         """, "", "CS1998");
 }

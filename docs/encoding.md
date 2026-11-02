@@ -347,6 +347,23 @@ live across that call takes another register (or hidden storage if the helper ma
 slot live where it writes a parameter avoids that parameter's register. Calls nest at most 3 deep
 from an entry; recursion is an error.
 
+### Entry parameters and results
+
+An entry another worker requests (`async Task<int> FooAsync(int x)`) gets a hidden variable per
+parameter (besides a `Priority` one, the level) and for its result: slots whose home is fixed when the
+compilation starts, so every requester can write them.
+
+| C# | Bytecode |
+|---|---|
+| `_ = W.FooAsync(a);` | `x = a;` then the request (`push level; push w; push e; req0; popfacc`) |
+| `await W.FooAsync(a);`, `….Finished` | `x = a;` then `reqe0` |
+| `await W.FooAsync(a).Started;` | `x = a;` then `reqw0` |
+| `n = await W.FooAsync(a);` | `x = a; …; reqe0; popfacc; t = result; n = t` |
+| in the entry: `x`, `return v;` | `pushv x`; `result = v; end` |
+
+Arguments are evaluated in the order written (temporaries as for natives), all before the first field
+is written.
+
 ## Mods
 
 A mod's code is compiled with the same rules into fragments whose operands the linker fills in

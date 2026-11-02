@@ -23,5 +23,6 @@ ATL2004 | Atel.Requests | Error | RequestAnalyzer
 ATL2005 | Atel.Requests | Warning | RequestAnalyzer
 ATL2006 | Atel.Requests | Warning | RequestAnalyzer
 ATL2007 | Atel.Requests | Error | RequestAnalyzer
+ATL2008 | Atel.Requests | Warning | RequestAnalyzer
 ATL3001 | Atel.Calls | Error | CallAnalyzer
 ATL3002 | Atel.Calls | Error | CallAnalyzer

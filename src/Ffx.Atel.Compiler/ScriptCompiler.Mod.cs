@@ -160,7 +160,7 @@ public static partial class ScriptCompiler {
                 if (member is FieldDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
                 if (helpers.Contains(method)) continue;
-                if (method.Body is null) throw CompileException.At(method, "an entry has a block body");
+                if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "an entry has a body");
                 PatchKind kind = PatchKind.Entry;
                 string? target = null;
                 foreach (AttributeSyntax a in method.AttributeLists.SelectMany(l => l.Attributes)) {
@@ -236,11 +236,24 @@ public static partial class ScriptCompiler {
             RegisterSet.Of(Registers(vanillaParts[name]).Values),
             CallsIn(v.Workers[w].Code)))]);
 
+        // Entries with parameters or a result (the mod's new entries and new workers'): their hidden fields.
+        Dictionary<(string, string), EntrySignature> signatures = [];
+        foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
+            if (patch.Kind == PatchKind.Entry && Signature(worker, method, Hide) is EntrySignature sig) signatures[(worker, method.Identifier.ValueText)] = sig;
+        }
+        foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
+            (List<ClassDeclarationSyntax> all, ushort type) = WorkerParts(parts, library);
+            foreach (MethodDeclarationSyntax m in all.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
+                if (EntriesOf(m, type == 0).Count > 0 && Signature(name, m, Hide) is EntrySignature sig) signatures.TryAdd((name, m.Identifier.ValueText), sig);
+            }
+        }
+        EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));
+
         // ----- The code: read and lowered first, its locals placed once the helpers' are -----------
         List<CompiledWorker> compiledNew = [];
         for (int i = 0; i < newWorkers.Count; i++) {
             (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
-            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers));
+            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets));
         }
         List<FlowEmitter> patchCode = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
@@ -248,10 +261,16 @@ public static partial class ScriptCompiler {
             bool function = v.Workers[number].Type == 0;
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
                 EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName,
+                Signatures = SignatureOf,
             };
+            EntrySignature? signature = patch.Kind == PatchKind.Entry ? SignatureOf(worker, method.Identifier.ValueText) : null;
+            reader.Result = signature?.Result;
+            if (patch.Kind != PatchKind.Entry && method.ParameterList.Parameters.Count > 0) throw CompileException.At(method.ParameterList, "a patch takes no parameters");
             FlowEmitter emitter = new() { TagOf = reader.LocationOf };
             try {
-                List<Stmt> body = reader.Block(method.Body!.Statements);
+                List<Stmt> body = method.Body is BlockSyntax block
+                    ? signature is null ? reader.Block(block.Statements) : reader.Method(block, signature.Parameters)
+                    : reader.Method(method.ExpressionBody!, signature?.Parameters ?? []);
                 emitter.BeginMethod();
                 emitter.Block(body);
                 // Entries and replacements end the entry; prefixes and postfixes run on (the linker chains them).
@@ -264,7 +283,7 @@ public static partial class ScriptCompiler {
             foreach (Helper h in reader.Called) h.CalledBy.Add(number);
             patchCode.Add(emitter);
         }
-        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workers, entryMethods, Links, RequestTargets, debug);
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workers, entryMethods, Links, RequestTargets, debug, SignatureOf);
 
         // The registers a worker's code may change: for a vanilla worker its [Register] fields (the mod's
         // too) and those of the function workers it calls; all in a function worker (its callers' are not known).

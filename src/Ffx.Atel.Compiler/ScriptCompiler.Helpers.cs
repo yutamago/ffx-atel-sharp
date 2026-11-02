@@ -43,6 +43,33 @@ public static partial class ScriptCompiler {
         m.AttributeLists.Count == 0 && !m.Modifiers.Any(SyntaxKind.AsyncKeyword) && !m.Modifiers.Any(SyntaxKind.OverrideKeyword)
         && !(functionWorker && m.Identifier.ValueText == "Run" && m.Modifiers.Any(SyntaxKind.StaticKeyword));
 
+    /// <summary><c>Priority</c>: an entry's level parameter, not a hidden field.</summary>
+    private static bool IsPriority(TypeSyntax? t) =>
+        t is IdentifierNameSyntax { Identifier.ValueText: "Priority" } or QualifiedNameSyntax { Right.Identifier.ValueText: "Priority" };
+
+    /// <summary>
+    ///     The parameters and result of an entry that has any besides its priority (docs/plan.md, "Parameters
+    ///     and return values"): hidden variables (<paramref name="hide"/>), which requesters write and read.
+    /// </summary>
+    private static EntrySignature? Signature(string worker, MethodDeclarationSyntax m, Func<Slot, int> hide) {
+        string name = $"{worker}.{m.Identifier.ValueText}";
+        Slot? result = m.ReturnType is GenericNameSyntax { Identifier.ValueText: "Task", TypeArgumentList.Arguments: [TypeSyntax t] }
+            ? new Slot($"{name}.result", Helper.ParameterIsFloat(t))
+            : null;
+        SeparatedSyntaxList<ParameterSyntax> ps = m.ParameterList.Parameters;
+        if (result is null && ps.All(p => IsPriority(p.Type))) return null;
+        Slot?[] slots = new Slot?[ps.Count];
+        for (int k = 0; k < ps.Count; k++) {
+            ParameterSyntax p = ps[k];
+            if (IsPriority(p.Type)) continue;
+            if (p.Modifiers.Count > 0 || p.Type is null) throw CompileException.At(p, "an entry's parameter is a value (no ref, out, in or params)");
+            if (p.Default is not null) throw CompileException.At(p.Default, "an entry's parameter has no default (only its priority)");
+            slots[k] = new Slot($"{name}.{p.Identifier.ValueText}", Helper.ParameterIsFloat(p.Type));
+        }
+        foreach (Slot s in slots.Append(result).OfType<Slot>()) s.Home = new VarExpr(hide(s));
+        return new EntrySignature([.. ps.Select(p => p.Identifier.ValueText)], slots, result);
+    }
+
     /// <summary>The helpers among a class's methods.</summary>
     private static void AddHelpers(HelperTable table, string cls, IReadOnlyList<ClassDeclarationSyntax> parts, bool functionWorker, bool registers = true) {
         foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
@@ -54,10 +81,10 @@ public static partial class ScriptCompiler {
     private static void CompileHelper(
         Helper h, HelperTable table, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null, DebugCalls? debug = null) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, DebugCalls? debug = null, Func<string, string, EntrySignature?>? signatures = null) {
         Dictionary<string, RegExpr> registers = h.Parts.Count == 0 ? [] : Registers(h.Parts);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, functionWorker: true, links) {
-            EntryMethods = entryMethods, RequestTargets = requestTargets, DebugCalls = debug ?? new(DebugMode.Natives),
+            EntryMethods = entryMethods, RequestTargets = requestTargets, DebugCalls = debug ?? new(DebugMode.Natives), Signatures = signatures,
             Class = h.Class, Helpers = table.Find, ScriptClass = table.ScriptClass, Result = h.Result,
         };
         FlowEmitter emitter = new() { TagOf = reader.LocationOf };

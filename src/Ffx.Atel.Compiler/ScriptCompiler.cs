@@ -185,14 +185,23 @@ public static partial class ScriptCompiler {
             AddHelpers(helpers, workerName, parts, type == 0);
         }
         for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = workerIndex.Count + k;
+        // Entries with parameters or a result: their hidden fields.
+        Dictionary<(string, string), EntrySignature> signatures = [];
+        foreach (string workerName in workerIndex.Keys) {
+            (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts([.. byName[workerName]], library);
+            foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
+                if (EntriesOf(m, type == 0).Count > 0 && Signature(workerName, m, Hide) is EntrySignature sig) signatures.TryAdd((workerName, m.Identifier.ValueText), sig);
+            }
+        }
+        EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));
         List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers);
+            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers, signatures: SignatureOf);
             compiled.Add(cw);
             image.Workers.Add(cw.Image);
         }
-        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workerIndex, entryMethods, links: null, debug: debug);
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workerIndex, entryMethods, links: null, debug: debug, signatures: SignatureOf);
         // New code's locals: registers where free, else hidden variables at the end of the shared data.
         int Hide(Slot slot) {
             if (image.Shared is null) throw new CompileException($"local {slot.Name} needs hidden storage, and the script has no shared data (storage 4)");
@@ -367,7 +376,8 @@ public static partial class ScriptCompiler {
     private static CompiledWorker Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
-        string? name = null, int number = -1, HelperTable? helpers = null) {
+        string? name = null, int number = -1, HelperTable? helpers = null, Func<string, string, EntrySignature?>? signatures = null,
+        Func<string, string, (Expr, Expr)?>? requestTargets = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -391,6 +401,7 @@ public static partial class ScriptCompiler {
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
             Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass,
+            Signatures = signatures, RequestTargets = requestTargets,
         };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The
@@ -414,8 +425,16 @@ public static partial class ScriptCompiler {
                     }
                 }
                 if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "an async method without [Entry] (or an Init or Main override, or Run in a function worker)");
-                if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
-                List<Stmt> body = reader.Block(method.Body.Statements);
+                EntrySignature? signature = name is null ? null : signatures?.Invoke(name, method.Identifier.ValueText);
+                reader.Result = signature?.Result;
+                List<Stmt> body;
+                if (method.Body is BlockSyntax block) body = signature is null ? reader.Block(block.Statements) : reader.Method(block, signature.Parameters);
+                else if (method.ExpressionBody is ArrowExpressionClauseSyntax arrow) {
+                    // `=> e`: one statement, then the end (`return e;` gives its own).
+                    body = reader.Method(arrow, signature?.Parameters ?? []);
+                    if (signature?.Result is null) body.Add(new OpStmt(wi.Type == 0 ? Opcodes.Ret : Opcodes.End));
+                }
+                else throw CompileException.At(method, "an entry has a body");
                 emitter.BeginMethod(pin);
                 foreach (int n in entries) emitter.Entry(n);
                 emitter.Block(body);
