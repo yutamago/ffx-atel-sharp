@@ -2783,7 +2783,8 @@
         },
         {
           "name": "msg",
-          "kind": "int"
+          "kind": "int",
+          "type": "TextId"
         }
       ],
       "result": "int",
@@ -16142,8 +16143,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "msg",
+          "kind": "int",
+          "type": "TextId"
         }
       ],
       "result": "int",
@@ -30220,7 +30222,8 @@
       "args": [
         {
           "name": "motion",
-          "kind": "int"
+          "kind": "int",
+          "type": "BattleMotion"
         }
       ],
       "result": "int",
@@ -30335,11 +30338,13 @@
       "args": [
         {
           "name": "targetSelector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
-          "name": "commandIdEG0x30480x4008",
-          "kind": "int"
+          "name": "command",
+          "kind": "int",
+          "type": "Command"
         }
       ],
       "result": "int",
@@ -30485,11 +30490,13 @@
       "args": [
         {
           "name": "actorSelector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "property",
-          "kind": "int"
+          "kind": "int",
+          "type": "ActorProperty"
         }
       ],
       "result": "int",
@@ -30516,11 +30523,13 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "property",
-          "kind": "int"
+          "kind": "int",
+          "type": "ActorProperty"
         },
         {
           "name": "unused",
@@ -30686,7 +30695,8 @@
       "args": [
         {
           "name": "motion",
-          "kind": "int"
+          "kind": "int",
+          "type": "BattleMotion"
         }
       ],
       "result": "int",
@@ -30748,11 +30758,13 @@
       "args": [
         {
           "name": "actorSelector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "property",
-          "kind": "int"
+          "kind": "int",
+          "type": "ActorProperty"
         },
         {
           "name": "value",
@@ -30922,11 +30934,13 @@
       "args": [
         {
           "name": "selectorA",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "selectorB",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -31004,7 +31018,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -31060,7 +31075,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -32266,11 +32282,13 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "motion",
-          "kind": "int"
+          "kind": "int",
+          "type": "BattleMotion"
         },
         {
           "name": "b",
@@ -32303,7 +32321,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "none",
@@ -32412,7 +32431,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "none",
@@ -32754,12 +32774,14 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "targets",
+          "kind": "int",
+          "type": "Target"
         },
         {
-          "name": "a1",
-          "kind": "int"
+          "name": "command",
+          "kind": "int",
+          "type": "Command"
         }
       ],
       "result": "int",
@@ -32788,7 +32810,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -32815,7 +32838,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -33317,7 +33341,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "voice",
@@ -33516,7 +33541,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "b",
@@ -33621,7 +33647,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "b",
@@ -34077,7 +34104,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "b",
@@ -34114,7 +34142,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "se",
@@ -34369,11 +34398,13 @@
       "args": [
         {
           "name": "to",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "from",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -34402,7 +34433,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -34753,7 +34785,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -34809,7 +34842,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -35081,7 +35115,8 @@
       "args": [
         {
           "name": "property",
-          "kind": "int"
+          "kind": "int",
+          "type": "ActorProperty"
         }
       ],
       "result": "int",

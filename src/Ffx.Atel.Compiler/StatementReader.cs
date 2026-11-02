@@ -309,6 +309,9 @@ internal sealed class StatementReader(
                 return Name(id);
             case MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: true) is int constant:
                 return new IntLit(constant);
+            // A message by index: Text[12] is the index itself (Ffx.TextTable).
+            case ElementAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Text" }, ArgumentList.Arguments: [ArgumentSyntax index] }:
+                return ReadExpr(index.Expression);
             case ElementAccessExpressionSyntax el:
                 return Element(el);
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Pooled" }, ArgumentList.Arguments: [ArgumentSyntax index, ArgumentSyntax value] }: {

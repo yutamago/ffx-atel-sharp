@@ -563,6 +563,34 @@ replaces and the round trip stays byte for byte.
   known for storage 1 (common variables) yet.
 - Numbers (2026-11-02): all 1,621 scripts round-trip; 10,822 story constants
   placed; 760 save variable declarations named after a field, 2,579 by offset.
+- **Enums by use** (`src/Ffx.Atel.Game/Enums.g.cs`, written by
+  `tools/gen-enums.cs` from Fahrenheit's `src/core/ffx/ids`, the PS2 headers'
+  names they transcribed, used with permission; names and values only,
+  prefixes dropped, C# case): `Target` (`CHR_*` of `btlmot.ath`, the party
+  actors by character from `ply_save.ath`'s `PC_*`, and `Monster0`-`Monster7`
+  for actors `0x14`-`0x1b`, ffx-rust battle.md), `ActorProperty` (`STAT_*`
+  of `btlhead.src`, the ids `MsGetChrStatInfo`/`MsSetChrStatInfo` switch on),
+  `Command` (`PCOM_*`, `ITEM_*`, `MCOM_*`, `MCOM2_*`; members that would start
+  with a digit keep their prefix, `Mcom4000`), `BattleMotion` (`MOT_*`).
+  Which parameter takes which is hand-maintained in `data/native-types.json`
+  (native, parameter name, type and optionally a new name), which
+  `tools/gen-natives.cs` applies to `Natives.g.cs` and `data/natives.json`
+  (`"type"` on the argument): `Btl.SetActorsProperty(Target actorSelector,
+  ActorProperty property, int value)`, `Btl.UseCommand(Target, Command)`,
+  27 natives in all. The decompiler writes a constant argument as its member
+  (`Btl.SetActorsProperty(Target.Own, ActorProperty.DeathPattern, 3);`), a
+  constant without one as a cast (`(BattleMotion)0`), any other value cast
+  (`Btl.UseCommand((Target)V2, Command.Mcom409a);`); the compiler drops the
+  cast and reads the member as its number.
+- **Text**: `Common.MsgSetText(int window, TextId msg)` and
+  `Common.MsgGetText_0236(TextId msg)` take a `TextId`, which the worker's
+  `Text` indexer gives (`Common.MsgSetText(0, Text[12]);`) and an `int`
+  converts to implicitly (a computed index stays as it is). The compiler reads
+  `Text[n]` as `n`. No editor extension yet.
+- Numbers (2026-11-02): enum members placed 97,654 (`Target` 46,697,
+  `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
+  casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
+  `ActorProperty` 5), computed values cast 8,962; 33,759 `Text[n]`.
 
 ## Toolchain
 

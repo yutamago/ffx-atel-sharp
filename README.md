@@ -29,7 +29,9 @@ Phase 5 of the plan, typing and naming (Phases 0-4 done):
   "Phase 3: statements" and "Phase 4: control flow".
 - Phase 5 names what the sources say: story progress values as `Story`
   constants (`if (StoryProgress < Story.S01340_Kami0400)`), save variables
-  after Fahrenheit's save fields (`Save`); see
+  after Fahrenheit's save fields (`Save`), enums for battle natives
+  (`Btl.SetActorsProperty(Target.Own, ActorProperty.Hp, 0)`) and messages as
+  `Text[12]`; see
   [`docs/plan.md`](docs/plan.md), "Phase 5: typing and naming".
 - `Ffx.Atel.Loader` (`yuta.atel`) gives the game rebuilt scripts: it
   assembles each `scripts/**/*.asm` in its mod folder (edited `atel disasm`

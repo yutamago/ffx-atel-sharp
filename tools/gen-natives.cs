@@ -11,6 +11,7 @@
 //                 they call (3 levels), from the Ghidra dump's call_sites.tsv;
 //       bytecode: the stack depth before every `func_facc` statement in all 1,621 scripts.
 //   - Argument kinds: the order of the handler's own pop calls (the dump's C), else what the scripts push.
+//   - Parameter types and names by hand: data/native-types.json (enums of Enums.g.cs, TextId; Phase 5).
 //
 // Nothing from the game is written but addresses, names, counts and descriptions.
 //
@@ -271,6 +272,14 @@ static List<string>? ArgNames(string comment, int argc) {
     return names.Count == argc ? names : null;
 }
 
+// ----- Parameter types by hand -----------------------------------------------------------------------------
+Dictionary<ushort, Dictionary<string, string>> paramTypes = [];
+using (JsonDocument overlay = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data", "native-types.json")))) {
+    foreach (JsonProperty n in overlay.RootElement.GetProperty("natives").EnumerateObject()) {
+        paramTypes[(ushort)Hex(n.Name)] = n.Value.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+    }
+}
+
 // ----- Output ----------------------------------------------------------------------------------------------
 JsonArray natives = [];
 StringBuilder cs = new();
@@ -335,6 +344,17 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             paramNames.Add(c);
         }
         string result = s.Float is not null ? "float" : s.Int is not null ? "int" : "none";
+        // C# types: int/float by kind, or the overlay's type (and name) for an int parameter.
+        List<string> paramCs = [.. Enumerable.Range(0, argc).Select(k => kinds[k] == 'f' ? "float" : "int")];
+        if (paramTypes.Remove(id, out Dictionary<string, string>? typed)) {
+            foreach ((string param, string spec) in typed) {
+                int k = paramNames.IndexOf(param);
+                if (k < 0 || kinds[k] != 'i') throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4} has no int parameter {param}");
+                string[] parts = spec.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                paramCs[k] = parts[0];
+                if (parts.Length > 1) paramNames[k] = parts[1];
+            }
+        }
 
         JsonObject o = new() {
             ["id"] = $"0x{id:x4}",
@@ -347,7 +367,11 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
                 ["float"] = s.Float is uint a2 ? $"0x{a2:x8}" : null,
                 ["int"] = s.Int is uint a3 ? $"0x{a3:x8}" : null,
             },
-            ["args"] = new JsonArray([.. Enumerable.Range(0, argc).Select(k => (JsonNode)new JsonObject { ["name"] = paramNames[k], ["kind"] = kinds[k] == 'f' ? "float" : "int" })]),
+            ["args"] = new JsonArray([.. Enumerable.Range(0, argc).Select(k => {
+                JsonObject a = new() { ["name"] = paramNames[k], ["kind"] = kinds[k] == 'f' ? "float" : "int" };
+                if (paramCs[k] is not ("int" or "float")) a["type"] = paramCs[k];
+                return (JsonNode)a;
+            })]),
             ["result"] = result,
             ["polls"] = s.Poll is not null,
             ["calls"] = calls.GetValueOrDefault(id),
@@ -364,13 +388,15 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{doc}</summary>\n");
         cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>Native <c>0x{id:x4}</c>{(sym is null ? "" : $", <c>{sym.Value.Name}</c>")}; {calls.GetValueOrDefault(id)} calls in the shipped scripts.</remarks>\n");
         string ret = result == "float" ? "float" : "int";
-        string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{(kinds[k] == 'f' ? "float" : "int")} {paramNames[k]}"));
+        string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{paramCs[k]} {paramNames[k]}"));
         cs.Append(CultureInfo.InvariantCulture, $"    [Atel.Native(0x{id:x4}{(s.Poll is not null ? ", Polls = true" : "")})]\n");
         cs.Append(CultureInfo.InvariantCulture, $"    public static {ret} {method}({ps}) => throw Atel.Runtime.NotRunnable();\n\n");
     }
     cs.Length -= 1;
     cs.Append("}\n");
 }
+
+if (paramTypes.Count > 0) throw new InvalidOperationException($"data/native-types.json: no native {string.Join(", ", paramTypes.Keys.Select(k => $"0x{k:x4}"))}");
 
 JsonObject doc2 = new() {
     ["generator"] = "tools/gen-natives.cs",

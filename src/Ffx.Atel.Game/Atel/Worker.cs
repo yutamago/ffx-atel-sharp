@@ -33,6 +33,9 @@ public abstract class Worker {
     /// </summary>
     protected int LastResult => throw Runtime.NotRunnable();
 
+    /// <summary>The script's message table: <c>Text[12]</c> is message 12 (docs/plan.md, "Text").</summary>
+    protected static TextTable Text => throw Runtime.NotRunnable();
+
     /// <summary>
     ///     An <c>int</c> used as a condition: no code, the machine tests it against 0 (C# needs a
     ///     <c>bool</c> where the original language took any value).

@@ -329,6 +329,44 @@ public sealed class SourceTests {
         Assert.Contains("pushimm 6\npushb\neq", text, StringComparison.Ordinal);
     }
 
+    /// <summary>Typed native arguments (Phase 5): enum members, casts and messages compile to their numbers.</summary>
+    [Fact]
+    public void TypedArgumentsCompile() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M999.M999;
+
+            namespace Monsters.M999;
+
+            [Monster("m999")]
+            [Workers(typeof(W00))]
+            public static partial class M999
+            {
+                [Var(Storage.Private, 0x0000)] public static int Count;
+            }
+
+            public sealed class W00 : Worker2
+            {
+                [Entry(0)]
+                void E0()
+                {
+                    Btl.SetActorsProperty(Target.Own, ActorProperty.Hp, 3);
+                    Btl.UseCommand((Target)(-30), (Command)Count);
+                    Common.MsgSetText(0, Text[7]);
+                    Common.MsgSetText(0, Count);
+                }
+            }
+            """;
+        SyntaxTree tree = ScriptCompiler.Parse(source, "m999.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        ScriptBlock block = ScriptBlock.Parse(ScriptCompiler.Compile([tree]).Block());
+        string text = string.Join("\n", block.Decode(block.Workers[0]).Select(i => Bytecode.Script.Assembly.Render(block, 0, i)));
+        Assert.Contains("pushimm -13\npushimm 0\npushimm 3\nfunc_facc 0x7018", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm -30\npushv v0\nfunc_facc 0x700b", text, StringComparison.Ordinal);
+        Assert.Contains("pushimm 0\npushimm 7\nfunc_facc 0x0064", text, StringComparison.Ordinal);
+    }
+
     private const string BadSource = """"
         using Ffx.Atel;
 

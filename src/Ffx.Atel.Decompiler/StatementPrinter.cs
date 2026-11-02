@@ -224,6 +224,20 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
         return new E($"({d.EnumType}){(v < 0 ? $"({IntText(v)})" : IntText(v))}", CType.Int, PUnary, (long)v);
     }
 
+    /// <summary>
+    ///     An argument to a parameter typed by a domain: a constant as its member (or a cast); any other value
+    ///     cast to the enum, or as it is where it converts implicitly (<c>TextId</c> from <c>int</c>).
+    /// </summary>
+    private E Typed(Expr a, Domain d) {
+        if (a is IntLit lit) return Lit(lit.Value, d);
+        E x = ToInt(Expr(a));
+        if (d.EnumType is null) return x;
+        Count(d.Name + "-expr");
+        // `(T)-x` parses as a subtraction when T is not a keyword: parenthesize a leading sign.
+        string operand = x.Text.StartsWith('-') || x.Text.StartsWith('+') ? $"({x.Text})" : Wrap(x, PUnary);
+        return new E($"({d.EnumType}){operand}", CType.Int, PUnary, x.Const);
+    }
+
     /// <summary>A case label's value: the domain's member where it has one.</summary>
     public string CaseValue(int v, Domain? d) => d is null ? IntText(v) : Lit(v, d).Text;
 
@@ -260,7 +274,9 @@ internal sealed class StatementPrinter(VarInfo[] vars, NativeSignatures natives,
     private E Call(ushort id, IReadOnlyList<Expr> args) {
         NativeSignature sig = natives[id] ?? throw No("unknown native");
         if (sig.Argc != args.Count) throw No("argument count");
-        IEnumerable<string> texts = args.Select((a, k) => (sig.ArgKinds[k] == 'f' ? ToNum(Expr(a)) : ToInt(Expr(a))).Text);
+        Domain?[]? domains = GameNames.NativeParameters.GetValueOrDefault(id);
+        IEnumerable<string> texts = args.Select((a, k) => (domains?[k] is Domain d ? Typed(a, d)
+            : sig.ArgKinds[k] == 'f' ? ToNum(Expr(a)) : ToInt(Expr(a))).Text);
         return new E($"{sig.Name}({string.Join(", ", texts)})", sig.Result == "float" ? CType.Float : CType.Int, PPrimary);
     }
 

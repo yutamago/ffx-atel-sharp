@@ -1,0 +1,32 @@
+{
+  "comment": "Hand-maintained parameter types for tools/gen-natives.cs: native id -> parameter name -> \"Type\" or \"Type newName\". The types are the enums of src/Ffx.Atel.Game/Enums.g.cs (tools/gen-enums.cs) and TextId (a message of the script's table, written Text[n]). Sources: each native's doc (data/natives.json, from ffx-rust symbols/ffx.sym) names the argument (actor selector, property, command, motion, msg); the property ids are MsGetChrStatInfo's (ffx-rust docs/formats/battle.md).",
+  "natives": {
+    "0x0064": { "msg": "TextId" },
+    "0x0236": { "a0": "TextId msg" },
+    "0x700b": { "targetSelector": "Target", "commandIdEG0x30480x4008": "Command command" },
+    "0x700f": { "actorSelector": "Target", "property": "ActorProperty" },
+    "0x7007": { "motion": "BattleMotion" },
+    "0x7010": { "selector": "Target", "property": "ActorProperty" },
+    "0x7016": { "motion": "BattleMotion" },
+    "0x7018": { "actorSelector": "Target", "property": "ActorProperty" },
+    "0x701e": { "selectorA": "Target", "selectorB": "Target" },
+    "0x7021": { "selector": "Target" },
+    "0x7023": { "selector": "Target" },
+    "0x704b": { "selector": "Target", "motion": "BattleMotion" },
+    "0x704c": { "selector": "Target" },
+    "0x7050": { "selector": "Target" },
+    "0x705a": { "a0": "Target targets", "a1": "Command command" },
+    "0x705b": { "selector": "Target" },
+    "0x705c": { "selector": "Target" },
+    "0x706e": { "selector": "Target" },
+    "0x7075": { "selector": "Target" },
+    "0x7078": { "selector": "Target" },
+    "0x7087": { "selector": "Target" },
+    "0x7088": { "selector": "Target" },
+    "0x7091": { "to": "Target", "from": "Target" },
+    "0x7092": { "selector": "Target" },
+    "0x709f": { "selector": "Target" },
+    "0x70a1": { "selector": "Target" },
+    "0x70aa": { "property": "ActorProperty" }
+  }
+}

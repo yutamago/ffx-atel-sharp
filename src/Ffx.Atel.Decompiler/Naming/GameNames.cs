@@ -13,13 +13,16 @@ namespace Ffx.Atel.Decompiler.Naming;
 /// </summary>
 /// <param name="Name">What the statistics count it as (<c>story</c>, the enum's name).</param>
 /// <param name="EnumType">The enum's C# name; null for <c>int</c> constants.</param>
-internal sealed class Domain(string name, string? enumType, IReadOnlyDictionary<int, string> members) {
+internal sealed class Domain(string name, string? enumType, Func<int, string?> member) {
+    public Domain(string name, string? enumType, IReadOnlyDictionary<int, string> members) : this(name, enumType, members.GetValueOrDefault) {
+    }
+
     public string Name { get; } = name;
 
     public string? EnumType { get; } = enumType;
 
     /// <summary>The member for a value, qualified (<c>Story.S01340_Bjyt0400</c>); null if it has none.</summary>
-    public string? Member(int value) => members.GetValueOrDefault(value);
+    public string? Member(int value) => member(value);
 }
 
 /// <summary>
@@ -47,8 +50,11 @@ internal static class GameNames {
         return byOffset;
     });
 
-    /// <summary>The domain of an enum of the reference assembly, by its C# name; null if there is none.</summary>
-    public static Domain? Enum(Type type) => !type.IsEnum ? null : s_enums.GetOrAdd(type, t => {
+    /// <summary>Messages of the script's table (<see cref="Ffx.TextId"/>): a constant index is <c>Text[12]</c>.</summary>
+    public static Domain Text { get; } = new("text", null, v => v >= 0 ? string.Create(CultureInfo.InvariantCulture, $"Text[{v}]") : null);
+
+    /// <summary>The domain of a parameter type: an enum of the reference assembly, or <see cref="Ffx.TextId"/>; null for any other.</summary>
+    public static Domain? Enum(Type type) => type == typeof(Ffx.TextId) ? Text : !type.IsEnum ? null : s_enums.GetOrAdd(type, t => {
         Dictionary<int, string> members = [];
         foreach (FieldInfo f in t.GetFields(BindingFlags.Public | BindingFlags.Static)) {
             members.TryAdd(System.Convert.ToInt32(f.GetRawConstantValue(), CultureInfo.InvariantCulture), $"{t.Name}.{f.Name}");
