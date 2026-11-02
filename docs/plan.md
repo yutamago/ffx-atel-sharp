@@ -1036,6 +1036,26 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   runtime injection package's new messages are numbered after every mod's
   and set in the running event's table.
 
+- **Inline methods; dialogue as one call** (2026-11-03, Phase 1: byte-identical;
+  [language.md](language.md#inline-methods), [encoding.md](encoding.md#inline-methods)).
+  `[Inline]` methods expand at the call site: the compiler reads the body
+  once into a template (statements with a placeholder per parameter) and
+  copies it with the arguments substituted, so labels and pools come out as
+  the written-out code's. `Ffx.Dialogue` in the reference assembly (source
+  embedded for the compiler): `Open`, `WaitUntilOpen`, `WaitUntilReady`,
+  `Say`, `SayVoiced`, `SayVoicedToEnd`, chosen from a survey of the
+  decompiled tree (33,038 `MsgOpen`; the five-call opening is in every
+  line, the tails vary: unvoiced `MsgIsReady` loop 27%, voiced with skip
+  15%, open only 15% (blitzball, choices), voiced to the end 5%, …). The
+  talking motion (`Chr.Ret`) and voice preparation stay their own calls.
+  The decompiler folds runs that unify with a template and keeps them only
+  if the worker still checks: 30,513 of 33,038 lines are one call (2,306
+  are in dead `if (false)` code and stay as they are; 219 others), 0
+  fallbacks; the source is 394.6 MB instead of 408.7 MB (7.75 instead of
+  8.10 million lines); the round trip is 1,621/1,621. Analyzers: ATL3003
+  (an inline method calls itself), ATL3004 (an argument with an effect);
+  an inline call is no `call` level and `[Inline(Waits = true)]` is a wait.
+
 ### Phase 10: debug text and runtime packages
 
 Done 2026-11-02. Format and design: [formats/debug.md](formats/debug.md);

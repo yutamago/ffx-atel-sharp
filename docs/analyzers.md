@@ -19,7 +19,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | ATL0xxx | the plan's own warnings (ATL0001, registers) |
 | ATL1xxx | C# that ATEL cannot run: the subset |
 | ATL2xxx | requests between workers |
-| ATL3xxx | `call`: functions and helpers |
+| ATL3xxx | `call`: functions, helpers and inline methods |
 
 | Id | Severity | Rule | Fix |
 |---|---|---|---|
@@ -45,6 +45,8 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL2008](#atl2008) | warning | entry with parameters or a result requested where requests may overlap | |
 | [ATL3001](#atl3001) | error | recursion | |
 | [ATL3002](#atl3002) | error | `call` deeper than 3 | |
+| [ATL3003](#atl3003) | error | inline method calls itself | |
+| [ATL3004](#atl3004) | error | argument of an inline method with an effect | a variable first |
 
 "Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
 do not list it.
@@ -313,3 +315,31 @@ void A() { B(); }  void B() { C(); }  void C() { D(); }  void D() { }
 ```
 
 Calls whose target is only known at run time do not exist in Atel, so the depth is static.
+
+An inline method ([language.md](language.md#inline-methods)) is not a `call`: calls of one count no
+level, and ATL3001 does not see them (ATL3003 does).
+
+### ATL3003
+
+**Inline method calls itself** (error). An `[Inline]` method's code is written in place of each call,
+so one that calls itself, directly or through other inline methods, would be written out without end.
+Reported at each call on the cycle.
+
+```csharp
+[Inline] static void A(int n) { B(n); }   // ATL3003: W00.A → W00.B → W00.A
+[Inline] static void B(int n) { A(n); }
+```
+
+### ATL3004
+
+**Argument of an inline method with an effect** (error). An inline method's argument is substituted
+where its parameter is used and evaluated there, perhaps several times or not at all. An argument that
+calls something (but `Text[n]`, `Text.New`, `AsBool`, `AsInt`), assigns, increments, or holds `?:`,
+`&&`, `||` or `await` would run as often as the parameter is used.
+
+```csharp
+Dialogue.Say(Text[12], window: I0);                    // fine: a variable
+Dialogue.Say(Text[12], window: Common.Random16());     // ATL3004
+int w = Common.Random16();
+Dialogue.Say(Text[12], window: w);                     // fine
+```

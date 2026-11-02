@@ -191,8 +191,70 @@ public static partial class M209
 - Its code runs with the caller's registers, so a helper of a worker may use that worker's
   `[Register]` fields.
 
-Any other method call (not a native, a request, a helper, `Run()` or a `Worker` member) is a compile
-error ("no ATEL call").
+Any other method call (not a native, a request, a helper, an inline method, `Run()` or a `Worker`
+member) is a compile error ("no ATEL call").
+
+### Inline methods
+
+**Available.** A method with `[Inline]` is not called: the compiler writes its code in place of each
+call, with every parameter replaced by the argument given for it, like a C macro. The code is what the
+statements would give written out at the call site, labels and constants included
+([encoding.md](encoding.md#inline-methods)), so the game's own code can be written with them and still
+compile to the shipped bytes. The decompiler writes a call wherever the code is exactly an inline
+method of the reference assembly's.
+
+The reference assembly's are the lines of dialogue, `Ffx.Dialogue` (the message natives, whose meaning
+is known from FFX.exe):
+
+| Call | Stands for |
+|---|---|
+| `Dialogue.Open(text, …)` | `MsgSetPos`, `MsgSetStyle`, `MsgSetText`, `MsgSetFlags`, `MsgOpen`: the window opens, nothing waits |
+| `Dialogue.WaitUntilOpen(window)` | `while (MsgGetState(window) != 2) WaitFrames(1);` |
+| `Dialogue.WaitUntilReady(window)` | `while (true) { if (MsgIsReady(window) == 1) break; else WaitFrames(1); }` |
+| `Dialogue.Say(text, …)` | `Open`, `WaitUntilReady`, `MsgWaitEnd` (the player reads and confirms), `MsgClose`, `MsgWaitExEnd` |
+| `Dialogue.SayVoiced(text, …)` | `Open`, `WaitUntilOpen`, `VoiceStartEnd`, a loop that stops the voice on a button press once the window is ready, `SoundWaitPoll`, `MsgClose`, `MsgWaitExEnd` |
+| `Dialogue.SayVoicedToEnd(text, …)` | as `SayVoiced` without the button: the voice plays to its end |
+
+Each takes `text`, then `window = 0`, `x = 256`, `y = 448`, `anchor = 4`, `style = 1`, `flags` (12290,
+or 8194 for the voiced ones) and `mode = 0`: the values most lines use, so a usual line is one short
+call. A voiced line is prepared first, as the game does:
+
+```csharp
+Chr.Ret(2, 1);                          // the speaker's talking motion
+Common.VoiceStandbyEnd(0x85355cb);      // prepare the voice
+Common.WaitFrames_01d1(5);
+Dialogue.SayVoiced(Text[0]);
+Chr.Ret(2, 0);
+Dialogue.Say(Text[71]);                 // a line without voice
+Dialogue.Say(Text[19], window: 1, y: 224, style: 0, flags: 0);
+```
+
+A new line in a mod is a new message and a call (`Text.New` needs a script with message tables, an
+event or a battle):
+
+```csharp
+public sealed partial class Wakk
+{
+    [Postfix(nameof(E5Async))]
+    void AfterTheLine()
+    {
+        Dialogue.Say(Text.New("Nice throw!"));
+    }
+}
+```
+
+- An argument is substituted where its parameter is used and evaluated there, as often as the
+  parameter is used. So it is a constant, a variable, `Text[n]`, `Text.New("…")` or an expression of
+  them (`V104[V191 + 1] + 20`); a call, `x++`, `?:` or `&&` in an argument is an error
+  ([ATL3004](analyzers.md#atl3004)). Compute such a value into a variable first.
+- Arguments go by position or by name; a parameter with a default may be left out.
+- Your own: `[Inline]` on a method of a worker or of the script class. It returns `void`, declares no
+  locals and assigns nothing, uses only its parameters and constants, and calls natives and other
+  inline methods with `if`, loops and `switch` around them; mark it `[Inline(Waits = true)]` when it
+  calls a native that waits (the compiler checks). It cannot call itself, directly or through others
+  ([ATL3003](analyzers.md#atl3003)). A call is no `call`: it adds no level to the 3 that `call` allows.
+- In the vanilla source, lines inside dead `if (false)` blocks stay written out, as the original
+  compiler left them.
 
 ## Requests
 
@@ -412,6 +474,7 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 |---|---|
 | `Common.MsgSetText(0, Text[12]);` | **available**: `Text[n]` is message `n` of the script's table; compiles to the number |
 | `Common.MsgSetText(0, V3);` | **available**: a computed index converts from `int` |
+| `Dialogue.Say(Text[12]);` | **available**: a line of dialogue as one call ("Inline methods") |
 | `Text.New("Nice throw!")` | **available in mods**: a new message; the loader gives it the next free index of the script's tables when it links, the same in every language ([mod-package.md](formats/mod-package.md#messages)) |
 | `Debug.Print($"hp = {Hp}")` | **available**: a line in Fahrenheit's log, through native `0xf000` the loader registers (native group F); text with up to 16 interpolated values ([debug.md](formats/debug.md)) |
 | `Debug.Break()` | **available**: logs the worker's registers through native `0xf001`, and stops in a .NET debugger if one is attached |

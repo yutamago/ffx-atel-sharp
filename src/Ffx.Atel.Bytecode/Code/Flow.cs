@@ -326,6 +326,10 @@ public sealed class FlowEmitter {
             case EntryStmt e:
                 Entry(e.Entry);
                 break;
+            // An inline method's call is its code, in place (docs/encoding.md, "Inline methods").
+            case InlineStmt i:
+                Block(i.Body);
+                break;
             case AsmStmt a:
                 foreach (AsmLine line in a.Lines) {
                     switch (line.Kind) {

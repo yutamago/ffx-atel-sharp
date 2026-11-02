@@ -282,6 +282,9 @@ If something is wrong, the log says what:
 - Change something else: another vanilla method (`[Prefix(nameof(E2))]` on the turn logic), a new
   variable in `partial class M209 { public static int Turns; }`, a new entry another method
   requests (`_ = W01.CountAsync();`). [language.md](language.md) lists what compiles today.
+- Add a line of dialogue to an event: `Dialogue.Say(Text.New("Nice throw!"));` opens the usual
+  window with a new message, waits for the player and closes it, exactly as the game's own lines
+  ([language.md](language.md#inline-methods)).
 - Read a few decompiled scripts: `atel decompile <script> -o vanilla` for any event, monster or
   battle script (`atel list` lists them), and `atel text export <script> -o vanilla` with the
   [VS Code extension](editor.md) to see the messages behind `Text[n]`.

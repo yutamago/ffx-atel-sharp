@@ -6,5 +6,7 @@
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
+        <!-- The inline methods' templates, as the compiler reads them (docs/encoding.md, "Inline methods"). -->
+        <ProjectReference Include="../Ffx.Atel.Compiler/Ffx.Atel.Compiler.csproj" />
     </ItemGroup>
 </Project>

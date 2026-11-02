@@ -223,6 +223,43 @@ whose block a `goto` from outside jumps into, is dropped and the method structur
 it. Then label numbers are compared and pinned, and the result checked byte for byte. 3,199
 constructs are dropped this way (8,448 `goto`s remain), none because its lowering differed.
 
+## Inline methods
+
+A call of an `[Inline]` method ([language.md](language.md#inline-methods)) is not a call: it is the
+method's statements, in place of the call statement.
+
+| Step | What happens |
+|---|---|
+| reading the method (once per compilation) | its body is read like any code into statements, with a placeholder wherever a parameter is used (an inline call inside it is expanded the same way): the method's **template** |
+| a call statement | each argument is read once; the template is copied with every placeholder replaced by its argument (a parameter left out by its default) |
+| lowering | the copied statements, as if they had been written at the call site |
+
+So the code is the written-out code: the same instructions, the same labels, and the same constant
+pools, because
+
+- labels are numbered per construct as it starts (["Label numbers"](#label-numbers)): the template's
+  loops and `if`s start where the call is, in the order the written-out statements would start them,
+  and draw their numbers from the worker's counter like any construct;
+- the pools are laid out by first use in code order (["Constant pools"](#constant-pools)), which only
+  depends on the instructions;
+- an argument is substituted where its parameter is used, so it is pushed exactly where the
+  written-out code pushes it (and as often): `Dialogue.Open(Text[4], y: (int)359f)` pushes `359f`
+  from the float pool where `MsgSetPos` takes its `y`.
+
+An argument may therefore not have an effect or depend on when it is evaluated (no call, assignment,
+`++`, `?:`, `&&` or `LastResult`): it would run once per use. Inline methods hold no `return`,
+`goto`, labels, locals, assignments, requests or `Asm`, which would make the copies differ from each
+other or clash with the code around them.
+
+The reference assembly's inline methods (`Ffx.Dialogue`) are compiled as C# like any member, so the IDE
+checks calls and shows their documentation, and their source is embedded in `Ffx.Atel.Game.dll`, where
+the compiler reads the templates from. The decompiler takes its templates from the compiler: after a
+worker is structured and checked (["What the decompiler checks"](#what-the-decompiler-checks)), it
+looks for runs of statements that are a template with arguments in place of the parameters (the same
+argument wherever a parameter is used twice, larger templates first), replaces each by the call, and
+checks the worker again with the calls lowered; a worker whose check fails keeps its statements
+(counted as `inline-fallback-verify`). Dead `if (false)` blocks are left as they are.
+
 ## Workers and entries
 
 | Source | Script block |

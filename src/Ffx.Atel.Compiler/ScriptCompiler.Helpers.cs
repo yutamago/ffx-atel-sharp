@@ -15,6 +15,9 @@ internal sealed class HelperTable(string scriptClass) {
 
     public string ScriptClass { get; } = scriptClass;
 
+    /// <summary>The inline methods the compilation's code may call.</summary>
+    public InlineMethods? Inlines { get; init; }
+
     public List<Helper> All { get; } = [];
 
     public Helper? Find(string cls, string name) => _byName.GetValueOrDefault((cls, name));
@@ -40,6 +43,7 @@ public static partial class ScriptCompiler {
     ///     patch (any attribute).
     /// </summary>
     private static bool IsHelper(MethodDeclarationSyntax m, bool functionWorker) =>
+        !InlineMethods.IsInline(m) &&
         m.AttributeLists.Count == 0 && !m.Modifiers.Any(SyntaxKind.AsyncKeyword) && !m.Modifiers.Any(SyntaxKind.OverrideKeyword)
         && !(functionWorker && m.Identifier.ValueText == "Run" && m.Modifiers.Any(SyntaxKind.StaticKeyword));
 
@@ -86,7 +90,7 @@ public static partial class ScriptCompiler {
         Dictionary<string, RegExpr> registers = h.Parts.Count == 0 ? [] : Registers(h.Parts);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, functionWorker: true, links) {
             EntryMethods = entryMethods, RequestTargets = requestTargets, DebugCalls = debug ?? new(DebugMode.Natives), Signatures = signatures, NewTexts = newTexts,
-            Class = h.Class, Helpers = table.Find, ScriptClass = table.ScriptClass, Result = h.Result,
+            Class = h.Class, Helpers = table.Find, ScriptClass = table.ScriptClass, Result = h.Result, Inlines = table.Inlines,
         };
         FlowEmitter emitter = new() { TagOf = reader.LocationOf };
         try {

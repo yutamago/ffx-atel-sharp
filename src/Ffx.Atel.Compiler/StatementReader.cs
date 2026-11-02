@@ -92,6 +92,10 @@ internal sealed partial class StatementReader(
                 if (d is not null) list.AddRange([.. pre.Select(x => At(x, s)), At(d, s)]);
                 return;
             }
+            // An inline method's call: its code in place (docs/encoding.md, "Inline methods").
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } when InlineOf(call) is InlineMacro inline:
+                list.AddRange(ExpandInline(inline, call).Select(x => At(x, s)));
+                return;
             case LocalDeclarationStatementSyntax d:
                 if (d.UsingKeyword.IsKind(SyntaxKind.UsingKeyword) || d.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)) throw Error(d, "using declarations are not Atel");
                 list.AddRange(Declare(d.Declaration, d.IsConst).Select(x => At(x, s)));
@@ -284,6 +288,7 @@ internal sealed partial class StatementReader(
             return DebugCalls.Read(call, debugMethod, ReadExpr) ?? throw Error(call, $"Debug.{debugMethod} cannot be left out here; make it a statement of its own");
         }
         if (HelperOf(call) is Helper helper) return HelperStatement(helper, call);
+        if (InlineOf(call) is InlineMacro inline) throw Error(call, $"inline method {inline.Name} is a statement of its own");
         List<ArgumentSyntax> args = [.. call.ArgumentList.Arguments];
         switch (call.Expression) {
             case IdentifierNameSyntax { Identifier.ValueText: "Request" or "RequestWaitStart" or "RequestWaitEnd" } id: {
