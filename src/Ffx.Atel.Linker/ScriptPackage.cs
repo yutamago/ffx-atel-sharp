@@ -41,9 +41,11 @@ public sealed class ScriptPackage {
     public List<string>? DebugStrings { get; set; }
 
     /// <summary>
-    ///     Messages by index in the script's message table, for runtime injection only (docs/formats/debug.md,
-    ///     "Runtime injection"): the loader sets them in the running event's table. The linker does not
-    ///     read them; <c>Text.New</c> in mods comes later. Null when there are none.
+    ///     Messages for the script's message tables. Without an index, a new message (<c>Text.New</c>): the
+    ///     linker gives it the next free index and the loader adds it to every language's table
+    ///     (<see cref="RelocKind.NewMessage"/> indexes this list). With one, for runtime injection
+    ///     (docs/formats/debug.md, "Runtime injection"): the loader sets it in the running event's table.
+    ///     Null when there are none.
     /// </summary>
     public List<PackageMessage>? Messages { get; set; }
 
@@ -109,8 +111,13 @@ public sealed class NewVariable {
     public int ElementSize => Type switch { 0 or 1 => 1, 2 or 3 => 2, _ => 4 };
 }
 
-/// <summary>A message for the script's table: <see cref="Index"/> in it, the text in the game's language (control codes as <c>atel text export</c> writes them).</summary>
-public sealed record PackageMessage(int Index, string Text);
+/// <summary>
+///     A message for the script's table, its text written as <c>atel text export</c> writes them (control codes
+///     in braces). <see cref="Index"/> null: a new message (<c>Text.New</c>) in the mod's source language,
+///     whose index the linker gives. With an index: the text, in the game's language, for that index
+///     (runtime injection).
+/// </summary>
+public sealed record PackageMessage(int? Index, string Text);
 
 /// <summary>A worker the mod adds; its entry numbers are its own, its number is given when linking.</summary>
 public sealed class NewWorker {
@@ -187,4 +194,6 @@ public enum RelocKind {
     NewWorker,
     /// <summary><c>pushimm</c> of the number of the package's patch <c>Value</c> (a <see cref="PatchKind.Entry"/>).</summary>
     NewEntry,
+    /// <summary><c>pushimm</c> of the index the package's message <c>Value</c> (one without an index) gets in the script's tables.</summary>
+    NewMessage,
 }

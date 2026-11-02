@@ -114,7 +114,11 @@ public static class ModSet {
         return kept;
     }
 
-    /// <summary>Links every file any mod has a package for, onto the vanilla file <paramref name="readVanilla"/> gives.</summary>
+    /// <summary>
+    ///     Links every file any mod has a package for, onto the vanilla file <paramref name="readVanilla"/> gives
+    ///     (which reads any archive path). A script whose packages add messages (<c>Text.New</c>) also gives its
+    ///     message tables, one file per language, after the script (<see cref="MessageLinker"/>).
+    /// </summary>
     public static List<LinkedFile> Link(IReadOnlyList<AtelMod> mods, Func<string, byte[]?> readVanilla) {
         List<LinkedFile> results = [];
         IEnumerable<string> paths = mods.SelectMany(m => m.Packages.Keys).Distinct().Order(StringComparer.Ordinal);
@@ -131,14 +135,35 @@ public static class ModSet {
                 results.Add(new(path, null, "not in the game's data"));
                 continue;
             }
-            List<ModScript> scripts = [.. mods.Where(m => m.Packages.ContainsKey(path)).Select(m => new ModScript(m.Id, m.Packages[path]))];
+            List<ModScript> scripts = [.. mods.Where(m => m.Packages.ContainsKey(path)).Select(m => new ModScript(m.Id, m.Packages[path], m.Manifest.SourceLanguage))];
+            LinkResult result;
             try {
-                results.Add(new(path, ScriptLinker.Link(vanilla, scripts), null));
+                int? firstMessage = scripts.Any(s => ScriptLinker.NewMessages(s.Package).Any()) ? MessageLinker.FirstFree(path, ReadQuietly) : null;
+                result = ScriptLinker.Link(vanilla, scripts, firstMessage);
             }
             catch (Bytecode.Script.ScriptFormatException ex) {
                 results.Add(new(path, null, $"not a script file: {ex.Message}"));
+                continue;
             }
+            results.Add(new(path, result, null));
+            if (result.NewMessages.Count == 0) continue;
+            List<LinkMessage> report = [];
+            foreach ((string table, byte[] bytes) in MessageLinker.Tables(path, result.NewMessages, ReadQuietly, report)) {
+                LinkResult r = new() { File = bytes };
+                r.Applied.AddRange(result.NewMessages.Select(m => m.Mod).Distinct());
+                results.Add(new(table, r, null));
+            }
+            result.Messages.AddRange(report);
         }
         return results;
+
+        byte[]? ReadQuietly(string p) {
+            try {
+                return readVanilla(p);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException) {
+                return null;
+            }
+        }
     }
 }

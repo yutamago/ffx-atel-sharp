@@ -25,7 +25,7 @@ its file inside (`file`).
 
 | Key | Meaning |
 |---|---|
-| `source_language` | the language of the mod's new messages (`"en"`); for `Text.New`, later |
+| `source_language` | the language of the mod's new messages (`Text.New`), an ISO code (`"en"`, the default; `ja`, `fr`, `es`, `de`, `it`, `ko`, `zh`) |
 | `requires = ["id", …]` | mods that must be enabled, else this one is not linked |
 | `incompatible = ["id", …]` | mods this one is not linked with (the later of the two is left out) |
 | `after = ["id", …]` | mods it must load after; a wrong load order is reported, not changed |
@@ -98,6 +98,7 @@ each vanilla part, so a package never contains game code.
   | `worker` | vanilla worker number | its number after linking (`call`, or `pushimm` in a request) |
   | `newWorker` | index in `workers` | its number |
   | `newEntry` | index in `patches` (an `entry`) | its entry number (`pushimm` in a request) |
+  | `newMessage` | index in `messages` (one without an index) | the message's index in the script's tables (`pushimm`) |
 
   Entries and replacements end in `end` (`ret` in a function worker);
   prefixes and postfixes run off their end into what follows.
@@ -105,17 +106,20 @@ each vanilla part, so a package never contains game code.
 - **`debugStrings`**: the texts of the package's `Debug.Print` calls; the
   code pushes each one's id ([debug.md](debug.md)). Left out when there are
   none.
-- **`messages`**: `[{ "index": 73, "text": "…" }]`, for runtime injection
-  only for now: the loader sets them in the running event's message table
-  ([debug.md](debug.md#runtime-injection)); the linker does not read them.
+- **`messages`**: texts for the script's message tables, written as `atel
+  text export` writes them (control codes in braces).
+  `{ "text": "Nice throw!" }`, without an index, is a new message from
+  `Text.New`: the linker numbers it (see "Messages" below).
+  `{ "index": 73, "text": "…" }` sets message 73, for runtime injection: the
+  loader sets it in the running event's table
+  ([debug.md](debug.md#runtime-injection)).
 
 A package is also a **runtime injection package**: put into the loader's
 `inject/` folder, it is linked after every mod, and while the game runs a
 changed one is linked again and served for the script's next load
 ([debug.md](debug.md#runtime-injection)).
 
-Later, in the same shape: `messages` from `Text.New` (one index per
-script for all languages), `data` (per-field edits of data areas and
+Later, in the same shape: `data` (per-field edits of data areas and
 kernel tables), and `inject` patches.
 
 ## Linking
@@ -177,6 +181,40 @@ monster, up to tens of KB for an event) plus what the mods add. Laying the
 code out in two runs, unchanged workers in place, needs `ScriptBlock` and
 `ScriptImage` to accept a worker range that is not after the previous
 one; left for later.
+
+## Messages
+
+A script holds one message index for all languages, so a new message gets
+the same index in every language's table (`MessageLinker`, run by
+`ModSet.Link` for a script whose packages have new messages):
+
+1. **The first free index**: one past the last message of the longest of
+   the script's tables, over every language (`new_<lang>pc/event/obj_ps3/
+   <xx>/<event>/<event>.bin`, battles `new_<lang>pc/battle/btl/<name>/
+   <name>.bin`) and, for an event, the `.ebp`'s own Japanese table
+   (section 1), which the game reads where a language has none.
+2. **Numbering**: the mods' new messages in load order, each package's in
+   its order, from that index; the code's `newMessage` operands become
+   those numbers. A script without any table (a monster: its `Text[n]` is
+   the battle's) leaves such a package out, with an error.
+3. **Tables**: every language that has a table gets a copy of it, grown to
+   the last new index (entries between get an empty text and flags 0) with
+   each new message encoded in that language's charset
+   (`ffxsjistbl_<us|jp|kr|ch>.bin`). The mod's `source_language` gets the
+   text; the other languages get a copy of it, listed in the report as
+   untranslated (an info per mod and language). A character the charset
+   lacks becomes its full-width form (the Japanese, Korean and Chinese
+   charsets have no ASCII letters: `A` is written `Ａ`) or, failing that,
+   `?` (a warning). A language without a table for the
+   script gets nothing (a warning): the game would read past the `.ebp`'s
+   table there.
+
+The loader writes the tables to its `efl/x` next to the linked script,
+where Fahrenheit serves them as it serves the scripts. A runtime injection
+package's new messages are numbered the same way, after every mod's; while
+the game runs they are set in the running event's table at once (with the
+explicit ones), and its table files are rewritten when they were served at
+startup.
 
 ## The report
 

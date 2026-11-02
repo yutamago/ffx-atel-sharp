@@ -22,7 +22,11 @@ public sealed record LinkMessage(LinkSeverity Severity, string Mod, string Text)
 }
 
 /// <summary>One mod's package for a script, in load order.</summary>
-public sealed record ModScript(string Mod, ScriptPackage Package);
+/// <param name="SourceLanguage">The language its new messages are written in (<c>mod.toml</c>'s <c>source_language</c>, an ISO code).</param>
+public sealed record ModScript(string Mod, ScriptPackage Package, string SourceLanguage = "en");
+
+/// <summary>A new message (<c>Text.New</c>) and the index the linker gave it in the script's tables.</summary>
+public sealed record LinkedMessage(string Mod, int Index, string Text, string SourceLanguage);
 
 /// <summary>The linked file and what happened.</summary>
 public sealed class LinkResult {
@@ -34,6 +38,9 @@ public sealed class LinkResult {
 
     /// <summary>The mods whose packages were applied, in load order.</summary>
     public List<string> Applied { get; } = [];
+
+    /// <summary>The applied packages' new messages with their indices, in load order; empty when there are none.</summary>
+    public List<LinkedMessage> NewMessages { get; } = [];
 
     public List<LinkMessage> Messages { get; } = [];
 }
@@ -53,8 +60,13 @@ public sealed class LinkResult {
 ///     (<see cref="ScriptFile.ReplaceScript"/>).
 /// </remarks>
 public static class ScriptLinker {
+    /// <param name="firstMessage">
+    ///     The index the first new message (<c>Text.New</c>) gets: one past the last message of every
+    ///     language's table of the script (<see cref="MessageLinker.FirstFree"/>); null when the script has
+    ///     no message table, which leaves out a package with new messages.
+    /// </param>
     /// <exception cref="ScriptFormatException">The vanilla file is not a script file.</exception>
-    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods) {
+    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods, int? firstMessage = null) {
         ScriptFile file = ScriptFile.Parse(vanillaFile);
         ScriptImage vanilla = ScriptImage.FromBlock(file.Script);
         LinkResult result = new() { File = vanillaFile };
@@ -62,6 +74,7 @@ public static class ScriptLinker {
         List<ModScript> accepted = [];
         foreach (ModScript mod in mods) {
             List<string> problems = Validate(mod.Package, vanilla);
+            if (firstMessage is null && NewMessages(mod.Package).Any()) problems.Add("the script has no message table for Text.New (a monster's messages are the battle's)");
             if (problems.Count > 0) {
                 foreach (string p in problems) result.Messages.Add(new(LinkSeverity.Error, mod.Mod, $"{mod.Package.Script}: {p}; not applied"));
                 continue;
@@ -70,12 +83,13 @@ public static class ScriptLinker {
         }
         if (accepted.Count == 0) return result;
 
-        State state = new(file.Script, vanilla, result.Messages);
+        State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0);
         try {
             state.Apply(accepted);
             byte[] block = state.Write();
             ScriptFile linked = file.ReplaceScript(ScriptBlock.Parse(block));
             result.Applied.AddRange(accepted.Select(m => m.Mod));
+            result.NewMessages.AddRange(state.NewMessages);
             result.File = linked.ToArray();
             return result;
         }
@@ -90,6 +104,10 @@ public static class ScriptLinker {
     }
 
     // ----- Checks -----------------------------------------------------------------------------
+
+    /// <summary>A package's new messages (<c>Text.New</c>, no index), with their positions in <see cref="ScriptPackage.Messages"/>.</summary>
+    public static IEnumerable<(int At, PackageMessage Message)> NewMessages(ScriptPackage p) =>
+        (p.Messages ?? []).Select((m, i) => (i, m)).Where(x => x.m.Index is null);
 
     /// <summary>What keeps a package from applying to this vanilla script; empty when it applies.</summary>
     public static List<string> Validate(ScriptPackage p, ScriptImage vanilla) {
@@ -161,6 +179,7 @@ public static class ScriptLinker {
                     RelocKind.Worker => workers.Contains((int)r.Value),
                     RelocKind.NewWorker => r.Value < p.Workers.Count,
                     RelocKind.NewEntry => r.Value < p.Patches.Count && p.Patches[(int)r.Value].Kind == PatchKind.Entry,
+                    RelocKind.NewMessage => p.Messages is not null && r.Value < p.Messages.Count && p.Messages[(int)r.Value].Index is null,
                     _ => false,
                 };
                 if (!ok) errors.Add($"{what}: relocation {r.Kind} {r.Value} refers to nothing the package declares");
@@ -199,9 +218,11 @@ public static class ScriptLinker {
         public int[] Vars = [];
         public WorkerState[] Workers = [];
         public int[] Entries = [];
+        public Dictionary<int, int> Messages = [];
     }
 
-    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages) {
+    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages, int firstMessage) {
+        public List<LinkedMessage> NewMessages { get; } = [];
         private readonly List<WorkerState> _workers = [];
         private readonly List<VarSlot> _vars = [.. vanilla.Variables.Select(v => new VarSlot(v, null))];
         private readonly List<uint> _ints = [.. vanilla.IntConstants];
@@ -265,6 +286,12 @@ public static class ScriptLinker {
                 }
                 _workers.Insert(at, w);
                 n.Workers[i] = w;
+            }
+            foreach ((int at, PackageMessage m) in ScriptLinker.NewMessages(p)) {
+                int index = firstMessage + NewMessages.Count;
+                n.Messages[at] = index;
+                NewMessages.Add(new LinkedMessage(mod.Mod, index, m.Text, mod.SourceLanguage));
+                messages.Add(new(LinkSeverity.Info, mod.Mod, $"{p.Script}: new message {index}: {m.Text}"));
             }
             n.Entries = new int[p.Patches.Count];
             for (int i = 0; i < p.Patches.Count; i++) {
@@ -452,6 +479,7 @@ public static class ScriptLinker {
                     RelocKind.Worker => Number(_byVanilla[r.Value]),
                     RelocKind.NewWorker => Number(n.Workers[r.Value]),
                     RelocKind.NewEntry => n.Entries[r.Value],
+                    RelocKind.NewMessage => n.Messages[(int)r.Value],
                     _ => throw new LinkException($"unknown relocation {r.Kind}", n.Mod.Mod),
                 };
                 if (value is < 0 or > 0xffff) throw new LinkException($"{w.Name}: {r.Kind} {value} does not fit 16 bits", n.Mod.Mod);

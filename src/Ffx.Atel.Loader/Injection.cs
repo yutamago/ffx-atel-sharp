@@ -33,12 +33,13 @@ public static class Injection {
     public static AtelMod Read(string loaderDir) => AtelMod.FromFolder(ModId, Path.Combine(loaderDir, Folder));
 
     /// <summary>
-    ///     Links one file again: the enabled mods of <paramref name="linked"/> (the startup link, without its
-    ///     injected packages) and then <paramref name="injected"/>. Null when no package is left for the file.
+    ///     Links one script again: the enabled mods of <paramref name="linked"/> (the startup link, without its
+    ///     injected packages) and then <paramref name="injected"/>. The script's file first, then its message
+    ///     tables when the packages add messages; empty when no package is left for the file.
     /// </summary>
-    public static LinkedFile? Relink(IReadOnlyList<AtelMod> linked, AtelMod injected, string path, Func<string, byte[]?> readVanilla) {
+    public static List<LinkedFile> Relink(IReadOnlyList<AtelMod> linked, AtelMod injected, string path, Func<string, byte[]?> readVanilla) {
         List<AtelMod> mods = [.. linked.Where(m => m.Id != ModId), injected];
-        return ModSet.Link([.. mods.Where(m => m.Packages.ContainsKey(path))], readVanilla).SingleOrDefault();
+        return ModSet.Link([.. mods.Where(m => m.Packages.ContainsKey(path))], readVanilla);
     }
 
     /// <summary>

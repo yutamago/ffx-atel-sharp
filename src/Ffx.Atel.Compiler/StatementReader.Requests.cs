@@ -32,6 +32,22 @@ internal sealed partial class StatementReader {
     /// <summary>An entry's parameters and result (<c>async Task&lt;int&gt; FooAsync(int x)</c>) by worker class and method; null for one without.</summary>
     public Func<string, string, EntrySignature?>? Signatures { get; init; }
 
+    /// <summary>
+    ///     A mod's new messages (<c>Text.New</c>): the number the linker gives a text (a
+    ///     <see cref="SymbolExpr"/>); null outside a mod, where <c>Text.New</c> is an error.
+    /// </summary>
+    public Func<string, Expr>? NewTexts { get; init; }
+
+    /// <summary><c>Text.New("Nice throw!")</c>: the new message's index, which the linker gives.</summary>
+    private Expr NewText(InvocationExpressionSyntax call) {
+        if (call.ArgumentList.Arguments is not [ArgumentSyntax { NameColon: null } arg] || arg.Expression is not LiteralExpressionSyntax { Token.Value: string text } literal
+            || !literal.IsKind(SyntaxKind.StringLiteralExpression)) {
+            throw Error(call, "Text.New takes one string literal: Text.New(\"Nice throw!\")");
+        }
+        if (text.Length == 0) throw Error(arg, "a new message has text");
+        return NewTexts?.Invoke(text) ?? throw Error(call, "Text.New is for mods: the linker gives the index; in a script compiled whole, add the message to the tables and use Text[n]");
+    }
+
     /// <summary><c>_ = Lulu.E5Async();</c>: queues the entry (<c>req0</c>).</summary>
     private RequestStmt Discarded(AssignmentExpressionSyntax a) =>
         Strip(a.Right, conversions: false) is InvocationExpressionSyntax call

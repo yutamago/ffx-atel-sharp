@@ -156,6 +156,24 @@ in the background with its file and size hooks off, `fhstage0.exe`); the
 install's load order and mods were backed up and restored, and the game
 was killed after each run.
 
+## `Text.New` in game
+
+Checked on 2026-11-02 from the `atel/text-new` branch (one loader merged
+locally with `atel/private-locals`), in the same harness:
+
+- The mod (`kami0000`): a prefix on worker 0 `Tidu`'s `Main` that opens
+  window 1 with `Text.New("Atel: a new message, Text.New works!")`
+  (`MsgSetPos`, `MsgSetStyle`, `MsgSetText`, `MsgSetFlags`, `MsgOpen`,
+  `MsgWaitEnd`), `source_language = "en"`.
+- The loader linked it as message 89 (every table of `kami0000` has 89
+  messages), reported it as untranslated in the seven other languages
+  (and that ja, ko and zh got full-width letters), and served ten files:
+  the `.ebp` and its eight `new_<lang>pc/event/obj_ps3/ka/kami0000/kami0000.bin`.
+- Developer save 51 (map 140): the window opens with "Atel: a new message,
+  Text.New works!" (screenshot); ctrl work 0 `+0x34` points at a table of
+  90 entries whose entry 89 is those 36 bytes in the western charset. So
+  the game read the served English table.
+
 ## File sizes
 
 The PS2 file layer sizes a file before reading it, and the buffer and the

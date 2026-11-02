@@ -126,8 +126,9 @@ two optional additions:
   export` writes them (control codes in braces). An index past the end
   grows the table (the entries between get an empty text); an existing
   index gets the new text and keeps its flags. Only for event scripts:
-  their table is ctrl work 0's `+0x34`. (`Text.New` will produce these;
-  until then they are written by hand.)
+  their table is ctrl work 0's `+0x34`. A message without an index (from
+  `Text.New`) gets the index the linker gives it after every mod's
+  ([mod-package.md](mod-package.md#messages)) and is set the same way.
 
 The loader watches its own `inject/` folder (`mods/yuta.atel/inject/`,
 every `*.json` under it). At startup the packages there are linked after

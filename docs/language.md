@@ -412,15 +412,22 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 |---|---|
 | `Common.MsgSetText(0, Text[12]);` | **available**: `Text[n]` is message `n` of the script's table; compiles to the number |
 | `Common.MsgSetText(0, V3);` | **available**: a computed index converts from `int` |
-| `Text.New("Nice throw!")` | **planned**: a new message, numbered by the loader; not in the reference assembly yet |
+| `Text.New("Nice throw!")` | **available in mods**: a new message; the loader gives it the next free index of the script's tables when it links, the same in every language ([mod-package.md](formats/mod-package.md#messages)) |
 | `Debug.Print($"hp = {Hp}")` | **available**: a line in Fahrenheit's log, through native `0xf000` the loader registers (native group F); text with up to 16 interpolated values ([debug.md](formats/debug.md)) |
 | `Debug.Break()` | **available**: logs the worker's registers through native `0xf001`, and stops in a .NET debugger if one is attached |
 
 `string` is an error everywhere except attribute arguments and the reference-assembly members that
-take one (`Asm`, `Debug.Print`) ([ATL1002](analyzers.md#atl1002)). `Debug.*` calls compile to the
+take one (`Asm`, `Debug.Print`, `Text.New`) ([ATL1002](analyzers.md#atl1002)). `Debug.*` calls compile to the
 loader's natives by default; `--debug drop` (or `--no-debug`) leaves them out with a warning, and
 `--debug error` refuses them. The editor extension shows each `Text[n]`'s
 message from your own game's tables ([editor.md](editor.md)).
+
+`Text.New` takes one string literal, written as `atel text export` writes messages (control codes in
+braces, `{{` and `}}` for a brace); the same text twice is one message. The mod's `mod.toml` names the
+language it is in (`source_language`, default `en`): that language's table gets the text, every other
+language's a copy of it, which the loader's report lists as untranslated. Only events and battles have
+tables; in a monster's script, or in a script compiled whole (`atel compile`, which has no linker to
+number it), `Text.New` is an error.
 
 ## Statements and expressions
 
@@ -604,7 +611,8 @@ public sealed partial class Helper : Worker2  // a new worker
 **Available.** A mod does not change attributes or base classes of vanilla classes, and a new
 worker has no private data yet. Patches apply to every entry the vanilla method starts. Several
 mods' prefixes and postfixes on one method chain in load order; two replacements conflict and the
-later wins. **Planned**: `[Inject]`, `[Before]`/`[After]`, `Text.New`, per-field data edits.
+later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Inject]`, `[Before]`/`[After]`,
+per-field data edits.
 
 A patch is not an engine-run entry, so it cannot be `async void` and cannot `await`; request an
 entry of your own (`_ = Larva.CountAsync();`) and await there.

@@ -385,7 +385,7 @@ public static partial class ScriptCompiler {
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
         string? name = null, int number = -1, HelperTable? helpers = null, Func<string, string, EntrySignature?>? signatures = null,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -409,7 +409,7 @@ public static partial class ScriptCompiler {
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
             Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass,
-            Signatures = signatures, RequestTargets = requestTargets,
+            Signatures = signatures, RequestTargets = requestTargets, NewTexts = newTexts,
         };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The

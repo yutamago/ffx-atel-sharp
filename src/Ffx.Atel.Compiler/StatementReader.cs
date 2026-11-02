@@ -411,6 +411,9 @@ internal sealed partial class StatementReader(
                 return Name(id);
             case MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: true) is int constant:
                 return new IntLit(constant);
+            // A new message: Text.New("…"), whose index the mod linker gives (Ffx.TextTable.New).
+            case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Text" }, Name.Identifier.ValueText: "New" } } newText:
+                return NewText(newText);
             // A message by index: Text[12] is the index itself (Ffx.TextTable).
             case ElementAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Text" }, ArgumentList.Arguments: [ArgumentSyntax index] }:
                 return ReadExpr(index.Expression);

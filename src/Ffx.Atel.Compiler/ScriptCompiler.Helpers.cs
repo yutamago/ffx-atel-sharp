@@ -81,10 +81,11 @@ public static partial class ScriptCompiler {
     private static void CompileHelper(
         Helper h, HelperTable table, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null, DebugCalls? debug = null, Func<string, string, EntrySignature?>? signatures = null) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, DebugCalls? debug = null, Func<string, string, EntrySignature?>? signatures = null,
+        Func<string, Expr>? newTexts = null) {
         Dictionary<string, RegExpr> registers = h.Parts.Count == 0 ? [] : Registers(h.Parts);
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, functionWorker: true, links) {
-            EntryMethods = entryMethods, RequestTargets = requestTargets, DebugCalls = debug ?? new(DebugMode.Natives), Signatures = signatures,
+            EntryMethods = entryMethods, RequestTargets = requestTargets, DebugCalls = debug ?? new(DebugMode.Natives), Signatures = signatures, NewTexts = newTexts,
             Class = h.Class, Helpers = table.Find, ScriptClass = table.ScriptClass, Result = h.Result,
         };
         FlowEmitter emitter = new() { TagOf = reader.LocationOf };
