@@ -403,6 +403,13 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   map. A grown file read there would be cut; a hook like ffx-rust's would
   fix it if a mod ever needs those maps. `CDfileSize_CD_EX` is only called
   from `CDfileSize_PC`, on the path Fahrenheit skips.
+  Decision (user, 2026-11-02): no `CDfileSize_CD` hook until a mod needs
+  maps 393-399; they only play a few specific cutscenes.
+- Layout of grown code: the assembler moves a worker that outgrows its
+  range to the end of the block and leaves the old copy (one added
+  instruction in `kami0000` cost 3.7 KB). The compiler lays a changed
+  script out afresh from its image instead (`ScriptImage.Write`), so only
+  the real growth remains.
 
 ## Phases
 
