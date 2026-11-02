@@ -82,6 +82,10 @@ internal sealed partial class WorkerDecompiler {
     }
 
     private void WriteHeader(StringBuilder sb, Method method) {
+        if (IsRunFunction) {
+            sb.Append(Indent).Append("public static void Run()\n");
+            return;
+        }
         string async = Awaits(method) ? "async " : "";
         if (EngineName(method) is string engine) {
             Overrides++;

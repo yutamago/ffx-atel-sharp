@@ -330,7 +330,7 @@ public static partial class ScriptCompiler {
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds entry methods and [Register] fields only (for now)");
                 where = method.Identifier.GetLocation();
                 List<AttributeSyntax> attributes = method.AttributeLists.SelectMany(l => l.Attributes).ToList();
-                List<int> entries = EntriesOf(method);
+                List<int> entries = EntriesOf(method, wi.Type == 0);
                 List<int>? pin = null;
                 foreach (AttributeSyntax e in attributes) {
                     switch (NameOf(e)) {
@@ -339,7 +339,7 @@ public static partial class ScriptCompiler {
                         default: throw CompileException.At(e, $"unknown attribute [{NameOf(e)}] on an entry");
                     }
                 }
-                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry] (or an Init or Main override)");
+                if (entries.Count == 0) throw CompileException.At(method.Identifier.GetLocation(), "a method without [Entry] (or an Init or Main override, or Run in a function worker)");
                 if (method.ExpressionBody is not null || method.Body is null) throw CompileException.At(method, "an entry has a block body");
                 List<Stmt> body = reader.Block(method.Body.Statements);
                 emitter.BeginMethod(pin);
