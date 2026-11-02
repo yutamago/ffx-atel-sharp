@@ -74,7 +74,7 @@ public sealed class SourceTests {
     }
 
     /// <summary>A monster whose code is one of each statement Phase 3 writes as C#.</summary>
-    private static byte[] StatementsFile() {
+    internal static byte[] StatementsFile() {
         ScriptImage image = new() {
             Author = "test"u8.ToArray(), Name = "998"u8.ToArray(), Shared = new byte[0x20], Other = new byte[0x40], Event = new byte[0x10],
         };

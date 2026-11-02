@@ -677,6 +677,38 @@ how `atel compile` reads it:
   with `-p:AtelGameProject=<path to Ffx.Atel.Game.csproj>`, a project
   reference to a checkout of this repo. Phase 8 replaces both with the SDK
   package. The compiler ignores `obj/` and `bin/` in a script's folder.
+- **Library base classes** for duplicated workers ("Shared behaviour"):
+  a worker whose type and body text equal another's, anywhere in the
+  corpus, becomes `public sealed class W03 : Shared0001 { }` (with
+  `using Library;`), and the body moves to `Library/Shared0001.cs`,
+  `public abstract class Shared0001 : Worker1`, with a comment listing its
+  users. `[Worker]` and `[PrivateData]` stay on each worker. The compiler
+  takes the type from the library class and lays its members out before
+  the worker's own (`ScriptLibrary`; `atel compile` finds the nearest
+  `Library/` above the script folder, or `--library <dir>`); the library
+  is a project every other project references. Names are neutral
+  (`Shared0001`, numbered by first use in path order) until a name is
+  certain.
+- **What makes two workers copies at the source level:** the same base and
+  the same body text, and the body names nothing its script declares (the
+  script class, its variables, its workers). The library must compile on
+  its own, and everything else a body names means the same in every
+  script: natives, registers, constants by value (the pools follow from
+  the code, or are pinned and hold every value), request and party
+  numbers, labels (pinned per method). So equal text gives equal bytes;
+  the round trip checks it.
+- Numbers (2026-11-02): 977 groups of equal workers (3,425 copies beyond
+  the first, 39.1 MB); **492 library classes, from which 3,128 workers
+  derive** (2,636 copies removed), saving **1.9 MB**; 486 of the classes
+  span several scripts. The rest name script variables or workers: the big
+  copies are the blitzball variants (`bltz0000`, `cn_bltz0000`, …), whose
+  workers use their scripts' variables, so a library class could not
+  compile on its own. 1,621 scripts round-trip byte for byte, 0 C# errors,
+  0 warnings, with the library: 403.8 MB in 19,267 files.
+- Not done: bodies that call a sibling worker (`Call<W48>()`, 66 groups,
+  75 more workers) could name the library class of the target
+  (`Call<Shared0002>()`, resolved to the script's worker deriving from it);
+  near-duplicates with parameters.
 - Numbers (2026-11-02): all 1,621 scripts come back byte for byte from
   18,778 files (1,621 script classes, 1,621 data files, 15,010 workers, 526
   further parts of 160 workers), 405.5 MB; 0 C# errors, 0 warnings.
@@ -815,7 +847,9 @@ count, names placed.
 5. **Typing and naming** (ongoing). Enums by use, properties, text IDs,
    story constants, base classes and engine entries, Fahrenheit's names.
 6. **Source layout.** Folders, one file per worker, `partial`, project
-   granularity, library base classes for duplicated workers.
+   granularity, library base classes for duplicated workers. Done
+   2026-11-02, see "Phase 6: source layout": 18,778 files in 104 projects,
+   3,128 workers derived from 492 library classes.
 7. **The private repo.** `yutamago/ffx-atel-src`; a `generated` branch
    written only by the tool and a `main` branch for hand edits, merged with
    git; the round-trip check runs locally (it needs the game). Commits as

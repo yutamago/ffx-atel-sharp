@@ -42,7 +42,7 @@ public static class SourceLayout {
         string cls = script.Names.ClassName;
         List<SourceFile> files = [new($"{folder}/{cls}.cs", script.Prelude() + script.ScriptClass)];
         foreach (WorkerSource w in script.Workers) {
-            string prelude = script.Prelude(w.Base.StartsWith("Worker", StringComparison.Ordinal) ? [] : script.LibraryNamespaces);
+            string prelude = script.Prelude(w.Body.Length == 0 ? script.LibraryNamespaces : []);
             List<string> parts = Split(w.Body, splitLines, partLines);
             if (parts.Count == 1) {
                 files.Add(new($"{folder}/{w.Name}.cs", prelude + w.Text));
@@ -64,7 +64,7 @@ public static class SourceLayout {
     }
 
     /// <summary>A class body cut between members into parts of at least <paramref name="partLines"/> lines.</summary>
-    private static List<string> Split(string body, int splitLines, int partLines) {
+    internal static List<string> Split(string body, int splitLines, int partLines) {
         if (Lines(body) <= splitLines) return [body];
         ClassDeclarationSyntax c = CSharpSyntaxTree.ParseText("class C\n{\n" + body + "}\n").GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         List<string> members = [.. c.Members.Select(m => m.ToFullString())];

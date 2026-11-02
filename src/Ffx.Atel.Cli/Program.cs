@@ -68,11 +68,15 @@ internal static class Program {
                 return 0;
             }
             case "decompile":
-                return SourceCommands.Decompile(archive, args, output);
-            case "compile":
-                return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"));
-            case "roundtrip":
-                return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"));
+                return SourceCommands.Decompile(archive, args, output, !TakeFlag(args, "--no-library"));
+            case "compile": {
+                string? library = TakeOption(args, "--library");
+                return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"), library);
+            }
+            case "roundtrip": {
+                bool share = !TakeFlag(args, "--no-library");
+                return SourceCommands.RoundTrip(archive, args, output, TakeFlag(args, "--check"), share);
+            }
             case "survey":
                 return SurveyCommand.Run(archive, args, output);
             default:
