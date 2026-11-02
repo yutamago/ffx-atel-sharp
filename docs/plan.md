@@ -396,16 +396,24 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
   Fahrenheit hooks so that it reads the replacement's real size from disk.
   A grown event (`kami0000`, +3,776 bytes) and a grown monster (`m209`,
-  +576 bytes) loaded whole in game with Fahrenheit alone, so the loader
-  adds no size hook. `CDfileSize_CD` (`0x0076c320`, not hooked by
-  Fahrenheit) is reached only in HDD and CD/DVD modes and, on PC, for
-  every `Cd_QueueRead` while an Eternal Calm map (393-399) is the graphic
-  map. A grown file read there would be cut; a hook like ffx-rust's would
-  fix it if a mod ever needs those maps. `CDfileSize_CD_EX` is only called
-  from `CDfileSize_PC`, on the path Fahrenheit skips.
+  +576 bytes) loaded whole in game with Fahrenheit alone. `CDfileSize_CD`
+  (`0x0076c320`, not hooked by Fahrenheit) is reached only in HDD and
+  CD/DVD modes and, on PC, for every `Cd_QueueRead` while an Eternal Calm
+  map (393-399) is the graphic map; most of its sizes come from the CD's
+  tables. `CDfileSize_CD_EX` is only called from `CDfileSize_PC`, on the
+  path Fahrenheit skips.
   Decision (user, 2026-11-02): the loader hooks `CDfileSize_CD` too, so a
   grown file reports its real size there as well (maps 393-399 only play a
-  few specific cutscenes, but it can't hurt).
+  few specific cutscenes, but it can't hurt). Done the same day
+  (`CdFileSizeHook`): for a file in its `efl/x` the hook returns the file's
+  size rounded up to 16, everything else goes down Fahrenheit's hook chain.
+  It names files the way `Cd_QueueRead` does, with the built-in names of
+  the Eternal Calm maps' own `.ebp`/`.mgrp`, whose table entries are empty.
+  In game a grown `scene1.ebp` (map 393, reached by a `MapJump` from an
+  edited `kami0000`) loaded whole and normal play (map load, battle) was
+  unchanged. The game sizes that map's own `.ebp` from disk anyway, so the
+  hook changed no result tested; it guards the other files read there
+  (models, motion groups, the map).
 - Layout of grown code: the assembler moves a worker that outgrows its
   range to the end of the block and leaves the old copy (one added
   instruction in `kami0000` cost 3.7 KB). The compiler lays a changed
