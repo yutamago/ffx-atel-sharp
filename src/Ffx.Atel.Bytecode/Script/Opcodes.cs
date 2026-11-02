@@ -105,7 +105,7 @@ public static class Opcodes {
         Op("pusha", R, "push register A");
         Op("pushb", R, "push register B");
         Op("popa", R, "pop into register A");
-        Op("op_2b", R, "push the result of 0x0086a000");
+        Op("op_2b", R, "duplicate the top (0x0086a000 reads it without popping)");
         Op("popb", R, "pop into register B");
         Op("pushc", OperandKind.Int, "push integer constant");
         Op("pushimm", OperandKind.Imm, "push signed 16-bit immediate");

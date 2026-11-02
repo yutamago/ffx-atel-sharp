@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Script;
 
 namespace Ffx.Atel.Bytecode.Tests;
@@ -45,6 +46,23 @@ public sealed class UnitTests {
     [InlineData("-32769")]
     [InlineData("x1")]
     public void BadOperandsDoNotParse(string text) => Assert.Null(Assembly.ParseOperand(text));
+
+    [Fact]
+    public void Op2bDuplicatesTheTop() => Assert.Equal((1, 2), StackEffects.Of(Opcodes.Op2b));
+
+    [Fact]
+    public void NativeSignaturesParse() {
+        NativeSignatures n = NativeSignatures.Parse("""
+            { "natives": [ { "id": "0x0012", "class": "Common", "method": "Foo", "args": [ { "name": "a", "kind": "int" }, { "name": "b", "kind": "float" } ],
+                             "result": "float", "argc_source": "both", "kinds_source": "exe" } ] }
+            """);
+        NativeSignature foo = n[0x0012]!;
+        Assert.Equal("Common.Foo", foo.Name);
+        Assert.Equal("if", foo.ArgKinds);
+        Assert.Equal(2, foo.Argc);
+        Assert.True(foo.KindsFromExe);
+        Assert.Null(n[0x0013]);
+    }
 
     [Fact]
     public void HexTextLeavesZerosOutAndReadsBack() {
