@@ -49,7 +49,8 @@ A script is a folder and a namespace. `atel decompile <script> -o <dir>` writes
 | File | Holds |
 |---|---|
 | `M209.cs` | the **script class**: the file it is, its workers in order, its variables |
-| `M209.Data.cs` | the second part of the script class: the layout pins (`[Header]`, `[Pin]`, the pools) and the data areas as hex |
+| `M209.Layout.cs` | what only pins the compiled layout: on a part of the script class `[Header]`, `[Pin]`, `[Patch]` and the pools, on a part of each worker that has one its `[Worker(…)]` |
+| `M209.Data.cs` | the data areas as hex: on a part of the script class `[SharedData(…)]` and the others, on a part of a worker its `[PrivateData(…)]` (no file when the script has none) |
 | `W01.cs`, `RikkA.cs`, … | one file per worker; a big worker is `partial` over `W36.cs`, `W36.2.cs`, … |
 
 The script class is `public static partial class`, with one of `[Event("bjyt0400")]`,
@@ -612,8 +613,9 @@ constant by pool index (`Pooled`, or `pushc`/`pushfc` in `Asm`).
 ## Layout pins
 
 Attributes on the script class for what the language has no construct for, so that the compiler
-gives back the original block. **Decompiler only.** The decompiler puts them on the data part
-(`M209.Data.cs`); the compiler reads them from any part of the script class.
+gives back the original block. **Decompiler only.** The decompiler puts them on the layout part
+(`M209.Layout.cs`), as it puts a worker's `[Worker(…)]` on a part of the worker there; the compiler
+reads them from any part of the class.
 
 | Attribute | Pins |
 |---|---|

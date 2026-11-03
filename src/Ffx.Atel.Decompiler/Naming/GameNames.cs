@@ -53,6 +53,25 @@ internal static class GameNames {
         return byOffset;
     });
 
+    /// <summary>
+    ///     The bits of the save fields that have names for them (<see cref="BitsAttribute"/>), by storage 0 offset:
+    ///     <c>Save.LightningReward.Streak5</c> for 1 in <c>LightningDodgingRewards</c>.
+    /// </summary>
+    public static IReadOnlyDictionary<int, Domain> SaveBits => s_saveBits.Value;
+
+    private static readonly Lazy<Dictionary<int, Domain>> s_saveBits = new(() => {
+        Dictionary<int, Domain> byOffset = [];
+        foreach (FieldInfo f in ConstFields(typeof(Ffx.Save))) {
+            if (f.GetCustomAttribute<BitsAttribute>() is not BitsAttribute bits) continue;
+            Type t = bits.Constants;
+            string prefix = t.DeclaringType is Type outer ? $"{outer.Name}.{t.Name}" : t.Name;
+            Dictionary<int, string> members = [];
+            foreach (FieldInfo c in ConstFields(t)) members.TryAdd(System.Convert.ToInt32(c.GetRawConstantValue(), CultureInfo.InvariantCulture), $"{prefix}.{c.Name}");
+            byOffset.TryAdd(System.Convert.ToInt32(f.GetRawConstantValue(), CultureInfo.InvariantCulture), new Domain("bits", null, members));
+        }
+        return byOffset;
+    });
+
     /// <summary>Messages of the script's table (<see cref="Ffx.TextId"/>): a constant index is <c>Text[12]</c>.</summary>
     public static Domain Text { get; } = new("text", null, v => v >= 0 ? string.Create(CultureInfo.InvariantCulture, $"Text[{v}]") : null);
 

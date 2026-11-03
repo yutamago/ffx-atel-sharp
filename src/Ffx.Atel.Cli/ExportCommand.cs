@@ -231,8 +231,9 @@ internal static class ExportCommand {
         2. Open the folder. VS Code opens `Start.slnx`: the Thunder Plains
            (`Events/Ka_ThunderPlains/`, `Battles/Kami_ThunderPlains/`) and the
            monsters. Other areas: `Events.slnx`, `Battles.slnx`; everything but
-           blitzball: `Atel.slnx`; blitzball alone: `Blitzball.slnx` (each of its
-           scripts takes about 2 GB to load).
+           blitzball and the variants: `Atel.slnx`; blitzball alone:
+           `Blitzball.slnx` (each of its scripts takes about 2 GB to load); the
+           variants (see "Layout") alone: `Variants.slnx`.
         3. Find a scene in `AREAS.md`: every area with its scripts, the place the
            game shows for each, the workers that have names, and the monsters of
            each battle.
@@ -249,15 +250,22 @@ internal static class ExportCommand {
         (`Events/Ka_ThunderPlains/Kami0000/`, namespace
         `Events.Ka_ThunderPlains.Kami0000`): the script class (`Kami0000.cs`: its
         workers in order and its variables), a file per worker (`Tidus.cs`,
-        `W18.cs`) and `Kami0000.Data.cs` (the header, pools and data that keep the
-        bytes the game's; nothing to edit there). A project per map area
+        `W18.cs`), `Kami0000.Layout.cs` (the header, pins and pools that keep the
+        bytes the game's, also the workers' `[Worker(…)]`) and `Kami0000.Data.cs`
+        (the data areas, also the workers' `[PrivateData]`); nothing to edit in
+        those two. A project per map area
         (`Events/Ka_ThunderPlains/Events.Ka_ThunderPlains.csproj`; blitzball a
         project per script), `Library/` with the base classes of workers shared
         between scripts. Scripts the PC build never loads (the `cn_`, `psv_`,
         `psvcn_` copies and `testpub0`) or loads only behind a debug switch
         (`200thunder_kami0400`, `full_nagi0700`, `dbg_nagi0000`) say so at the top
-        of each file. The projects use the `Ffx.Atel.Sdk` package (the reference
-        assembly the source compiles against, and the analyzers), of the version
+        of each file. They and the developers' test maps and battles (`test*`,
+        `camtest0`, `soundtest`, `sample*`) are the variants: they keep their
+        folders, but have projects of their own (`Events/Te/`, or one per script
+        inside its area's folder, which the area's project leaves out) that only
+        `Variants.slnx` holds, so the other solutions show what the game plays.
+        The projects use the `Ffx.Atel.Sdk` package (the reference assembly the
+        source compiles against, and the analyzers), of the version
         in `global.json`, from the same ffx-atel-sharp build as the source; the
         package is in `.atel/packages/`, which `nuget.config` names (MIT, our
         code, not game data; committed so the solution opens and builds after a

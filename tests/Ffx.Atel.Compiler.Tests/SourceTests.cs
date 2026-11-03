@@ -398,6 +398,73 @@ public sealed class SourceTests {
         Assert.Equal(block.Decode(w)[^1].Offset, w.Entries[1]);
     }
 
+    /// <summary>
+    ///     Named bits of save fields (<c>[Bits]</c> on <see cref="Save"/>): a bit test or set on such a field decompiles
+    ///     to the constant where the mask has a name, a number where it has none or is on another field, and the
+    ///     source compiles back to the same bytes.
+    /// </summary>
+    [Fact]
+    public void SaveBitsDecompileToTheirNames() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M997.M997;
+
+            namespace Monsters.M997;
+
+            [Monster("m997")]
+            [Workers(typeof(W00))]
+            public static partial class M997
+            {
+                [Var(Storage.Save, Save.LightningDodgingRewards)] public static byte[] Rewards = new byte[1];
+                [Var(Storage.Save, Save.CompletionFlagsDarkValefor)] public static byte[] Valefor = new byte[1];
+                [Var(Storage.Save, 0x0a33)] public static byte Other;
+            }
+
+            public sealed class W00 : Worker2
+            {
+                [Entry(0)]
+                void E0()
+                {
+                    if (AsBool(Rewards[0] & 8))
+                    {
+                        Rewards[0] |= 64;
+                    }
+                    Valefor[0] |= 128;
+                    Valefor[0] |= 2;
+                    if (AsBool(Valefor[0] & 129))
+                    {
+                        return;
+                    }
+                    Other |= 1;
+                }
+            }
+            """;
+        SyntaxTree compiled = ScriptCompiler.Parse(source, "m997.cs");
+        Assert.Empty(ScriptCompiler.Check([compiled]));
+        byte[] block = ScriptCompiler.Compile([compiled]).Block();
+        byte[] original = new byte[0x40 + (block.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(original, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(original.AsSpan(4), 0x40);
+        block.CopyTo(original, 0x40);
+
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m997/m997.bin", file);
+        string[] expected = [
+            "LightningDodgingRewards[0] & Save.LightningReward.Streak50",
+            "LightningDodgingRewards[0] |= Save.LightningReward.Bolts30;",
+            "CompletionFlagsDarkValefor[0] |= Save.DarkAeonFlag.Defeated;",
+            "CompletionFlagsDarkValefor[0] |= 2;",                // bit 1 has no name
+            "CompletionFlagsDarkValefor[0] & 129",                // nor has a mask of two bits
+            "Save_0a33 |= 1;",                                    // a field without named bits
+        ];
+        foreach (string line in expected) Assert.Contains(line, d.Source, StringComparison.Ordinal);
+
+        SyntaxTree tree = ScriptCompiler.Parse(d.Source, "m997.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
+    }
+
     /// <summary>The reference assembly's constants (Phase 5): story values and save offsets compile to their numbers.</summary>
     [Fact]
     public void NamedConstantsCompile() {

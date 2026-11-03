@@ -39,10 +39,16 @@ public sealed class LayoutTests {
         byte[] original = SourceTests.MadeUpFile();
         ScriptFile file = ScriptFile.Parse(original);
         List<SourceFile> files = ScriptDecompiler.Decompile(SourceTests.MonsterPath, file).Files();
-        Assert.Equal(["Monsters/M999/M999.cs", "Monsters/M999/M999.Data.cs", "Monsters/M999/W00.cs", "Monsters/M999/W01.cs"], files.Select(f => f.RelativePath));
+        Assert.Equal(["Monsters/M999/M999.cs", "Monsters/M999/M999.Data.cs", "Monsters/M999/M999.Layout.cs", "Monsters/M999/W00.cs", "Monsters/M999/W01.cs"], files.Select(f => f.RelativePath));
         Assert.All(files, f => Assert.Contains("namespace Monsters.M999;", f.Text, StringComparison.Ordinal));
+        // The data areas, also the workers' private data, are in the data part; the pins in the layout part.
         Assert.Contains("[SharedData(", files[1].Text, StringComparison.Ordinal);
-        Assert.Contains("[PrivateData(", files[3].Text, StringComparison.Ordinal);
+        Assert.Contains("[PrivateData(", files[1].Text, StringComparison.Ordinal);
+        Assert.Contains("[Header(", files[2].Text, StringComparison.Ordinal);
+        // The main file and the workers' files hold no layout and no data.
+        foreach (SourceFile code in new[] { files[0], files[3], files[4] }) {
+            foreach (string pin in new[] { "[Header(", "[Pin(", "[Ints(", "[Floats(", "[Worker(", "Data(" }) Assert.DoesNotContain(pin, code.Text, StringComparison.Ordinal);
+        }
 
         // The files' order does not matter: the workers' order is [Workers]'s.
         List<SyntaxTree> trees = Parse(Enumerable.Reverse(files));
@@ -57,20 +63,20 @@ public sealed class LayoutTests {
         DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m997/m997.bin", file);
         List<SourceFile> files = d.Files(splitLines: 1, partLines: 1);
         Assert.Equal(
-            ["Monsters/M997/M997.cs", "Monsters/M997/M997.Data.cs", "Monsters/M997/W00.cs", "Monsters/M997/W00.2.cs", "Monsters/M997/W00.3.cs", "Monsters/M997/W00.4.cs"],
+            ["Monsters/M997/M997.cs", "Monsters/M997/M997.Data.cs", "Monsters/M997/M997.Layout.cs", "Monsters/M997/W00.cs", "Monsters/M997/W00.2.cs", "Monsters/M997/W00.3.cs", "Monsters/M997/W00.4.cs"],
             files.Select(f => f.RelativePath));
-        Assert.Contains("public sealed partial class W00 : Worker2", files[2].Text, StringComparison.Ordinal);
-        Assert.Contains("[Register(0)] public static int I0;", files[2].Text, StringComparison.Ordinal);
-        Assert.Contains("public sealed partial class W00\n", files[5].Text, StringComparison.Ordinal);
+        Assert.Contains("public sealed partial class W00 : Worker2", files[3].Text, StringComparison.Ordinal);
+        Assert.Contains("[Register(0)] public static int I0;", files[3].Text, StringComparison.Ordinal);
+        Assert.Contains("public sealed partial class W00\n", files[6].Text, StringComparison.Ordinal);
 
         // Shuffled, the parts are still taken in path order, so the methods keep their layout.
-        List<SyntaxTree> trees = Parse([files[4], files[2], files[5], files[0], files[3], files[1]]);
+        List<SyntaxTree> trees = Parse([files[5], files[3], files[6], files[0], files[2], files[4], files[1]]);
         Assert.Empty(ScriptCompiler.Check(trees));
         Assert.Equal(original, ScriptCompiler.Compile(trees).ApplyTo(file).ToArray());
 
         // In another order of the parts, the code is laid out differently.
         List<SourceFile> swapped = [.. files];
-        swapped[3] = files[3] with { RelativePath = "Monsters/M997/W00.5.cs" };
+        swapped[4] = files[4] with { RelativePath = "Monsters/M997/W00.5.cs" };
         Assert.NotEqual(original, ScriptCompiler.Compile(Parse(swapped)).ApplyTo(file).ToArray());
     }
 
@@ -88,7 +94,7 @@ public sealed class LayoutTests {
             string folder = Path.Combine(root, "Monsters", "M999");
             Directory.CreateDirectory(Path.Combine(folder, "obj", "Debug"));
             File.WriteAllText(Path.Combine(folder, "obj", "Debug", "Generated.cs"), "this is not C#");
-            Assert.Equal(4, ScriptCompiler.SourceFiles(folder).Count);
+            Assert.Equal(5, ScriptCompiler.SourceFiles(folder).Count);
             Assert.Equal(original, ScriptCompiler.Compile(ScriptCompiler.ParseFolder(folder)).ApplyTo(file).ToArray());
         }
         finally {
@@ -119,6 +125,46 @@ public sealed class LayoutTests {
         foreach (string sln in new[] { "Atel.slnx", "Events.slnx" }) Assert.DoesNotContain("Bltz0000", files.Single(f => f.RelativePath == sln).Text, StringComparison.Ordinal);
         Assert.Contains("Events/Bl_Blitzball/Bltz0000/", files.Single(f => f.RelativePath == "Blitzball.slnx").Text, StringComparison.Ordinal);
         Assert.Contains(files, f => f.RelativePath == ".vscode/extensions.json");
+    }
+
+    [Fact]
+    public void VariantsAreProjectsOfTheirOwnOutOfTheDefaultSolutions() {
+        static SourceNames Event(string group, string map, string name) => SourceNames.ForPath($"ffx_ps2/ffx/master/jppc/event/obj/{group}/{map}/{name}.ebp");
+        SourceNames kami = Event("ka", "kami0400", "kami0400"), thunder = Event("ka", "kami0400", "200thunder_kami0400");
+        SourceNames test = Event("te", "test01", "test01"), pub = Event("te", "testpub0", "testpub0");
+        SourceNames bltz = Event("bl", "bltz0000", "bltz0000"), cn = Event("bl", "bltz0000", "cn_bltz0000");
+        SourceNames testBattle = SourceNames.ForPath("ffx_ps2/ffx/master/jppc/battle/btl/test00_00/test00_00.bin");
+        Assert.True(ProjectLayout.IsVariant(thunder));
+        Assert.True(ProjectLayout.IsVariant(cn));
+        Assert.True(ProjectLayout.IsVariant(test));
+        Assert.True(ProjectLayout.IsVariant(testBattle));
+        Assert.False(ProjectLayout.IsVariant(kami));
+        Assert.False(ProjectLayout.IsVariant(bltz));
+
+        SourceNames[] all = [kami, thunder, test, pub, bltz, cn, testBattle];
+        Dictionary<string, string> projects = ProjectLayout.Assign(all.Select(n => (n, n == bltz || n == cn ? ProjectLayout.AreaLimit : 1000L)));
+        // A variant in an area of loaded scripts gets its own project; an area of variants only stays one.
+        Assert.Equal("Events/Ka_ThunderPlains", projects[kami.Namespace]);
+        Assert.Equal("Events/Ka_ThunderPlains/_200thunder_kami0400", projects[thunder.Namespace]);
+        Assert.Equal("Events/Te", projects[test.Namespace]);
+        Assert.Equal("Events/Te", projects[pub.Namespace]);
+        Assert.Equal("Events/Bl_Blitzball/Cn_bltz0000", projects[cn.Namespace]);
+        HashSet<string> variants = ProjectLayout.VariantFolders(all, projects);
+        Assert.Equal(["Battles/Test", "Events/Bl_Blitzball/Cn_bltz0000", "Events/Ka_ThunderPlains/_200thunder_kami0400", "Events/Te"], variants.Order(StringComparer.Ordinal));
+
+        List<SourceFile> files = ProjectLayout.Files(projects.Values.Distinct(), ["Library"], variants);
+        string Text(string path) => files.Single(f => f.RelativePath == path).Text;
+        foreach (string sln in new[] { "Atel.slnx", "Events.slnx", "Start.slnx", "Blitzball.slnx" }) {
+            foreach (string v in variants) Assert.DoesNotContain(v + "/", Text(sln), StringComparison.Ordinal);
+        }
+        Assert.DoesNotContain("Battles.slnx", files.Select(f => f.RelativePath));       // its only area is a variant
+        foreach (string v in variants) Assert.Contains(v + "/", Text("Variants.slnx"), StringComparison.Ordinal);
+        Assert.Contains("Library/Library.csproj", Text("Variants.slnx"), StringComparison.Ordinal);
+        Assert.Contains("Events/Bl_Blitzball/Bltz0000/", Text("Blitzball.slnx"), StringComparison.Ordinal);
+        // The area's project leaves the variant's folder to the variant's project.
+        Assert.Contains("<DefaultItemExcludes>$(DefaultItemExcludes);_200thunder_kami0400/**</DefaultItemExcludes>",
+            Text("Events/Ka_ThunderPlains/Events.Ka_ThunderPlains.csproj"), StringComparison.Ordinal);
+        Assert.DoesNotContain("DefaultItemExcludes", Text("Events/Te/Events.Te.csproj"), StringComparison.Ordinal);
     }
 
     [Fact]

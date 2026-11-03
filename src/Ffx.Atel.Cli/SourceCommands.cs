@@ -81,7 +81,8 @@ internal static class SourceCommands {
         WriteFiles(output, library.Files());
         File.WriteAllText(Path.Combine(output, AreaIndex.FileName), AreaIndex.Build(archive, [.. files.Select((f, i) => (f.Path, library.Scripts[i]))]));
         Dictionary<string, string> projects = ProjectLayout.Assign(decompiled.Select((d, i) => (d.Names, sizes[i])));
-        WriteProjects(output, projects.Values, library.Classes.Count > 0 ? [SharedLibrary.Namespace] : [], projectOptions ?? ProjectOptions.Default);
+        WriteProjects(output, projects.Values, library.Classes.Count > 0 ? [SharedLibrary.Namespace] : [], projectOptions ?? ProjectOptions.Default,
+                      ProjectLayout.VariantFolders(decompiled.Select(d => d.Names), projects));
         Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{decompiled.Length} scripts in {projects.Values.Distinct().Count()} projects; {LibrarySummary(library)}; dotnet build {Path.Combine(output, ProjectLayout.Solution)}"));
         return 0;
@@ -100,10 +101,11 @@ internal static class SourceCommands {
     ///     <c>nuget.config</c> naming it, so the tree builds without any other package source. Without
     ///     it: the reference assembly beside them in <c>.atel/</c>, which <c>Directory.Build.props</c> points at.
     /// </summary>
-    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders, ProjectOptions options) {
+    internal static void WriteProjects(string root, IEnumerable<string> projectFolders, IReadOnlyCollection<string> libraryFolders, ProjectOptions options,
+                                       IReadOnlySet<string>? variantFolders = null) {
         string tools = Path.Combine(root, ProjectLayout.ToolFolder);
         if (options.Reference == GameReference.Assembly) {
-            WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Assembly, null, localFeed: false));
+            WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Assembly, null, localFeed: false, variantFolders));
             string game = typeof(Atel.Worker).Assembly.Location;
             Directory.CreateDirectory(tools);
             File.Copy(game, Path.Combine(tools, ProjectLayout.GameAssembly), overwrite: true);
@@ -117,7 +119,7 @@ internal static class SourceCommands {
             throw new ArgumentException($"no {ProjectLayout.SdkPackage}.{version}.nupkg {(options.SdkPackage is null ? "beside atel" : "in " + options.SdkPackage)}: " +
                                         "dotnet pack src/Ffx.Atel.Sdk, then --sdk <dir>; or --no-sdk");
         }
-        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Sdk, version, localFeed: package is not null));
+        WriteFiles(root, ProjectLayout.Files(projectFolders, libraryFolders, GameReference.Sdk, version, localFeed: package is not null, variantFolders));
         if (package is not null) {
             string feed = Path.Combine(tools, ProjectLayout.PackageFolder);
             if (Directory.Exists(feed)) Directory.Delete(feed, recursive: true);

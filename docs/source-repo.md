@@ -240,9 +240,27 @@ do: each uses every core and several GB, so they wait for one another.
   workers, notes on scripts the PC build does not load, and per battle its
   monsters.
 - `Start.slnx` (the Thunder Plains and the monsters: open this first),
-  `Atel.slnx` (everything but blitzball), `Events.slnx`, `Battles.slnx`,
-  `Monsters.slnx`, `Blitzball.slnx` (each blitzball script is its own
-  project of about 2 GB to compile), `.vscode/`.
+  `Atel.slnx` (everything but blitzball and the variants), `Events.slnx`,
+  `Battles.slnx`, `Monsters.slnx`, `Blitzball.slnx` (each blitzball script
+  is its own project of about 2 GB to compile), `Variants.slnx` (see below),
+  `.vscode/`.
+- In each script folder, beside the script class and the workers:
+  `<Script>.Layout.cs` (the header, pins and pools, and the workers'
+  `[Worker(…)]`) and `<Script>.Data.cs` (the data areas and the workers'
+  `[PrivateData]`), so that the other files read as code.
+- **Variants**: scripts the PC build does not load or loads only behind a
+  debug switch (the note at the top of their files, from `data/areas.json`:
+  the `cn_`, `psv_`, `psvcn_` copies, `testpub0`, `200thunder_kami0400`,
+  `dbg_nagi0000`, `full_nagi0700`), and the developers' test maps and
+  battles (names with `test`, `sample*`). They stay in their folders, so
+  their namespaces and the paths `compile-all` reads do not change, but
+  each has a project of its own: an area of variants only is one project
+  (`Events/Te/`, `Battles/Test/`); a variant in an area with other scripts
+  is a project inside the area's folder
+  (`Events/Ka_ThunderPlains/_200thunder_kami0400/`), which the area's
+  project leaves out (`DefaultItemExcludes`). Only `Variants.slnx` holds
+  them, blitzball's copies (`Cn_bltz0000`, whose `W36` is the 15.7 MB
+  method) included.
 - The dialogue as comments after each `Text[n]`, in English. Comments only:
   the round trip is unchanged.
 

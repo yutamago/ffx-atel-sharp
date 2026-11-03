@@ -151,8 +151,9 @@ public static class ScriptDecompiler {
         WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]) with { Signature = WorkerSignature.Of(block, w) })];
         // Comments read off the code: who requests each entry, and the story index on the script class.
         workerSources = FlowNotes.Annotate(workers, workerNames, workerSources);
-        WriteData(data, layout.ToString(), names, image);
-        ScriptSource parts = new(names, shortPath, FlowNotes.StoryIndex(workers, workerNames) + main, workerSources, data.Length > 0 ? data.ToString() : null);
+        WriteData(data, names, image);
+        string layoutPart = LayoutComment + layout + $"static partial class {names.ClassName}\n{{\n}}\n";
+        ScriptSource parts = new(names, shortPath, FlowNotes.StoryIndex(workers, workerNames) + main, workerSources, layoutPart, data.Length > 0 ? data.ToString() : null);
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
         placed["entry-override"] = workers.Sum(w => w.Overrides);
@@ -172,7 +173,9 @@ public static class ScriptDecompiler {
             _ => CType.Int,
         };
         Domain? domain = v.Storage == 0 && v.Offset == GameNames.StoryOffset && !v.IsArray ? GameNames.Story : null;
-        return new VarInfo(name, type, v.IsArray, v.RowLength, domain);
+        // A bit-flag save field's masks (Save.LightningReward), for a byte-wide variable at the field's offset.
+        Domain? bits = v.Storage == 0 && type is CType.Byte && GameNames.SaveBits.TryGetValue(v.Offset, out Domain? b) ? b : null;
+        return new VarInfo(name, type, v.IsArray, v.RowLength, domain, bits);
     }
 
     /// <summary>
@@ -222,7 +225,7 @@ public static class ScriptDecompiler {
     /// <summary>
     ///     The script class's main part: its attribute, <c>[Workers]</c> and the variables. The attributes that
     ///     only pin the layout (<c>[Header]</c>, <c>[Pin]</c>, <c>[Patch]</c>, the pools) go to <paramref name="layout"/>,
-    ///     which heads the data part (<c>Bjyt0400.Data.cs</c>), so the main file reads as the script's outline.
+    ///     which becomes the layout part (<c>Bjyt0400.Layout.cs</c>), so the main file reads as the script's outline.
     /// </summary>
     private static void WriteScriptClass(StringBuilder main, StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, bool pinInts, bool pinFloats) {
         main.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
@@ -283,8 +286,10 @@ public static class ScriptDecompiler {
         if (wi.Unknown0C != 0) words.Add($"Word0C = {Hex(wi.Unknown0C, 8)}");
         if (wi.PrivateLength != 0) words.Add($"PrivateLength = {Hex(wi.PrivateLength, 2)}");
         if (words.Count > 0) sb.Append(CultureInfo.InvariantCulture, $"[Worker({string.Join(", ", words)})]\n");
+        string pins = sb.ToString();
+        sb.Clear();
         if (wi.Private is not null) WriteDataAttribute(sb, "PrivateData", wi.Private);
-        string attributes = sb.ToString();
+        string privateData = sb.ToString();
         sb.Clear();
         SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
         foreach ((RegKind kind, int n) in registers) {
@@ -292,7 +297,7 @@ public static class ScriptDecompiler {
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
-        return new WorkerSource(name, w, attributes, $"Worker{wi.Type}", sb.ToString());
+        return new WorkerSource(name, w, "", $"Worker{wi.Type}", sb.ToString()) { Pins = pins, PrivateData = privateData };
     }
 
     /// <summary>The C# name of each native (<c>Btl.SetStat</c>), from the reference assembly.</summary>
@@ -305,15 +310,18 @@ public static class ScriptDecompiler {
 
     // ----- Data ------------------------------------------------------------------------------
 
-    /// <summary>The data part of the script class: the layout pins (<paramref name="layout"/>), then the data areas as hex.</summary>
-    private static void WriteData(StringBuilder sb, string layout, SourceNames names, ScriptImage image) {
+    /// <summary>The comment at the top of the layout part.</summary>
+    private const string LayoutComment =
+        "// What keeps the compiled script byte for byte the game's: the header, the layout and the\n// constant pools. Nothing here needs editing.\n";
+
+    /// <summary>The data part of the script class: the data areas as hex; nothing when the script has none.</summary>
+    private static void WriteData(StringBuilder sb, SourceNames names, ScriptImage image) {
         (string Name, byte[]? Data)[] areas = [
             ("MapData", image.Map), ("SharedData", image.Shared), ("OtherData", image.Other),
             ("EventData", image.Event), ("AreaData", image.Area),
         ];
-        if (areas.All(a => a.Data is null) && layout.Length == 0) return;
-        sb.Append("// What keeps the compiled script byte for byte the game's: the header, the layout and the\n// constant pools, then the data areas. Nothing here needs editing.\n");
-        sb.Append(layout);
+        if (areas.All(a => a.Data is null)) return;
+        sb.Append(ScriptSource.DataComment);
         foreach ((string name, byte[]? data) in areas) {
             if (data is not null) WriteDataAttribute(sb, name, data);
         }

@@ -19,7 +19,11 @@ public sealed record SourceFile(string RelativePath, string Text);
 ///         <item>one file per worker, <c>W03.cs</c>; a big worker as <c>partial</c> parts, <c>W36.cs</c>,
 ///         <c>W36.2.cs</c>, … split between members (the parts' order is the order of their paths
 ///         without <c>.cs</c>, which is the order the compiler lays the methods out in);</item>
-///         <item><c>Bjyt0400.Data.cs</c>: the data areas, a second part of the script class.</item>
+///         <item><c>Bjyt0400.Layout.cs</c>: what only pins the compiled layout, so that the other files read as
+///         code: the header, <c>[Pin]</c>, <c>[Patch]</c> and the constant pools on a part of the script class,
+///         and each worker's <c>[Worker(…)]</c> on a part of the worker;</item>
+///         <item><c>Bjyt0400.Data.cs</c>: the data areas, on a part of the script class, and the workers'
+///         <c>[PrivateData]</c> (absent when the script has none of them).</item>
 ///     </list>
 ///     The worker order is <c>[Workers]</c>'s, not the files'.
 /// </summary>
@@ -45,7 +49,7 @@ public static class SourceLayout {
             string prelude = script.Prelude(w.Body.Length == 0 ? script.LibraryNamespaces : []);
             List<string> parts = Split(w.AnnotatedBody, splitLines, partLines);
             if (parts.Count == 1) {
-                files.Add(new($"{folder}/{w.Name}.cs", prelude + w.Text));
+                files.Add(new($"{folder}/{w.Name}.cs", prelude + w.FileText));
                 continue;
             }
             int digits = parts.Count.ToString(CultureInfo.InvariantCulture).Length;
@@ -58,7 +62,8 @@ public static class SourceLayout {
                 files.Add(new($"{folder}/{w.Name}{suffix}.cs", sb.ToString()));
             }
         }
-        if (script.Data is not null) files.Add(new($"{folder}/{cls}.Data.cs", script.Prelude() + script.Data));
+        files.Add(new($"{folder}/{cls}.Layout.cs", script.Prelude() + script.LayoutPart()));
+        if (script.DataPart() is string data) files.Add(new($"{folder}/{cls}.Data.cs", script.Prelude() + data));
         files.Sort((a, b) => SourceOrder.Compare(a.RelativePath, b.RelativePath));
         return files;
     }

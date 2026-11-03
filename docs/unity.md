@@ -78,8 +78,8 @@ this one; this worker only waits.
 ## Reading a decompiled script
 
 - The script's folder (`Events/Ka_ThunderPlains/Kami0000/`) has the script class
-  (`Kami0000.cs`, the list of workers in `[Workers(…)]` order), one file per worker, and the data
-  (`Kami0000.Data.cs`, bytes you do not edit).
+  (`Kami0000.cs`, the list of workers in `[Workers(…)]` order), one file per worker, the layout
+  (`Kami0000.Layout.cs`) and the data (`Kami0000.Data.cs`): bytes you do not edit.
 - Attributes such as `[Header]`, `[Pin]`, `[Ints]`, `[Floats]` and `[Labels]` are there so that the
   source compiles back to exactly the game's bytes. Read past them.
 - `if (false) { … }` is code the developers turned off; it is kept because it is in the file.

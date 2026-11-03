@@ -68,7 +68,7 @@ public sealed record SharedLibrary(IReadOnlyList<ScriptSource> Scripts, IReadOnl
 ///     its script declares (variables, workers, the script class): the library compiles on its own, and
 ///     the same text compiles to the same code in every script, since everything else it names
 ///     (natives, registers, constants by value, request numbers) means the same everywhere. Attributes
-///     (<c>[Worker]</c>, <c>[PrivateData]</c>) stay on each worker.
+///     (<c>[Worker]</c>, <c>[PrivateData]</c>) stay with each worker, in its script's layout and data parts.
 /// </remarks>
 public static class SharedWorkers {
     /// <summary>
@@ -146,7 +146,7 @@ public static class SharedWorkers {
     /// <summary>What a script declares that its workers can name: the script class, its fields, its workers.</summary>
     private static HashSet<string> DeclaredNames(ScriptSource s) {
         HashSet<string> names = [s.Names.ClassName, .. s.Workers.Select(w => w.Name)];
-        SyntaxNode root = CSharpSyntaxTree.ParseText(s.ScriptClass + (s.Data ?? "")).GetRoot();
+        SyntaxNode root = CSharpSyntaxTree.ParseText(s.ScriptClass + s.Layout + (s.Data ?? "")).GetRoot();
         foreach (MemberDeclarationSyntax m in root.DescendantNodes().OfType<ClassDeclarationSyntax>().SelectMany(c => c.Members)) {
             switch (m) {
                 case FieldDeclarationSyntax f: names.UnionWith(f.Declaration.Variables.Select(v => v.Identifier.ValueText)); break;
