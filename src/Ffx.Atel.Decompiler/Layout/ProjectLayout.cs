@@ -28,9 +28,10 @@ public enum GameReference {
 /// <remarks>
 ///     A project is a folder: events and battles by map area (<c>Events/Bj/Events.Bj.csproj</c>), monsters
 ///     as one project, blitzball a project per script (see <see cref="Assign"/>). Its <c>.cs</c> files are
-///     found by the SDK's default glob. Besides <c>Atel.slnx</c> with every project, <c>Events.slnx</c>,
-///     <c>Battles.slnx</c> and <c>Monsters.slnx</c> hold one category each: the whole corpus at once
-///     needs about 22 GB to compile.
+///     found by the SDK's default glob. Besides <c>Atel.slnx</c> with every project but the single-script ones
+///     (blitzball, in <c>Blitzball.slnx</c>), <c>Events.slnx</c>, <c>Battles.slnx</c> and <c>Monsters.slnx</c> hold one
+///     category each, and <c>Start.slnx</c> a small set to begin with: the whole corpus at once needs about 22 GB to
+///     compile. <c>.vscode/</c> recommends C# Dev Kit and opens <c>Start.slnx</c>.
 /// </remarks>
 public static class ProjectLayout {
     /// <summary>The folder the root files point at for the reference assembly, relative to the root.</summary>
@@ -107,12 +108,57 @@ public static class ProjectLayout {
             List<string> references = libraryFolders.Contains(p) ? [] : [.. libraryFolders.Select(l => Relative(p, ProjectFile(l)))];
             files.Add(new(ProjectFile(p), Project(p, references, sdk ? SdkPackage : "Microsoft.NET.Sdk")));
         }
-        files.Add(new(Solution, SolutionFile(projects)));
-        foreach (IGrouping<string, string> category in projects.Where(p => !libraryFolders.Contains(p)).GroupBy(p => p.Split('/')[0], StringComparer.Ordinal)) {
+        // The projects of a single script (blitzball, about 2 GB each to compile) stay out of the default
+        // solutions: Blitzball.slnx holds them.
+        List<string> big = [.. projects.Where(IsScriptProject)];
+        List<string> normal = [.. projects.Except(big)];
+        files.Add(new(Solution, SolutionFile(normal)));
+        foreach (IGrouping<string, string> category in normal.Where(p => !libraryFolders.Contains(p)).GroupBy(p => p.Split('/')[0], StringComparer.Ordinal)) {
             files.Add(new(category.Key + ".slnx", SolutionFile([.. category, .. libraryFolders])));
         }
+        if (big.Count > 0) files.Add(new(BigSolution, SolutionFile([.. big, .. libraryFolders])));
+        // A small solution to start with: the Thunder Plains (the tutorial's Larva lives there) and the monsters.
+        List<string> start = [.. normal.Where(p => libraryFolders.Contains(p) || p == "Monsters" || StartAreas.Any(a => p.StartsWith(a, StringComparison.Ordinal)))];
+        if (start.Count > libraryFolders.Count) files.Add(new(StartSolution, SolutionFile(start)));
+        files.Add(new(".vscode/extensions.json", VsCodeExtensions));
+        files.Add(new(".vscode/settings.json", VsCodeSettings(start.Count > libraryFolders.Count ? StartSolution : Solution)));
         return files;
     }
+
+    /// <summary>The solution with the projects of single scripts (<see cref="AreaLimit"/>): blitzball.</summary>
+    public const string BigSolution = "Blitzball.slnx";
+
+    /// <summary>The small solution to open first.</summary>
+    public const string StartSolution = "Start.slnx";
+
+    /// <summary>The areas <see cref="StartSolution"/> holds besides the monsters.</summary>
+    private static readonly string[] StartAreas = ["Events/Ka_", "Battles/Kami_"];
+
+    /// <summary>A project of one script (<c>Events/Bl_Blitzball/Bltz0000</c>) rather than of an area.</summary>
+    private static bool IsScriptProject(string folder) => folder.Split('/').Length >= 3;
+
+    private const string VsCodeExtensions = """
+        {
+          "recommendations": [
+            "ms-dotnettools.csdevkit"
+          ]
+        }
+
+        """;
+
+    private static string VsCodeSettings(string solution) => $$"""
+        {
+          "dotnet.defaultSolution": "{{solution}}",
+          "files.exclude": {
+            "**/bin": true,
+            "**/obj": true
+          },
+          "search.exclude": {
+            ".atel": true
+          }
+        }
+
+        """;
 
     private static string SolutionFile(IEnumerable<string> projects) {
         StringBuilder sln = new("<Solution>\n");

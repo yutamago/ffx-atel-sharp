@@ -36,6 +36,8 @@ public sealed record ScriptSource(SourceNames Names, string ShortPath, string Sc
     public string Prelude(params IEnumerable<string> extraUsings) {
         StringBuilder sb = new();
         sb.Append(CultureInfo.InvariantCulture, $"// {ShortPath}, decompiled by atel.\n");
+        // A script the PC build does not load, or loads only behind a debug switch (data/areas.json).
+        if (AreaNames.ScriptNote(Names.Name) is string note) sb.Append(CultureInfo.InvariantCulture, $"// {note}\n");
         sb.Append("using Ffx;\nusing Ffx.Atel;\n");
         foreach (string u in extraUsings) sb.Append(CultureInfo.InvariantCulture, $"using {u};\n");
         sb.Append(CultureInfo.InvariantCulture, $"using static {Names.Namespace}.{Names.ClassName};\n\n");

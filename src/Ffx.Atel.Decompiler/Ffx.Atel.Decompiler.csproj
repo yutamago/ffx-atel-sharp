@@ -15,4 +15,8 @@
         <!-- Hand-written English names (docs/plan.md, Decisions 2026-11-02). -->
         <EmbeddedResource Include="../../data/actor-names.json" LogicalName="actor-names.json" />
     </ItemGroup>
+    <ItemGroup>
+        <!-- Hand-written English names (docs/plan.md, Decisions 2026-11-02). -->
+        <EmbeddedResource Include="../../data/areas.json" LogicalName="areas.json" />
+    </ItemGroup>
 </Project>

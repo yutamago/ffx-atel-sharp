@@ -10,7 +10,9 @@ Four parts:
   source;
 - the VS Code extension (`editors/vscode`) shows them as inlay hint and hover;
 - the Rider plugin (`editors/rider`) does the same in Rider;
-- `atel decompile --text-comments <lang>` writes them as `// "…"` comments, for reading anywhere else.
+- `atel decompile --text-comments <lang>` writes them as `// "…"` comments, for reading anywhere else;
+  `atel export` writes the English ones into the private source repo (`--text-comments <lang>`,
+  `--no-text-comments`).
 
 ## Where the messages are
 

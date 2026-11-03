@@ -43,12 +43,13 @@ below).
 ## Scripts
 
 A script is a folder and a namespace. `atel decompile <script> -o <dir>` writes
-`<dir>/Monsters/M209/`, `<dir>/Events/Bj/Bjyt0400/`, `<dir>/Battles/Kino/Kino00_00/`:
+`<dir>/Monsters/M209/`, `<dir>/Events/Bj_BaajTemple/Bjyt0400/`, `<dir>/Battles/Kino_MushroomRock/Kino00_00/`
+(the map code with the area's English name where `data/areas.json` has one):
 
 | File | Holds |
 |---|---|
-| `M209.cs` | the **script class**: the file it is, its workers in order, layout pins, its variables |
-| `M209.Data.cs` | the second part of the script class: the data areas as hex |
+| `M209.cs` | the **script class**: the file it is, its workers in order, its variables |
+| `M209.Data.cs` | the second part of the script class: the layout pins (`[Header]`, `[Pin]`, the pools) and the data areas as hex |
 | `W01.cs`, `RikkA.cs`, … | one file per worker; a big worker is `partial` over `W36.cs`, `W36.2.cs`, … |
 
 The script class is `public static partial class`, with one of `[Event("bjyt0400")]`,
@@ -601,7 +602,8 @@ constant by pool index (`Pooled`, or `pushc`/`pushfc` in `Asm`).
 ## Layout pins
 
 Attributes on the script class for what the language has no construct for, so that the compiler
-gives back the original block. **Decompiler only.**
+gives back the original block. **Decompiler only.** The decompiler puts them on the data part
+(`M209.Data.cs`); the compiler reads them from any part of the script class.
 
 | Attribute | Pins |
 |---|---|

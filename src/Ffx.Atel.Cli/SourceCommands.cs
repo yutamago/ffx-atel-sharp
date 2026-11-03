@@ -20,8 +20,8 @@ namespace Ffx.Atel.Cli;
 internal static class SourceCommands {
     public const string Usage = """
           decompile <script>... [-o <dir>] to C#: a folder per script, <dir>/<Namespace as folders>/,
-                                           with a file per worker, and projects, a solution and
-                                           Directory.Build.props (else one file to stdout);
+                                           with a file per worker, and projects, solutions,
+                                           Directory.Build.props and AREAS.md (else one file to stdout);
                                            `all` for every script; --text-comments <lang> writes
                                            // "…" with the message after each Text[n] (comments only)
           compile <dir|file.cs> -o <out> [--library <dir>]
@@ -79,6 +79,7 @@ internal static class SourceCommands {
             WriteFiles(output, sources);
         });
         WriteFiles(output, library.Files());
+        File.WriteAllText(Path.Combine(output, AreaIndex.FileName), AreaIndex.Build(archive, [.. files.Select((f, i) => (f.Path, library.Scripts[i]))]));
         Dictionary<string, string> projects = ProjectLayout.Assign(decompiled.Select((d, i) => (d.Names, sizes[i])));
         WriteProjects(output, projects.Values, library.Classes.Count > 0 ? [SharedLibrary.Namespace] : [], projectOptions ?? ProjectOptions.Default);
         Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
