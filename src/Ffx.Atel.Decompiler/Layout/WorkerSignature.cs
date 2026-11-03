@@ -45,12 +45,5 @@ public static class WorkerSignature {
     private static string Relative(uint offset, Bytecode.Script.Worker worker) =>
         offset >= worker.Start ? (offset - worker.Start).ToString(CultureInfo.InvariantCulture) : "-" + (worker.Start - offset).ToString(CultureInfo.InvariantCulture);
 
-    internal static string Operand(ScriptBlock block, int w, OperandKind kind, ushort v) => kind switch {
-        OperandKind.Int => block.IntConst(w, v) is int c ? "=" + c.ToString(CultureInfo.InvariantCulture) : "c" + v.ToString(CultureInfo.InvariantCulture),
-        OperandKind.Float => block.FloatConst(w, v) is float f ? "=f" + BitConverter.SingleToUInt32Bits(f).ToString("x8", CultureInfo.InvariantCulture) : "f" + v.ToString(CultureInfo.InvariantCulture),
-        OperandKind.Var => block.Variable(w, v) is var (location, length)
-            ? "=v" + location.ToString("x8", CultureInfo.InvariantCulture) + ":" + length.ToString(CultureInfo.InvariantCulture)
-            : "v" + v.ToString(CultureInfo.InvariantCulture),
-        _ => v.ToString(CultureInfo.InvariantCulture),
-    };
+    internal static string Operand(ScriptBlock block, int w, OperandKind kind, ushort v) => DeadSignature.Operand(block, w, kind, v);
 }

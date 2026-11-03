@@ -131,6 +131,32 @@ entries, workers and variables) is in the plan, "Phase 9: mods".
 `mod.toml` next to the project (optional) holds `after`, `requires` and
 `incompatible`.
 
+### Switching dead code on
+
+The decompiled source names some of the code the game never runs:
+`if (Cut.ZanarkandCrowdFacingReaction) { … }` is `if (false)`, and each
+constant of `Ffx.Cut` says in its doc comment what the block does
+([research/dead-code.md](research/dead-code.md)). A mod runs such a block
+with an assembly attribute, in any of its files:
+
+```csharp
+using Ffx;
+using Ffx.Atel;
+
+[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]
+```
+
+A file with only these lines needs no namespace and no vanilla source. The
+build puts the switch into the package of every script that has the block
+(`znkd1300` here), and the loader turns the block's `jmp` into a no-op of the
+same length in your copy of the script, so the block runs as if it were
+`if (true)` and nothing else in the script changes. If your copy does not
+have the block (another game version), the build stops; if a file the loader
+links does not, that script's package is left out with an error in the
+report. Several mods may enable the same name. A block may change the save
+(`HighroadBattleLine335Tidus` marks its line as seen), so read the doc
+comment first.
+
 ### Properties
 
 | Property | Default | Meaning |
@@ -175,6 +201,9 @@ What happens:
      mod.toml                        when the project has one
      atel/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin.json
    ```
+
+   With `[assembly: EnableCut(…)]`, the packages of the scripts the named
+   blocks are in carry them too (`"cuts"`, format 2).
 
 The compiled DLL is only the C# check. It contains the vanilla code, so it
 stays in `obj/` and is copied nowhere. Without `FFX_GAME_DIR` or

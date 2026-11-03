@@ -7,8 +7,8 @@ as `if (false) { … }` (or `if (false) { … } else { … }`), and the plan kee
 every block as it is ("Decisions (user)": the dead blocks stay; "Later: find
 out what each one does and make it switchable at run time"). This page is step
 1 of that work, done without running the game: a catalogue of all blocks, what
-they are, a few names for the ones we understand, and how the loader could
-switch a named block on later.
+they are, a few names for the ones we understand, and how a mod switches a
+named block on when the loader links it (built after the catalogue).
 
 Numbers are from `atel dead` at ffx-atel-sharp `e98c150` plus this change, over all
 1,621 scripts.
@@ -278,7 +278,8 @@ if (Common.WorkerInRadius(0, 65f))
   `Cut` is an error, and a Cut name anywhere but as the whole condition of an
   `if` is one too.
 - The names are keyed by the block's signature in `data/cut-names.toml`
-  (`[cuts]`, `"signature" = "Name"`), embedded in the decompiler like
+  (`[cuts]`, `"signature" = "Name"`; `[scripts]` lists the scripts each
+  name's blocks are in, for switching them on), embedded in the decompiler like
   `data/library-names.toml`. The signature does not change when the decompiler's
   C# does, nor with the worker or label numbers around it. Several signatures
   may share a name: the copies of one feature in several workers are one
@@ -297,24 +298,79 @@ if (Common.WorkerInRadius(0, 65f))
 Named now: `ZanarkandCrowdFacingReaction` (29 blocks), `HighroadBattleLine335Tidus`,
 `HighroadBattleLine336AuronTidus`.
 
-## Switching a block on (design, not built)
+## Switching a block on
 
-The loader could run a named block without changing anything else in the
-script. A named block is a `jmp L` (3 bytes: `b0 lo hi`) over code that ends
-at `L`; for `if (false) A else B`, `A` ends in a `jmp` over `B`.
+A named block can run without changing anything else in the script. It is
+a `jmp L` (3 bytes: `b0 lo hi`) over code that ends at `L`; for `if (false)
+A else B`, `A` ends in a `jmp` over `B`.
 
-**At link time.** The linker replaces the block's `jmp` with `nop_76`
-and the same operand (`f6 lo hi`, a no-op with an operand, 38 in the
-vanilla corpus). The code is the same length, nothing moves, the label table
-stays (its entry for `L` is just not jumped to from there). The block then
-runs where it stands, and with an `else` its own trailing `jmp` skips `B`:
-exactly `if (true)`. The linker finds the `jmp` by signature, as the
-decompiler does, so it needs no offsets and works on the player's files. A
-mod would list the names it turns on (a `cuts = ["ZanarkandCrowdFacingReaction"]`
-entry in its package, or `[assembly: EnableCut(nameof(Cut.…))]` in its
-source), and the loader would apply them when it links, in load order.
+**At link time (built).** The linker replaces the block's `jmp` with
+`nop_76` and the same operand (`f6 lo hi`, a no-op with an operand, 38 in
+the vanilla corpus). The code is the same length, nothing moves, the label
+table stays (its entry for `L` is just not jumped to from there). The block
+then runs where it stands, and with an `else` its own trailing `jmp` skips
+`B`: exactly `if (true)`.
 
-**At run time.** For a switch that a config or a debug UI flips while the
+A mod enables a name in its C#, in any file (a `Cuts.cs` with no namespace
+is enough):
+
+```csharp
+using Ffx;
+using Ffx.Atel;
+
+[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]
+```
+
+Why an assembly attribute and not a `cuts = [...]` line in `mod.toml`: the
+C# compiler checks the name (`nameof` of a `Cut` constant; a typo does not
+build), the IDE completes it and shows its doc comment, and the switch lives
+with the mod's code. `mod.toml` holds only how mods relate to each other and
+is read by the loader, which would then need the names file and a scan of
+the player's files to find the scripts.
+
+What happens:
+
+1. `atel compile-mod` (run by the SDK's build) reads the name's signatures
+   and scripts from `data/cut-names.toml` (`[scripts]`: `ZanarkandCrowdFacingReaction
+   = ["znkd1300"]`), counts the blocks with those signatures in the player's
+   copy of each script, and adds a `cuts` entry to that script's package
+   (a new package when the mod changes nothing else there):
+   `{ "name": "ZanarkandCrowdFacingReaction", "signatures": [ … ], "blocks": 29 }`.
+   A package with cuts has format 2, so a linker from before refuses it
+   instead of dropping the switch. A name that is not in the file, or whose
+   blocks the player's script does not have, stops the build.
+2. The linker finds the blocks in the player's file by signature, in the
+   bytecode alone (`DeadJumps` in `Ffx.Atel.Bytecode`; the loader has no
+   decompiler): every forward `jmp` whose skipped code (for an `else`,
+   without the last `jmp`) has one of the signatures, and which nothing
+   else reaches (no jump from outside lands in it, no entry starts in it).
+   It needs no offsets, so it works on any copy with the same code.
+3. It checks that it found the package's number of blocks and that each
+   starts with `b0 lo hi`, then writes `f6` over the `b0`. A different count
+   or other bytes (another game version, a file another tool changed) is an
+   error in the report, and that mod's package for the script is left out.
+   Two mods that enable the same block are fine: the second finds the same
+   jumps and the report says it was already on.
+4. The jumps are changed in the vanilla file before any other mod's code is
+   laid out, so a postfix on the same entry runs after a copy that has the
+   block on. A package with only cuts gives the vanilla file with those
+   jumps changed: no code moves, the file keeps its length.
+
+Checked on the corpus (`CutCorpusTests`, through the package `atel
+compile-mod` writes): each of the three names links onto the vanilla file,
+at exactly the jumps the decompiler names (`HighroadBattleLine335Tidus`
+`system_01` w03 `@d94c`, `HighroadBattleLine336AuronTidus` `@d9a6`,
+`ZanarkandCrowdFacingReaction` 29 jumps in `znkd1300` from w01 `@03e6` to w25
+`@19600`); in each 3-byte `jmp` only the opcode byte changes, and every other
+byte of the file is the vanilla one. A second mod with the same name gives
+the same file. The signatures occur in no other script. Not run in game
+yet: what the three blocks do when they run is the next step, with the game.
+
+Decompiling a linked file is not supported: the structurer fails on the
+crowd's switched-on blocks (their loop is live then); nothing needs it, as
+mods are compiled against the vanilla source.
+
+**At run time (design, not built).** For a switch that a config or a debug UI flips while the
 game runs, the linker would point the `jmp` at a stub after the code region
 (as mod packages already move code there):
 

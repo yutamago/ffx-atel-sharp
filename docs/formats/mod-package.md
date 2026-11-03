@@ -103,6 +103,16 @@ each vanilla part, so a package never contains game code.
   Entries and replacements end in `end` (`ret` in a function worker);
   prefixes and postfixes run off their end into what follows.
 
+- **`cuts`**: named dead blocks the mod switches on
+  (`[assembly: EnableCut(nameof(Cut.…))]`;
+  [research/dead-code.md](../research/dead-code.md#switching-a-block-on)):
+  `{ "name": "ZanarkandCrowdFacingReaction", "signatures": [ "377cdffd6bbcf32a", … ], "blocks": 29 }`,
+  the signatures of the blocks' code (`data/cut-names.toml`) and how many
+  the script has. The linker finds them by signature, checks the count and
+  that each starts with `jmp L` (`b0 lo hi`), and writes `nop_76 L` (`f6 lo
+  hi`) there, before any code is laid out; a package with only cuts leaves
+  the rest of the file as it is. A package with `cuts` has `"format": 2`;
+  others stay 1. Left out when there are none.
 - **`debugStrings`**: the texts of the package's `Debug.Print` calls; the
   code pushes each one's id ([debug.md](debug.md)). Left out when there are
   none.
@@ -127,7 +137,8 @@ kernel tables), and `inject` patches.
 `ScriptLinker.Link(vanilla file, packages in load order)` per script; the
 loader runs it for every file any enabled mod has a package for.
 
-1. **Check.** A package whose hashes do not match the player's file, or
+1. **Check.** A package whose hashes do not match the player's file, whose
+   `cuts` are not all there, or
    that refers to anything it does not declare, is left out for this script
    (an error in the report); the other mods' packages still apply.
 2. **Number.** In load order: new variables get the next table indices,

@@ -142,9 +142,43 @@ public sealed class DeadCodeTests {
     [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n\"0123456789abcdef\" = \"B\"\n", "named twice")]
     [InlineData("\"0123456789abcdef\" = \"A\"\n", "before any section")]
     [InlineData("[classes]\n", "unknown section")]
+    [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n[scripts]\nB = [\"znkd1300\"]\n", "names no block")]
+    [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n[scripts]\nA = []\n", "lists no script")]
+    [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n[scripts]\nA = [\"Znkd1300\"]\n", "not a quoted script name")]
+    [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n[scripts]\nA = \"znkd1300\"\n", "a list of quoted script names")]
+    [InlineData("[cuts]\n\"0123456789abcdef\" = \"A\"\n[scripts]\nA = [\"a\"]\nA = [\"b\"]\n", "listed twice")]
     public void ABadCutNamesFileStops(string text, string message) {
         FormatException ex = Assert.Throws<FormatException>(() => CutNames.Parse(text, "test.toml"));
         Assert.Contains(message, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACutNamesFileListsTheScriptsOfEachName() {
+        CutNames cuts = CutNames.Parse("""
+            [cuts]
+            "0123456789abcdef" = "A"    # a comment
+            "fedcba9876543210" = "A"
+            "1111111111111111" = "B"
+
+            [scripts]
+            A = ["znkd1300", "system_01"]   # and another
+            """, "test.toml");
+        Assert.Equal(["0123456789abcdef", "fedcba9876543210"], cuts.SignaturesOf("A"));
+        Assert.Equal(["znkd1300", "system_01"], cuts.Scripts["A"]);
+        Assert.False(cuts.Scripts.ContainsKey("B"));
+        Assert.Empty(cuts.SignaturesOf("C"));
+    }
+
+    [Fact]
+    public void ASwitchCountsTheBlocksOfAName() {
+        ScriptFile file = ScriptFile.Parse(File());
+        string signature = ScriptDecompiler.Decompile(Path, file, deadBlocks: true, cuts: CutNames.Empty).DeadBlocks[1].Signature;
+        CutNames cuts = CutNames.Parse($"[cuts]\n\"{signature}\" = \"HighroadBattleLine335Tidus\"\n", "test.toml");
+        Linker.CutSwitch? cut = cuts.Switch("HighroadBattleLine335Tidus", file.Script);
+        Assert.NotNull(cut);
+        Assert.Equal(1, cut.Blocks);
+        Assert.Equal([signature], cut.Signatures);
+        Assert.Null(cuts.Switch("Other", file.Script));
     }
 
     /// <summary>data/cut-names.toml and Ffx.Cut name the same blocks: every name is a constant false, every constant has a block.</summary>
@@ -155,5 +189,7 @@ public sealed class DeadCodeTests {
         Assert.NotEmpty(CutNames.Default.Names);
         Assert.Equal(constants.Order(StringComparer.Ordinal), CutNames.Default.Names.Values.Distinct().Order(StringComparer.Ordinal));
         Assert.Equal(constants.Count, typeof(Cut).GetFields(BindingFlags.Public | BindingFlags.Static).Length);
+        // Every name lists its scripts, for [assembly: EnableCut(…)].
+        Assert.Equal(constants.Order(StringComparer.Ordinal), CutNames.Default.Scripts.Keys.Order(StringComparer.Ordinal));
     }
 }

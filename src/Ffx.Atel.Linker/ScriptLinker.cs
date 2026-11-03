@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+using System.Globalization;
 using Ffx.Atel.Bytecode.Script;
 
 namespace Ffx.Atel.Linker;
@@ -72,16 +73,46 @@ public static class ScriptLinker {
         LinkResult result = new() { File = vanillaFile };
 
         List<ModScript> accepted = [];
+        Dictionary<uint, DeadJump> cutJumps = [];
         foreach (ModScript mod in mods) {
             List<string> problems = Validate(mod.Package, vanilla);
             if (firstMessage is null && NewMessages(mod.Package).Any()) problems.Add("the script has no message table for Text.New (a monster's messages are the battle's)");
+            List<(CutSwitch Cut, List<DeadJump> Jumps)> cuts = problems.Count == 0 ? FindCuts(mod.Package, file, problems) : [];
             if (problems.Count > 0) {
                 foreach (string p in problems) result.Messages.Add(new(LinkSeverity.Error, mod.Mod, $"{mod.Package.Script}: {p}; not applied"));
                 continue;
             }
+            foreach ((CutSwitch cut, List<DeadJump> jumps) in cuts) {
+                string where = string.Join(", ", jumps.Select(j => string.Create(CultureInfo.InvariantCulture, $"w{j.Worker:d2} @{j.Offset:x4}")));
+                bool again = jumps.All(j => cutJumps.ContainsKey(j.Offset));
+                result.Messages.Add(new(LinkSeverity.Info, mod.Mod,
+                    $"{mod.Package.Script}: switched on Cut.{cut.Name}, {jumps.Count} block(s): {where}{(again ? " (already on by an earlier mod)" : "")}"));
+                foreach (DeadJump j in jumps) cutJumps.TryAdd(j.Offset, j);
+            }
             accepted.Add(mod);
         }
         if (accepted.Count == 0) return result;
+
+        if (cutJumps.Count > 0) {
+            // The switched-on blocks: each `jmp L` becomes `nop_76 L`, the same length, so nothing moves and the
+            // rest of the file stays byte for byte. Done on the vanilla file before any code is laid out, so
+            // the mods' copies of vanilla code (postfix bodies) carry it too.
+            byte[] switched = file.ToArray();
+            try {
+                foreach (DeadJump j in cutJumps.Values.OrderBy(j => j.Offset)) SwitchOn(switched, file, j);
+            }
+            catch (LinkException ex) {
+                result.Messages.Add(new(LinkSeverity.Error, "", $"{accepted[0].Package.Script}: {ex.Message}; no mod applied to this script"));
+                return result;
+            }
+            if (accepted.All(m => OnlyCuts(m.Package))) {
+                result.File = switched;
+                result.Applied.AddRange(accepted.Select(m => m.Mod));
+                return result;
+            }
+            file = ScriptFile.Parse(switched);
+            vanilla = ScriptImage.FromBlock(file.Script);
+        }
 
         State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0);
         try {
@@ -102,6 +133,48 @@ public static class ScriptLinker {
             return result;
         }
     }
+
+    // ----- Cuts (named dead blocks a mod switches on) ------------------------------------------
+
+    /// <summary>
+    ///     The blocks of a package's <see cref="ScriptPackage.Cuts"/> in the vanilla file, by signature; a cut
+    ///     whose blocks are not all there (another game version, a file another tool changed) is a problem.
+    /// </summary>
+    private static List<(CutSwitch Cut, List<DeadJump> Jumps)> FindCuts(ScriptPackage p, ScriptFile file, List<string> problems) {
+        List<(CutSwitch, List<DeadJump>)> found = [];
+        foreach (CutSwitch cut in p.Cuts ?? []) {
+            if (cut.Signatures is not { Length: > 0 } || cut.Blocks < 1) {
+                problems.Add($"Cut.{cut.Name}: no signatures or no blocks");
+                continue;
+            }
+            List<DeadJump> jumps = DeadJumps.Find(file.Script, cut.Signatures.ToHashSet(StringComparer.Ordinal));
+            if (jumps.Count != cut.Blocks) {
+                problems.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Cut.{cut.Name}: found {jumps.Count} of its {cut.Blocks} dead block(s) (signatures {string.Join(", ", cut.Signatures)}); the script is not the one the mod was built against"));
+                continue;
+            }
+            found.Add((cut, jumps));
+        }
+        return found;
+    }
+
+    /// <summary>
+    ///     Turns a dead block's <c>jmp L</c> (<c>b0 lo hi</c>) at <paramref name="j"/> into <c>nop_76 L</c>
+    ///     (<c>f6 lo hi</c>) in <paramref name="bytes"/>, a copy of <paramref name="file"/>.
+    /// </summary>
+    /// <exception cref="LinkException">The three bytes there are not that <c>jmp</c>.</exception>
+    private static void SwitchOn(byte[] bytes, ScriptFile file, DeadJump j) {
+        int at = file.SectionStart + file.Script.CodeStart + (int)j.Offset;
+        if (at + 3 > bytes.Length || bytes[at] != DeadJumps.JmpByte || bytes[at + 1] != (byte)j.Label || bytes[at + 2] != (byte)(j.Label >> 8)) {
+            throw new LinkException(string.Create(CultureInfo.InvariantCulture,
+                $"the dead block at worker {j.Worker} @{j.Offset:x4} does not start with jmp l{j.Label} (b0 {(byte)j.Label:x2} {(byte)(j.Label >> 8):x2})"));
+        }
+        bytes[at] = DeadJumps.NopByte;
+    }
+
+    /// <summary>Whether a package does nothing but switch blocks on: then the linked file is the vanilla file with those jumps changed.</summary>
+    private static bool OnlyCuts(ScriptPackage p) =>
+        p.Variables.Count == 0 && p.Workers.Count == 0 && p.Patches.Count == 0 && p.Messages is not { Count: > 0 } && p.DebugStrings is not { Count: > 0 };
 
     // ----- Checks -----------------------------------------------------------------------------
 

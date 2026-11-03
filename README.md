@@ -91,7 +91,10 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 - Dead code: `atel dead` catalogues the 34,806 `if (false)` blocks (groups,
   live twins, signatures), and blocks we understand are named
   (`if (Cut.ZanarkandCrowdFacingReaction)`, still compiling to the shipped
-  bytes); see [`docs/research/dead-code.md`](docs/research/dead-code.md).
+  bytes); a mod switches a named block on with `[assembly:
+  EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]`, which the linker
+  applies as a same-length no-op over the block's `jmp`; see
+  [`docs/research/dead-code.md`](docs/research/dead-code.md).
 - Not done: `Debug.*` text and runtime packages (Phase 10).
 
 ## Projects

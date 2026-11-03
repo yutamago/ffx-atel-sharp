@@ -4,7 +4,9 @@ using System.Globalization;
 using System.Text.Json;
 using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Vbf;
+using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Compiler;
+using Ffx.Atel.Decompiler.Layout;
 using Ffx.Atel.Linker;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -33,16 +35,22 @@ internal static class ModCommands {
         List<string> files = [.. ScriptCompiler.SourceFiles(modDir).Where(f => !Path.GetFullPath(f).StartsWith(fullOut + Path.DirectorySeparatorChar, StringComparison.Ordinal))];
         if (files.Count == 0) throw new ArgumentException($"no .cs files in {modDir}");
 
-        // A script per namespace: the mod's files for Monsters.M209 go with <vanilla>/Monsters/M209.
+        // A script per namespace: the mod's files for Monsters.M209 go with <vanilla>/Monsters/M209. A file
+        // with only assembly attributes ([assembly: EnableCut(…)]) needs no namespace.
         Dictionary<string, List<SyntaxTree>> byScript = new(StringComparer.Ordinal);
+        List<string> cuts = [];
         foreach (string f in files) {
             SyntaxTree tree = ScriptCompiler.Parse(File.ReadAllText(f), f);
-            string ns = tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString()
-                ?? throw new ArgumentException($"{f}: no namespace; a mod's file is in the namespace of the script it changes");
+            cuts.AddRange(EnabledCuts(tree, f));
+            CompilationUnitSyntax root = (CompilationUnitSyntax)tree.GetRoot();
+            string? ns = root.DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString();
+            if (ns is null && root.Members.Count == 0 && root.AttributeLists.Count > 0) continue;
+            if (ns is null) throw new ArgumentException($"{f}: no namespace; a mod's file is in the namespace of the script it changes");
             if (!byScript.TryGetValue(ns, out List<SyntaxTree>? list)) byScript[ns] = list = [];
             list.Add(tree);
         }
-        int count = 0;
+        if (byScript.Count == 0 && cuts.Count == 0) throw new ArgumentException($"{modDir}: no script changes and no [assembly: EnableCut(…)]");
+        Dictionary<string, ScriptPackage> packages = new(StringComparer.Ordinal);
         foreach ((string ns, List<SyntaxTree> modTrees) in byScript.OrderBy(kv => kv.Key, StringComparer.Ordinal)) {
             string folder = Path.Combine([vanilla, .. ns.Split('.')]);
             if (!Directory.Exists(folder)) throw new ArgumentException($"{ns}: no vanilla source in {folder}");
@@ -57,12 +65,17 @@ internal static class ModCommands {
             foreach (string w in mod.Warnings) Console.Error.WriteLine($"warning: {w}");
             string path = GameData.Find(archive, mod.Category, mod.Name) ?? throw new ArgumentException($"the game has no {mod.Category} {mod.Name}");
             mod.Package.File = path;
+            packages[path] = mod.Package;
+        }
+        foreach (string name in cuts.Distinct(StringComparer.Ordinal)) AddCut(archive, packages, name);
+        int count = 0;
+        foreach ((string path, ScriptPackage p) in packages.OrderBy(kv => kv.Key, StringComparer.Ordinal)) {
             string target = Path.Combine([output, AtelMod.PackageDir, .. (path + ".json").Split('/')]);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.WriteAllText(target, mod.Package.ToJson());
-            ScriptPackage p = mod.Package;
+            File.WriteAllText(target, p.ToJson());
+            string switched = p.Cuts is { Count: > 0 } c ? $", cuts {string.Join(", ", c.Select(x => $"{x.Name} ({x.Blocks} block(s))"))}" : "";
             Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"{mod.Name}: {p.Patches.Count} entries and patches, {p.Workers.Count} new workers, {p.Variables.Count} new variables -> {target}"));
+                $"{p.Script}: {p.Patches.Count} entries and patches, {p.Workers.Count} new workers, {p.Variables.Count} new variables{switched} -> {target}"));
             count++;
         }
         string toml = Path.Combine(modDir, AtelMod.ManifestFile);
@@ -80,6 +93,50 @@ internal static class ModCommands {
         }
         Console.Error.WriteLine($"{count} script package(s) in {output}");
         return 0;
+    }
+
+    /// <summary>
+    ///     The names a file's <c>[assembly: EnableCut(nameof(Cut.Name))]</c> attributes switch on (docs/research/dead-code.md,
+    ///     "Switching a block on"); the argument is a <c>nameof</c> of a <c>Cut</c> constant or a string.
+    /// </summary>
+    internal static IEnumerable<string> EnabledCuts(SyntaxTree tree, string file) {
+        CompilationUnitSyntax root = (CompilationUnitSyntax)tree.GetRoot();
+        foreach (AttributeListSyntax list in root.AttributeLists.Where(l => l.Target?.Identifier.Text == "assembly")) {
+            foreach (AttributeSyntax a in list.Attributes) {
+                string attribute = a.Name.ToString();
+                if (attribute.Split('.')[^1] is not ("EnableCut" or "EnableCutAttribute")) continue;
+                ExpressionSyntax? arg = a.ArgumentList?.Arguments.Count == 1 ? a.ArgumentList.Arguments[0].Expression : null;
+                string? name = arg switch {
+                    InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.Text: "nameof" } } call when call.ArgumentList.Arguments.Count == 1 =>
+                        call.ArgumentList.Arguments[0].Expression.ToString().Split('.')[^1].Trim(),
+                    LiteralExpressionSyntax lit when lit.Token.Value is string text => text,
+                    _ => null,
+                };
+                yield return name ?? throw new ArgumentException($"{file}: EnableCut takes one name: nameof(Cut.Name)");
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Puts the switch for the named dead block <paramref name="name"/> into the package of each script its
+    ///     blocks are in (<c>data/cut-names.toml</c>), with their signatures and how many the player's script has.
+    /// </summary>
+    internal static void AddCut(VbfArchive archive, Dictionary<string, ScriptPackage> packages, string name) {
+        CutNames names = CutNames.Default;
+        if (names.SignaturesOf(name).Length == 0) {
+            throw new ArgumentException($"EnableCut({name}): no dead block has that name (data/cut-names.toml; the names are the constants of Ffx.Cut)");
+        }
+        if (!names.Scripts.TryGetValue(name, out string[]? scripts)) throw new ArgumentException($"EnableCut({name}): data/cut-names.toml lists no script for it");
+        foreach (string script in scripts) {
+            string path = GameData.Resolve(archive, script) ?? throw new ArgumentException($"EnableCut({name}): the game has no script {script}");
+            ScriptFile file = ScriptFile.Parse(archive.Read(archive.Find(path)!));
+            CutSwitch cut = names.Switch(name, file.Script)
+                ?? throw new ArgumentException($"EnableCut({name}): the game's {script} has none of its blocks (another game version?)");
+            if (!packages.TryGetValue(path, out ScriptPackage? p)) packages[path] = p = new ScriptPackage { File = path, Script = script };
+            p.Cuts ??= [];
+            p.Cuts.Add(cut);
+            p.Format = Math.Max(p.Format, ScriptPackage.CutsFormat);
+        }
     }
 
     public static int Link(VbfArchive archive, List<string> args, string? output) {

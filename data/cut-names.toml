@@ -24,3 +24,10 @@
 # The party's battle lines on the Mi'ihen Highroad (system_01, worker 3, entry 2).
 "afcbc04939d550ca" = "HighroadBattleLine335Tidus"      # system_01 w03 e2 @d94c
 "07a5a172ac2e4cec" = "HighroadBattleLine336AuronTidus" # system_01 w03 e2 @d9a6
+
+# The scripts each name's blocks are in: `atel compile-mod` puts a mod's [assembly: EnableCut(...)] into
+# its package for each of them (docs/research/dead-code.md, "Switching a block on").
+[scripts]
+ZanarkandCrowdFacingReaction = ["znkd1300"]
+HighroadBattleLine335Tidus = ["system_01"]
+HighroadBattleLine336AuronTidus = ["system_01"]

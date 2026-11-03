@@ -34,6 +34,18 @@ public sealed class ReplaceAttribute(string method) : Attribute {
 }
 
 /// <summary>
+///     Switches a named dead block on (<c>[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]</c>):
+///     the linker turns the block's <c>jmp</c> into a no-op of the same length in the player's script, so the
+///     block runs where it stands, as <c>if (true)</c> (docs/research/dead-code.md, "Switching a block on").
+///     <paramref name="name"/> is a constant of <see cref="Ffx.Cut"/>; <c>atel compile-mod</c> finds the scripts
+///     and signatures of its blocks in <c>data/cut-names.toml</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+public sealed class EnableCutAttribute(string name) : Attribute {
+    public string Name { get; } = name;
+}
+
+/// <summary>
 ///     Numbers the linker gives: a worker's number and an entry's, for requests to workers and entries
 ///     a mod adds (<c>Request(1, Link.Worker&lt;Helper&gt;(), Link.Entry&lt;W01&gt;(nameof(W01.Boost)))</c>).
 ///     For vanilla workers and entries they are the vanilla numbers.
