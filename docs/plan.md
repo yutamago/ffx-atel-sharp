@@ -55,8 +55,11 @@ and moved here when work began.
 - **Hand-written English proper names** (monsters, areas, NPCs) may go into
   this repo; anything extracted in bulk from the game only through a local
   export on the player's machine.
-- **Names live in an overlay in `ffx-atel-src`**, applied by the decompiler,
-  so renames survive regeneration (not hand edits on `main`).
+- **Names live in an overlay, applied by the decompiler**, so renames
+  survive regeneration (not hand edits on `main`). Changed 2026-11-03: the
+  overlay lives in this repo (`data/names/`), not in `ffx-atel-src`. It is
+  our own names keyed by worker, entry and variable numbers, with no game
+  code or text, and the decompiler then names the same everywhere.
 - **Folders: map code plus an English suffix**
   (`Events/Ka_ThunderPlains/Kami0000/`), plus a generated index per area.
 - **Two levels of cleanup.** Phase 1 changes keep the bytecode identical and
