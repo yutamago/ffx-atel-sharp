@@ -968,6 +968,38 @@ how `atel compile` reads it:
   workers use their scripts' variables, so a library class could not
   compile on its own. 1,621 scripts round-trip byte for byte, 0 C# errors,
   0 warnings, with the library: 403.8 MB in 19,267 files.
+- **Library names** (2026-11-03, review proposal P15): the numbers shift
+  between exports, so a hand name is keyed by the class's **signature**, a
+  hash of its workers' code (worker type, entry and label offsets, every
+  instruction with constants by value and variables by location;
+  `WorkerSignature`), which neither the script nor the decompiler's C#
+  changes. `data/library-names.toml` maps signatures to names and a summary
+  (the class's doc comment); unnamed classes keep `SharedNNNN`, numbered as
+  before (named classes still take their number, so naming one renumbers
+  nothing). Two classes of the same code (written `async` in one script,
+  plain in another) share a signature: the one with more users gets the
+  name, the other `Name_2`. The names say what the code does, read off the
+  natives it calls (`EventCamera`: `AttachCamera(1, 0, 0)`;
+  `ThunderPlainsBattleLights`; `IdleWorker2`), not a role. Numbers: 16 of
+  434 classes named, used by 1,083 of the 3,006 workers that derive from
+  the library; all users of every class share one signature (433 distinct
+  signatures for 434 classes). See [source-repo.md](source-repo.md),
+  "Library names".
+- **Notes read off the code** (2026-11-03, review proposal P10), comments
+  only: each entry method that other workers start gets `/// <summary>Requested
+  by W57.Main, Tidus.E20Async.</summary>` (or `Called by …` for a function
+  worker), and the script class the **story index**: every `switch
+  (StoryProgress)` in a worker's `Init` or `Main` that requests entries, with
+  the entries each case requests. On the script class, not a `Scenes.md` per
+  area: it travels with the script (`atel decompile kami0000` has it too),
+  shows on hover in the IDE, and the requests it names are a search away in
+  the same folder; a per-area file would duplicate `AREAS.md`'s role and go
+  stale against hand edits. The notes stay out of the body text, so library
+  sharing is unchanged (a shared worker's notes go on its class line).
+  Numbers: 42,986 note lines on methods, 1,372 on shared workers' classes;
+  story indexes on 124 event scripts. 1,621/1,621 scripts compile to the
+  game's bytes (`atel compile-all --check`), 0 C# errors, the 221 ATL2006
+  warnings of vanilla.
 - Not done: bodies that call a sibling worker (`Call<W48>()`, 66 groups,
   75 more workers) could name the library class of the target
   (`Call<Shared0002>()`, resolved to the script's worker deriving from it);

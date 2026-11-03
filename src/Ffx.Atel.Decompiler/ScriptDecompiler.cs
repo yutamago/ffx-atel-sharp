@@ -148,9 +148,11 @@ public static class ScriptDecompiler {
 
         StringBuilder main = new(), layout = new(), data = new();
         WriteScriptClass(main, layout, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
-        WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]))];
+        WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]) with { Signature = WorkerSignature.Of(block, w) })];
+        // Comments read off the code: who requests each entry, and the story index on the script class.
+        workerSources = FlowNotes.Annotate(workers, workerNames, workerSources);
         WriteData(data, layout.ToString(), names, image);
-        ScriptSource parts = new(names, shortPath, main.ToString(), workerSources, data.Length > 0 ? data.ToString() : null);
+        ScriptSource parts = new(names, shortPath, FlowNotes.StoryIndex(workers, workerNames) + main, workerSources, data.Length > 0 ? data.ToString() : null);
         Dictionary<string, int> placed = new(StringComparer.Ordinal);
         foreach ((string k, int n) in workers.SelectMany(w => w.Names)) placed[k] = placed.GetValueOrDefault(k) + n;
         placed["entry-override"] = workers.Sum(w => w.Overrides);

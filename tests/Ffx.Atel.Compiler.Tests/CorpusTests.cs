@@ -45,6 +45,14 @@ public sealed class CorpusTests(ITestOutputHelper output) {
             totals.Add(decompiled[i].Stats);
         });
         SharedLibrary shared = SharedWorkers.Build([.. decompiled.Select(d => d.Parts)]);
+        // Library names by signature (docs/source-repo.md, "Library names"): a class's users have one
+        // signature, and every name in data/library-names.toml still names a class.
+        Dictionary<string, string?> signatures = decompiled.SelectMany(d => d.Parts.Workers.Select(w => (Key: $"{d.Parts.Names.Namespace}.{w.Name}", w.Signature)))
+            .ToDictionary(x => x.Key, x => x.Signature, StringComparer.Ordinal);
+        foreach (SharedWorker c in shared.Classes.Where(c => c.Users.Select(u => signatures[u]).Distinct().Count() != 1)) failures.Add($"library: the users of {c.Name} differ in signature");
+        foreach (string signature in LibraryNames.Default.Names.Keys.Where(s => !shared.Classes.Any(c => c.Signature == s))) {
+            failures.Add($"library: {signature} in data/library-names.toml names no class");
+        }
         List<SourceFile> libraryFiles = shared.Files();
         ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
         IReadOnlyList<Diagnostic> libraryAll = library.Check();

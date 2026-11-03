@@ -43,7 +43,7 @@ public static class SourceLayout {
         List<SourceFile> files = [new($"{folder}/{cls}.cs", script.Prelude() + script.ScriptClass)];
         foreach (WorkerSource w in script.Workers) {
             string prelude = script.Prelude(w.Body.Length == 0 ? script.LibraryNamespaces : []);
-            List<string> parts = Split(w.Body, splitLines, partLines);
+            List<string> parts = Split(w.AnnotatedBody, splitLines, partLines);
             if (parts.Count == 1) {
                 files.Add(new($"{folder}/{w.Name}.cs", prelude + w.Text));
                 continue;
