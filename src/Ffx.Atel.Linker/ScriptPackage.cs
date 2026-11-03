@@ -11,10 +11,17 @@ namespace Ffx.Atel.Linker;
 
 /// <summary>What one mod does to one script: <c>atel/&lt;archive path&gt;.json</c> in the mod's folder.</summary>
 public sealed class ScriptPackage {
-    /// <summary>The format this file is in; a linker refuses a newer one.</summary>
-    public const int CurrentFormat = 1;
+    /// <summary>The newest format this linker reads; it refuses a newer one.</summary>
+    public const int CurrentFormat = 2;
 
-    public int Format { get; set; } = CurrentFormat;
+    /// <summary>The format of a package with <see cref="Cuts"/>: a linker that does not know them must refuse it, not drop them.</summary>
+    public const int CutsFormat = 2;
+
+    /// <summary>The format of a package without what later formats added.</summary>
+    public const int BaseFormat = 1;
+
+    /// <summary>The format this file is in; a linker refuses a newer one.</summary>
+    public int Format { get; set; } = BaseFormat;
 
     /// <summary>The file the script is in, as an archive path (<c>ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin</c>).</summary>
     public string File { get; set; } = "";
@@ -49,6 +56,14 @@ public sealed class ScriptPackage {
     /// </summary>
     public List<PackageMessage>? Messages { get; set; }
 
+    /// <summary>
+    ///     Dead blocks the mod switches on (<c>[assembly: EnableCut(nameof(Cut.…))]</c>; docs/research/dead-code.md,
+    ///     "Switching a block on"): the linker turns each block's <c>jmp</c> into <c>nop_76</c> with the same
+    ///     operand, so the block runs. Null when there are none; a package with cuts has format
+    ///     <see cref="CutsFormat"/>.
+    /// </summary>
+    public List<CutSwitch>? Cuts { get; set; }
+
     // Later: Data (per-field edits of data areas and tables).
 
     public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web) {
@@ -70,6 +85,14 @@ public sealed class VanillaRefs {
     public List<EntryRef> Entries { get; set; } = [];
     public List<VariableRef> Variables { get; set; } = [];
 }
+
+/// <summary>
+///     A named dead block a mod switches on in this script: its name (a constant of <c>Ffx.Cut</c>), the signatures
+///     of its code (<c>data/cut-names.toml</c>, <see cref="Bytecode.Script.DeadSignature"/>) and how many blocks
+///     with them the script has. The linker finds the blocks by signature and refuses the package when it finds
+///     another number.
+/// </summary>
+public sealed record CutSwitch(string Name, string[] Signatures, int Blocks);
 
 /// <summary>A vanilla worker by number; <see cref="Hash"/> covers its type, code, entries and labels (<see cref="VanillaHash.Worker"/>).</summary>
 public sealed record WorkerRef(int Index, string Name, string Hash);

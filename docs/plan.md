@@ -91,6 +91,15 @@ and moved here when work began.
   of macros whose parameter was a constant (blitzball, the `mcfr0100`
   sequences); a few are real leads, and three are named (`data/cut-names.toml`,
   `Ffx.Cut`).
+  Step 2 (link time, 2026-11-03): a mod switches a named block on with
+  `[assembly: EnableCut(nameof(Cut.Name))]`; `atel compile-mod` puts the
+  name's signatures and block count into the package of each script that has
+  it, and the linker finds the blocks by signature in the player's file and
+  turns each `jmp L` into `nop_76 L` (same length, nothing moves). Checked
+  on the corpus for all three names (31 blocks): only those jumps change.
+  Not checked in game yet; the run-time switch (a loader flag) is still to
+  come ([research/dead-code.md](research/dead-code.md), "Switching a block
+  on").
 
 2026-11-03:
 
@@ -1282,6 +1291,21 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   8.10 million lines); the round trip is 1,621/1,621. Analyzers: ATL3003
   (an inline method calls itself), ATL3004 (an argument with an effect);
   an inline call is no `call` level and `[Inline(Waits = true)]` is a wait.
+
+- **Named dead blocks, switched on at link time** (2026-11-03;
+  [research/dead-code.md](research/dead-code.md#switching-a-block-on)).
+  `[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]` in a mod;
+  `atel compile-mod` reads the name's scripts and signatures from
+  `data/cut-names.toml` (its new `[scripts]` section), counts the blocks in
+  the player's script, and writes `cuts` into that script's package (format 2;
+  an older linker refuses it instead of ignoring it). The linker finds the
+  blocks with `DeadJumps` (`Ffx.Atel.Bytecode`, no decompiler: a forward
+  `jmp` over code that nothing else reaches, hashed as `DeadSignature`, which
+  moved there from the decompiler), checks each is `b0 lo hi`, and writes
+  `f6 lo hi` (`nop_76`). A wrong count or bytes is an error and the package is
+  left out; two mods enabling the same name is fine. Corpus: the three names'
+  31 blocks (`znkd1300` 29, `system_01` 2) are at the offsets the decompiler
+  names, and only their opcode bytes change. Not run in game yet.
 
 ### Phase 10: debug text and runtime packages
 

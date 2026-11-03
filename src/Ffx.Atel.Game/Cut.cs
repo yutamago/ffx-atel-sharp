@@ -10,9 +10,9 @@ namespace Ffx;
 ///     whose code is understood get a name.
 /// </summary>
 /// <remarks>
-///     A name is meant to become a switch: a later loader feature can run a named block (and skip its
-///     <c>else</c>) without touching the rest of the script (docs/research/dead-code.md, "Switching a block
-///     on"). Until then, a mod that wants the code copies it.
+///     A name is a switch: a mod that writes <c>[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]</c>
+///     has the linker run the named blocks (and skip their <c>else</c>) without touching the rest of the script
+///     (docs/research/dead-code.md, "Switching a block on").
 /// </remarks>
 public static class Cut
 {
