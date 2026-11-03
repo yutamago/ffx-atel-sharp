@@ -1,0 +1,241 @@
+{
+  "about": "English worker names for actor models (docs/plan.md, Decisions 2026-11-02: actors get English names; the Model enum keeps the developers' codes). Key: the Model member (src/Ffx.Atel.Game/Enums.g.cs). Only models whose character is certain; see the evidence. Hand-written; proper names only, no game data.",
+  "actors": {
+    "Tidu": {
+      "name": "Tidus",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Yuna": {
+      "name": "Yuna",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Auro": {
+      "name": "Auron",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Kima": {
+      "name": "Kimahri",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Wakk": {
+      "name": "Wakka",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Lulu": {
+      "name": "Lulu",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Rikk": {
+      "name": "Rikku",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "Seym": {
+      "name": "Seymour",
+      "evidence": "party member: pc.ath order (Tidus 1 … Seymour 8) and the {name:…} speaker in its workers' messages"
+    },
+    "RikkA": {
+      "name": "RikkuA",
+      "evidence": "a variant model of Rikku (chr_rikk_a); the suffix is the model's"
+    },
+    "YunaB": {
+      "name": "YunaB",
+      "evidence": "a variant model of Yuna (chr_yuna_b); the suffix is the model's"
+    },
+    "SeymB": {
+      "name": "SeymourB",
+      "evidence": "a variant model of Seymour (chr_seym_b); the suffix is the model's"
+    },
+    "AuroY": {
+      "name": "AuronY",
+      "evidence": "a variant model of Auron (chr_auro_y); the suffix is the model's"
+    },
+    "WakkD": {
+      "name": "WakkaD",
+      "evidence": "a variant model of Wakka (chr_wakk_d); the suffix is the model's"
+    },
+    "RikkLa": {
+      "name": "RikkuLa",
+      "evidence": "a variant model of Rikku (chr_rikk_la); the suffix is the model's"
+    },
+    "TiduH": {
+      "name": "TidusH",
+      "evidence": "a variant model of Tidus (chr_tidu_h); the suffix is the model's"
+    },
+    "YunaH": {
+      "name": "YunaH",
+      "evidence": "a variant model of Yuna (chr_yuna_h); the suffix is the model's"
+    },
+    "AuroH": {
+      "name": "AuronH",
+      "evidence": "a variant model of Auron (chr_auro_h); the suffix is the model's"
+    },
+    "KimaH": {
+      "name": "KimahriH",
+      "evidence": "a variant model of Kimahri (chr_kima_h); the suffix is the model's"
+    },
+    "WakkH": {
+      "name": "WakkaH",
+      "evidence": "a variant model of Wakka (chr_wakk_h); the suffix is the model's"
+    },
+    "LuluH": {
+      "name": "LuluH",
+      "evidence": "a variant model of Lulu (chr_lulu_h); the suffix is the model's"
+    },
+    "RikkH": {
+      "name": "RikkuH",
+      "evidence": "a variant model of Rikku (chr_rikk_h); the suffix is the model's"
+    },
+    "SeymH": {
+      "name": "SeymourH",
+      "evidence": "a variant model of Seymour (chr_seym_h); the suffix is the model's"
+    },
+    "YunaHb": {
+      "name": "YunaHb",
+      "evidence": "a variant model of Yuna (chr_yuna_hb); the suffix is the model's"
+    },
+    "SeymHb": {
+      "name": "SeymourHb",
+      "evidence": "a variant model of Seymour (chr_seym_hb); the suffix is the model's"
+    },
+    "GaGatta216": {
+      "name": "Gatta",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 1)"
+    },
+    "GaLuzzu217": {
+      "name": "Luzzu",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 2)"
+    },
+    "GaOoaka218": {
+      "name": "Oaka",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 3)"
+    },
+    "GaDona219": {
+      "name": "Dona",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 5)"
+    },
+    "GaBaltero220": {
+      "name": "Barthello",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 6)"
+    },
+    "GaWantz221": {
+      "name": "Wantz",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 7)"
+    },
+    "GaIsalu222": {
+      "name": "Isaaru",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 8)"
+    },
+    "GaMaroda223": {
+      "name": "Maroda",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 9)"
+    },
+    "GaVasse224": {
+      "name": "Pacce",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 10)"
+    },
+    "GaSyelinda225": {
+      "name": "Shelinda",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 11)"
+    },
+    "GaMachen226": {
+      "name": "Maechen",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 12)"
+    },
+    "GaRutiru227": {
+      "name": "Lucil",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 13)"
+    },
+    "GaElma228": {
+      "name": "Elma",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 14)"
+    },
+    "GaKlasco229": {
+      "name": "Clasko",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 15)"
+    },
+    "GaTwamel231": {
+      "name": "Tromell",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 16)"
+    },
+    "GaBiran232": {
+      "name": "Biran",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 18)"
+    },
+    "GaEnche233": {
+      "name": "Yenke",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 20)"
+    },
+    "GaRin234": {
+      "name": "Rin",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 22)"
+    },
+    "Tidmama239": {
+      "name": "TidusMother",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 23)"
+    },
+    "Chap240": {
+      "name": "Chappu",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 24)"
+    },
+    "Mika241": {
+      "name": "Mika",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 25)"
+    },
+    "Semoamama242": {
+      "name": "SeymourMother",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 28)"
+    },
+    "Zook246": {
+      "name": "Zuke",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 31)"
+    },
+    "Sorton247": {
+      "name": "Thorton",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 33)"
+    },
+    "Yunalesca248": {
+      "name": "Yunalesca",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 35)"
+    },
+    "Zaon249": {
+      "name": "Zaon",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 36)"
+    },
+    "Braska250": {
+      "name": "Braska",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 37)"
+    },
+    "Jyscal255": {
+      "name": "Jyscal",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 39)"
+    },
+    "Cid257": {
+      "name": "Cid",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 41)"
+    },
+    "Yunamama330": {
+      "name": "YunaMother",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 42)"
+    },
+    "Rikbros265": {
+      "name": "Brother",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 43)"
+    },
+    "Kinoc283": {
+      "name": "Kinoc",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 44)"
+    },
+    "Jecht238": {
+      "name": "Jecht",
+      "evidence": "NPC model numbers follow the game's character-name dictionary (macrodic section 6, entry 84)"
+    },
+    "Velgemine01": {
+      "name": "Belgemine",
+      "evidence": "speaker of its workers' messages (macrodic section 6, entry 49)"
+    },
+    "Chr265goggleoff334": {
+      "name": "BrotherGoggleOff",
+      "evidence": "Brother's model (chr265 = rikbros265) without goggles; speaker of its workers' messages (macrodic section 6, entry 43)"
+    }
+  }
+}
