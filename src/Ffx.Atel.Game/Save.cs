@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+using Ffx.Atel;
+
 namespace Ffx;
 
 /// <summary>
@@ -16,7 +18,8 @@ namespace Ffx;
 ///     scripts use without a name here are written <c>Save_0123</c> (the storage 0 offset in hex).
 ///     Fields Fahrenheit does not name carry our own names, each from what the scripts do with it and the
 ///     dialogue around it (their summaries say "ours"); the evidence is in docs/research/save-fields.md.
-///     The nested classes name the bits of bit-flag fields (<see cref="LightningReward"/>).
+///     The nested classes name the bits of bit-flag fields (<see cref="LightningReward"/>); <see cref="BitsAttribute"/>
+///     says which field has which.
 /// </remarks>
 public static class Save
 {
@@ -44,6 +47,7 @@ public static class Save
     ///     50, 100 or 150 dodges in a row and when the bolt count reaches 30 or 80; the chest of <c>kami0400</c>
     ///     hands out each earned award not yet in <see cref="LightningDodgingRewardsClaimed"/>.
     /// </summary>
+    [Bits(typeof(LightningReward))]
     public const int LightningDodgingRewards = 0x0208;
     /// <summary><c>lightning_dodging_total_bolts</c> (<c>u16</c>), save <c>+0x3fc</c>.</summary>
     public const int LightningDodgingTotalBolts = 0x0210;
@@ -55,6 +59,7 @@ public static class Save
     ///     Ours: the lightning dodging awards handed out (bits, <see cref="LightningReward"/>), save <c>+0x402</c>:
     ///     the chest of <c>kami0400</c> sets an award's bit as it gives it.
     /// </summary>
+    [Bits(typeof(LightningReward))]
     public const int LightningDodgingRewardsClaimed = 0x0216;
     /// <summary><c>soundtrack_type</c>, save <c>+0x5ec</c>.</summary>
     public const int SoundtrackType = 0x0400;
@@ -69,6 +74,7 @@ public static class Save
     ///     scout system, level 3 airship teleport), then sets its bit; it also sets the bits of the levels the
     ///     story has passed when it starts.
     /// </summary>
+    [Bits(typeof(SaveSphereTip))]
     public const int SaveSphereTipsShown = 0x0a4a;
     /// <summary><c>celestial_mirror_obtained</c>, save <c>+0xc38</c>.</summary>
     public const int CelestialMirrorObtained = 0x0a4c;
@@ -123,20 +129,28 @@ public static class Save
     ///     eight together unlock Penance (<see cref="PenanceUnlockState"/>); the lower bits are the encounter's own
     ///     (Besaid's battle sets bits 0-2 for Dark Valefor; the engine reads the byte through <c>getInterValefor</c>).
     /// </summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkValefor = 0x0a9d;
     /// <summary><c>completion_flags_dark_ifrit</c>, save <c>+0xc8a</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkIfrit = 0x0a9e;
     /// <summary><c>completion_flags_dark_ixion</c>, save <c>+0xc8b</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkIxion = 0x0a9f;
     /// <summary><c>completion_flags_dark_shiva</c>, save <c>+0xc8c</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkShiva = 0x0aa0;
     /// <summary><c>completion_flags_dark_bahamut</c>, save <c>+0xc8d</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkBahamut = 0x0aa1;
     /// <summary><c>completion_flags_dark_yojimbo</c>, save <c>+0xc8e</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkYojimbo = 0x0aa2;
     /// <summary><c>completion_flags_dark_anima</c>, save <c>+0xc8f</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkAnima = 0x0aa3;
     /// <summary><c>completion_flags_dark_magus_sisters</c>, save <c>+0xc90</c>.</summary>
+    [Bits(typeof(DarkAeonFlag))]
     public const int CompletionFlagsDarkMagusSisters = 0x0aa4;
     /// <summary>
     ///     <c>penance_unlock_state</c>, save <c>+0xc91</c>: set to 1 by the dark aeon battle that leaves all eight

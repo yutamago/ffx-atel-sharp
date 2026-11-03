@@ -59,7 +59,8 @@ atel decompile m209 -o vanilla --sdk ~/atel-feed
 ```
 
 `vanilla/Monsters/M209/` now holds the script: `M209.cs` (the script class: its workers
-`W00`-`W02` and its variables), `M209.Data.cs` (its data areas) and one file per worker. The
+`W00`-`W02` and its variables), one file per worker, `M209.Layout.cs` (what keeps the bytes the
+game's: the header, the pools) and `M209.Data.cs` (its data areas). The
 projects use the SDK (`--sdk` copies the package into `vanilla/.atel/packages/` and pins its version
 in `vanilla/global.json`), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
 analyzers, and any C# IDE opens it.

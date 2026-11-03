@@ -52,9 +52,14 @@ clears it when a bolt hits).
 
 Nested classes of `Save` name the bits, as `int` constants the compiler and
 C# both read: `LightningDodgingRewards[0] & Save.LightningReward.Streak5`
-compiles to the same bytes as `& 1` (checked on `kami0400`). The decompiler
-does not write them yet (it writes the number); that comes with typed
-constants for flags.
+compiles to the same bytes as `& 1` (checked on `kami0400`). `[Bits(typeof(…))]`
+on the field's constant in `Save` names its class, and the decompiler writes
+a mask of `&`, `|` or `^` on the field (`if (!!AsBool(SaveSphereTipsShown[0] &
+Save.SaveSphereTip.Level3))`, `LightningDodgingRewards[0] |=
+Save.LightningReward.Bolts30;`) as the constant that has its value. A mask
+without a name stays a number: the dark aeon bytes' lower bits
+(`CompletionFlagsDarkValefor[0] |= 2;`, `CompletionFlagsDarkYojimbo[0] & 1`),
+and masks of several bits.
 
 - `Save.LightningReward`: `Streak5` … `Streak150` (bits 0-5), `Bolts30`,
   `Bolts80` (bits 6, 7).

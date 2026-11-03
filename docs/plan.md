@@ -624,6 +624,13 @@ replaces and the round trip stays byte for byte.
   with nested classes naming the bits of flag fields (`Save.LightningReward`);
   the evidence, and what stays unnamed, is in
   [research/save-fields.md](research/save-fields.md).
+  `[Bits(typeof(Save.LightningReward))]` on a field's constant says which
+  class names its bits (2026-11-03), and the decompiler writes a mask of
+  `&`, `|` or `^` on that field as the constant with its value
+  (`SaveSphereTipsShown[0] |= Save.SaveSphereTip.Level1;`), a byte-wide
+  variable at the field's offset only; a mask without a name (the dark aeon
+  bytes' lower bits, several bits) stays a number. 1,831 masks named in the
+  corpus.
   A script's save variable is named after the field at its offset and placed
   by the constant (`[Var(Storage.Save, Save.StoryProgress)] public static
   ushort StoryProgress;`), else `Save_0a4a` by its storage 0 offset; a
@@ -939,7 +946,8 @@ how `atel compile` reads it:
   `.vscode/` recommends C# Dev Kit and opens `Start.slnx`. The layout pins
   (`[Header]`, `[Pin]`, `[Patch]`, the pools) moved from the main file to
   the data part (`Kami0000.Data.cs`), so the main file reads as the script's
-  outline: its workers and variables.
+  outline: its workers and variables. (Changed 2026-11-03: a layout part of
+  their own, see "Layout and data parts".)
 - **Library base classes** for duplicated workers ("Shared behaviour"):
   a worker whose type and body text equal another's, anywhere in the
   corpus, becomes `public sealed class W03 : Shared0001 { }` (with
@@ -1004,6 +1012,42 @@ how `atel compile` reads it:
   75 more workers) could name the library class of the target
   (`Call<Shared0002>()`, resolved to the script's worker deriving from it);
   near-duplicates with parameters.
+- **Layout and data parts** (2026-11-03, review proposal P16): what only
+  pins the compiled layout is in `<Script>.Layout.cs`, the data areas in
+  `<Script>.Data.cs`, and neither in the files people read: the layout part
+  holds `[Header]`, `[Pin]`, `[Patch]` and the pools on a part of the script
+  class, and each worker's `[Worker(PrivateLength = …)]` on a part of the
+  worker (`partial class W39 { }`); the data part the data areas and each
+  worker's `[PrivateData(…)]` the same way. The compiler already read a
+  class's attributes from all its parts; worker files now hold the class
+  line, registers and code only. `atel decompile <script>` to the console
+  (one file) keeps the attributes on the worker. Numbers: 3,178
+  `[Worker]` and 2,193 `[PrivateData]` moved off 15,010 worker files;
+  20,784 files (1,621 layout parts, 1,621 data parts).
+- **Variants** (2026-11-03, review proposals P17, P22): the scripts the PC
+  build does not load or loads only behind a debug switch (the 21 with a
+  note in `data/areas.json`) and the developers' test maps and battles
+  (names with `test`, `sample*`: `Events/Te`, `Ca`, `So`, `Sa`,
+  `Battles/Test`) are variants (`ProjectLayout.IsVariant`). The least
+  disruptive way to keep them out of the way: **projects, not folders**.
+  A `Variants/` folder would change their namespaces (a mod names its
+  script by namespace) and the paths `compile-all` and hand edits on `main`
+  use; a solution filter (`.slnf`) would hide them in one IDE view only,
+  while `dotnet build Atel.slnx` still compiled them (also the blitzball
+  copies). So the scripts stay where they are;
+  an area of variants only is one project as before (`Events/Te/`), and a
+  variant in an area of loaded scripts gets a project inside the area's
+  folder (`Events/Ka_ThunderPlains/_200thunder_kami0400/`), which the
+  area's project leaves out (`DefaultItemExcludes`). Only `Variants.slnx`
+  holds their projects: `Atel.slnx`, `Events.slnx`, `Battles.slnx` and
+  `Start.slnx` show what the game plays. The blitzball copies (`cn_`,
+  `psv_`, `psvcn_` of `bltz0000` … `bltz0201`, with `Cn_bltz0000/W36.cs`
+  among the 15.7 MB methods) move from `Blitzball.slnx` to `Variants.slnx`;
+  `Blitzball.slnx` keeps the 9 loaded blitzball scripts (`Bltz0000` and
+  `Bltz0002` have their own 15.7 MB `W36`), which stay out of the default
+  solutions as before. Numbers: 109 projects (104 before: 5 variants got
+  their own, in `hi`, `ka`, `lc` and `na`), `Atel.slnx` 75 and the library,
+  `Variants.slnx` 25, `Blitzball.slnx` 9.
 - Numbers (2026-11-02): all 1,621 scripts come back byte for byte from
   18,778 files (1,621 script classes, 1,621 data files, 15,010 workers, 526
   further parts of 160 workers), 405.5 MB; 0 C# errors, 0 warnings.

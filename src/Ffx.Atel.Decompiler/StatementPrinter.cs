@@ -16,7 +16,8 @@ internal sealed class NotPrintableException(string message) : Exception(message)
 
 /// <summary>A variable as the source declares it.</summary>
 /// <param name="Domain">The named values the variable holds, when known (the story progress: <see cref="GameNames.Story"/>).</param>
-internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength, Domain? Domain = null);
+/// <param name="Bits">The named masks of its bits, when known (<see cref="GameNames.SaveBits"/>): for <c>&amp;</c>, <c>|</c>, <c>^</c>.</param>
+internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength, Domain? Domain = null, Domain? Bits = null);
 
 /// <summary>
 ///     Statements as C#, typed so that Roslyn accepts them. ATEL has untyped 32-bit values and no
@@ -139,7 +140,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         }
         if (a.Target is VarExpr or RegExpr && a.Value is BinaryExpr b && StatementLifter.IsCompound(b.Op) && b.Left == a.Target
             && CompoundOperand(b.Op, b.Right, t, cast: false) is E rhs) {
-            return $"{target} {Symbol(b.Op)}= {rhs.Text};";
+            return $"{target} {Symbol(b.Op)}= {(BitMask(b.Op, a.Target, b.Right) ?? rhs).Text};";
         }
         E value = a.Value is IntLit lit && DomainOf(a.Target) is Domain d ? Lit(lit.Value, d) : Expr(a.Value);
         // `x = x;` is CS1717 (assignment to the same variable); unary plus is no code.
@@ -150,7 +151,26 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     private string Compound(CompoundStmt c) {
         (string target, CType t) = Target(c.Target);
         E rhs = CompoundOperand(c.Op, c.Value, t, cast: true) ?? throw No("no compound assignment for this operand");
-        return $"{target} {Symbol(c.Op)}= {rhs.Text};";
+        return $"{target} {Symbol(c.Op)}= {(BitMask(c.Op, c.Target, c.Value) ?? rhs).Text};";
+    }
+
+    /// <summary>
+    ///     A mask in a bit operation on a field with named bits (<see cref="VarInfo.Bits"/>), as its name:
+    ///     <c>LightningDodgingRewards[0] &amp; Save.LightningReward.Streak5</c>. Null when the operation is not
+    ///     <c>&amp;</c>, <c>|</c> or <c>^</c>, the operand is not a constant, or the constant has no name (a
+    ///     mask of several bits, or of bits without names): those stay numbers.
+    /// </summary>
+    private E? BitMask(byte op, Expr field, Expr mask) {
+        if (op is not (Opcodes.And or Opcodes.Or or Opcodes.Xor) || mask is not IntLit lit) return null;
+        Domain? bits = field switch {
+            VarExpr v => vars[v.Var].Bits,
+            ElemExpr x => vars[x.Var].Bits,
+            Elem2Expr x => vars[x.Var].Bits,
+            _ => null,
+        };
+        if (bits?.Member(lit.Value) is not string name) return null;
+        Count(bits.Name);
+        return new E(name, CType.Int, PPrimary, (long)lit.Value);
     }
 
     /// <summary>
@@ -302,11 +322,11 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
                 return Fold(b.Op, l, r, p, isFloat ? CType.Float : CType.Int);
             }
             case Opcodes.And or Opcodes.Or or Opcodes.Shl or Opcodes.Sar:
-                return Fold(b.Op, ToInt(l), ToInt(r), p, CType.Int);
+                return Fold(b.Op, ToInt(BitMask(b.Op, b.Right, b.Left) ?? l), ToInt(BitMask(b.Op, b.Left, b.Right) ?? r), p, CType.Int);
             case Opcodes.Xor:
                 return l.Type == CType.Bool && r.Type == CType.Bool
                     ? Make(b.Op, l, r, p, CType.Bool)
-                    : Fold(b.Op, ToInt(l), ToInt(r), p, CType.Int);
+                    : Fold(b.Op, ToInt(BitMask(b.Op, b.Right, b.Left) ?? l), ToInt(BitMask(b.Op, b.Left, b.Right) ?? r), p, CType.Int);
             case Opcodes.Land or Opcodes.Lor:
                 return Make(b.Op, ToBoolOperand(l), ToBoolOperand(r), p, CType.Bool);
             case Opcodes.Eq or Opcodes.Ne when l.Type == CType.Bool && r.Type == CType.Bool:
