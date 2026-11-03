@@ -112,7 +112,7 @@ public static class Dialogue {
     /// <param name="flags">The window's flags.</param>
     /// <param name="mode">How the window opens.</param>
     /// <example><code>Common.VoiceStandbyEnd(0x85355cb);
-    /// Common.WaitFrames_01d1(5);
+    /// Common.WaitFramesUnlessHddMode(5);
     /// Dialogue.SayVoiced(Text[0]);</code></example>
     [Inline(Waits = true)]
     public static void SayVoiced(TextId text, int window = 0, int x = 256, int y = 448, int anchor = 4, int style = 1, int flags = 8194, int mode = 0) {

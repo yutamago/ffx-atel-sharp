@@ -679,6 +679,35 @@ replaces and the round trip stays byte for byte.
   character is not certain (`Watasi243`, `Deadsummoner244`, `Beruge327`, the
   `*mob*` and crowd models) keep their code. A mod names a worker by its
   class, so a mod written against `Tidu` needs `Tidus` now.
+- **Native names and docs** (2026-11-02, review P4/P6): the `docs` section of
+  `data/native-types.json` gives the 92 most called natives a modder-facing
+  `<summary>` and named, described parameters, written only from what is
+  verified (ffx-rust `symbols/ffx.sym` without its `?` guesses, the ported
+  natives in `crates/ffx-script/src/vm/bridge/`, the Ghidra dump); the
+  symbol's notes move to `<remarks>`. Misleading names went:
+  Fahrenheit's `CT_xxxx_ret_name` symbols mean "returns", so `ret` is dropped
+  (`RetHasKeyItem` → `HasKeyItem`), and the bare `CT_xxxx_ret` ones got names
+  from their handlers: `Chr.Ret` (0x507e) → `Chr.SetAutoTalkOf(worker, on)`
+  (`Ch_MouthSetAutoTalk` on that worker's character), `Common.Ret` (0x0060) →
+  `WorkerSetFlag200To(on)` (`Atel_SetWorkerFlag200`, then the control
+  restored, as 0x0031/0x0032), `Ret_0241` → `SetFieldFlag08`, 0x00d1 →
+  `StopMoveAllLevels`, `Btl.RetSetCommandDisabled` → `Btl.SetCommandUse`
+  (`MsSetCommandUse` per picked actor), `WaitFrames_01d1` →
+  `WaitFramesUnlessHddMode` (its poll is done at once in HDD mode,
+  `g_FFXHddMode`). `tools/gen-natives.cs` fails on a `Ret` name and counts
+  the names still generated (131: `N0123`, a number suffix, `Cam_605b`);
+  those stay until their meaning is verified.
+- **`op_77` and `op_78`** (2026-11-02): from ffx-rust's interpreter port
+  (`run.rs`) and FFX.exe: `op_77` pops entry and worker; while
+  `AtelIsSignalQueued(worker, entry)` (`0x00863570`) finds a request for the
+  entry in the worker's queue, the caller's level waits (state 2, rechecked
+  every frame). A running request stays queued until its entry ends
+  (`AtelExecReturn` frees it), so it waits until every request of that entry
+  has run. `op_78` does the same for the worker of a party slot
+  (`AtelGetPartyWorker`). The source writes them `WaitForEntry<Lulu>(5);`
+  (a constant worker of the script), `WaitForEntry(w, e);` and
+  `WaitForPartyEntry(slot, e);`; `Op77`/`Op78` stay valid input. The usual
+  shape is `_ = W24.E48Async(); WaitForEntry<W24>(48);`.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;

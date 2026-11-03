@@ -93,11 +93,38 @@ public abstract class Worker {
     /// <summary>A breakpoint for the original debugger (<c>op_40</c>).</summary>
     protected static void Breakpoint() => throw Runtime.NotRunnable();
 
-    /// <summary>Opcode <c>op_77</c>: pops two values, a worker operation (<c>0x00863570</c>) not yet understood.</summary>
-    protected static void Op77(int a, int b) => throw Runtime.NotRunnable();
+    /// <summary>
+    ///     Waits until worker <typeparamref name="T"/> has no request for <paramref name="entry"/> queued or
+    ///     running (<c>op_77</c>): <c>_ = Lulu.E5Async(); WaitForEntry&lt;Lulu&gt;(5);</c> starts Lulu's entry 5 and
+    ///     waits until it has ended. Unlike <c>await Lulu.E5Async()</c> it makes no request of its own, so it
+    ///     also waits for requests other workers made. Goes on at once when there is none.
+    /// </summary>
+    /// <remarks>
+    ///     <c>op_77</c> pops the entry and the worker; while <c>AtelIsSignalQueued(worker, entry)</c>
+    ///     (<c>0x00863570</c>) finds a request (not a reply) for the entry in the worker's queue, the caller's
+    ///     level waits (state 2, rechecked each frame). A running request stays in the queue until its entry
+    ///     ends (<c>AtelExecReturn</c>, <c>0x008691d0</c>, frees it). ffx-rust
+    ///     <c>crates/ffx-script/src/vm/bridge/run.rs</c>.
+    /// </remarks>
+    protected static void WaitForEntry<T>(int entry) where T : Worker => throw Runtime.NotRunnable();
 
-    /// <summary>Opcode <c>op_78</c>: as <c>op_77</c> (unused by the shipped scripts).</summary>
-    protected static void Op78(int a, int b) => throw Runtime.NotRunnable();
+    /// <summary>
+    ///     <see cref="WaitForEntry{T}(int)"/> with the worker by number (<c>op_77</c>), for a computed worker.
+    /// </summary>
+    protected static void WaitForEntry(int worker, int entry) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     As <see cref="WaitForEntry(int, int)"/> for the worker of party slot <paramref name="slot"/> (0-2,
+    ///     <c>AtelGetPartyWorker</c>, <c>0x0086a5e0</c>) (<c>op_78</c>); goes on at once for an empty slot.
+    ///     Unused by the shipped scripts.
+    /// </summary>
+    protected static void WaitForPartyEntry(int slot, int entry) => throw Runtime.NotRunnable();
+
+    /// <summary>The older name of <see cref="WaitForEntry(int, int)"/> (<c>op_77</c>).</summary>
+    protected static void Op77(int worker, int entry) => throw Runtime.NotRunnable();
+
+    /// <summary>The older name of <see cref="WaitForPartyEntry(int, int)"/> (<c>op_78</c>).</summary>
+    protected static void Op78(int slot, int entry) => throw Runtime.NotRunnable();
 
     /// <summary>Opcode <c>op_79</c>: pops three values (<c>0x00870d30</c>), the last an address (<see cref="Addr{T}"/>); not yet understood.</summary>
     protected static void Op79(int a, int b, int c) => throw Runtime.NotRunnable();

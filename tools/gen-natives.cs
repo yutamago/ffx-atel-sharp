@@ -241,6 +241,8 @@ string MethodName(ushort id, string? symName, string cls) {
     foreach (string prefix in new[] { "Native_", "AtelCall_", "CT_" }) if (n.StartsWith(prefix, StringComparison.Ordinal)) n = n[prefix.Length..];
     string hex = $"{id:x4}";
     n = Regex.Replace(n, $"(^|_){hex}(_|$)", "_", RegexOptions.IgnoreCase).Trim('_');
+    // Fahrenheit's CT_xxxx_ret_name: "ret" says the handler returns a value, it names nothing (CT_0160_ret_hasKeyItem).
+    n = Regex.Replace(n, "(^|_)ret(_|$)", "_", RegexOptions.IgnoreCase).Trim('_');
     n = Pascal(n);
     if (n.StartsWith(cls, StringComparison.Ordinal) && n.Length > cls.Length && char.IsAsciiLetterUpper(n[cls.Length])) n = n[cls.Length..];
     if (n.Length == 0 || char.IsAsciiDigit(n[0])) n = $"N{hex}" + n;
@@ -279,6 +281,21 @@ using (JsonDocument overlay = JsonDocument.Parse(File.ReadAllText(Path.Combine(r
         paramTypes[(ushort)Hex(n.Name)] = n.Value.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
     }
 }
+
+// Modder-facing names and docs by hand (the "docs" section): a verified name, a one-line summary, parameter
+// renames and descriptions. The symbol's RE notes then go to <remarks>.
+Dictionary<ushort, (string? Name, string? Summary, Dictionary<string, string> Rename, Dictionary<string, string> Params)> docs = [];
+using (JsonDocument overlay = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data", "native-types.json")))) {
+    if (overlay.RootElement.TryGetProperty("docs", out JsonElement docsElement)) {
+        foreach (JsonProperty n in docsElement.EnumerateObject()) {
+            JsonElement e = n.Value;
+            Dictionary<string, string> Map(string key) => e.TryGetProperty(key, out JsonElement m) ? m.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!) : [];
+            docs[(ushort)Hex(n.Name)] = (e.TryGetProperty("name", out JsonElement nm) ? nm.GetString() : null, e.TryGetProperty("summary", out JsonElement su) ? su.GetString() : null, Map("rename"), Map("params"));
+        }
+    }
+}
+List<string> lint = [];
+int generatedNames = 0, docsWritten = 0;
 
 // ----- Output ----------------------------------------------------------------------------------------------
 JsonArray natives = [];
@@ -330,7 +347,8 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         }
         if (kindSource != "default" || argc == 0) kindsKnown++;
 
-        string method = MethodName(id, isNamed ? sym!.Value.Name : null, cls);
+        docs.Remove(id, out var hand);
+        string method = hand.Name ?? MethodName(id, isNamed ? sym!.Value.Name : null, cls);
         if (!used.Add(method)) {
             method = $"{method}_{id:x4}";
             used.Add(method);
@@ -342,6 +360,11 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             string c = Camel(n);
             if (c.Length == 0 || paramNames.Contains(c)) c = $"a{paramNames.Count}";
             paramNames.Add(c);
+        }
+        foreach ((string from, string to) in hand.Rename ?? []) {
+            int k = paramNames.IndexOf(from);
+            if (k < 0) throw new InvalidOperationException($"data/native-types.json: docs of 0x{id:x4}: no parameter {from} to rename");
+            paramNames[k] = to;
         }
         string result = s.Float is not null ? "float" : s.Int is not null ? "int" : "none";
         // C# types: int/float by kind, or the overlay's type (and name) for an int parameter.
@@ -392,8 +415,30 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         natives.Add(o);
 
         string doc = comment.Length > 0 ? System.Security.SecurityElement.Escape(comment) : "Not yet described.";
-        cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{doc}</summary>\n");
-        cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>Native <c>0x{id:x4}</c>{(sym is null ? "" : $", <c>{sym.Value.Name}</c>")}; {calls.GetValueOrDefault(id)} calls in the shipped scripts.</remarks>\n");
+        string where = $"Native <c>0x{id:x4}</c>{(sym is null ? "" : $", <c>{sym.Value.Name}</c>")}; {calls.GetValueOrDefault(id)} calls in the shipped scripts.";
+        if (hand.Summary is string summary) {
+            // The modder's line first; what reverse engineering found stays, in <remarks>.
+            docsWritten++;
+            cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{summary}</summary>\n");
+            foreach (string p in (hand.Params ?? []).Keys) {
+                if (!paramNames.Contains(p)) throw new InvalidOperationException($"data/native-types.json: docs of 0x{id:x4}: no parameter {p}");
+            }
+            // Every parameter once one is described (CS1573), in their order; an undescribed one stays empty.
+            if (hand.Params is { Count: > 0 }) {
+                foreach (string p in paramNames.Take(argc)) cs.Append(CultureInfo.InvariantCulture, $"    /// <param name=\"{p}\">{hand.Params.GetValueOrDefault(p, "")}</param>\n");
+            }
+            foreach (Match m in Regex.Matches(summary + string.Concat((hand.Params ?? []).Values), "<paramref name=\"(\\w+)\"")) {
+                if (!paramNames.Contains(m.Groups[1].Value)) throw new InvalidOperationException($"data/native-types.json: docs of 0x{id:x4}: <paramref> {m.Groups[1].Value} is no parameter");
+            }
+            cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>{where} Reverse engineering: {doc}</remarks>\n");
+        }
+        else {
+            cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{doc}</summary>\n");
+            cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>{where}</remarks>\n");
+        }
+        // Lint: no name that misleads. "Ret" was a return marker in the symbols, never a meaning.
+        if (Regex.IsMatch(method, "(^|[^a-z])Ret([A-Z_0-9]|$)")) lint.Add($"0x{id:x4} {cls}.{method}: \"Ret\" names nothing (give it a name in the docs section)");
+        if (Regex.IsMatch(method, "^N[0-9a-f]{4}|_[0-9a-f]{4}$|^" + cls + "_[0-9a-f]{4}$")) generatedNames++;
         string ret = resultCs;
         string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{paramCs[k]} {paramNames[k]}"));
         cs.Append(CultureInfo.InvariantCulture, $"    [Atel.Native(0x{id:x4}{(s.Poll is not null ? ", Polls = true" : "")})]\n");
@@ -403,6 +448,11 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
     cs.Append("}\n");
 }
 
+if (docs.Count > 0) throw new InvalidOperationException($"data/native-types.json: docs for no native {string.Join(", ", docs.Keys.Select(k => $"0x{k:x4}"))}");
+if (lint.Count > 0) {
+    foreach (string l in lint) Console.Error.WriteLine($"lint: {l}");
+    throw new InvalidOperationException($"{lint.Count} misleading native names");
+}
 if (paramTypes.Count > 0) throw new InvalidOperationException($"data/native-types.json: no native {string.Join(", ", paramTypes.Keys.Select(k => $"0x{k:x4}"))}");
 
 JsonObject doc2 = new() {
@@ -418,6 +468,7 @@ int called = natives.Count(n => n!["calls"]!.GetValue<long>() > 0);
 Console.WriteLine($"{natives.Count} natives in the tables, {called} called by the shipped scripts, {named} named");
 Console.WriteLine($"argument counts: exe and statements agree {agree}, disagree {disagree} (statements win {onlyBytecode}), exe only {onlyExe}");
 Console.WriteLine($"argument kinds known for {kindsKnown}");
+Console.WriteLine($"{generatedNames} names still generated (Nxxxx, a number suffix); modder docs for {docsWritten} natives");
 return 0;
 
 static string ThisFile([CallerFilePath] string path = "") => path;

@@ -139,7 +139,8 @@ followed by `popfacc` (106,583). Scripts use only `req0`, `reqw0`, `reqe0` and `
 | `Halt();` | `op_54` |
 | `Breakpoint();` | `op_40` |
 | `Nop(n);` | `nop_76 n` |
-| `Op77(a, b);`, `Op79(a, b, c);` | operands, then `op_77`, `op_79` |
+| `WaitForEntry<W>(e);` | `pushimm` W's number, `e`, then `op_77` |
+| `WaitForEntry(w, e);`, `WaitForPartyEntry(s, e);`, `Op79(a, b, c);` | operands, then `op_77`, `op_78`, `op_79` |
 | `Entry(n);` | nothing: entry `n`'s offset is here |
 
 The compiler adds no `end` at the end of a method: code that does not end in a jump or `end` runs

@@ -309,9 +309,14 @@ internal sealed partial class StatementReader(
                 return new OpStmt(Opcodes.Op54);
             case IdentifierNameSyntax { Identifier.ValueText: "Breakpoint" } when args.Count == 0:
                 return new OpStmt(Opcodes.Op40);
-            case IdentifierNameSyntax { Identifier.ValueText: "Op77" or "Op78" or "Op79" } id when args.Count == (id.Identifier.ValueText == "Op79" ? 3 : 2):
-                return new OpArgsStmt(id.Identifier.ValueText switch { "Op77" => Opcodes.Op77, "Op78" => Opcodes.Op78, _ => Opcodes.Op79 },
+            case IdentifierNameSyntax { Identifier.ValueText: "Op77" or "Op78" or "Op79" or "WaitForEntry" or "WaitForPartyEntry" } id
+                when args.Count == (id.Identifier.ValueText == "Op79" ? 3 : 2):
+                return new OpArgsStmt(id.Identifier.ValueText switch { "Op77" or "WaitForEntry" => Opcodes.Op77, "Op78" or "WaitForPartyEntry" => Opcodes.Op78, _ => Opcodes.Op79 },
                     [.. args.Select(a => ReadExpr(a.Expression))]);
+            // `WaitForEntry<Lulu>(5);`: op_77 with the worker's number.
+            case GenericNameSyntax { Identifier.ValueText: "WaitForEntry", TypeArgumentList.Arguments: [TypeSyntax wt] } when args.Count == 1:
+                return new OpArgsStmt(Opcodes.Op77, [new IntLit(workers.TryGetValue(TypeNameOf(wt), out int ww) ? ww : throw Error(wt, $"no worker {wt} in [Workers]")),
+                    ReadExpr(args[0].Expression)]);
             case IdentifierNameSyntax { Identifier.ValueText: "End" } when args.Count is 1 or 2: {
                 bool reset = args.Count == 2 && (Constant(args[1].Expression) ?? throw Error(args[1], "reset is true or false"));
                 return new EndWithStmt(reset ? Opcodes.EndP1 : Opcodes.EndP, ReadExpr(args[0].Expression));

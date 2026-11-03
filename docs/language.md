@@ -221,11 +221,11 @@ or 8194 for the voiced ones) and `mode = 0`: the values most lines use, so a usu
 call. A voiced line is prepared first, as the game does:
 
 ```csharp
-Chr.Ret(2, 1);                          // the speaker's talking motion
+Chr.SetAutoTalkOf(2, 1);                // the speaker's mouth moves (worker 2)
 Common.VoiceStandbyEnd(0x85355cb);      // prepare the voice
-Common.WaitFrames_01d1(5);
+Common.WaitFramesUnlessHddMode(5);
 Dialogue.SayVoiced(Text[0]);
-Chr.Ret(2, 0);
+Chr.SetAutoTalkOf(2, 0);
 Dialogue.Say(Text[71]);                 // a line without voice
 Dialogue.Say(Text[19], window: 1, y: 224, style: 0, flags: 0);
 ```
@@ -446,7 +446,9 @@ workers that run the code; in a script compiled whole, those workers' private da
 Natives are static methods of `Common`, `Calc`, `Screen`, `Chr`, `Cam`, `Btl`, `Fx`, `Movie`,
 `Group9`, `GroupC` and `GroupD` (`src/Ffx.Atel.Game/Natives.g.cs`, generated from
 `data/natives.json`). Each has `[Native(id)]` (`Polls = true` for natives that wait) and an XML doc
-comment with what is known about it, which the IDE shows on hover.
+comment with what is known about it, which the IDE shows on hover. The 92 most used have a summary
+written for modders and named, described parameters; what reverse engineering found about them is
+in `<remarks>`.
 
 ```csharp
 Common.WaitFrames(30);
@@ -592,7 +594,10 @@ the instructions shown or to nothing.
 | `Call<W>()` | `call` | the older form of `W.Run()` |
 | `Halt()`, `Breakpoint()` | `op_54`, `op_40` | |
 | `End(v)`, `End(v, reset: true)` | `endp`, `endp_1` | |
-| `Op77(a, b)`, `Op78(a, b)`, `Op79(a, b, c)` | `op_77` … `op_79` | opcodes not yet understood |
+| `WaitForEntry<Lulu>(5)`, `WaitForEntry(worker, entry)` | `op_77` | wait until the worker has no request for the entry queued or running (`_ = Lulu.E5Async(); WaitForEntry<Lulu>(5);` waits for it to end); goes on at once when there is none |
+| `WaitForPartyEntry(slot, entry)` | `op_78` | the same for the worker of a party slot (0-2); unused by the shipped scripts |
+| `Op77(a, b)`, `Op78(a, b)` | `op_77`, `op_78` | the older names of the two above |
+| `Op79(a, b, c)` | `op_79` | an opcode not yet understood |
 | `RegA`, `RegB`, `LastResult` | `pusha`/`popa`, `pushb`/`popb`, `pushfacc` | the machine's registers |
 | `Asm("""…""")` | the lines | assembly in `atel disasm` syntax; the decompiler writes none since Phase 4, but it stays valid input |
 

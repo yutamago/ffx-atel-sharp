@@ -79,6 +79,11 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         EndWithStmt { Op: Opcodes.EndP } e => $"End({ToInt(Expr(e.Value)).Text});",
         EndWithStmt { Op: Opcodes.EndP1 } e => $"End({ToInt(Expr(e.Value)).Text}, reset: true);",
         NopStmt n => string.Create(CultureInfo.InvariantCulture, $"Nop({n.Operand});"),
+        // op_77 waits until a worker has no request for an entry queued or running (Worker.WaitForEntry).
+        OpArgsStmt { Op: Opcodes.Op77, Args: [IntLit { Value: int w }, Expr e] } when w >= 0 && w < workerNames.Length =>
+            $"WaitForEntry<{workerNames[w]}>({ToInt(Expr(e)).Text});",
+        OpArgsStmt { Op: Opcodes.Op77 } x => $"WaitForEntry({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
+        OpArgsStmt { Op: Opcodes.Op78 } x => $"WaitForPartyEntry({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         OpArgsStmt x => $"Op{x.Op:x2}({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         InlineStmt i => InlineCall(i),
         _ => throw No($"no C# for {s}"),
