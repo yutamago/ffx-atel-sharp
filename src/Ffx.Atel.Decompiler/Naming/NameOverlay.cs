@@ -163,7 +163,7 @@ public sealed class NameOverlay {
         return int.TryParse(hex ? o[2..] : o, hex ? NumberStyles.AllowHexSpecifier : NumberStyles.None, CultureInfo.InvariantCulture, out int offset) ? (storage, offset) : null;
     }
 
-    private static string StripComment(string line) {
+    internal static string StripComment(string line) {
         bool quoted = false;
         for (int i = 0; i < line.Length; i++) {
             if (line[i] == '"') quoted = !quoted;
@@ -172,7 +172,7 @@ public sealed class NameOverlay {
         return line;
     }
 
-    private static string Unquote(string key) => key.Length >= 2 && key[0] == '"' && key[^1] == '"' ? key[1..^1] : key;
+    internal static string Unquote(string key) => key.Length >= 2 && key[0] == '"' && key[^1] == '"' ? key[1..^1] : key;
 
     /// <summary>A C# identifier that is not a keyword (contextual keywords are fine).</summary>
     public static bool IsIdentifier(string name) =>

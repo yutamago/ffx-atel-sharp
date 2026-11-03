@@ -16,7 +16,34 @@ public sealed record WorkerSource(string Name, int Number, string Attributes, st
     ///     The class, as it stands in a single file: <c>partial</c>, so that a mod can add to it
     ///     (<c>partial class W03 { … }</c>, docs/formats/mod-package.md).
     /// </summary>
-    public string Text => Attributes + Declaration(partial: true) + Body + "}\n";
+    public string Text => Attributes + Declaration(partial: true) + AnnotatedBody + "}\n";
+
+    /// <summary>The worker's code as a hash (<see cref="WorkerSignature"/>), the key of a library class's name; null when unknown.</summary>
+    public string? Signature { get; init; }
+
+    /// <summary>
+    ///     Comments that go into <see cref="Body"/> (who requests an entry, <see cref="FlowNotes"/>): each at an
+    ///     offset into it where a method starts, in order, its lines indented and ending in <c>\n</c>. Kept out
+    ///     of <see cref="Body"/>, so that workers whose code is the same still share a library class.
+    /// </summary>
+    public IReadOnlyList<(int Offset, string Text)> Notes { get; init; } = [];
+
+    /// <summary>The same comments for the class line, for when the body moves to a library class.</summary>
+    public string ClassNotes { get; init; } = "";
+
+    /// <summary><see cref="Body"/> with the <see cref="Notes"/> in it.</summary>
+    public string AnnotatedBody {
+        get {
+            if (Notes.Count == 0) return Body;
+            StringBuilder sb = new(Body.Length + Notes.Sum(n => n.Text.Length));
+            int at = 0;
+            foreach ((int offset, string text) in Notes) {
+                sb.Append(Body, at, offset - at).Append(text);
+                at = offset;
+            }
+            return sb.Append(Body, at, Body.Length - at).ToString();
+        }
+    }
 
     internal string Declaration(bool partial) =>
         string.Create(CultureInfo.InvariantCulture, $"public sealed {(partial ? "partial " : "")}class {Name} : {Base}\n{{\n");
