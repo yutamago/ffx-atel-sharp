@@ -1,0 +1,40 @@
+# Names for library classes (Library/ of the decompiled source), by the signature of the code
+# their workers share (docs/source-repo.md, "Library names"). A class not named here keeps its
+# number, SharedNNNN. Each name says what the code does, read off the natives it calls (their
+# names are FFX.exe's), not a guessed role. Our own names: no game code or text.
+#
+# The comment after each line: the class's number and users at ffx-atel-sharp 5bf314c.
+
+[classes]
+"a0906c7d2afee71b" = "MoveTalkDefaults"               # Shared0108, 392 users
+"89d61db79ca75823" = "FixedBattleCamera"              # Shared0097, 163 (battles)
+"1e5a106de11263ab" = "EventCamera"                    # Shared0106, 75 (events)
+"ebd51a9ab11b1722" = "IdleWorker2"                    # Shared0006, 101
+"6d9123456f502e78" = "IdleWorker2WithEntry2"          # Shared0004, 47
+"683add9233632c02" = "IdleWorker4"                    # Shared0109, 42
+"8f0a91701993ed28" = "IdleWorker4WithEntry2"          # Shared0179, 68; Shared0202 (7) is the same code written async: IdleWorker4WithEntry2_2
+"da9b68b866100d12" = "IdleWorker4WithEntries2To5"     # Shared0237, 13
+"882be3c016c4e9c3" = "IdleWorker1WithEntries2To5"     # Shared0161, 53
+"df87bf23dd14da1b" = "IdleWorker1WithEntries2To6"     # Shared0157, 24
+"6d261109551ce162" = "SanubiaDesertBattleLights"      # Shared0003, 33 (Battles/Bika)
+"0d47628e7b598405" = "ThunderPlainsBattleLights"      # Shared0033, 18 (Battles/Kami)
+"c221a39fbfa2b9cd" = "CalmLandsBattleLights"          # Shared0069, 17 (Battles/Nagi)
+"97f417be3e4c23e8" = "OmegaRuinsBattleLights"         # Shared0073, 16 (Battles/Omeg)
+"f46d30686ecd5978" = "HighroadBattleLights"           # Shared0057, 14 (Battles/Mihn)
+
+[summaries]
+"a0906c7d2afee71b" = "A function worker others call with Run(): on a worker of type 1 it sets the move speed, arrive radius, talk and touch ranges, talk angle and turn speeds to the same values everywhere."
+"89d61db79ca75823" = "Attaches to camera 2 (AttachCamera(2, 0, 0)); entries 2 to 4 set one fixed view (RefSetPos, SetPolar, SetRoll, SetScreenDepth)."
+"1e5a106de11263ab" = "Attaches to camera 1 (AttachCamera(1, 0, 0)); entries 2 to 5 do nothing, entry 6 clears the camera's reference areas (Cam.RefClearAreas)."
+"ebd51a9ab11b1722" = "A worker of type 2 that does nothing: an empty Init, and Main waits forever."
+"6d9123456f502e78" = "A worker of type 2 that does nothing: an empty Init, Main waits forever, and an empty entry 2."
+"683add9233632c02" = "A worker of type 4 that does nothing: an empty Init, and Main waits forever."
+"8f0a91701993ed28" = "A worker of type 4 that does nothing: an empty Init, Main waits forever, and an empty entry 2."
+"da9b68b866100d12" = "A worker of type 4 that does nothing: an empty Init, Main waits forever, and entries 2 to 5 are empty."
+"882be3c016c4e9c3" = "A worker of type 1 that does nothing: an empty Init, Main waits forever, and entries 2 to 5 are empty."
+"df87bf23dd14da1b" = "A worker of type 1 that does nothing: an empty Init, Main waits forever, and entries 2 to 6 are empty."
+"6d261109551ce162" = "Sets the four battle lights (Screen.LightSet) and the foot material of the Sanubia Desert's battles in Init, then waits forever."
+"0d47628e7b598405" = "Sets the four battle lights (Screen.LightSet) of the Thunder Plains' battles in Init, then waits forever."
+"c221a39fbfa2b9cd" = "Sets the four battle lights (Screen.LightSet) and the foot material of the Calm Lands' battles in Init, then waits forever."
+"97f417be3e4c23e8" = "Sets the four battle lights (Screen.LightSet) of the Omega Ruins' battles in Init, then waits forever."
+"f46d30686ecd5978" = "Sets the four battle lights (Screen.LightSet) and the foot material of the Highroad's battles (Battles/Mihn) in Init, then waits forever."

@@ -110,6 +110,87 @@ Story progress values are not in the overlay: they are constants of the
 reference assembly (`Story.S01340_Kami0400`), and their hand names go into
 `data/story-names.json`, next to `data/names/`.
 
+## Library names
+
+Workers whose code is the same in several scripts derive from a library class
+in `Library/` (plan, Phase 6, "Library base classes"). Their numbers,
+`Shared0108`, follow the order the classes are first used in, which shifts
+when a script's workers stop or start sharing, so a hand name cannot be keyed
+by the number. It is keyed by the class's **signature**: a hash of its
+workers' code (the worker type, the entry and label offsets, and each
+instruction with constants by value and variables by location), which neither
+the script it is in nor the decompiler's C# for it changes. The library file
+shows it:
+
+```csharp
+// Signature 1e5a106de11263ab (the key of its name in ffx-atel-sharp's data/library-names.toml).
+…
+/// <summary>Attaches to camera 1 (AttachCamera(1, 0, 0)); …</summary>
+public abstract class EventCamera : Worker1
+```
+
+The names are in this repo's `data/library-names.toml` (embedded like
+`data/names/`, so a change takes effect with the next build):
+
+```toml
+[classes]
+"1e5a106de11263ab" = "EventCamera"      # Shared0106, 75 users
+
+[summaries]
+"1e5a106de11263ab" = "Attaches to camera 1 (AttachCamera(1, 0, 0)); …"
+```
+
+A class not named there keeps its number, and named classes still take
+theirs, so naming one renumbers nothing. A name says what the code does, read
+off the natives it calls (their names are FFX.exe's), not a guessed role
+(plan, "Decisions", "Only verified names"). Two classes can share a signature
+when the same code is written differently in different scripts (an entry
+another worker requests is `async Task`, elsewhere `void`): the one with more
+users gets the name, the other `Name_2`. The corpus test checks that every
+signature in the file still names a class.
+
+## Notes
+
+The decompiler writes comments read off the code, so a reader can follow the
+flow. Comments only: the source compiles to the same bytes.
+
+- **Who starts an entry.** An entry method that other workers request (with
+  a constant worker and entry) or call (a function worker's `Run`) says by
+  whom:
+
+  ```csharp
+  /// <summary>Requested by W49.Main.</summary>
+  [Entry(6)]
+  public static async Task E6Async()
+  ```
+
+  A method that holds several entries lists them (`Entry 3: requested by …`).
+  A worker that derives from a library class gets the list on its class line
+  instead (`/// <summary>E2Async: requested by W00.Main.</summary>`), so the
+  library stays shared. Requests whose worker or entry is computed at run
+  time are not listed.
+- **The story index** on the script class: every `switch (StoryProgress)` in
+  a worker's `Init` or `Main` that requests entries, with its cases and the
+  entries each requests (the first six, and how many more):
+
+  ```csharp
+  /// <summary>
+  /// The story index: each switch (StoryProgress) in a worker's Init or Main that requests entries,
+  /// with the entries each case requests (read off the code by atel).
+  /// <code>
+  /// W57.Main:
+  ///   Story.S00200_Bsvr0200: -
+  ///   Story.S00210_Bsvr0000 to Story.S00220_Bsil0100: SprsHan030.E6Async, SprsHan028.E6Async, … and 2 more
+  ///   otherwise: …
+  /// </code>
+  /// </summary>
+  [Event("bsvr0000")]
+  ```
+
+  It is on the script class rather than in a generated file per area: it
+  travels with the script (also in `atel decompile bsvr0000`), the IDE shows
+  it on hover, and the methods it names are in the same folder.
+
 ## Commands
 
 From a build of this repo (`dotnet build -c Release src/Ffx.Atel.Cli`; the

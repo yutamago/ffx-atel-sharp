@@ -540,6 +540,7 @@ internal sealed partial class WorkerDecompiler {
         for (int m = 0; m < _methods.Count; m++) {
             Method method = _methods[m];
             if (m > 0) sb.Append('\n');
+            MethodOffsets.Add(sb.Length);
             if (method.Pin is not null) sb.Append(Indent).Append("[Labels(").Append(string.Join(", ", method.Pin.Select(n => n.ToString(CultureInfo.InvariantCulture)))).Append(")]\n");
             WriteHeader(sb, method);
             sb.Append(Indent).Append("{\n");

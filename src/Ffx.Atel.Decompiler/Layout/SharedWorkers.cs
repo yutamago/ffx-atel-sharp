@@ -9,11 +9,17 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Ffx.Atel.Decompiler.Layout;
 
 /// <summary>A library class: the body several workers share, and who uses it.</summary>
-/// <param name="Name"><c>Shared0001</c>.</param>
+/// <param name="Name"><c>Shared0001</c>, or its name in <see cref="LibraryNames"/> (<c>EventCamera</c>).</param>
 /// <param name="Base">The worker type's class it derives from (<c>Worker1</c>).</param>
 /// <param name="Body">The members, as the workers had them.</param>
 /// <param name="Users">The workers that derive from it: <c>Events.Bj.Bjyt0400.W03</c>.</param>
-public sealed record SharedWorker(string Name, string Base, string Body, IReadOnlyList<string> Users);
+public sealed record SharedWorker(string Name, string Base, string Body, IReadOnlyList<string> Users) {
+    /// <summary>The <see cref="WorkerSignature"/> of its first user's code, the key of its name; null when unknown.</summary>
+    public string? Signature { get; init; }
+
+    /// <summary>What it does, from <see cref="LibraryNames"/>; null for a numbered class.</summary>
+    public string? Summary { get; init; }
+}
 
 /// <summary>The scripts with their shared workers replaced by library classes, and the library.</summary>
 public sealed record SharedLibrary(IReadOnlyList<ScriptSource> Scripts, IReadOnlyList<SharedWorker> Classes) {
@@ -34,12 +40,14 @@ public sealed record SharedLibrary(IReadOnlyList<ScriptSource> Scripts, IReadOnl
             head.Append(CultureInfo.InvariantCulture, $"// The code of {c.Users.Count} workers, decompiled by atel:\n");
             foreach (string u in c.Users.Take(8)) head.Append("//   ").Append(u).Append('\n');
             if (c.Users.Count > 8) head.Append(CultureInfo.InvariantCulture, $"//   and {c.Users.Count - 8} more.\n");
+            if (c.Signature is not null) head.Append(CultureInfo.InvariantCulture, $"// Signature {c.Signature} (the key of its name in ffx-atel-sharp's data/library-names.toml).\n");
             head.Append("using Ffx;\nusing Ffx.Atel;\n\n").Append(CultureInfo.InvariantCulture, $"namespace {Namespace};\n\n");
             List<string> parts = SourceLayout.Split(c.Body, splitLines, partLines);
             int digits = parts.Count.ToString(CultureInfo.InvariantCulture).Length;
             for (int p = 0; p < parts.Count; p++) {
                 StringBuilder sb = new(head.ToString());
                 string partial = parts.Count > 1 ? "partial " : "";
+                if (p == 0 && c.Summary is not null) sb.Append("/// <summary>").Append(c.Summary.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal)).Append("</summary>\n");
                 sb.Append(p == 0 ? $"public abstract {partial}class {c.Name} : {c.Base}\n{{\n" : $"public abstract partial class {c.Name}\n{{\n");
                 sb.Append(parts[p]).Append("}\n");
                 string suffix = p == 0 ? "" : "." + (p + 1).ToString("D" + digits, CultureInfo.InvariantCulture);
@@ -63,8 +71,14 @@ public sealed record SharedLibrary(IReadOnlyList<ScriptSource> Scripts, IReadOnl
 ///     (<c>[Worker]</c>, <c>[PrivateData]</c>) stay on each worker.
 /// </remarks>
 public static class SharedWorkers {
-    /// <summary>Finds the shared workers of <paramref name="scripts"/> and rewrites them.</summary>
-    public static SharedLibrary Build(IReadOnlyList<ScriptSource> scripts) {
+    /// <summary>
+    ///     Finds the shared workers of <paramref name="scripts"/> and rewrites them. A class is named after
+    ///     <paramref name="names"/> (by default this repo's <c>data/library-names.toml</c>) by its first user's
+    ///     signature, else numbered (<c>Shared0108</c>) in order of first use, named classes counted too, so
+    ///     that naming one does not renumber the others.
+    /// </summary>
+    public static SharedLibrary Build(IReadOnlyList<ScriptSource> scripts, LibraryNames? names = null) {
+        names ??= LibraryNames.Default;
         // Groups by (base, body), in order of first use: scripts in path order, workers in order.
         List<ScriptSource> ordered = [.. scripts.OrderBy(s => SourceLayout.Folder(s.Names), StringComparer.Ordinal)];
         Dictionary<(string Base, string Body), List<(ScriptSource Script, WorkerSource Worker)>> groups = [];
@@ -84,8 +98,8 @@ public static class SharedWorkers {
             return names;
         }
 
-        Dictionary<(ScriptSource, int), string> replaced = new(new ScriptWorkerComparer());
         List<SharedWorker> classes = [];
+        List<List<(ScriptSource Script, WorkerSource Worker)>> classUsers = [];
         foreach ((string Base, string Body) key in order) {
             var group = groups[key];
             if (group.Count < 2) continue;
@@ -93,8 +107,22 @@ public static class SharedWorkers {
             List<(ScriptSource Script, WorkerSource Worker)> users = [.. group.Where(u => !used.Overlaps(Declared(u.Script)))];
             if (users.Count < 2) continue;
             string name = string.Create(CultureInfo.InvariantCulture, $"Shared{classes.Count + 1:D4}");
-            classes.Add(new SharedWorker(name, key.Base, key.Body, [.. users.Select(u => $"{u.Script.Names.Namespace}.{u.Worker.Name}")]));
-            foreach (var u in users) replaced[(u.Script, u.Worker.Number)] = name;
+            classes.Add(new SharedWorker(name, key.Base, key.Body, [.. users.Select(u => $"{u.Script.Names.Namespace}.{u.Worker.Name}")]) { Signature = users[0].Worker.Signature });
+            classUsers.Add(users);
+        }
+
+        // The hand names, the class with most users first: two bodies of the same code (one written with
+        // a name, or async, where the other's script has none) share a signature, and the smaller gets _2.
+        HashSet<string> taken = new(StringComparer.Ordinal);
+        foreach (int i in Enumerable.Range(0, classes.Count).OrderByDescending(i => classes[i].Users.Count).ThenBy(i => i)) {
+            if (classes[i].Signature is not string signature || !names.Names.TryGetValue(signature, out string? given)) continue;
+            string name = given;
+            for (int n = 2; !taken.Add(name); n++) name = string.Create(CultureInfo.InvariantCulture, $"{given}_{n}");
+            classes[i] = classes[i] with { Name = name, Summary = names.Summaries.GetValueOrDefault(signature) };
+        }
+        Dictionary<(ScriptSource, int), string> replaced = new(new ScriptWorkerComparer());
+        for (int i = 0; i < classes.Count; i++) {
+            foreach (var u in classUsers[i]) replaced[(u.Script, u.Worker.Number)] = classes[i].Name;
         }
 
         List<ScriptSource> result = [];
@@ -103,7 +131,9 @@ public static class SharedWorkers {
                 result.Add(s);
                 continue;
             }
-            WorkerSource[] workers = [.. s.Workers.Select(w => replaced.TryGetValue((s, w.Number), out string? name) ? w with { Base = name, Body = "" } : w)];
+            WorkerSource[] workers = [.. s.Workers.Select(w => replaced.TryGetValue((s, w.Number), out string? name)
+                ? w with { Base = name, Body = "", Notes = [], Attributes = w.ClassNotes + w.Attributes }
+                : w)];
             result.Add(s with { Workers = workers, LibraryNamespaces = [SharedLibrary.Namespace] });
         }
         return new SharedLibrary(result, classes);
