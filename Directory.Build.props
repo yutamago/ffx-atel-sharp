@@ -19,7 +19,13 @@
         <!-- Test assemblies one at a time (dotnet test); the corpus tests also lock against other checkouts. -->
         <RunSettingsFilePath>$(MSBuildThisFileDirectory)test.runsettings</RunSettingsFilePath>
     </PropertyGroup>
-    <PropertyGroup Condition="!$(MSBuildProjectName.EndsWith('.Tests'))">
+    <PropertyGroup>
+        <!-- The generators in tools/ (dotnet run tools/gen-*.cs) find the checkout from their own path
+             ([CallerFilePath]) and ship nowhere: no PathMap for them, as for the tests. -->
+        <_AtelIsTool>false</_AtelIsTool>
+        <_AtelIsTool Condition="'$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory)))' == '$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory), tools))'">true</_AtelIsTool>
+    </PropertyGroup>
+    <PropertyGroup Condition="!$(MSBuildProjectName.EndsWith('.Tests')) And '$(_AtelIsTool)' != 'true'">
         <!-- The SDK package and the copy atel decompile writes carry these assemblies: map the checkout's
              path, so no PDB path names a user folder. -->
         <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))=/_/</PathMap>
