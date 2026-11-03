@@ -618,7 +618,12 @@ replaces and the round trip stays byte for byte.
   `goto case`); values no script stores stay numbers.
 - **Save variables** (`Save`, `src/Ffx.Atel.Game/Save.cs`): the storage 0
   offset of each save field Fahrenheit names (`SaveData`, as listed in
-  ffx-rust's `docs/formats/save.md`) at or after save `+0x1ec`, 65 fields.
+  ffx-rust's `docs/formats/save.md`) at or after save `+0x1ec`, 66 fields,
+  and 18 we name ourselves from the scripts (save sphere tips, the Al Bhed
+  primers, the lightning dodging awards, the blitzball teams and players),
+  with nested classes naming the bits of flag fields (`Save.LightningReward`);
+  the evidence, and what stays unnamed, is in
+  [research/save-fields.md](research/save-fields.md).
   A script's save variable is named after the field at its offset and placed
   by the constant (`[Var(Storage.Save, Save.StoryProgress)] public static
   ushort StoryProgress;`), else `Save_0a4a` by its storage 0 offset; a
@@ -629,6 +634,7 @@ replaces and the round trip stays byte for byte.
   known for storage 1 (common variables) yet.
 - Numbers (2026-11-02): all 1,621 scripts round-trip; 10,822 story constants
   placed; 760 save variable declarations named after a field, 2,579 by offset.
+  2026-11-03, with our names: 1,801 named after a field, 1,538 by offset.
 - **Enums by use** (`src/Ffx.Atel.Game/Enums.g.cs`, written by
   `tools/gen-enums.cs` from Fahrenheit's `src/core/ffx/ids`, the PS2 headers'
   names they transcribed, used with permission; names and values only,

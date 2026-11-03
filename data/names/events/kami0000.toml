@@ -1,0 +1,7 @@
+# kami0000, Thunder Plains
+
+[variables]
+# The dodge streak: the bolt worker adds 1 per dodged bolt, raises
+# LightningDodgingHighestConsecutiveDodges to it, and sets it to 0 when a
+# bolt hits.
+"Event:0x0012" = "ConsecutiveDodges"
