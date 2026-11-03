@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+using System.Globalization;
 using System.Reflection;
 using Ffx.Atel.Bytecode.Script;
 
@@ -16,10 +17,27 @@ namespace Ffx.Atel.Decompiler.Naming;
 internal static class WorkerNaming {
     private const ushort SetModel = 0x0001;
 
-    /// <summary>The names, given the default ones (<c>W00</c>, …) and names already taken in the source.</summary>
-    public static string[] Names(ScriptBlock block, ScriptImage image, string[] defaults, IEnumerable<string> taken) {
+    /// <summary>
+    ///     The names, given the default ones (<c>W00</c>, …) and names already taken in the source. The
+    ///     overlay's names (<see cref="NameOverlay.Workers"/>) come first; no other worker takes one of them.
+    /// </summary>
+    /// <exception cref="FormatException">The overlay names a worker the script does not have, gives a name twice, or a name the source already uses.</exception>
+    public static string[] Names(ScriptBlock block, ScriptImage image, string[] defaults, IEnumerable<string> taken, NameOverlay? overlay = null) {
+        overlay ??= NameOverlay.Empty;
         HashSet<string> reserved = new(taken, StringComparer.Ordinal);
         reserved.UnionWith(Reserved.Value);
+        foreach ((int w, string name) in overlay.Workers.OrderBy(kv => kv.Key)) {
+            if (w >= defaults.Length) throw new FormatException(string.Create(CultureInfo.InvariantCulture, $"{overlay.Source}: worker {w}: the script has {defaults.Length} workers"));
+            if (reserved.Contains(name)) throw new FormatException($"{overlay.Source}: worker {w}: {name} is already a name in the source or the reference assembly");
+        }
+        if (overlay.Workers.Values.Distinct(StringComparer.Ordinal).Count() != overlay.Workers.Count) throw new FormatException($"{overlay.Source}: two workers have the same name");
+        reserved.UnionWith(overlay.Workers.Values);
+        // A default name (W03) the overlay gave another worker would clash too.
+        for (int w = 0; w < defaults.Length; w++) {
+            if (!overlay.Workers.ContainsKey(w) && overlay.Workers.Values.Contains(defaults[w], StringComparer.Ordinal)) {
+                throw new FormatException($"{overlay.Source}: {defaults[w]} is worker {w}'s default name; give another");
+            }
+        }
         Domain models = GameNames.Enum(typeof(Ffx.Model))!;
         string?[] baseNames = new string?[defaults.Length];
         for (int w = 0; w < defaults.Length; w++) {
@@ -46,8 +64,10 @@ internal static class WorkerNaming {
             if (name is not null && !(name.Length > 1 && char.IsAsciiLetterUpper(name[0]) && name[1..].All(char.IsAsciiDigit))) baseNames[w] = name;
         }
         string[] names = (string[])defaults.Clone();
+        foreach ((int w, string name) in overlay.Workers) names[w] = name;
         foreach (IGrouping<string, int> g in Enumerable.Range(0, defaults.Length).Where(w => baseNames[w] is not null).GroupBy(w => baseNames[w]!)) {
-            foreach (int w in g) {
+            // The overlay's workers still count, so that a rename leaves the others' names as they were.
+            foreach (int w in g.Where(w => !overlay.Workers.ContainsKey(w))) {
                 string name = g.Count() == 1 ? g.Key : $"{g.Key}_{defaults[w][1..]}";
                 if (!reserved.Contains(name)) names[w] = name;
             }

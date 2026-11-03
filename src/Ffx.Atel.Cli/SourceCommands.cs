@@ -11,6 +11,7 @@ using Ffx.Atel.Bytecode.Vbf;
 using Ffx.Atel.Compiler;
 using Ffx.Atel.Decompiler;
 using Ffx.Atel.Decompiler.Layout;
+using Ffx.Atel.Decompiler.Naming;
 using Microsoft.CodeAnalysis;
 
 namespace Ffx.Atel.Cli;
@@ -40,6 +41,10 @@ internal static class SourceCommands {
                                            looked for beside atel, or left to your NuGet sources
           --no-sdk                         (decompile, export) projects reference .atel/Ffx.Atel.Game.dll
                                            instead of using the SDK (no analyzers)
+          --names <dir>                    (decompile, roundtrip) take the hand-written names for
+                                           workers, entries and variables from <dir>/events/kami0000.toml,
+                                           … instead of ffx-atel-sharp's data/names/ (built in;
+                                           docs/source-repo.md, "Names")
         """;
 
     /// <summary>How <c>decompile -o</c> writes the projects: by the SDK, with its package if found or given, or the old way.</summary>
@@ -47,7 +52,9 @@ internal static class SourceCommands {
         public static readonly ProjectOptions Default = new(GameReference.Sdk, null);
     }
 
-    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share, ProjectOptions? projectOptions = null, GameLanguage? textComments = null) {
+    public static int Decompile(VbfArchive archive, List<string> args, string? output, bool share, ProjectOptions? projectOptions = null, GameLanguage? textComments = null,
+                                string? namesFolder = null) {
+        if (namesFolder is not null && !Directory.Exists(namesFolder)) throw new ArgumentException($"--names {namesFolder}: no such folder");
         if (args.Count == 0) throw new ArgumentException("decompile <script>... [-o <dir>]");
         List<string> paths = args is ["all"] ? GameData.AllScriptPaths(archive)
             : args.Select(a => GameData.Resolve(archive, a) ?? throw new ArgumentException($"no script {a}")).ToList();
@@ -56,12 +63,12 @@ internal static class SourceCommands {
         string Comment(string path, string source) =>
             messages?.Display(path, textComments!.Value) is { } texts ? TextComments.Comment(source, texts) : source;
         if (output is null) {
-            Console.Out.Write(Comment(paths[0], ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0]))).Source));
+            Console.Out.Write(Comment(paths[0], ScriptDecompiler.Decompile(paths[0], ScriptFile.Parse(archive.Read(paths[0])), overlay: namesFolder is null ? null : NameOverlay.Load(namesFolder, paths[0])).Source));
             return 0;
         }
         List<(string Path, byte[] Bytes)> files = [.. paths.Select(p => (p, archive.Read(p)))];
         DecompiledScript[] decompiled = new DecompiledScript[files.Count];
-        Parallel.For(0, files.Count, i => decompiled[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes)));
+        Parallel.For(0, files.Count, i => decompiled[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes), overlay: namesFolder is null ? null : NameOverlay.Load(namesFolder, files[i].Path)));
         SharedLibrary library = Share(decompiled, share);
         long[] sizes = new long[files.Count];
         Parallel.For(0, files.Count, i => {
@@ -183,7 +190,8 @@ internal static class SourceCommands {
         return 0;
     }
 
-    public static int RoundTrip(VbfArchive archive, List<string> args, string? output, bool check, bool share) {
+    public static int RoundTrip(VbfArchive archive, List<string> args, string? output, bool check, bool share, string? namesFolder = null) {
+        if (namesFolder is not null && !Directory.Exists(namesFolder)) throw new ArgumentException($"--names {namesFolder}: no such folder");
         string filter = args.Count > 0 ? args[0] : "";
         List<string> paths = GameData.AllScriptPaths(archive).Where(p => p.Contains(filter, StringComparison.Ordinal)).ToList();
         ConcurrentBag<string> failures = [];
@@ -197,10 +205,10 @@ internal static class SourceCommands {
         DecompiledScript?[] decompiled = new DecompiledScript?[files.Count];
         Parallel.For(0, files.Count, i => {
             try {
-                decompiled[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes));
+                decompiled[i] = ScriptDecompiler.Decompile(files[i].Path, ScriptFile.Parse(files[i].Bytes), overlay: namesFolder is null ? null : NameOverlay.Load(namesFolder, files[i].Path));
                 totals.Add(decompiled[i]!.Stats);
             }
-            catch (Exception ex) when (ex is ScriptFormatException or InvalidOperationException) {
+            catch (Exception ex) when (ex is ScriptFormatException or InvalidOperationException or FormatException) {
                 failures.Add($"{files[i].Path}: {ex.Message}");
             }
         });

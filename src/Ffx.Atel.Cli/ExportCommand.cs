@@ -204,9 +204,18 @@ internal static class ExportCommand {
           whole tree of `atel decompile all`, replacing the last one, with the
           ffx-atel-sharp commit and the SHA-256 of `FFX_Data.vbf` and `FFX.exe`
           it was made from in the message. Never commit to it by hand.
-        - `main`: `generated` merged in, plus hand edits (names, comments,
-          reorganised code). Every commit on `main` should still compile to the
-          game's bytes, unless an edit is meant to change behaviour.
+        - `main`: `generated` merged in, plus hand edits (comments, reorganised
+          code). Every commit on `main` should still compile to the game's
+          bytes, unless an edit is meant to change behaviour.
+
+        ## Names
+
+        Rename workers, entries and variables in ffx-atel-sharp's `data/names/`,
+        not in the `.cs` files here: `data/names/events/kami0000.toml` holds the
+        names for the script `kami0000` (`[workers]` by number, `[entries]` by
+        `"worker.entry"`, `[variables]` by `"Storage:offset"`). The decompiler
+        applies them, so they survive every new export. The format is in
+        ffx-atel-sharp's `docs/source-repo.md`, "Names".
 
         ## Layout
 

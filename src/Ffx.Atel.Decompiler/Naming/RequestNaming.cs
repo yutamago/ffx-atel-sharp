@@ -26,7 +26,7 @@ internal static class RequestNaming {
             }
         }
         string? Target(int t, int e) =>
-            t >= 0 && t < workers.Length && workers[t].AsyncEntries.Contains(e) ? $"{names[t]}.{WorkerDecompiler.AsyncName(e)}" : null;
+            t >= 0 && t < workers.Length && workers[t].AsyncEntries.Contains(e) ? $"{names[t]}.{workers[t].AsyncMethodName(e)}" : null;
         HashSet<int> functions = [.. Enumerable.Range(0, workers.Length).Where(w => workers[w].IsRunFunction)];
         foreach (WorkerDecompiler w in workers) {
             w.RequestTarget = Target;

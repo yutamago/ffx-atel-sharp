@@ -103,15 +103,18 @@ public static class ScriptDecompiler {
     ///     The inline methods whose calls the source may use where they give the original code back
     ///     (docs/encoding.md, "Inline methods"): the reference assembly's when null, none when empty.
     /// </param>
+    /// <param name="overlay">Hand-written names for workers, entries and variables (<see cref="NameOverlay"/>); by default this repo's <c>data/names/</c> file of the script.</param>
     /// <exception cref="ScriptFormatException">The block has a shape the source cannot hold.</exception>
-    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null) {
+    /// <exception cref="FormatException">The overlay names something the script does not have, or gives a name twice.</exception>
+    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, NameOverlay? overlay = null) {
+        overlay ??= NameOverlay.Load(null, archivePath);
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
         ScriptImage image = ScriptImage.FromBlock(block);
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
 
-        string[] varNames = VariableNames(image.Variables);
-        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')]);
+        string[] varNames = VariableNames(image.Variables, overlay);
+        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')], overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
         inline ??= Compiler.InlineMethods.Game.All;
@@ -119,6 +122,7 @@ public static class ScriptDecompiler {
             w.Structure();
             w.FoldInline(inline);
         }
+        EntryNaming.Apply(workers, workerNames, overlay);
         RequestNaming.Assign(workers, workerNames);
 
         // The pools follow the rules unless the original differs, or assembly names them by index.
@@ -170,16 +174,32 @@ public static class ScriptDecompiler {
     }
 
     /// <summary>
-    ///     The variables' C# names: a save variable (storage 0) by the <see cref="Ffx.Save"/> field at its
-    ///     offset (<c>StoryProgress</c>), else <c>Save_0123</c>; the others <c>V3</c> by table index. A name
-    ///     the table already gave (the same location declared twice) gets <c>_2</c>, <c>_3</c>, ….
+    ///     The variables' C# names: the overlay's name for its storage and offset (<see cref="NameOverlay"/>);
+    ///     else a save variable (storage 0) by the <see cref="Ffx.Save"/> field at its offset
+    ///     (<c>StoryProgress</c>), else <c>Save_0123</c>; the others <c>V3</c> by table index. A name the
+    ///     table already gave (the same location declared twice) gets <c>_2</c>, <c>_3</c>, ….
     /// </summary>
-    public static string[] VariableNames(IReadOnlyList<VarEntry> table) {
+    /// <exception cref="FormatException">The overlay names a location the table does not declare.</exception>
+    public static string[] VariableNames(IReadOnlyList<VarEntry> table, NameOverlay? overlay = null) {
+        overlay ??= NameOverlay.Empty;
+        foreach ((int storage, int offset) in overlay.Variables.Keys) {
+            if (!table.Any(v => v.Storage == storage && v.Offset == offset)) {
+                throw new FormatException(string.Create(CultureInfo.InvariantCulture, $"{overlay.Source}: the script declares no variable at {(Storage)storage}:0x{offset:x4}"));
+            }
+        }
         string[] names = new string[table.Count];
-        HashSet<string> taken = new(StringComparer.Ordinal);
+        // Overlay names first, so that a generated name cannot take one.
+        HashSet<string> taken = new(overlay.Variables.Values, StringComparer.Ordinal);
+        if (taken.Count != overlay.Variables.Count) throw new FormatException($"{overlay.Source}: two variables have the same name");
+        HashSet<(int, int)> placed = [];
         for (int i = 0; i < table.Count; i++) {
             VarEntry v = table[i];
-            string name = v.Storage != 0 ? string.Create(CultureInfo.InvariantCulture, $"V{i}")
+            if (overlay.Variables.TryGetValue((v.Storage, v.Offset), out string? given) && placed.Add((v.Storage, v.Offset))) {
+                names[i] = given;
+                continue;
+            }
+            string name = overlay.Variables.TryGetValue((v.Storage, v.Offset), out given) ? given
+                : v.Storage != 0 ? string.Create(CultureInfo.InvariantCulture, $"V{i}")
                 : GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? field
                 : string.Create(CultureInfo.InvariantCulture, $"Save_{v.Offset:x4}");
             string unique = name;

@@ -658,6 +658,12 @@ replaces and the round trip stays byte for byte.
   already uses are skipped. Every other worker keeps `W03`. Base classes stay
   `Worker0`-`Worker6`: what the types are (`Npc`, trigger, …) is measured
   from the natives they call but not certain enough to name.
+- **Hand names** (decided 2026-11-02, moved 2026-11-03): the overlay in this
+  repo's `data/names/<category>/<script>.toml` names workers by number,
+  entries by worker and entry number and variables by storage and offset;
+  embedded in the decompiler, so renames survive every decompile and every
+  decompile names the same (`--names <dir>` uses another folder)
+  ([source-repo.md](source-repo.md#names)).
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
