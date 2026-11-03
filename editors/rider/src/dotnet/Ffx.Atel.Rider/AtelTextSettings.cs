@@ -6,7 +6,8 @@ using JetBrains.Application.Settings.WellKnownRootKeys;
 namespace Ffx.Atel.Rider
 {
     /// <summary>The plugin's settings (Settings → Editor → Atel# message text); the same as the VS Code extension's
-    /// <c>atel.*</c> settings.</summary>
+    /// <c>atel.*</c> settings
+    /// (<c>NamesDirectory</c> and <c>ShowNameHints</c> are <c>atel.namesDirectory</c> and <c>atel.inlayHints.names</c>).</summary>
     [SettingsKey(typeof(EnvironmentSettings), "Atel# message text")]
     public class AtelTextSettings
     {
@@ -18,6 +19,12 @@ namespace Ffx.Atel.Rider
 
         [SettingsEntry(true, "Show the message text after Text[n] as an inlay hint")]
         public bool ShowInlayHints;
+
+        [SettingsEntry("", "The folder of atel names export with one subfolder per language; empty: the nearest .atel/names above the file")]
+        public string NamesDirectory;
+
+        [SettingsEntry(true, "Show the game's name after Target, Command, Map and Battle values as an inlay hint")]
+        public bool ShowNameHints;
 
         [SettingsEntry(60, "Inlay hints longer than this are cut with an ellipsis")]
         public int MaxLength;

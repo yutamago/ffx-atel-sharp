@@ -6,7 +6,6 @@ using JetBrains.ReSharper.Feature.Services.Daemon;
 using JetBrains.ReSharper.Psi;
 using JetBrains.ReSharper.Psi.CSharp.Tree;
 using JetBrains.ReSharper.Psi.Tree;
-using JetBrains.Util;
 
 namespace Ffx.Atel.Rider
 {
@@ -15,8 +14,6 @@ namespace Ffx.Atel.Rider
     [ElementProblemAnalyzer(typeof(IElementAccessExpression), HighlightingTypes = new[] { typeof(TextHint) })]
     public sealed class TextHintAnalyzer : ElementProblemAnalyzer<IElementAccessExpression>
     {
-        private static readonly Key<TextContext> ContextKey = new Key<TextContext>("Atel# message text context");
-
         private readonly TextTables myTables;
 
         public TextHintAnalyzer(TextTables tables) => myTables = tables;
@@ -25,7 +22,7 @@ namespace Ffx.Atel.Rider
         {
             if (!TextUses.TryGetIndex(element, out var index) || data.SourceFile == null) return;
             var tables = myTables;
-            var context = data.GetOrCreateDataNoLock<TextContext>(ContextKey, () => tables.ContextOf(data.SourceFile, data.SettingsStore));
+            var context = data.GetOrCreateDataNoLock<TextContext>(TextTables.ContextKey, () => tables.ContextOf(data.SourceFile, data.SettingsStore));
             if (!context.ShowHints || context.Root == null || context.Scripts.Count == 0) return;
 
             var found = tables.Find(context, index).Where(l => l.Found && l.Text != null).ToList();

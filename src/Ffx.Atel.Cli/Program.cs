@@ -16,7 +16,7 @@ internal static class Program {
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
-        """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + DeadCommand.Usage + "\n" + """
+        """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + NamesCommand.Usage + "\n" + DeadCommand.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -47,7 +47,7 @@ internal static class Program {
         string gameDir = game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>");
         // Whole-corpus commands take the machine-wide corpus lock: one at a time, they each use several GB.
         bool wholeCorpus = command is "roundtrip" or "survey" or "dead" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"))
-                        || (command == "text" && TextCommand.IsWholeCorpus(args));
+                        || (command == "text" && TextCommand.IsWholeCorpus(args)) || command == "names";
         using VbfArchive archive = wholeCorpus ? GameData.OpenArchiveExclusive(gameDir) : GameData.OpenArchive(gameDir);
         switch (command) {
             case "list": {
@@ -80,6 +80,8 @@ internal static class Program {
             }
             case "text":
                 return TextCommand.Run(archive, args, output);
+            case "names":
+                return NamesCommand.Run(archive, args, output);
             case "compile": {
                 string? library = TakeOption(args, "--library");
                 return SourceCommands.Compile(archive, args, output, TakeFlag(args, "--check"), library, Options(args));

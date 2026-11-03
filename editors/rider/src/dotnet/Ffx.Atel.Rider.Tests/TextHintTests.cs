@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// The inlay hints, through ReSharper's daemon on made-up sources and text (test/data/Hints, with its .atel/text): the
+// The inlay hints, through ReSharper's daemon on made-up sources, text and names (test/data/Hints, with its .atel): the
 // gold files list each hint's place and tooltip, then the labels the hints show.
 
 using System.Collections.Generic;
@@ -43,6 +43,19 @@ namespace Ffx.Atel.Rider.Tests
         [Test] public void TestEvent() => DoNamedTest2();
         [Test] public void TestLibrary() => DoNamedTest2();
         [Test] public void TestAttribute() => DoNamedTest2();
+        [Test] public void TestNames() => DoNamedTest2();
+    }
+
+    [TestFixture, Apartment(ApartmentState.STA)]
+    public class NameHintsOffTests : TextHintTestBase
+    {
+        protected override void SetupSettings()
+        {
+            base.SetupSettings();
+            SettingsStore.SetValue((AtelTextSettings s) => s.ShowNameHints, false);
+        }
+
+        [Test] public void TestNamesOff() => DoNamedTest2();
     }
 
     [TestFixture, Apartment(ApartmentState.STA)]

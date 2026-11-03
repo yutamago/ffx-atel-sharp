@@ -1,7 +1,7 @@
 {
   "name": "atel-text",
   "displayName": "Atel# message text",
-  "description": "Shows the message text behind Text[n] in decompiled Atel# (FFX) C# sources, from your own game's message tables.",
+  "description": "Shows the message text behind Text[n], and the game's names behind Target, Command, Map and Battle values, in decompiled Atel# (FFX) C# sources, from your own game's tables.",
   "version": "0.1.0",
   "publisher": "yutamago",
   "license": "MIT",
@@ -47,17 +47,27 @@
             "Korean",
             "Chinese"
           ],
-          "description": "The language whose message text is shown for Text[n] (a folder of .atel/text, written by `atel text export`)."
+          "description": "The language whose message text is shown for Text[n] (a folder of .atel/text, written by `atel text export`), and whose names are shown for Target, Command, Map and Battle values (.atel/names, `atel names export`)."
         },
         "atel.textDirectory": {
           "type": "string",
           "default": "",
           "description": "The folder with one subfolder per language (`en/bjyt0400.json`, …). Empty: the nearest `.atel/text` above the file."
         },
+        "atel.namesDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "The folder of `atel names export` with one subfolder per language (`en/monsters.json`, …). Empty: the nearest `.atel/names` above the file."
+        },
+        "atel.inlayHints.names": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the game's name after Target, Command, Map and Battle values (`Target.Biran`, `(Command)0x3000`) as an inlay hint."
+        },
         "atel.inlayHints.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show the message text after Text[n] as an inlay hint."
+          "description": "Show the message text after Text[n] (and, with atel.inlayHints.names, the game's names) as inlay hints."
         },
         "atel.inlayHints.maxLength": {
           "type": "number",

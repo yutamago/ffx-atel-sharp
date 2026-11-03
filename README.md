@@ -16,7 +16,7 @@ For modders, in reading order:
 2. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
 3. [`docs/language.md`](docs/language.md): the language reference, which C# is Atel.
 4. [`docs/analyzers.md`](docs/analyzers.md): the rules that report C# ATEL cannot run.
-5. [`docs/editor.md`](docs/editor.md): message text in the editor.
+5. [`docs/editor.md`](docs/editor.md): message text and the game's names in the editor.
 6. [`docs/formats/mod-package.md`](docs/formats/mod-package.md): what a mod ships and how the loader links it.
 
 How it works:
@@ -84,7 +84,10 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   Code extension in `editors/vscode` and the Rider plugin in `editors/rider`
   show each `Text[n]`'s message as an inlay hint and hover (Rider: quick
   documentation); `atel decompile --text-comments <lang>` writes it
-  as comments instead; see [`docs/editor.md`](docs/editor.md).
+  as comments instead; `atel names export` does the same for the game's
+  names of monsters, commands and items, maps and battles, which both
+  editors show after `Target.Biran`, `Command.Attack`, `Map.Hiku0800` and
+  `Battle.Kami00_00`; see [`docs/editor.md`](docs/editor.md).
 - Dead code: `atel dead` catalogues the 34,806 `if (false)` blocks (groups,
   live twins, signatures), and blocks we understand are named
   (`if (Cut.ZanarkandCrowdFacingReaction)`, still compiling to the shipped
@@ -95,17 +98,17 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 
 | Project | Does |
 |---|---|
-| `Ffx.Atel.Bytecode` | VBF archives, script files, disassembler and assembler; FFX's text encoding and message tables |
+| `Ffx.Atel.Bytecode` | VBF archives, script files, disassembler and assembler; FFX's text encoding, message and kernel tables |
 | `Ffx.Atel.Game` | the reference assembly: the game's API for Atel source |
 | `Ffx.Atel.Decompiler` | bytecode to C# |
 | `Ffx.Atel.Compiler` | C# to bytecode, through Roslyn |
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, compile-mod, link, dead |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
-| `editors/vscode` | the VS Code extension that shows message text (TypeScript; `npm test`, `npm run package`) |
-| `editors/rider` | the Rider plugin that shows message text (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |
+| `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |
+| `editors/rider` | the Rider plugin that shows message text and names (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |
 
 ## Building
 

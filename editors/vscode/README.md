@@ -6,7 +6,12 @@ choose. The text comes from your own copy of the game; the extension ships none.
 
 ```csharp
 Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
+Btl.UseCommand(Target.Biran "…", Command.Attack "…");
 ```
+
+It also shows the game's name after the typed values that index the game's name tables, `Target.*`
+(monsters), `Command.*` (commands, items, abilities), `Map.*` (the place) and `Battle.*` (the formation's
+monsters), and casts of a constant to them (`(Command)0x3000`), from `atel names export`.
 
 It complements the C# extension and has no language server: it reads the file's text.
 
@@ -17,6 +22,7 @@ It complements the C# extension and has no language server: it reads the file's 
    ```bash
    atel decompile all -o src
    atel text export -o src                 # every language; or --lang en,de
+   atel names export -o src                # the game's names, the same way
    ```
 
    `atel text export` writes `src/.atel/text/<lang>/<script>.json`. The source tree's `.gitignore` already
@@ -34,6 +40,8 @@ It complements the C# extension and has no language server: it reads the file's 
 | `atel.textDirectory` | (empty) | the folder with the language folders; empty: the nearest `.atel/text` above the file |
 | `atel.inlayHints.enabled` | `true` | hints on or off (the hover stays) |
 | `atel.inlayHints.maxLength` | `60` | hints are cut here |
+| `atel.inlayHints.names` | `true` | name hints on or off (the hover stays) |
+| `atel.namesDirectory` | (empty) | `atel names export`'s folder; empty: the nearest `.atel/names` above the file |
 
 ## Which table
 

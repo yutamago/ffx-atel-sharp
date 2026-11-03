@@ -1070,7 +1070,7 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Analyzers` | the subset rules, ATL warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
-| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-all`, `atel roundtrip`, `atel export`, `atel text export`, `atel compile-mod`, `atel link`, `atel survey`, `atel disasm`/`asm` |
+| `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-all`, `atel roundtrip`, `atel export`, `atel text export`, `atel names export`, `atel compile-mod`, `atel link`, `atel survey`, `atel disasm`/`asm` |
 | `Ffx.Atel.Sdk` | NuGet package, an MSBuild project SDK: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package ([sdk.md](sdk.md)) |
 
 ## Compiler output
@@ -1380,6 +1380,15 @@ count, names placed.
    (`editors/rider`, a ReSharper backend plugin): inlay hint and quick
    documentation on `Text[n]`, a settings page; built against Rider 263.*,
    tested headless in CI, not published ([editor.md](editor.md)).
+   Names done 2026-11-03 (review P2, [editor.md](editor.md#names-atel-names-export)):
+   `atel names export` writes the player's name tables per language as
+   `.atel/names/<lang>/{monsters,commands,maps,battles}.json` (kernel
+   `monster1`-`3`; the `item`, `command`, `monmagic1`/`2`, `a_ability` and
+   `important` tables by `MsGetComData`'s kinds; the maps' save locations;
+   the battles' formations), each entry with the value the source uses and
+   its member; both editors show the name after `Target.*`, `Command.*`,
+   `Map.*`, `Battle.*` and casts of a constant to them. English: 357
+   monsters, 1,163 commands, 332 maps, 811 battles.
    SDK done 2026-11-02 ([sdk.md](sdk.md)): `Ffx.Atel.Sdk` is an MSBuild
    project SDK (`<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`) holding
    `Ffx.Atel.Game` with its docs, the analyzers and code fixes, Atel's

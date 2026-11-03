@@ -1,15 +1,24 @@
 // SPDX-License-Identifier: MIT
 //
 // Atel# message text: an inlay hint after each Text[n] of a C# file in an Atel source tree, and a hover, with
-// the message from the player's own tables (`atel text export`, docs/editor.md). No language server: it reads
-// the file's text and complements the C# extension.
+// the message from the player's own tables (`atel text export`, docs/editor.md); the same for the typed values
+// that index the game's name tables (`Target.Biran`, `Command.Attack`, `Map.Hiku0800`, `Battle.Kami00_00`;
+// `atel names export`). No language server: it reads the file's text and complements the C# extension.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import {
+    findNamesRoot,
     findTextRoot,
     hintLabel,
+    lookupName,
+    NameEntry,
+    namesFilePath,
+    NamesFile,
+    NameUse,
+    nameUses,
+    parseNamesFile,
     parseTextFile,
     ScriptRef,
     scriptsOf,
@@ -33,10 +42,27 @@ function loadTextFile(file: string): TextFile | undefined {
     return parsed;
 }
 
+/** Parsed names files by path, as `cache`. */
+const namesCache = new Map<string, NamesFile | undefined>();
+
+function loadNamesFile(file: string): NamesFile | undefined {
+    if (namesCache.has(file)) return namesCache.get(file);
+    let parsed: NamesFile | undefined;
+    try {
+        parsed = parseNamesFile(fs.readFileSync(file, "utf8"));
+    } catch {
+        parsed = undefined;
+    }
+    namesCache.set(file, parsed);
+    return parsed;
+}
+
 interface Settings {
     language: string;
     directory: string;
+    namesDirectory: string;
     hints: boolean;
+    nameHints: boolean;
     maxLength: number;
 }
 
@@ -45,7 +71,9 @@ function settings(scope: vscode.Uri): Settings {
     return {
         language: c.get<string>("textLanguage", "en"),
         directory: c.get<string>("textDirectory", ""),
+        namesDirectory: c.get<string>("namesDirectory", ""),
         hints: c.get<boolean>("inlayHints.enabled", true),
+        nameHints: c.get<boolean>("inlayHints.names", true),
         maxLength: c.get<number>("inlayHints.maxLength", 60),
     };
 }
@@ -57,6 +85,25 @@ function textRoot(document: vscode.TextDocument, s: Settings): string | undefine
         return folder ? path.join(folder.uri.fsPath, s.directory) : undefined;
     }
     return findTextRoot(document.uri.fsPath);
+}
+
+function namesRoot(document: vscode.TextDocument, s: Settings): string | undefined {
+    if (s.namesDirectory) {
+        if (path.isAbsolute(s.namesDirectory)) return s.namesDirectory;
+        const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+        return folder ? path.join(folder.uri.fsPath, s.namesDirectory) : undefined;
+    }
+    return findNamesRoot(document.uri.fsPath);
+}
+
+/** The game's name for a typed value, from `<names root>/<language>/<table>.json`. */
+function lookupNameUse(root: string | undefined, language: string, use: NameUse): NameEntry | undefined {
+    const file = root ? namesFilePath(root, language, use.type) : undefined;
+    return file ? lookupName(loadNamesFile(file), use) : undefined;
+}
+
+function hex(id: number): string {
+    return "0x" + id.toString(16);
 }
 
 interface Context {
@@ -84,10 +131,27 @@ class TextHints implements vscode.InlayHintsProvider {
 
     provideInlayHints(document: vscode.TextDocument, range: vscode.Range): vscode.InlayHint[] {
         const ctx = context(document);
-        if (!ctx.s.hints || !ctx.root || ctx.scripts.length === 0) return [];
+        if (!ctx.s.hints) return [];
         const hints: vscode.InlayHint[] = [];
+        const names = ctx.s.nameHints ? namesRoot(document, ctx.s) : undefined;
+        const texts = ctx.root !== undefined && ctx.scripts.length > 0;
         for (let line = range.start.line; line <= range.end.line && line < document.lineCount; line++) {
-            for (const use of textUses(document.lineAt(line).text)) {
+            const lineText = document.lineAt(line).text;
+            if (names) {
+                for (const use of nameUses(lineText)) {
+                    const entry = lookupNameUse(names, ctx.s.language, use);
+                    if (!entry) continue;
+                    const hint = new vscode.InlayHint(
+                        new vscode.Position(line, use.end),
+                        JSON.stringify(hintLabel(entry.name, ctx.s.maxLength)),
+                        vscode.InlayHintKind.Parameter,
+                    );
+                    hint.paddingLeft = true;
+                    hints.push(hint);
+                }
+            }
+            if (!texts) continue;
+            for (const use of textUses(lineText)) {
                 const found = lookup(ctx, use.index).filter((f) => typeof f.text === "string");
                 if (found.length === 0) continue;
                 const first = found[0].text as string;
@@ -99,6 +163,23 @@ class TextHints implements vscode.InlayHintsProvider {
             }
         }
         return hints;
+    }
+}
+
+class NameHover implements vscode.HoverProvider {
+    provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
+        const use = nameUses(document.lineAt(position.line).text).find(
+            (u) => position.character >= u.start && position.character <= u.end,
+        );
+        if (!use) return undefined;
+        const s = settings(document.uri);
+        const entry = lookupNameUse(namesRoot(document, s), s.language, use);
+        if (!entry) return undefined;
+        const md = new vscode.MarkdownString();
+        const what = entry.member ? `${use.type}.${entry.member}` : `(${use.type})${hex(entry.id)}`;
+        md.appendMarkdown(`**${what}** (${hex(entry.id)}, ${s.language})\n\n`);
+        md.appendCodeblock(entry.name, "text");
+        return new vscode.Hover(md, new vscode.Range(position.line, use.start, position.line, use.end));
     }
 }
 
@@ -135,12 +216,14 @@ export function activate(extension: vscode.ExtensionContext): void {
     const hints = new TextHints();
     const refresh = () => {
         cache.clear();
+        namesCache.clear();
         hints.changed.fire();
     };
-    const watcher = vscode.workspace.createFileSystemWatcher("**/.atel/text/**/*.json");
+    const watcher = vscode.workspace.createFileSystemWatcher("**/.atel/{text,names}/**/*.json");
     extension.subscriptions.push(
         vscode.languages.registerInlayHintsProvider(selector, hints),
         vscode.languages.registerHoverProvider(selector, new TextHover()),
+        vscode.languages.registerHoverProvider(selector, new NameHover()),
         watcher,
         watcher.onDidChange(refresh),
         watcher.onDidCreate(refresh),
@@ -154,4 +237,5 @@ export function activate(extension: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
     cache.clear();
+    namesCache.clear();
 }

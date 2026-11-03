@@ -8,7 +8,12 @@ details.
 
 ```csharp
 Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
+Btl.UseCommand(Target.Biran "…", Command.Attack "…");
 ```
+
+It also shows the game's name after the typed values that index the game's name tables, `Target.*`
+(monsters), `Command.*` (commands, items, abilities), `Map.*` (the place) and `Battle.*` (the formation's
+monsters), and casts of a constant to them (`(Command)0x3000`), from `atel names export`.
 
 ## Setup
 
@@ -17,6 +22,7 @@ Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
    ```bash
    atel decompile all -o src
    atel text export -o src                 # every language; or --lang en,de
+   atel names export -o src                # the game's names, the same way
    ```
 
 2. Build the plugin (below) and install it: Rider, **Settings → Plugins → ⚙ → Install Plugin from Disk…**,
@@ -33,6 +39,8 @@ Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
 | Language | `en` | `en`, `ja`, `fr`, `es`, `de`, `it`, `ko` or `zh` |
 | Text folder | (empty) | the folder with the language folders; empty: the nearest `.atel/text` above the file |
 | Show inlay hints | on | hints on or off (the quick documentation stays) |
+| Show the game's name after Target, Command, Map and Battle values | on | name hints on or off (hovering a hint shows the value and the name) |
+| Names folder | (empty) | `atel names export`'s folder; empty: the nearest `.atel/names` above the file |
 | Shorten inlay hints to | 60 | characters |
 
 ## Building
