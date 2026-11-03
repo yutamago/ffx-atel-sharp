@@ -108,14 +108,39 @@ namespace Ffx.Atel.Rider
                 if (Path.IsPathRooted(directory)) root = directory;
                 else
                 {
-                    var solutionDir = mySolution.SolutionDirectory;
-                    root = solutionDir.IsEmpty ? null : Path.Combine(solutionDir.FullPath, directory);
+                    var solutionDir = NativePath(mySolution.SolutionDirectory);
+                    root = solutionDir == null ? null : Path.Combine(solutionDir, directory);
                 }
             }
-            else root = file.IsEmpty ? null : TextResolver.FindTextRoot(file.FullPath);
+            else
+            {
+                var native = NativePath(file);
+                root = native == null ? null : TextResolver.FindTextRoot(native);
+            }
 
             if (root != null) Watch(root);
             return root;
+        }
+
+        /// <summary>
+        /// A path System.IO can open. Rider on Windows names the files of a solution in WSL by their Linux path
+        /// (<c>/home/…</c>), which System.IO would read as <c>C:\home\…</c>; the native path is
+        /// <c>\\wsl.localhost\&lt;distro&gt;\home\…</c>.
+        /// </summary>
+        private static string NativePath(VirtualFileSystemPath path)
+        {
+            if (path == null || path.IsEmpty) return null;
+            try
+            {
+                var native = path.ToNativeFileSystemPath();
+                if (native != null && !native.IsEmpty) return native.FullPath;
+            }
+            catch (Exception)
+            {
+                // Not convertible here: fall back to the path as Rider names it.
+            }
+
+            return path.FullPath;
         }
 
         /// <summary>Message <paramref name="index" /> of each of the context's scripts.</summary>
