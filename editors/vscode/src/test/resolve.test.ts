@@ -5,7 +5,19 @@
 import * as assert from "node:assert/strict";
 import * as path from "node:path";
 import { test } from "node:test";
-import { findTextRoot, hintLabel, parseTextFile, scriptsOf, textFilePath, textUses } from "../resolve";
+import {
+    findNamesRoot,
+    findTextRoot,
+    hintLabel,
+    lookupName,
+    namesFilePath,
+    nameUses,
+    parseNamesFile,
+    parseTextFile,
+    scriptsOf,
+    textFilePath,
+    textUses,
+} from "../resolve";
 
 test("finds Text[n] uses outside comments", () => {
     assert.deepEqual(textUses("        Common.MsgSetText(0, Text[12]);"), [{ index: 12, start: 29, end: 37 }]);
@@ -69,4 +81,47 @@ test("reads text files and shortens hints", () => {
     assert.equal(parseTextFile("not json"), undefined);
     assert.equal(hintLabel("One\nTwo", 60), "One ⏎ Two");
     assert.equal(hintLabel("abcdefghij", 5), "abcd…");
+});
+
+test("finds typed values with a name table outside comments", () => {
+    assert.deepEqual(nameUses("        Btl.UseCommand(Target.Aaaa, Command.Bbbb);"), [
+        { type: "Target", member: "Aaaa", start: 23, end: 34 },
+        { type: "Command", member: "Bbbb", start: 36, end: 48 },
+    ]);
+    assert.deepEqual(nameUses("x((Command)0x3001, (Ffx.Target)4097, Ffx.Map.Cccc0100);").map((u) => [u.type, u.id ?? u.member]), [
+        ["Command", 0x3001],
+        ["Target", 4097],
+        ["Map", "Cccc0100"],
+    ]);
+    assert.deepEqual(nameUses("if (Btl.GetBattleId() == Battle.Dddd00_00) // Map.Eeee0100"), [
+        { type: "Battle", member: "Dddd00_00", start: 25, end: 41 },
+    ]);
+    assert.deepEqual(nameUses("// Target.Aaaa"), []);
+    assert.deepEqual(nameUses("x.Target.Aaaa; (Model)0x3000"), []);
+    assert.deepEqual(nameUses("namespace Battles.Zz.Zz00_00; MyMap.X; ActorProperty.Hp; [Battle(\"zz00_00\")]"), []);
+});
+
+test("reads a names file and looks up members and ids", () => {
+    const json = JSON.stringify({
+        table: "commands",
+        type: "Command",
+        language: "en",
+        names: [
+            { id: 0x3000, member: "Bbbb", name: "Made-up command" },
+            { id: 0xa000, name: "A made-up key item" },
+        ],
+    });
+    const file = parseNamesFile(json);
+    assert.equal(lookupName(file, { type: "Command", member: "Bbbb", start: 0, end: 0 })?.name, "Made-up command");
+    assert.equal(lookupName(file, { type: "Command", id: 0xa000, start: 0, end: 0 })?.name, "A made-up key item");
+    assert.equal(lookupName(file, { type: "Command", member: "Zzzz", start: 0, end: 0 }), undefined);
+    assert.equal(parseNamesFile("{}"), undefined);
+    assert.equal(namesFilePath("/r", "de", "Target"), path.join("/r", "de", "monsters.json"));
+    assert.equal(namesFilePath("/r", "de", "Model"), undefined);
+});
+
+test("finds the nearest .atel/names", () => {
+    const root = path.join("/src", ".atel", "names");
+    assert.equal(findNamesRoot(path.join("/src", "Events", "Aa", "W01.cs"), (p) => p === root), root);
+    assert.equal(findNamesRoot(path.join("/src", "W01.cs"), () => false), undefined);
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 //
 // `npm run test:integration`: starts a downloaded VS Code (in .vscode-test) with the extension on a made-up
-// source tree and checks the inlay hint and the hover (suite.ts). On Linux run it under `xvfb-run -a`.
+// source tree and checks the inlay hints and the hovers (suite.ts), of a message and of names. On Linux run it under `xvfb-run -a`.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -23,6 +23,7 @@ async function main(): Promise<void> {
             "    void Talk()",
             "    {",
             "        Common.MsgSetText(0, Text[1]);",
+            "        Btl.UseCommand(Target.Aaaa, (Command)0x3000);",
             "    }",
             "}",
             "",
@@ -36,6 +37,13 @@ async function main(): Promise<void> {
         fs.mkdirSync(dir, { recursive: true });
         const file = { script: "aaaa0100", category: "event", language: lang, messages: ["First.", text] };
         fs.writeFileSync(path.join(dir, "aaaa0100.json"), JSON.stringify(file));
+        const names = path.join(root, ".atel", "names", lang);
+        fs.mkdirSync(names, { recursive: true });
+        const monster = lang === "en" ? "Made-up monster" : "Erfundenes Monster";
+        const monsters = { table: "monsters", type: "Target", language: lang, names: [{ id: 0x1001, member: "Aaaa", name: monster }] };
+        fs.writeFileSync(path.join(names, "monsters.json"), JSON.stringify(monsters));
+        const commands = { table: "commands", type: "Command", language: lang, names: [{ id: 0x3000, member: "Bbbb", name: "Made-up command" }] };
+        fs.writeFileSync(path.join(names, "commands.json"), JSON.stringify(commands));
     }
     try {
         await runTests({

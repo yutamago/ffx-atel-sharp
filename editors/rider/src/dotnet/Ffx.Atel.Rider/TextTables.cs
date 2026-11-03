@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// The exported message tables (`atel text export`): read on demand, kept while the file is unchanged, and the
+// The exported message tables (`atel text export`) and names (`atel names export`): read on demand, kept while the file is unchanged, and the
 // daemon re-run when a table under a folder in use changes.
 
 using System;
@@ -22,13 +22,16 @@ namespace Ffx.Atel.Rider
     /// <summary>What a file's <c>Text[n]</c> reads: its scripts, the folder with the tables, the settings.</summary>
     public sealed class TextContext
     {
-        public TextContext(IReadOnlyList<ScriptRef> scripts, string root, string language, bool showHints, int maxLength)
+        public TextContext(IReadOnlyList<ScriptRef> scripts, string root, string language, bool showHints, int maxLength,
+            string namesRoot = null, bool showNameHints = false)
         {
             Scripts = scripts;
             Root = root;
             Language = language;
             ShowHints = showHints;
             MaxLength = maxLength;
+            NamesRoot = namesRoot;
+            ShowNameHints = showNameHints;
         }
 
         public IReadOnlyList<ScriptRef> Scripts { get; }
@@ -39,6 +42,11 @@ namespace Ffx.Atel.Rider
         public string Language { get; }
         public bool ShowHints { get; }
         public int MaxLength { get; }
+
+        /// <summary>The folder with the language folders of <c>atel names export</c>; null when none was found.</summary>
+        public string NamesRoot { get; }
+
+        public bool ShowNameHints { get; }
     }
 
     /// <summary>One script's message <c>n</c>: <see cref="Found" /> false when the script has no table or no entry
@@ -60,11 +68,14 @@ namespace Ffx.Atel.Rider
     [SolutionComponent(Instantiation.DemandAnyThreadSafe)]
     public class TextTables
     {
+        /// <summary>A file's context, computed once per daemon run for the message and the name hints.</summary>
+        public static readonly Key<TextContext> ContextKey = new Key<TextContext>("Atel# message text context");
+
         private sealed class Entry
         {
             public DateTime Stamp;
             public long Length;
-            public TextFile File;
+            public object File;
         }
 
         private readonly Lifetime myLifetime;
@@ -95,11 +106,11 @@ namespace Ffx.Atel.Rider
             var key = settings.GetKey<AtelTextSettings>(SettingsOptimization.OptimizeDefault);
             var language = string.IsNullOrWhiteSpace(key.Language) ? "en" : key.Language.Trim();
             var scripts = TextResolver.ScriptsOf(text, path.IsEmpty ? "" : path.FullPath);
-            return new TextContext(scripts, RootOf(path, key.TextDirectory), language, key.ShowInlayHints,
-                Math.Max(8, key.MaxLength));
+            return new TextContext(scripts, RootOf(path, key.TextDirectory, p => TextResolver.FindTextRoot(p)), language, key.ShowInlayHints,
+                Math.Max(8, key.MaxLength), RootOf(path, key.NamesDirectory, p => NameResolver.FindNamesRoot(p)), key.ShowNameHints);
         }
 
-        private string RootOf(VirtualFileSystemPath file, string directory)
+        private string RootOf(VirtualFileSystemPath file, string directory, Func<string, string> nearest)
         {
             string root;
             if (!string.IsNullOrWhiteSpace(directory))
@@ -115,7 +126,7 @@ namespace Ffx.Atel.Rider
             else
             {
                 var native = NativePath(file);
-                root = native == null ? null : TextResolver.FindTextRoot(native);
+                root = native == null ? null : nearest(native);
             }
 
             if (root != null) Watch(root);
@@ -155,7 +166,16 @@ namespace Ffx.Atel.Rider
             }).ToList();
         }
 
-        private TextFile Load(string path)
+        /// <summary>The game's name for a typed value (<c>Target.Biran</c>, or an id); null when the export has none.</summary>
+        public NameEntry FindName(TextContext context, string type, string member, int? id)
+        {
+            var path = context.NamesRoot == null ? null : NameResolver.NamesFilePath(context.NamesRoot, context.Language, type);
+            return path == null ? null : Load(path, NameResolver.ParseNamesFile)?.Find(member, id);
+        }
+
+        private TextFile Load(string path) => Load(path, TextResolver.ParseTextFile);
+
+        private T Load<T>(string path, Func<string, T> parse) where T : class
         {
             try
             {
@@ -167,8 +187,8 @@ namespace Ffx.Atel.Rider
                 }
 
                 if (myFiles.TryGetValue(path, out var cached) && cached.Stamp == info.LastWriteTimeUtc && cached.Length == info.Length)
-                    return cached.File;
-                var file = TextResolver.ParseTextFile(File.ReadAllText(path));
+                    return cached.File as T;
+                var file = parse(File.ReadAllText(path));
                 myFiles[path] = new Entry { Stamp = info.LastWriteTimeUtc, Length = info.Length, File = file };
                 return file;
             }

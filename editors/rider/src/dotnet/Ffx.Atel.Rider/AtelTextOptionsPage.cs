@@ -23,9 +23,11 @@ namespace Ffx.Atel.Rider
                 code => code + " (" + TextResolver.Languages.First(l => l.Key == code).Value + ")", null, "Language:");
             AddTextBox((AtelTextSettings s) => s.TextDirectory, "Text folder (empty: the nearest .atel/text above the file):");
             AddBoolOption((AtelTextSettings s) => s.ShowInlayHints, "Show the message after Text[n] as an inlay hint");
+            AddBoolOption((AtelTextSettings s) => s.ShowNameHints, "Show the game's name after Target, Command, Map and Battle values");
+            AddTextBox((AtelTextSettings s) => s.NamesDirectory, "Names folder (empty: the nearest .atel/names above the file):");
             AddComboOption((AtelTextSettings s) => s.MaxLength, new[] { 20, 30, 40, 60, 80, 120, 200 },
                 n => n.ToString(), null, "Shorten inlay hints to:", "characters");
-            AddCommentText("The text comes from `atel text export`, which writes .atel/text/<language>/<script>.json beside the decompiled source.");
+            AddCommentText("The text comes from `atel text export`, which writes .atel/text/<language>/<script>.json beside the decompiled source; the names from `atel names export` (.atel/names/<language>/<table>.json).");
         }
     }
 }

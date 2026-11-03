@@ -4,12 +4,14 @@ Phase 8 of the [plan](plan.md): the source names messages by index (`Common.MsgS
 "Text"), and the editor shows what message 12 says, in a language you choose, from your own game. No
 grammar, parser or language server of our own.
 
-Four parts:
+Five parts:
 
 - `atel text export` writes the messages of every script per language as JSON beside the decompiled
   source;
 - the VS Code extension (`editors/vscode`) shows them as inlay hint and hover;
 - the Rider plugin (`editors/rider`) does the same in Rider;
+- `atel names export` does the same for the game's name tables, which both editors show after the typed
+  values that index them (`Target.Biran`, `Command.Attack`, `Map.Hiku0800`, `Battle.Kami00_00`; "Names" below);
 - `atel decompile --text-comments <lang>` writes them as `// "…"` comments, for reading anywhere else;
   `atel export` writes the English ones into the private source repo (`--text-comments <lang>`,
   `--no-text-comments`).
@@ -99,6 +101,62 @@ data of the same kind as the decompiled source), but nothing needs it versioned:
 the game in seconds, for whichever languages the reader wants, and nobody edits it there (translations
 belong to mods, in the per-language TOML of "Text" in the plan).
 
+## Names: `atel names export`
+
+Review proposal P2: the same for the game's name tables. The source names monsters, commands, maps and
+battles by typed constants (`Target.Biran`, `Command.Attack`, `Map.Hiku0800`, `Battle.Kami00_00`, Phase 5),
+which are ids, not the names a player knows; the editor shows the in-game name beside them as an inlay
+hint (`Target.Biran "…"`), in the language of the message text, from the player's own game.
+
+```bash
+atel names export -o src                 # every language
+atel names export -o src --lang en,de
+```
+
+It writes `src/.atel/names/<lang>/<table>.json`, four tables per language, each for one type of the source:
+
+| Table | Type | Id (the value in the source) | Name | From |
+|---|---|---|---|---|
+| `monsters` | `Target` | `0x1000 \| n`, the selector of monster *n* (`m`*nnn*) | the monster's name | string 0 of the kernel `monster1`-`3` record *n* (`MsBtlReadMonster` copies it into the actor) |
+| `commands` | `Command` | the command id, `kind << 12 \| record` | the command's name | string 0 of the kernel table `MsGetComData` (`0x0079a4b0`) picks by `id >> 12`: 2 `item`, 3 `command`, 4 `monmagic1`, 6 `monmagic2`, 8 `a_ability` (auto-abilities), `0xa` `important` (key items) |
+| `maps` | `Map` | the map number (`event/header/eventid.bin`'s index) | the event's save location(s), joined by ` / ` | the event block's `+0x1e` (or its `+0x28` table), indexing section 11 of `menu/macrodic.dcp` (`AtelSetSaveDicIndex`, `AtelGetSaveDicName`), as `AREAS.md` |
+| `battles` | `Battle` | the battle id (field `<< 16 \|` formation) | the formation's monsters, joined by `, ` | the battle file's formation (`0x1000 \| n` slots), named by `monsters` |
+
+The kernel tables are `new_<lang>pc/battle/kernel/<table>.bin` (ffx-rust `docs/formats/kernel.md`): a
+segment header of id ranges and record sizes, records that start with `u16` offsets into a string area, the
+strings in the encoding of the message text (`Charset.Display`; `KernelTable` in `Ffx.Atel.Bytecode.Text`).
+A file:
+
+```json
+{
+  "table": "commands",
+  "type": "Command",
+  "language": "en",
+  "names": [
+    { "id": 12288, "member": "Attack", "name": "…" },
+    { "id": 40960, "name": "…" }
+  ]
+}
+```
+
+`id` is the value as the source has it, `member` the type's member with that value when there is one (so
+the editors need no copy of the enums), `name` the game's name; entries without a name in the language are
+left out. Sorted by id. With the player's English game: `monsters` 357 (313 with a `Target` member),
+`commands` 1,163 (all 935 `Command` members), `maps` 332 (every `Map` member whose event names a save
+location), `battles` 811 (of 818 `Battle` constants). It takes the corpus lock (it reads every event's and
+battle's file for the places and formations) and runs in seconds. Like the text, the files are game text:
+they stay under `.atel/`, which the source tree's `.gitignore` ignores, never in a repo.
+
+Not exported: names nothing in the source indexes by a typed constant yet (weapons, the sphere grid, other
+kernel texts), and the speakers' names in `{name:…}` (the default names are in the message text already).
+`Model` has no table (models are files, not names); character and aeon names (`ply_save`) wait for a typed
+value that indexes them.
+
+In the editors, a name shows after `Type.Member` (also `Ffx.Type.Member`) and after a cast of a constant,
+`(Command)0x3000`, `(Target)4097`, for `Target`, `Command`, `Map` and `Battle`; found by the text (VS Code: a
+regex outside `//` comments; Rider: the C# PSI, without resolving), like `Text[n]`. Values without an entry
+(`Target.Own`, a map with no save location) get no hint. The language is the message text's.
+
 ## VS Code
 
 `editors/vscode`, TypeScript, about 300 lines; the [README](../editors/vscode/README.md) has setup and
@@ -114,6 +172,9 @@ text with a regex: `Text[12]` outside a `//` comment.
   `atel.textDirectory`. Changes to the JSON files and to the settings refresh the hints.
 - Settings: `atel.textLanguage` (`en` …), `atel.textDirectory`, `atel.inlayHints.enabled`,
   `atel.inlayHints.maxLength`.
+- Names ("Names" above): an inlay hint with the name after each typed value with an entry, and a hover with
+  the value, its id and the name, from `<nearest .atel/names above the file>/<atel.textLanguage>/<table>.json`
+  or `atel.namesDirectory`; `atel.inlayHints.names` turns the hints off.
 
 Checks:
 
@@ -121,7 +182,8 @@ Checks:
 - `npm run test:integration`: starts VS Code through `@vscode/test-electron` (downloaded into
   `.vscode-test`, or `VSCODE_EXECUTABLE`) on a made-up source tree with a made-up text file, and checks
   the inlay hint and the hover through `vscode.executeInlayHintProvider` and `vscode.executeHoverProvider`,
-  in English and, after changing `atel.textLanguage`, German. On Linux under `xvfb-run -a`;
+  in English and, after changing `atel.textLanguage`, German, and the same for two names (a member and a
+  cast) from a made-up `.atel/names`. On Linux under `xvfb-run -a`;
 - `npm run package` writes `atel-text.vsix`; `code --install-extension atel-text.vsix` installs it. CI builds
   and packages it (no publishing).
 
@@ -160,11 +222,15 @@ resolution rules (a C# port of `resolve.ts`):
 - **quick documentation** on `Text[n]` (Ctrl+Q, and Rider's documentation on mouse hover): the whole
   message of each script the file belongs to, or why there is none (no export found, no text, no message
   *n* in the language, a monster);
+- an **inlay hint with the game's name** after `Target.Biran`, `(Command)0x3000` and the other typed values of
+  "Names" above, from `.atel/names`; hovering the hint shows the value, its id and the name (no quick
+  documentation of its own: Ctrl+Q stays the member's own documentation);
 - **Settings → Tools → Atel# message text**: the language (`en` … `zh`), the text folder (empty: the nearest
-  `.atel/text` above the file; relative paths are from the solution's folder), hints on or off, their
-  length. The settings are ReSharper settings (saved per machine by default; per solution in its
-  `.DotSettings` layers if wanted). A new export or another language's files refresh the hints by
-  themselves (a file watcher on the text folder).
+  `.atel/text` above the file; relative paths are from the solution's folder), hints on or off, their length,
+  the names folder (empty: the nearest `.atel/names`) and the name hints on or off. The settings are ReSharper
+  settings (saved per machine by default; per solution in its `.DotSettings` layers if wanted). A new export
+  or another language's files refresh the hints by themselves (a file watcher on the text
+  and names folders).
 
 `Text[n]` is found in the C# PSI, not by a regex: an element access on something named `Text` with a decimal
 constant index (`Text[12]`, `x.Text[12]`), so comments and strings never match.
