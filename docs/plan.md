@@ -87,6 +87,17 @@ and moved here when work began.
   vanilla source keeps compiling to the shipped bytes: the flags are names
   for `false` until a mod links in the switch.
 
+2026-11-03:
+
+- **Story milestone names keep their number first**, so they still sort by
+  story order: `Story.S02385_MacalaniaTempleDone`, not
+  `Story.MacalaniaTempleDone`.
+- **No NuGet release yet.** The release workflow stays ready (it runs only
+  on an `sdk-v*` tag); the user tags a release once they're confident it's
+  ready for others to use.
+- **CI stays off** on the private repos (no GitHub billing): local
+  verification is the merge gate.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
