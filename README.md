@@ -74,8 +74,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   compiles to the game's bytes; see [`docs/source-repo.md`](docs/source-repo.md).
 - The analyzers ([`docs/analyzers.md`](docs/analyzers.md)), the mod linker
   and the loader's link step ([`docs/formats/mod-package.md`](docs/formats/mod-package.md)).
-- `Ffx.Atel.Sdk`: a mod is a C# project, `<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`,
-  and `dotnet build` writes its Fahrenheit mod folder; see
+- `Ffx.Atel.Sdk`: a mod is a C# project, `<Project Sdk="Ffx.Atel.Sdk">`
+  (the version, one per commit of this repo such as `0.1.0-alpha.0.117.g5e8c870545`, in
+  `global.json`), and `dotnet build` writes its Fahrenheit mod folder; see
   [`docs/sdk.md`](docs/sdk.md) and [`examples/LarvaHp`](examples/LarvaHp).
 - The message text in the editor: `atel text export` decodes the player's
   message tables, per language, beside the decompiled source, and the VS

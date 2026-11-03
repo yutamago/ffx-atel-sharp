@@ -10,6 +10,9 @@
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     </PropertyGroup>
     <ItemGroup>
+        <InternalsVisibleTo Include="Ffx.Atel.Cli.Tests" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
         <ProjectReference Include="../Ffx.Atel.Compiler/Ffx.Atel.Compiler.csproj" />

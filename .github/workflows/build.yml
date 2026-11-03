@@ -17,8 +17,12 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+    # The whole history: the version counts HEAD's commits (Directory.Build.targets), and a shallow
+    # clone stops the build.
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v6
