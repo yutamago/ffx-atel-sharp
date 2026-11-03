@@ -24,7 +24,7 @@ public sealed class ExampleModTests {
         string root = Directory.CreateTempSubdirectory("atel-sdk-test-").FullName;
         try {
             // Packages only from the local feed, into a cache of the test's own: NuGet never re-reads a version
-            // it has cached, and every pack here has the same version.
+            // it has cached, and the version is the commit's, uncommitted changes or not (docs/sdk.md, "Versions").
             string feed = Path.Combine(root, "feed");
             Dictionary<string, string?> env = new() { ["NUGET_PACKAGES"] = Path.Combine(root, "packages") };
             File.WriteAllText(Path.Combine(root, "nuget.config"), """
@@ -38,6 +38,7 @@ public sealed class ExampleModTests {
                 """);
             Run(repo, env, ["pack", Path.Combine(repo, "src", "Ffx.Atel.Sdk"), "-c", configuration, "-o", feed, .. BuildFlags]);
             string nupkg = Assert.Single(Directory.GetFiles(feed, "Ffx.Atel.Sdk.*.nupkg"));
+            string version = Path.GetFileNameWithoutExtension(nupkg)["Ffx.Atel.Sdk.".Length..];
             string sdk = Path.Combine(root, "sdk");
             ZipFile.ExtractToDirectory(nupkg, sdk);
             string atel = Path.Combine(sdk, "tools", "atel", "atel.dll");
@@ -45,7 +46,10 @@ public sealed class ExampleModTests {
             // The vanilla source, as the modder gets it: decompiled with the SDK's atel, projects using the SDK.
             string vanilla = Path.Combine(root, "vanilla");
             Run(root, env, [atel, "decompile", "m209", "-o", vanilla, "--sdk", feed]);
-            Assert.Contains("Ffx.Atel.Sdk", File.ReadAllText(Path.Combine(vanilla, "global.json")), StringComparison.Ordinal);
+            // atel pins the package of its own version: the CLI and the package agree.
+            using (JsonDocument global = JsonDocument.Parse(File.ReadAllText(Path.Combine(vanilla, "global.json")))) {
+                Assert.Equal(version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("Ffx.Atel.Sdk").GetString());
+            }
             Run(vanilla, env, ["build", Path.Combine(vanilla, "Atel.slnx"), .. BuildFlags]);
 
             // The example mod, copied out of the repo with the examples' (empty) build files.
@@ -53,6 +57,10 @@ public sealed class ExampleModTests {
             Directory.CreateDirectory(mod);
             foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples"))) File.Copy(f, Path.Combine(root, "mod", Path.GetFileName(f)));
             foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", "LarvaHp"))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));
+            // The SDK's version, as a modder pins it (docs/sdk.md).
+            File.WriteAllText(Path.Combine(root, "mod", "global.json"), $$"""
+                { "msbuild-sdks": { "Ffx.Atel.Sdk": "{{version}}" } }
+                """);
             Run(mod, env, ["build", mod, $"-p:AtelVanillaSource={vanilla}", .. BuildFlags]);
 
             string built = Path.Combine(mod, "bin", "Debug", "net10.0", "mods", "yuta.larvahp");

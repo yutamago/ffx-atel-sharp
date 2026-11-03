@@ -22,13 +22,39 @@ The example is [`examples/LarvaHp`](../examples/LarvaHp).
   dotnet nuget add source ~/atel-feed --name atel
   ```
 
-  NuGet caches a package by version and never reads that version again.
-  After packing a changed SDK with the same version, delete
-  `~/.nuget/packages/ffx.atel.sdk/<version>/`, or pack it with a new version
-  (`-p:Version=0.1.0-dev.2`).
+  The package's version is the commit's (see "Versions" below), for example
+  `Ffx.Atel.Sdk.0.1.0-alpha.0.117.g5e8c870545.nupkg`. Pin that version in
+  your mod (step 2).
 
 The package also carries the `atel` tool (`tools/atel/atel.dll`):
-`dotnet ~/.nuget/packages/ffx.atel.sdk/0.1.0-alpha/tools/atel/atel.dll --help`.
+`dotnet ~/.nuget/packages/ffx.atel.sdk/<version>/tools/atel/atel.dll --help`.
+
+### Versions
+
+NuGet caches a package by version in `~/.nuget/packages/` and never reads
+that version again. So every commit of this repo builds its own version, and
+everything built from one commit has the same one:
+
+```
+0.1.0-alpha.0.<commits>.g<commit>
+```
+
+`<commits>` is the number of commits in the history of the commit built
+(`git rev-list --count HEAD`), so a later commit always has a higher version;
+`<commit>` is the commit's first 10 hex digits, which tells apart two branches
+with the same count. `Directory.Build.targets` computes it with git on every
+build, so a checkout must be a git clone with its whole history: a shallow
+clone stops the build (`git fetch --unshallow`; in CI, `actions/checkout`
+with `fetch-depth: 0`). `-p:Version=<version>` replaces it (the release,
+"Publishing" below). The `atel` CLI carries the same version: `atel
+decompile` pins the SDK of its own version in `global.json` and looks for
+that package.
+
+Uncommitted changes do not change the version: the build of a commit is
+reproducible, so a dirty checkout packs under the commit's version. When you
+pack a changed SDK without committing, delete
+`~/.nuget/packages/ffx.atel.sdk/<version>/` (and the copy in a decompiled
+tree's `.atel/packages/`), or commit and pack again.
 
 ## 1. Decompile the vanilla source
 
@@ -46,7 +72,7 @@ it goes into the mod: it is the game's code.
 `atel decompile -o` writes projects that use the SDK, so the vanilla source
 opens in the IDE with the analyzers. The projects are
 `<Project Sdk="Ffx.Atel.Sdk">`, with the SDK's version in `global.json` (the
-version of the `atel` that wrote them). When `atel` finds the package beside
+version of the `atel` that wrote them, "Versions" above). When `atel` finds the package beside
 itself (run from the package, or from a checkout after `dotnet pack
 src/Ffx.Atel.Sdk`), or is given it with `--sdk <dir or .nupkg>`, it copies the
 package to `.atel/packages/` and writes a `nuget.config` naming that folder,
@@ -58,7 +84,7 @@ without the analyzers. `dotnet build` of a vanilla project only checks the C#.
 ## 2. Create the project
 
 ```xml
-<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+<Project Sdk="Ffx.Atel.Sdk">
     <PropertyGroup>
         <AtelModId>yuta.larvahp</AtelModId>
         <AtelModName>Larva HP</AtelModName>
@@ -69,6 +95,16 @@ without the analyzers. `dotnet build` of a vanilla project only checks the C#.
     </PropertyGroup>
 </Project>
 ```
+
+The SDK's version goes in a `global.json` next to the project or in a folder
+above it, the version of the package you packed or installed:
+
+```json
+{ "msbuild-sdks": { "Ffx.Atel.Sdk": "0.1.0-alpha.0.117.g5e8c870545" } }
+```
+
+(or in the project: `<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha.0.117.g5e8c870545">`).
+A new SDK is a new version: change it here to update.
 
 A `.cs` file per script you change, in that script's namespace:
 
@@ -205,12 +241,14 @@ the same package works on Windows, Linux and macOS.
 ## Publishing
 
 The plan is nuget.org (the id `Ffx.Atel.Sdk` was free on 2026-11-02). `.github/workflows/release-sdk.yml`
-publishes when a tag `sdk-v<version>` is pushed (`git tag sdk-v0.1.0-alpha && git push origin
-sdk-v0.1.0-alpha`): it packs that version, checks the package for the checkout path and pushes it with
-the repository secret `NUGET_API_KEY` (a nuget.org API key limited to pushing `Ffx.Atel.Sdk`). Nothing is
-published before both exist. Before the first push:
+publishes when a tag `sdk-v<version>` is pushed (`git tag sdk-v0.1.0-alpha.1 && git push origin
+sdk-v0.1.0-alpha.1`): it packs that version (`-p:Version=`, instead of the commit's), checks the package
+for the checkout path and pushes it with the repository secret `NUGET_API_KEY` (a nuget.org API key
+limited to pushing `Ffx.Atel.Sdk`). Nothing is published before both exist. Before the first push:
 
 - A nuget.org package is public and permanent (a version can be unlisted, not deleted). The package
   holds the reference assembly, whose enums carry names from Fahrenheit's ID tables (used with
   permission from their lead for this project); check that the permission covers a public package.
 - The package's project URL points at this repository, which is private.
+- NuGet orders `0.1.0-alpha` below every commit's `0.1.0-alpha.0.<commits>…`. A release must sort above
+  the builds before it: `0.1.0-alpha.1`, then `0.1.0-alpha.2`, and so on. Never tag a version twice.

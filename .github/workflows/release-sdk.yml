@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
-# Publishes the SDK package to nuget.org when a tag such as sdk-v0.1.0-alpha is pushed. The version is
-# the tag without "sdk-v". Needs the repository secret NUGET_API_KEY (a nuget.org API key scoped to
+# Publishes the SDK package to nuget.org when a tag such as sdk-v0.1.0-alpha.1 is pushed. The version is
+# the tag without "sdk-v", given with -p:Version, which replaces the per-commit version of other builds. Needs the repository secret NUGET_API_KEY (a nuget.org API key scoped to
 # push Ffx.Atel.Sdk); without it the job stops before pushing anything. See docs/sdk.md, "Publishing".
 name: Release SDK
 
@@ -13,8 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # The whole history, as for every build (Directory.Build.targets); the version here is the tag's.
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v6

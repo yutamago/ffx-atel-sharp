@@ -31,9 +31,10 @@ dotnet nuget add source ~/atel-feed --name atel          # once: where NuGet fin
 ```
 
 The command is `artifacts/bin/Ffx.Atel.Cli/release/atel`; the loader is written to
-`artifacts/deploy/release/mods/yuta.atel/`; the SDK package is `~/atel-feed/Ffx.Atel.Sdk.0.1.0-alpha.nupkg`
-([sdk.md](sdk.md)). NuGet keeps a package version it has seen: after packing a changed SDK with the
-same version, delete `~/.nuget/packages/ffx.atel.sdk/0.1.0-alpha/`. For the rest of the tutorial:
+`artifacts/deploy/release/mods/yuta.atel/`; the SDK package is `~/atel-feed/Ffx.Atel.Sdk.<version>.nupkg`,
+the version that of the commit you built, such as `0.1.0-alpha.0.117.g5e8c870545` ([sdk.md](sdk.md),
+"Versions"). NuGet keeps a package version it has seen, so each commit packs a new one; after packing
+uncommitted changes, delete `~/.nuget/packages/ffx.atel.sdk/<version>/`. For the rest of the tutorial:
 
 ```bash
 alias atel="$PWD/artifacts/bin/Ffx.Atel.Cli/release/atel"
@@ -96,7 +97,7 @@ mkdir larva-hp
 property):
 
 ```xml
-<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha.0.117.g5e8c870545">
     <PropertyGroup>
         <AtelModId>my.larva-hp</AtelModId>
         <AtelModName>Larva HP</AtelModName>
@@ -108,6 +109,8 @@ property):
 </Project>
 ```
 
+- The version after `Ffx.Atel.Sdk/` is the one of the package you packed (its file name). A newer
+  SDK is a new version: change it here (or put it in a `global.json`, [sdk.md](sdk.md)).
 - `AtelModId` is the Fahrenheit mod id: the name of the mod's folder and of its manifest.
 - `AtelModName`, `Description`, `Authors` and `Version` go into the manifest.
 - `AtelVanillaSource` is the folder `atel decompile -o` wrote. The build adds the vanilla source of

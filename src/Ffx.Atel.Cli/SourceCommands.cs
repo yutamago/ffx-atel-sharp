@@ -130,9 +130,16 @@ internal static class SourceCommands {
         }
     }
 
-    /// <summary>This build's version without the commit (<c>0.1.0-alpha</c>): the SDK package's version.</summary>
-    internal static string SdkVersion() {
-        string version = typeof(SourceCommands).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+    /// <summary>
+    ///     This build's version without the full commit the SDK appends (<c>0.1.0-alpha.0.117.g5e8c870545</c>):
+    ///     the version of the SDK package packed from the same commit (Directory.Build.targets).
+    /// </summary>
+    internal static string SdkVersion() =>
+        SdkVersion(typeof(SourceCommands).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+
+    /// <summary>An informational version without its build metadata (<c>+&lt;commit&gt;</c>).</summary>
+    internal static string SdkVersion(string? informationalVersion) {
+        string version = string.IsNullOrEmpty(informationalVersion) ? "0.0.0" : informationalVersion;
         int plus = version.IndexOf('+', StringComparison.Ordinal);
         return plus < 0 ? version : version[..plus];
     }

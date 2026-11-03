@@ -5,7 +5,7 @@ An MSBuild project SDK for [Atel](https://github.com/yutamago/ffx-atel-sharp): C
 ATEL bytecode of Final Fantasy X (the Steam HD Remaster), for mods loaded through Fahrenheit.
 
 ```xml
-<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+<Project Sdk="Ffx.Atel.Sdk/<version>">
     <PropertyGroup>
         <AtelVanillaSource>../vanilla</AtelVanillaSource>
     </PropertyGroup>

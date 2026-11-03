@@ -11,7 +11,11 @@
         <Copyright>Copyright (c) 2026 Yutamago</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/yutamago/ffx-atel-sharp</RepositoryUrl>
-        <Version>0.1.0-alpha</Version>
+        <!-- Every commit builds its own version, 0.1.0-alpha.0.<commits>.g<commit> (Directory.Build.targets,
+             docs/sdk.md "Versions"); -p:Version=<version> overrides it (the release workflow). -->
+        <AtelVersionBase>0.1.0-alpha.0</AtelVersionBase>
+        <AtelVersionGiven Condition="'$(Version)' != ''">true</AtelVersionGiven>
+        <Version Condition="'$(Version)' == ''">$(AtelVersionBase)</Version>
         <!-- Test assemblies one at a time (dotnet test); the corpus tests also lock against other checkouts. -->
         <RunSettingsFilePath>$(MSBuildThisFileDirectory)test.runsettings</RunSettingsFilePath>
     </PropertyGroup>

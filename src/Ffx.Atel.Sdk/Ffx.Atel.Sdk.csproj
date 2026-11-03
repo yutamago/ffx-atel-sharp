@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
-    <!-- Ffx.Atel.Sdk, an MSBuild project SDK (docs/sdk.md): <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">.
+    <!-- Ffx.Atel.Sdk, an MSBuild project SDK (docs/sdk.md): <Project Sdk="Ffx.Atel.Sdk/<version>">, the version
+         one per commit (0.1.0-alpha.0.<commits>.g<commit>, Directory.Build.targets).
          The package holds no assembly of its own:
            Sdk/Sdk.props, Sdk/Sdk.targets     what a project using the SDK imports
            reference/Ffx.Atel.Game.dll, .xml  the game's API

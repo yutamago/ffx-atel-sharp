@@ -1,0 +1,51 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Project>
+    <!--
+        The version of everything built from a commit, from git: 0.1.0-alpha.0.<commits>.g<commit>, where
+        <commits> is the number of commits in HEAD's history (git rev-list -count HEAD) and <commit> the first
+        10 hex digits of HEAD. NuGet caches a package by version and never reads that version again, so each
+        commit needs its own SDK version (docs/sdk.md, "Versions"):
+
+        - the count grows with every commit, so a later commit always has a higher version (also across
+          merges: a commit's history holds all of its parents');
+        - the commit tells apart two commits with the same count (two branches);
+        - the same commit always builds the same version: uncommitted changes do not change it.
+
+        The atel CLI looks up and pins the SDK package by its own informational version (without the
+        +<commit> the SDK appends), so the CLI and the package must agree: every project gets the version here,
+        and nothing else sets it. -p:Version=<version> (the release workflow) skips all of this.
+
+        Needs git and the full history: a shallow clone (CI checkout without fetch-depth: 0) stops the build,
+        as its count would be wrong.
+    -->
+    <PropertyGroup>
+        <GetPackageVersionDependsOn>$(GetPackageVersionDependsOn);AtelVersion</GetPackageVersionDependsOn>
+    </PropertyGroup>
+
+    <Target Name="AtelVersion"
+            BeforeTargets="GetAssemblyVersion;_GetAbsoluteOutputPathsForPack;GenerateNuspec"
+            Condition="'$(AtelVersionGiven)' != 'true'">
+        <Exec Command="git rev-parse HEAD" WorkingDirectory="$(MSBuildThisFileDirectory)" ConsoleToMSBuild="true"
+              StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true"
+              IgnoreStandardErrorWarningFormat="true" EchoOff="true">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_AtelCommit" />
+            <Output TaskParameter="ExitCode" PropertyName="_AtelGitExit" />
+        </Exec>
+        <Error Condition="'$(_AtelGitExit)' != '0'"
+               Text="The version comes from git (Directory.Build.targets): build from a git clone, or give one with -p:Version=&lt;version&gt;." />
+        <Exec Command="git rev-parse --is-shallow-repository" WorkingDirectory="$(MSBuildThisFileDirectory)"
+              ConsoleToMSBuild="true" StandardOutputImportance="low" EchoOff="true">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_AtelShallow" />
+        </Exec>
+        <Error Condition="'$(_AtelShallow.Trim())' == 'true'"
+               Text="The version counts the commits in HEAD's history (Directory.Build.targets), and this clone is shallow: git fetch --unshallow (CI: actions/checkout with fetch-depth: 0), or give a version with -p:Version=&lt;version&gt;." />
+        <Exec Command="git rev-list --count HEAD" WorkingDirectory="$(MSBuildThisFileDirectory)"
+              ConsoleToMSBuild="true" StandardOutputImportance="low" EchoOff="true">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_AtelCommits" />
+        </Exec>
+        <PropertyGroup>
+            <Version>$(AtelVersionBase).$(_AtelCommits.Trim()).g$(_AtelCommit.Trim().Substring(0, 10))</Version>
+            <PackageVersion>$(Version)</PackageVersion>
+        </PropertyGroup>
+    </Target>
+</Project>

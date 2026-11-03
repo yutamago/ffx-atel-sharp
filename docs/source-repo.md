@@ -29,7 +29,10 @@ FFX.exe sha256: <hex>
 ```
 
 The commit is the one the `atel` binary was built from (the SDK puts it in
-the assembly's informational version), so export from a committed checkout.
+the assembly's informational version), and the version is that commit's
+(`0.1.0-alpha.0.<commits>.g<commit>`, [sdk.md](sdk.md), "Versions"), so
+export from a committed checkout: uncommitted changes would get the
+commit's version too.
 Author and committer are the source repo's git identity (`user.name`,
 `user.email`; Yutamago and the GitHub noreply address there). Git merges hand
 edits with each new decompile as with any other branch.
@@ -198,8 +201,9 @@ anyway, and the merge would then undo it on `main`.
 ## The reference assembly
 
 The tree's projects use the SDK package, `<Project Sdk="Ffx.Atel.Sdk">`, of
-the version in `global.json` ([sdk.md](sdk.md)): the reference assembly, the
-analyzers and the build settings. `atel decompile -o` copies the package to
+the version in `global.json` ([sdk.md](sdk.md)), the version of the `atel`
+that decompiled it: the reference assembly, the analyzers and the build
+settings. `atel decompile -o` copies the package to
 `.atel/packages/` and writes a `nuget.config` naming it when it finds the
 package (beside `atel`, or in this repo's `artifacts/package/<configuration>/`
 after `dotnet pack src/Ffx.Atel.Sdk`) or is given it (`--sdk <dir>`). The

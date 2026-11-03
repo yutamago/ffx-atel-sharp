@@ -2,7 +2,12 @@
 <!--
     Ffx.Atel.Sdk: an MSBuild project SDK for Atel source (docs/sdk.md).
 
-        <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">
+        <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha.0.117.g5e8c870545">
+
+    or <Project Sdk="Ffx.Atel.Sdk"> with the version in global.json ("msbuild-sdks"). Every commit of
+    ffx-atel-sharp packs its own version, 0.1.0-alpha.0.<commits>.g<commit> (docs/sdk.md, "Versions"):
+    NuGet never reads a version again once it has cached it, so a changed SDK needs a new version. A
+    release has its own (0.1.0-alpha.1, …).
 
     It builds on Microsoft.NET.Sdk and adds the game's reference assembly (Ffx.Atel.Game), the analyzers
     and code fixes, and the settings the decompiled source uses. A project is one of two kinds:
