@@ -505,7 +505,7 @@ public sealed class NewCodeTests {
     public void NamedArgumentsOutOfOrderAreEvaluatedInSourceOrder() {
         List<int> order = [];
         (MiniVm vm, _) = Run(Replaced("""
-                    Out = Common.MapChange(entrance: Common.ChrGetHandle(), map: Common.WorkerDetach());
+                    Out = Common.MapChange(entrance: Common.ChrGetHandle(), map: (Map)Common.WorkerDetach());
             """), (id, args) => {
                 order.Add(id);
                 return id == 0x0011 ? Value.Int(args[0].AsInt * 10 + args[1].AsInt) : Value.Int(id);

@@ -11,7 +11,8 @@
 //                 they call (3 levels), from the Ghidra dump's call_sites.tsv;
 //       bytecode: the stack depth before every `func_facc` statement in all 1,621 scripts.
 //   - Argument kinds: the order of the handler's own pop calls (the dump's C), else what the scripts push.
-//   - Parameter types and names by hand: data/native-types.json (enums of Enums.g.cs, TextId; Phase 5).
+//   - Parameter types and names by hand: data/native-types.json (enums of Enums.g.cs, Map, Sfx, TextId; "int:Battle"
+//     for an int named by constants, [Atel.Values]; Phase 5).
 //
 // Nothing from the game is written but addresses, names, counts and descriptions.
 //
@@ -369,18 +370,24 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         string result = s.Float is not null ? "float" : s.Int is not null ? "int" : "none";
         // C# types: int/float by kind, or the overlay's type (and name) for an int parameter.
         List<string> paramCs = [.. Enumerable.Range(0, argc).Select(k => kinds[k] == 'f' ? "float" : "int")];
+        // "int:Battle": an int whose values the constants of a static class name (Atel.Values).
+        string?[] paramValues = new string?[argc];
         string resultCs = result == "float" ? "float" : "int";
+        string? resultValues = null;
         if (paramTypes.Remove(id, out Dictionary<string, string>? typed)) {
-            // "result": "bool" for an int result the scripts use only as a condition.
+            // "result": "bool" for an int result the scripts use only as a condition; "int:Battle" for an int
+            // result named by constants.
             if (typed.Remove("result", out string? resultType)) {
-                if (result != "int" || resultType != "bool") throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4}: result {resultType} for a {result} result");
-                resultCs = resultType;
+                if (result == "int" && resultType == "bool") resultCs = resultType;
+                else if (result == "int" && resultType.StartsWith("int:", StringComparison.Ordinal)) resultValues = resultType[4..];
+                else throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4}: result {resultType} for a {result} result");
             }
             foreach ((string param, string spec) in typed) {
                 int k = paramNames.IndexOf(param);
                 if (k < 0 || kinds[k] != 'i') throw new InvalidOperationException($"data/native-types.json: native 0x{id:x4} has no int parameter {param}");
                 string[] parts = spec.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                paramCs[k] = parts[0];
+                if (parts[0].StartsWith("int:", StringComparison.Ordinal)) paramValues[k] = parts[0][4..];
+                else paramCs[k] = parts[0];
                 if (parts.Length > 1) paramNames[k] = parts[1];
             }
         }
@@ -399,6 +406,7 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             ["args"] = new JsonArray([.. Enumerable.Range(0, argc).Select(k => {
                 JsonObject a = new() { ["name"] = paramNames[k], ["kind"] = kinds[k] == 'f' ? "float" : "int" };
                 if (paramCs[k] is not ("int" or "float")) a["type"] = paramCs[k];
+                if (paramValues[k] is string values) a["values"] = values;
                 return (JsonNode)a;
             })]),
             ["result"] = result,
@@ -412,6 +420,7 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             ["doc"] = comment,
         };
         if (resultCs == "bool") o.Insert(o.IndexOf("result") + 1, "result_type", "bool");
+        if (resultValues is not null) o.Insert(o.IndexOf("result") + 1, "result_values", resultValues);
         natives.Add(o);
 
         string doc = comment.Length > 0 ? System.Security.SecurityElement.Escape(comment) : "Not yet described.";
@@ -440,8 +449,9 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
         if (Regex.IsMatch(method, "(^|[^a-z])Ret([A-Z_0-9]|$)")) lint.Add($"0x{id:x4} {cls}.{method}: \"Ret\" names nothing (give it a name in the docs section)");
         if (Regex.IsMatch(method, "^N[0-9a-f]{4}|_[0-9a-f]{4}$|^" + cls + "_[0-9a-f]{4}$")) generatedNames++;
         string ret = resultCs;
-        string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{paramCs[k]} {paramNames[k]}"));
+        string ps = string.Join(", ", Enumerable.Range(0, argc).Select(k => $"{(paramValues[k] is string v ? $"[Atel.Values(typeof({v}))] " : "")}{paramCs[k]} {paramNames[k]}"));
         cs.Append(CultureInfo.InvariantCulture, $"    [Atel.Native(0x{id:x4}{(s.Poll is not null ? ", Polls = true" : "")})]\n");
+        if (resultValues is not null) cs.Append(CultureInfo.InvariantCulture, $"    [return: Atel.Values(typeof({resultValues}))]\n");
         cs.Append(CultureInfo.InvariantCulture, $"    public static {ret} {method}({ps}) => throw Atel.Runtime.NotRunnable();\n\n");
     }
     cs.Length -= 1;

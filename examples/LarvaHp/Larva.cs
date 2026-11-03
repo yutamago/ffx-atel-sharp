@@ -12,6 +12,6 @@ public sealed partial class W01
     [Postfix(nameof(Init))]
     void MoreHp()
     {
-        Btl.SetActorProperty(0, 1234);
+        Btl.SetActorProperty(ActorProperty.Hp, 1234);
     }
 }

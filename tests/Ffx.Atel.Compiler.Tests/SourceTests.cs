@@ -169,6 +169,76 @@ public sealed class SourceTests {
         Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
     }
 
+    /// <summary>
+    ///     Named values (Phase 5, review P7): maps, sound effects in hex, battle ids as constants (also where a
+    ///     native returns one), monster-id selectors and the property of <c>SetActorProperty</c>; the source
+    ///     compiles back to the same bytes.
+    /// </summary>
+    [Fact]
+    public void NamedValuesRoundTrip() {
+        ScriptImage image = new() {
+            Author = "test"u8.ToArray(), Name = "997"u8.ToArray(), Shared = new byte[0x20], Other = new byte[0x40], Event = new byte[0x10],
+        };
+        image.IntConstants.AddRange([0x8000_0017, 0x012c_0000, 0x0001_6008]);
+        WorkerAssembler w0 = new();
+        w0.PlaceEntry(0);
+        w0.Add("""
+                pushimm 194
+                pushimm 0
+                func_facc 0x010b
+                pushc c0
+                func_facc 0x00df
+                pushc c2
+                pushimm 63
+                pushimm 127
+                func_facc 0x00fd
+                pushimm 3
+                pushimm 1
+                func_facc 0x70ab
+                pushimm 4230
+                pushimm 0
+                pushimm 0
+                func_facc 0x7018
+                pushc c1
+                pushimm 1
+                func_facc 0x7002
+                func 0x7024
+                pushc c1
+                eq
+                popa_jz l0
+                pushimm 2
+                pushimm 0
+                func_facc 0x0011
+            l0:
+                end
+            """);
+        AssembledWorker a0 = w0.Finish();
+        image.Workers.Add(new WorkerImage { Type = 2, Code = a0.Code, Entries = a0.Entries, Labels = a0.Labels });
+        byte[] block = image.Write();
+        byte[] original = new byte[0x40 + (block.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(original, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(original.AsSpan(4), 0x40);
+        block.CopyTo(original, 0x40);
+
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m997/m997.bin", file);
+        string[] expected = [
+            "Common.MapJump(Map.Hiku0800, 0);",
+            "Common.SfxPlay((Sfx)0x80000017);",
+            "Common.SfxPlayEx((Sfx)0x16008, 63, 127);",
+            "Btl.SetActorProperty(ActorProperty.Maxmp, 1);",
+            "Btl.SetActorsProperty(Target.Biran, ActorProperty.Hp, 0);",
+            "Btl.LabelExe(Battle.Kami00_00, 1);",
+            "if (Btl.GetBattleId() == Battle.Kami00_00)",
+            "Common.MapChange(Map.Camtest0, 0);",
+        ];
+        foreach (string line in expected) Assert.Contains(line, d.Source, StringComparison.Ordinal);
+
+        SyntaxTree tree = ScriptCompiler.Parse(d.Source, "m997.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
+    }
+
     /// <summary>Phase 5: constants inside a condition are false/true, and a native typed bool is a condition without AsBool.</summary>
     [Fact]
     public void BoolConstantsAndBoolNativesAreConditions() {

@@ -81,7 +81,7 @@ public sealed partial class W01 : Worker2
 ```
 
 `Init` sets the monster up from its data; the HP comes from the monster's stats. Setting actor
-property 0 (`Btl.SetActorProperty(0, value)`, native `0x70ab`) after that replaces the HP, as found
+property 0 (`Btl.SetActorProperty(ActorProperty.Hp, value)`, native `0x70ab`) after that replaces the HP, as found
 in game ([research/loader.md](research/loader.md#notes)).
 
 ## 4. Write the mod
@@ -135,7 +135,7 @@ partial class W01
     [Postfix(nameof(Init))]
     void MoreHp()
     {
-        Btl.SetActorProperty(0, 1234);
+        Btl.SetActorProperty(ActorProperty.Hp, 1234);
     }
 }
 ```

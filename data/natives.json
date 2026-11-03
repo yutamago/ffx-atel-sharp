@@ -463,7 +463,8 @@
       "args": [
         {
           "name": "map",
-          "kind": "int"
+          "kind": "int",
+          "type": "Map"
         },
         {
           "name": "entrance",
@@ -4829,11 +4830,12 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "map",
+          "kind": "int",
+          "type": "Map"
         },
         {
-          "name": "a1",
+          "name": "entrance",
           "kind": "int"
         }
       ],
@@ -6191,7 +6193,8 @@
       "args": [
         {
           "name": "sfx",
-          "kind": "int"
+          "kind": "int",
+          "type": "Sfx"
         }
       ],
       "result": "int",
@@ -6219,8 +6222,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "sfx",
+          "kind": "int",
+          "type": "Sfx"
         }
       ],
       "result": "int",
@@ -7052,7 +7056,8 @@
       "args": [
         {
           "name": "sfx",
-          "kind": "int"
+          "kind": "int",
+          "type": "Sfx"
         },
         {
           "name": "pan",
@@ -7088,8 +7093,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "sfx",
+          "kind": "int",
+          "type": "Sfx"
         },
         {
           "name": "a1",
@@ -7152,8 +7158,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "sfx",
+          "kind": "int",
+          "type": "Sfx"
         },
         {
           "name": "a1",
@@ -7508,11 +7515,12 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "map",
+          "kind": "int",
+          "type": "Map"
         },
         {
-          "name": "a1",
+          "name": "entrance",
           "kind": "int"
         }
       ],
@@ -7541,11 +7549,12 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "map",
+          "kind": "int",
+          "type": "Map"
         },
         {
-          "name": "a1",
+          "name": "entrance",
           "kind": "int"
         }
       ],
@@ -30090,8 +30099,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "battle",
+          "kind": "int",
+          "values": "Battle"
         },
         {
           "name": "a1",
@@ -30477,8 +30487,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -31119,6 +31130,7 @@
       },
       "args": [],
       "result": "int",
+      "result_values": "Battle",
       "polls": false,
       "calls": 473,
       "scripts": 189,
@@ -31528,8 +31540,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -31678,12 +31691,14 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
-          "name": "a1",
-          "kind": "int"
+          "name": "command",
+          "kind": "int",
+          "type": "Command"
         }
       ],
       "result": "int",
@@ -31711,12 +31726,14 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
-          "name": "a1",
-          "kind": "int"
+          "name": "command",
+          "kind": "int",
+          "type": "Command"
         }
       ],
       "result": "int",
@@ -31797,12 +31814,14 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
-          "name": "a1",
-          "kind": "int"
+          "name": "command",
+          "kind": "int",
+          "type": "Command"
         },
         {
           "name": "a2",
@@ -32100,8 +32119,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -32271,8 +32291,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -32417,7 +32438,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "v",
@@ -32733,8 +32755,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -33194,11 +33217,13 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "property",
-          "kind": "int"
+          "kind": "int",
+          "type": "ActorProperty"
         },
         {
           "name": "unused",
@@ -33233,7 +33258,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -33259,8 +33285,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -33296,8 +33323,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -33633,8 +33661,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -33724,8 +33753,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -33751,8 +33781,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -33868,8 +33899,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -34193,8 +34225,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -34284,8 +34317,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "battle",
+          "kind": "int",
+          "values": "Battle"
         },
         {
           "name": "a1",
@@ -34686,7 +34720,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -34767,8 +34802,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -35037,8 +35073,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -35068,8 +35105,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -35162,11 +35200,12 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "property",
+          "kind": "int",
+          "type": "ActorProperty"
         },
         {
-          "name": "a1",
+          "name": "value",
           "kind": "int"
         }
       ],
@@ -35289,8 +35328,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -35455,8 +35495,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -35545,7 +35586,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -35572,7 +35614,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -35628,7 +35671,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "none",
@@ -35657,7 +35701,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "none",
@@ -35686,7 +35731,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -35739,8 +35785,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -35829,7 +35876,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "float",
@@ -35856,7 +35904,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -35959,8 +36008,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -35990,8 +36040,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36023,8 +36074,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36054,8 +36106,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36085,8 +36138,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36114,8 +36168,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36143,8 +36198,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36224,7 +36280,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36251,7 +36308,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36277,8 +36335,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36314,8 +36373,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36349,8 +36409,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -36414,7 +36475,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "motion",
@@ -36544,7 +36606,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "i",
@@ -36626,8 +36689,9 @@
       },
       "args": [
         {
-          "name": "v",
-          "kind": "int"
+          "name": "battle",
+          "kind": "int",
+          "values": "Battle"
         }
       ],
       "result": "int",
@@ -36699,8 +36763,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36792,8 +36857,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -36827,8 +36893,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "a1",
@@ -37074,7 +37141,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "signal",
@@ -37585,8 +37653,9 @@
       },
       "args": [
         {
-          "name": "a0",
-          "kind": "int"
+          "name": "selector",
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -37669,7 +37738,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "xF",
@@ -37862,7 +37932,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "reset",
@@ -38039,7 +38110,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -38068,7 +38140,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -38234,11 +38307,13 @@
       "args": [
         {
           "name": "targets",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "command",
-          "kind": "int"
+          "kind": "int",
+          "type": "Command"
         }
       ],
       "result": "int",
@@ -38325,7 +38400,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         },
         {
           "name": "aF",
@@ -38580,7 +38656,8 @@
       "args": [
         {
           "name": "selector",
-          "kind": "int"
+          "kind": "int",
+          "type": "Target"
         }
       ],
       "result": "int",
@@ -42882,8 +42959,9 @@
       },
       "args": [
         {
-          "name": "v",
-          "kind": "int"
+          "name": "sfx",
+          "kind": "int",
+          "type": "Sfx"
         }
       ],
       "result": "int",
