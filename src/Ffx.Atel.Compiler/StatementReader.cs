@@ -330,8 +330,8 @@ internal sealed partial class StatementReader(
                 return new OpStmt(Opcodes.Op54);
             case IdentifierNameSyntax { Identifier.ValueText: "Breakpoint" } when args.Count == 0:
                 return new OpStmt(Opcodes.Op40);
-            case IdentifierNameSyntax { Identifier.ValueText: "Op77" or "Op78" or "Op79" or "WaitForEntry" or "WaitForPartyEntry" } id
-                when args.Count == (id.Identifier.ValueText == "Op79" ? 3 : 2):
+            case IdentifierNameSyntax { Identifier.ValueText: "Op77" or "Op78" or "Op79" or "WaitForEntry" or "WaitForPartyEntry" or "SetTriggerEntry" } id
+                when args.Count == (id.Identifier.ValueText is "Op79" or "SetTriggerEntry" ? 3 : 2):
                 return new OpArgsStmt(id.Identifier.ValueText switch { "Op77" or "WaitForEntry" => Opcodes.Op77, "Op78" or "WaitForPartyEntry" => Opcodes.Op78, _ => Opcodes.Op79 },
                     [.. args.Select(a => ReadExpr(a.Expression))]);
             // `WaitForEntry<Lulu>(5);`: op_77 with the worker's number.

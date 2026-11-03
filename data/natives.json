@@ -11939,7 +11939,7 @@
     {
       "id": "0x019d",
       "class": "Common",
-      "method": "WorkerDetach_019d",
+      "method": "WorkerDetachAndDispose",
       "symbol": "Worker_Detach",
       "slots": {
         "start": null,
@@ -11949,7 +11949,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "dispose",
           "kind": "int"
         }
       ],
@@ -12737,7 +12737,7 @@
     {
       "id": "0x01ba",
       "class": "Common",
-      "method": "ChrGetEquipModel_01ba",
+      "method": "ChrGetEquipModelOf",
       "symbol": "Native_01ba_ChrGetEquipModel",
       "slots": {
         "start": null,
@@ -12747,11 +12747,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "worker",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "kind",
           "kind": "int"
         }
       ],
@@ -23362,7 +23362,7 @@
     {
       "id": "0x5057",
       "class": "Chr",
-      "method": "SetBoneUpdate_5057",
+      "method": "SetBoneUpdateOf",
       "symbol": "Native_ChrSetBoneUpdate",
       "slots": {
         "start": null,

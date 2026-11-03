@@ -126,8 +126,29 @@ public abstract class Worker {
     /// <summary>The older name of <see cref="WaitForPartyEntry(int, int)"/> (<c>op_78</c>).</summary>
     protected static void Op78(int slot, int entry) => throw Runtime.NotRunnable();
 
-    /// <summary>Opcode <c>op_79</c>: pops three values (<c>0x00870d30</c>), the last an address (<see cref="Addr{T}"/>); not yet understood.</summary>
-    protected static void Op79(int a, int b, int c) => throw Runtime.NotRunnable();
+    /// <summary>
+    ///     Sets the entry that trigger <paramref name="kind"/> requests of this worker (<c>op_79</c>):
+    ///     <c>SetTriggerEntry(Addr(ref V38[0]), 0, 6);</c> makes talking to it (kind 0) run entry 6 in place of
+    ///     entry 2. The worker's table of eight entries, one per kind, is kept in the variable
+    ///     <paramref name="table"/> points at; the first call fills it with the defaults of the worker's type.
+    /// </summary>
+    /// <param name="table">The table's variable, <c>Addr(ref V38[0])</c>: eight 16-bit entries.</param>
+    /// <param name="kind">The kind of trigger, 0-7 (above 7 is 7): 0 talking to the worker, 3 touching it, 4 crossing its line.</param>
+    /// <param name="entry">The entry it requests; <c>0xffff</c> for none.</param>
+    /// <remarks>
+    ///     <c>op_79</c> (<c>0x00870d30</c>) pops entry, kind and the variable; when the worker's table pointer
+    ///     (<c>+0x44</c>) is 0 it copies the eight defaults of its type (<c>0x00876390</c>: types 2/3, 5, 6, else
+    ///     <c>2 3 4 5 - - - 1</c>) into the variable; then <c>table[kind] = entry</c> and <c>+0x44</c> points at the
+    ///     variable. A trigger of kind <c>k</c> (talk, touch <c>0x00866980</c>, line cross <c>0x008680a0</c>)
+    ///     requests entry <c>table[k]</c> (<c>0x008763e0</c>, the defaults without a table) at the level of its
+    ///     kind, when the worker has that kind on (<c>+0xab</c> bit <c>k</c>, natives <c>0x0034</c>/<c>0x0035</c>):
+    ///     <c>0x008764f0</c>. ffx-rust <c>signal::script_op79</c>, where the table is still called the
+    ///     "vibration curve" (<c>TkGetVibrateCurve</c>).
+    /// </remarks>
+    protected static void SetTriggerEntry(int table, int kind, int entry) => throw Runtime.NotRunnable();
+
+    /// <summary>The older name of <see cref="SetTriggerEntry"/> (<c>op_79</c>).</summary>
+    protected static void Op79(int table, int kind, int entry) => throw Runtime.NotRunnable();
 
     /// <summary>
     ///     Ends the entry with a value (<c>endp</c>). With <paramref name="reset"/> (<c>endp_1</c>) the

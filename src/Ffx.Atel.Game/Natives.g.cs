@@ -701,8 +701,8 @@ public static partial class Common
     [Atel.Native(0x0086)]
     public static int GetEventJumpMap() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0087: jumps to 0x0086c1c0; ported in native_move (script round 11); name from jmp chain: 0x0086c1c0 -&gt; TkGetNowEventJumpId (0x0088d660)</summary>
-    /// <remarks>Native <c>0x0087</c>, <c>Native_0087_GetNowEventJumpId</c>; 523 calls in the shipped scripts.</remarks>
+    /// <summary>The same as <see cref="GetNowEventJumpId"/> (<c>0x000f</c>).</summary>
+    /// <remarks>Native <c>0x0087</c>, <c>Native_0087_GetNowEventJumpId</c>; 523 calls in the shipped scripts. Reverse engineering: 0x0087: jumps to 0x0086c1c0; ported in native_move (script round 11); name from jmp chain: 0x0086c1c0 -&gt; TkGetNowEventJumpId (0x0088d660) Verified for Atel#: both handlers (0x0085cf90, 0x00856790) are jmp 0x0086c1c0.</remarks>
     [Atel.Native(0x0087)]
     public static int GetNowEventJumpId_0087() => throw Atel.Runtime.NotRunnable();
 
@@ -1591,8 +1591,8 @@ public static partial class Common
     [Atel.Native(0x0132)]
     public static int WorkerTriggerSetActive(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0133: jmp 0x0085fe30 (same handler); ported in native_btl/native_move (script round 10); name from &quot;jmp 0x0085fe30 (same handler)&quot; = Native_0132_WorkerTriggerSetActive</summary>
-    /// <remarks>Native <c>0x0133</c>, <c>Native_0133_WorkerTriggerSetActive</c>; 359 calls in the shipped scripts.</remarks>
+    /// <summary>The same as <see cref="WorkerTriggerSetActive"/> (<c>0x0132</c>).</summary>
+    /// <remarks>Native <c>0x0133</c>, <c>Native_0133_WorkerTriggerSetActive</c>; 359 calls in the shipped scripts. Reverse engineering: 0x0133: jmp 0x0085fe30 (same handler); ported in native_btl/native_move (script round 10); name from &quot;jmp 0x0085fe30 (same handler)&quot; = Native_0132_WorkerTriggerSetActive Verified for Atel#: handler 0x00860290 jumps to 0x0132's (0x0085fe30).</remarks>
     [Atel.Native(0x0133)]
     public static int WorkerTriggerSetActive_0133(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
@@ -2118,15 +2118,16 @@ public static partial class Common
     [Atel.Native(0x019b)]
     public static int AttachChrOwnDobj(int b, int a) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>Returns 1. The scripts test it inside conditions; on PC it is always true.</summary>
-    /// <remarks>Native <c>0x019c</c>, <c>Native_AlwaysTrue019c</c>; 6396 calls in the shipped scripts. Reverse engineering: 0x019c () -&gt; 1; no pops, constant 1 (PS2 check stubbed on PC?); scripts use it inside conditions (&quot;pushimm 32; and; land; func 0x019c; land&quot;); 6 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</remarks>
+    /// <summary>Returns 1. Every call in the shipped scripts is the last term of a button check (<c>MsgIsReady(0) == 1 &amp; AsBool(PadPressed() &amp; 32) &amp; AlwaysTrue019c()</c>); on PC the term is always true.</summary>
+    /// <remarks>Native <c>0x019c</c>, <c>Native_AlwaysTrue019c</c>; 6396 calls in the shipped scripts. Reverse engineering: 0x019c () -&gt; 1; no pops, constant 1 (PS2 check stubbed on PC?); scripts use it inside conditions (&quot;pushimm 32; and; land; func 0x019c; land&quot;); 6 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size) Verified for Atel#: handler 0x00856630 is mov eax, 1; ret (no pops). The 961 calls: PadPressed() &amp; 32 (881, 379 of them after MsgIsReady(0) == 1) and &amp; 160 (80, after MsgIsReady). What the PS2 version tested there is not known: neither ffx.sym, Fahrenheit (AtelFn_Std_19C_RetI) nor a PS2 executable says, so it keeps its name.</remarks>
     [Atel.Native(0x019c)]
     public static bool AlwaysTrue019c() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>(worker, [pops dispose]): frees worker+0xaa attachment (1 model 0x008722f0 &quot;TK:ChN_DataDispose&quot;, 2 0x007ba9c0, 4/5 0x0086f4c0); +0xaa = 0, +0xa8 = 0; ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x019d</c>, <c>Worker_Detach</c>; 765 calls in the shipped scripts.</remarks>
+    /// <summary>Releases what the worker is attached to, as <see cref="WorkerDetach"/>; with <paramref name="dispose"/> non-zero it also frees an attached model's character data (<c>ChN_DataDispose</c>).</summary>
+    /// <param name="dispose">Non-zero to free the model's data too (the scripts pass 1).</param>
+    /// <remarks>Native <c>0x019d</c>, <c>Worker_Detach</c>; 765 calls in the shipped scripts. Reverse engineering: (worker, [pops dispose]): frees worker+0xaa attachment (1 model 0x008722f0 &quot;TK:ChN_DataDispose&quot;, 2 0x007ba9c0, 4/5 0x0086f4c0); +0xaa = 0, +0xa8 = 0; ported in native_move (script round 11) Verified for Atel#: handler Worker_Detach (0x0085ca00) pops dispose; by the attachment kind (+0xaa): 1 a model: AtelBindElemOff for elements 0 and 1, TkCh_Dispose(+0x9c), and with dispose ChN_DataDispose(+0xa8, 0) (0x00824f00); 2 MsBindOffCamera; 4/5 AtelSetBindObject; then +0xaa = 0, +0xa8 = 0. WorkerDetach (0x0005, 0x0085cdc0) pushes 0 and jumps into this handler. 730 of the 764 calls pass 1.</remarks>
     [Atel.Native(0x019d)]
-    public static int WorkerDetach_019d(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int WorkerDetachAndDispose(int dispose) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x019e: 0 pushed and popped back: 0x0086c530(0); ported in native_move (script round 11); name from &quot;0x0086c530(0)&quot; = Atel_CtrlRunning</summary>
     /// <remarks>Native <c>0x019e</c>, <c>Native_019e_IsCtrl0Running</c>; 7 calls in the shipped scripts.</remarks>
@@ -2263,10 +2264,12 @@ public static partial class Common
     [Atel.Native(0x01b9)]
     public static int EquipUnmarkFirst() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x01ba: (worker, on): the worker&apos;s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from &quot;0x0086b150(chr, on)&quot; = AtelGetElemId: armor model for 1, else weapon model</summary>
-    /// <remarks>Native <c>0x01ba</c>, <c>Native_01ba_ChrGetEquipModel</c>; 921 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="ChrGetEquipModel"/> for another worker: the armor model (<paramref name="kind"/> 1) or weapon model (0) of the party member that worker is bound to; 0 when it is bound to none.</summary>
+    /// <param name="worker">The worker.</param>
+    /// <param name="kind">1 armor, 0 weapon (clamped to 0-1).</param>
+    /// <remarks>Native <c>0x01ba</c>, <c>Native_01ba_ChrGetEquipModel</c>; 921 calls in the shipped scripts. Reverse engineering: 0x01ba: (worker, on): the worker&apos;s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from &quot;0x0086b150(chr, on)&quot; = AtelGetElemId: armor model for 1, else weapon model Verified for Atel#: handler 0x0085beb0 pops kind, then worker, clamps kind to 0-1; AtelGetBasicWork(worker) +0x40 (the bound character) 0-7: AtelGetElemId(chr, kind) (0x0086b150: MsGetSaveChrArmorModel for 1, else MsGetSaveChrWeaponModel), else 0. 0x0119 does the same with the worker's own +0x40.</remarks>
     [Atel.Native(0x01ba)]
-    public static int ChrGetEquipModel_01ba(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrGetEquipModelOf(int worker, int kind) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x01bb: 0x008863c0(0); ported in native_move (script round 11); name from &quot;0x008863c0(0)&quot; = SndGetMusicPlayState</summary>
     /// <remarks>Native <c>0x01bb</c>, <c>Native_01bb_GetMusicPlayState</c>; 4 calls in the shipped scripts.</remarks>
@@ -3786,8 +3789,9 @@ public static partial class Chr
     [Atel.Native(0x501a)]
     public static int PlayMotion(int motion, int unused, int loops, int startFrame, int endFrame) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x501b: args (motion) -&gt; 0; SG_SetMotion on the worker&apos;s chr</summary>
-    /// <remarks>Native <c>0x501b</c>, <c>Native_ChrSetMotion_501b</c>; 5195 calls in the shipped scripts.</remarks>
+    /// <summary>The same as <see cref="SetMotion"/> (<c>0x5000</c>): sets the worker's model to motion <paramref name="motion"/>. Returns 0.</summary>
+    /// <param name="motion">The motion id.</param>
+    /// <remarks>Native <c>0x501b</c>, <c>Native_ChrSetMotion_501b</c>; 5195 calls in the shipped scripts. Reverse engineering: 0x501b: args (motion) -&gt; 0; SG_SetMotion on the worker&apos;s chr Verified for Atel#: handlers 0x00a792d0 and 0x00a78770 are the same code: AtelPopStackInteger, AtelGetCharHandle, Ch_SetSequence(chr, motion) (0x00837ac0), 0.</remarks>
     [Atel.Native(0x501b)]
     public static int SetMotion_501b(int motion) => throw Atel.Runtime.NotRunnable();
 
@@ -3796,8 +3800,8 @@ public static partial class Chr
     [Atel.Native(0x501d)]
     public static int SetSequence_501d(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x501e start slot: empty (ret)</summary>
-    /// <remarks>Native <c>0x501e</c>, <c>Native_ChrWaitMotion_501e</c>; 3657 calls in the shipped scripts.</remarks>
+    /// <summary>Waits until the worker's model has finished its motion, as <see cref="WaitMotion"/>; in the game's debug mode it also counts the frames it waited.</summary>
+    /// <remarks>Native <c>0x501e</c>, <c>Native_ChrWaitMotion_501e</c>; 3657 calls in the shipped scripts. Reverse engineering: 0x501e start slot: empty (ret) Verified for Atel#: poll 0x00a793c0 ends (5) when chr +0x736 is 0, as WaitMotion's (0x5003, 0x00a788a0); with g_DebugMode (0x012fb80c) 1 it counts frames in 0x022fb4d8. Its start slot is a bare ret.</remarks>
     [Atel.Native(0x501e, Polls = true)]
     public static int WaitMotion_501e() => throw Atel.Runtime.NotRunnable();
 
@@ -3811,8 +3815,8 @@ public static partial class Chr
     [Atel.Native(0x5020)]
     public static int ReleaseMotion2() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5021: args (speed, 8.8 fixed, 256 = 1x) -&gt; 0; chr +0x750, multiplies the clip speed +0x754 in the frame step (0x00836f..: speed * [0x750] &gt;&gt; 8)</summary>
-    /// <remarks>Native <c>0x5021</c>, <c>Native_ChrSetMotionSpeed</c>; 1660 calls in the shipped scripts.</remarks>
+    /// <summary>The same as <see cref="SetMotionSpeed"/> (<c>0x5018</c>): sets the speed of the worker's model's motion. Returns 0.</summary>
+    /// <remarks>Native <c>0x5021</c>, <c>Native_ChrSetMotionSpeed</c>; 1660 calls in the shipped scripts. Reverse engineering: 0x5021: args (speed, 8.8 fixed, 256 = 1x) -&gt; 0; chr +0x750, multiplies the clip speed +0x754 in the frame step (0x00836f..: speed * [0x750] &gt;&gt; 8) Verified for Atel#: handlers 0x00a79510 and 0x00a791e0 are the same code: Ch_SetMotionSpeed(chr, speed) (0x0082b380), 0.</remarks>
     [Atel.Native(0x5021)]
     public static int SetMotionSpeed_5021(int a0) => throw Atel.Runtime.NotRunnable();
 
@@ -4082,10 +4086,12 @@ public static partial class Chr
     [Atel.Native(0x5056)]
     public static int SetBoneUpdate(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5057: args (worker, on) -&gt; previous; chr +0x194 bit 0 of another worker&apos;s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110)</summary>
-    /// <remarks>Native <c>0x5057</c>, <c>Native_ChrSetBoneUpdate</c>; 1637 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="SetBoneUpdate"/> for another worker's model (<c>Ch_SetCalcNorm</c> on it). Returns what that returns, 0 when the worker has no model.</summary>
+    /// <param name="worker">The worker whose model it sets.</param>
+    /// <param name="on">1 on, 0 off.</param>
+    /// <remarks>Native <c>0x5057</c>, <c>Native_ChrSetBoneUpdate</c>; 1637 calls in the shipped scripts. Reverse engineering: 0x5057: args (worker, on) -&gt; previous; chr +0x194 bit 0 of another worker&apos;s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110) Verified for Atel#: handler 0x00a78af0 pops on, then worker; AtelGetBasicWork(worker) (0x0086a830), its character (AtelGetCharHandle, 0x0086ae80), then Ch_SetCalcNorm(chr, on) (0x00835750), the call 0x5056 makes on the worker's own model.</remarks>
     [Atel.Native(0x5057)]
-    public static int SetBoneUpdate_5057(int worker, int on) => throw Atel.Runtime.NotRunnable();
+    public static int SetBoneUpdateOf(int worker, int on) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5058: args (v int) -&gt; 0: Ch_AllSetCalcNorm(v) (0x008325b0); ported in native_chr (script round 12); name from Ch_AllSetCalcNorm(v) (all-chr form of Ch_SetCalcNorm, cf. Native_ChrSetBoneUpdate)</summary>
     /// <remarks>Native <c>0x5058</c>, <c>Native_5058_ChrAllBoneUpdate</c>; 227 calls in the shipped scripts.</remarks>
