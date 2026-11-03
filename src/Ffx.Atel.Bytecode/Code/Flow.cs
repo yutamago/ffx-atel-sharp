@@ -10,7 +10,13 @@ namespace Ffx.Atel.Bytecode.Code;
 // starts.
 
 /// <summary><c>if (c) { … } else { … }</c>; a null <see cref="Condition"/> is <c>if (false)</c>, the dead code the original kept.</summary>
-public sealed record IfStmt(Expr? Condition, IReadOnlyList<Stmt> Then, IReadOnlyList<Stmt>? Else) : Stmt;
+public sealed record IfStmt(Expr? Condition, IReadOnlyList<Stmt> Then, IReadOnlyList<Stmt>? Else) : Stmt {
+    /// <summary>
+    ///     For <c>if (false)</c>: the name of the dead code (<c>if (Cut.MacalaniaTempleLegendAbilities)</c>), a
+    ///     constant <c>false</c> of <c>Ffx.Cut</c>; null for a bare <c>false</c>. It compiles to the same bytes.
+    /// </summary>
+    public string? Cut { get; init; }
+}
 
 /// <summary><c>while (c) { … }</c>; a null <see cref="Condition"/> is <c>while (true)</c>.</summary>
 public sealed record WhileStmt(Expr? Condition, IReadOnlyList<Stmt> Body) : Stmt;

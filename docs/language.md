@@ -557,6 +557,9 @@ expression is a condition: a comparison, `!`, `true`/`false`, `AsBool(…)`, a n
 - `AsInt(c)` is a condition used as a value, `V3 = AsInt(I0 > 2);` (0 or 1): no code.
 - Constant conditions: `if (false) { … }` is code that is jumped over (the original kept such dead
   code), `while (true)` a loop without a test. Any other constant condition is an error.
+- `if (Cut.ZanarkandCrowdFacingReaction) { … }` is `if (false)` with a name: a `const bool` of
+  `Ffx.Cut`, all `false`, for dead blocks whose code is understood
+  ([research/dead-code.md](research/dead-code.md#names)). Only as the whole condition of an `if`.
 
 ### Control flow
 

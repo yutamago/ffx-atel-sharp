@@ -141,6 +141,9 @@ internal sealed partial class StatementReader(
                     ? new CondGotoStmt(Label(g.Expression!), ReadCond(not.Operand), false)
                     : new CondGotoStmt(Label(g.Expression!), ReadCond(c), true);
             }
+            case IfStatementSyntax i when CutName(i.Condition) is string cut:
+                // `if (Cut.Name)` is `if (false)` with a name (docs/research/dead-code.md, "Names").
+                return new IfStmt(null, Body(i.Statement), i.Else is null ? null : Body(i.Else.Statement)) { Cut = CheckCut(i.Condition, cut) };
             case IfStatementSyntax i:
                 return new IfStmt(Constant(i.Condition) == false ? null : Cond(i.Condition), Body(i.Statement), i.Else is null ? null : Body(i.Else.Statement));
             case WhileStatementSyntax w: {
@@ -183,7 +186,25 @@ internal sealed partial class StatementReader(
     };
 
     private Expr Cond(ExpressionSyntax e) =>
-        Constant(e) is not null ? throw Error(e, "a constant condition is only `if (false)` (dead code) and `while (true)`") : ReadCond(e);
+        Constant(e) is not null ? throw Error(e, "a constant condition is only `if (false)` (dead code) and `while (true)`")
+        : CutName(e) is not null ? throw Error(e, "a Cut name is only the whole condition of an `if`: `if (Cut.Name)` is dead code")
+        : ReadCond(e);
+
+    /// <summary>The name of <c>Cut.Name</c> (or <c>Ffx.Cut.Name</c>), the name of a dead block; null for anything else.</summary>
+    private static string? CutName(ExpressionSyntax e) => Strip(e, conversions: false) switch {
+        MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Cut" }, Name: IdentifierNameSyntax n } => n.Identifier.ValueText,
+        MemberAccessExpressionSyntax {
+            Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Ffx" }, Name.Identifier.ValueText: "Cut" },
+            Name: IdentifierNameSyntax n,
+        } => n.Identifier.ValueText,
+        _ => null,
+    };
+
+    /// <summary>A Cut name must be a <c>const bool</c> of <see cref="Ffx.Cut"/> that is <c>false</c>: the vanilla game runs none of them.</summary>
+    private static string CheckCut(ExpressionSyntax e, string name) {
+        System.Reflection.FieldInfo? f = typeof(Ffx.Cut).GetField(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        return f is { IsLiteral: true } && f.GetRawConstantValue() is false ? name : throw Error(e, $"Cut.{name} is not a constant of Ffx.Cut (src/Ffx.Atel.Game/Cut.cs)");
+    }
 
     /// <summary><c>if (!c) break;</c></summary>
     private static IfStmt Exit(Expr c) => new(new UnaryExpr(Opcodes.Not, c), [new BreakStmt()], null);
@@ -455,6 +476,8 @@ internal sealed partial class StatementReader(
                 (ushort id, IReadOnlyList<Expr> args) = Native(call);
                 return new CallExpr(id, args);
             }
+            case MemberAccessExpressionSyntax when CutName(e) is not null:
+                throw Error(syntax, "a Cut name is only the whole condition of an `if`: `if (Cut.Name)` is dead code");
             default:
                 throw Error(syntax, $"not an expression Atel compiles yet: {e.Kind()}");
         }

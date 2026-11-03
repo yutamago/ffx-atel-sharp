@@ -41,6 +41,7 @@ internal sealed class Structurer {
     private readonly List<Unit> _u;
     private readonly Func<Unit, Stmt> _asm;
     private readonly HashSet<(int, Construct)> _disabled;
+    private readonly Func<int, int, string?>? _deadName;
     private readonly Dictionary<int, int> _pos = [];
     private readonly Dictionary<int, List<int>> _jumps = [];
     private readonly HashSet<int> _claimed = [];
@@ -51,10 +52,12 @@ internal sealed class Structurer {
     public Dictionary<object, Built> ByNode { get; } = new(ReferenceEqualityComparer.Instance);
     public List<Stmt> Body { get; }
 
-    public Structurer(List<Unit> units, Func<Unit, Stmt> asm, HashSet<(int, Construct)> disabled) {
+    /// <param name="deadName">The name of a dead block (<see cref="IfStmt.Cut"/>) by its <c>jmp</c>'s unit and the unit its dead code ends before; null for none.</param>
+    public Structurer(List<Unit> units, Func<Unit, Stmt> asm, HashSet<(int, Construct)> disabled, Func<int, int, string?>? deadName = null) {
         _u = units;
         _asm = asm;
         _disabled = disabled;
+        _deadName = deadName;
         for (int i = 0; i < units.Count; i++) {
             foreach (int l in units[i].Labels) _pos[l] = i;
             if (units[i].Jump is int j) (_jumps.TryGetValue(j, out List<int>? list) ? list : _jumps[j] = []).Add(i);
@@ -191,12 +194,12 @@ internal sealed class Structurer {
             List<Stmt> then = Parse(i + 1, p - 1, ctx);
             Trailing(then, p - 1);
             List<Stmt> other = Parse(p, q, ctx);
-            return Done(b, new IfStmt(null, then, other), then, other);
+            return Done(b, new IfStmt(null, then, other) { Cut = _deadName?.Invoke(i, p - 1) }, then, other);
         }
         if (Off(i, Construct.Dead)) return null;
         Built c = Claim(Construct.Dead, i, p, g.Label);
         List<Stmt> body = Parse(i + 1, p, ctx);
-        return Done(c, new IfStmt(null, body, null), body);
+        return Done(c, new IfStmt(null, body, null) { Cut = _deadName?.Invoke(i, p) }, body);
     }
 
     // ----- loops ---------------------------------------------------------------------------------

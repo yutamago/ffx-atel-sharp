@@ -18,6 +18,9 @@ public sealed record DecompiledScript(SourceNames Names, ScriptSource Parts, Dec
 
     /// <summary>The script as a folder: the script class, a file per worker, the data (<see cref="SourceLayout"/>).</summary>
     public List<SourceFile> Files(int splitLines = SourceLayout.SplitLines, int partLines = SourceLayout.PartLines) => SourceLayout.Files(Parts, splitLines, partLines);
+
+    /// <summary>The dead <c>if (false)</c> blocks, by worker and offset; empty unless asked for (<see cref="ScriptDecompiler.Decompile"/>'s <c>deadBlocks</c>).</summary>
+    public IReadOnlyList<DeadBlock> DeadBlocks { get; init; } = [];
 }
 
 /// <summary>What the decompiler made of a script: C# statements, what stayed assembly, and the pins.</summary>
@@ -40,6 +43,12 @@ public sealed record DecompileStats {
 
     /// <summary>Structured constructs by kind (<c>If</c>, <c>IfElse</c>, <c>While</c>, <c>Switch</c>, …).</summary>
     public IReadOnlyDictionary<string, int> Constructs { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>Dead blocks written with a name (<c>if (Cut.ZanarkandCrowdFacingReaction)</c>), by name.</summary>
+    public IReadOnlyDictionary<string, int> Cuts { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>The signatures of those blocks (<see cref="DeadSignature"/>, the keys of <c>data/cut-names.toml</c>).</summary>
+    public IReadOnlySet<string> CutSignatures { get; init; } = new HashSet<string>();
 
     /// <summary><c>goto</c> statements left (<c>goto lN;</c>, <c>if (…) goto lN;</c>).</summary>
     public int Gotos { get; init; }
@@ -104,9 +113,11 @@ public static class ScriptDecompiler {
     ///     (docs/encoding.md, "Inline methods"): the reference assembly's when null, none when empty.
     /// </param>
     /// <param name="overlay">Hand-written names for workers, entries and variables (<see cref="NameOverlay"/>); by default this repo's <c>data/names/</c> file of the script.</param>
+    /// <param name="deadBlocks">Whether to list the dead blocks with their code (<see cref="DecompiledScript.DeadBlocks"/>; <c>atel dead</c>).</param>
+    /// <param name="cuts">Names for dead blocks (<see cref="CutNames"/>); by default this repo's <c>data/cut-names.toml</c>.</param>
     /// <exception cref="ScriptFormatException">The block has a shape the source cannot hold.</exception>
     /// <exception cref="FormatException">The overlay names something the script does not have, or gives a name twice.</exception>
-    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, NameOverlay? overlay = null) {
+    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, NameOverlay? overlay = null, bool deadBlocks = false, CutNames? cuts = null) {
         overlay ??= NameOverlay.Load(null, archivePath);
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
@@ -116,7 +127,7 @@ public static class ScriptDecompiler {
         string[] varNames = VariableNames(image.Variables, overlay);
         string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')], overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
-        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames))];
+        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts))];
         inline ??= Compiler.InlineMethods.Game.All;
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
@@ -138,6 +149,8 @@ public static class ScriptDecompiler {
             IntRuleFails = !intRule,
             FloatRuleFails = !floatRule,
             Constructs = workers.SelectMany(w => w.Flow.Constructs).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
+            Cuts = workers.SelectMany(w => w.Flow.Cuts).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
+            CutSignatures = workers.SelectMany(w => w.Flow.CutSignatures).ToHashSet(StringComparer.Ordinal),
             Gotos = workers.Sum(w => w.Flow.Gotos),
             LabelPins = workers.Sum(w => w.Flow.LabelPins),
             Fallbacks = workers.Sum(w => w.Flow.Fallbacks),
@@ -164,7 +177,9 @@ public static class ScriptDecompiler {
             string k = GameNames.SaveFields.ContainsKey(v.Offset) ? "save-named" : "save-unnamed";
             placed[k] = placed.GetValueOrDefault(k) + 1;
         }
-        return new DecompiledScript(names, parts, stats with { Names = placed });
+        return new DecompiledScript(names, parts, stats with { Names = placed }) {
+            DeadBlocks = deadBlocks ? DeadTwins.Count(workers, [.. workers.SelectMany((w, i) => w.DeadBlocks(workerNames[i]))]) : [],
+        };
     }
 
     private static VarInfo VarInfoOf(VarEntry v, string name) {
@@ -380,6 +395,8 @@ public sealed class DecompileTotals {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _constructs = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _names = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _inline = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _cuts = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _cutSignatures = new(StringComparer.Ordinal);
 
     public long Scripts => _scripts;
     public long Statements => _statements;
@@ -401,7 +418,15 @@ public sealed class DecompileTotals {
         foreach ((string k, int n) in s.Constructs) _constructs.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Names) _names.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Inline) _inline.AddOrUpdate(k, n, (_, v) => v + n);
+        foreach ((string k, int n) in s.Cuts) _cuts.AddOrUpdate(k, n, (_, v) => v + n);
+        foreach (string sig in s.CutSignatures) _cutSignatures.TryAdd(sig, 0);
     }
+
+    /// <summary>Named dead blocks over all scripts, by name (<see cref="DecompileStats.Cuts"/>).</summary>
+    public IReadOnlyDictionary<string, long> Cuts => _cuts;
+
+    /// <summary>The signatures of the named dead blocks over all scripts.</summary>
+    public IReadOnlyCollection<string> CutSignatures => (IReadOnlyCollection<string>)_cutSignatures.Keys;
 
     /// <summary>Inline calls and dialogue lines over all scripts (<see cref="DecompileStats.Inline"/>).</summary>
     public IReadOnlyDictionary<string, long> Inline => _inline;
@@ -415,7 +440,8 @@ public sealed class DecompileTotals {
     public IReadOnlyDictionary<string, long> Names => _names;
 
     /// <summary>The naming numbers: names placed by kind.</summary>
-    public string NameSummary() => "names: " + string.Join(", ", _names.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")));
+    public string NameSummary() => "names: " + string.Join(", ", _names.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")))
+        + string.Create(CultureInfo.InvariantCulture, $", cut-named {_cuts.Values.Sum()} ({_cuts.Count} names)");
     public long LabelPins => _labelPins;
     public long FlatWorkers => _flat;
 

@@ -1,0 +1,26 @@
+# Names for dead if (false) blocks, by the signature of their dead code (docs/research/dead-code.md,
+# "Names"; `atel dead` lists every block with its signature). A named block is written
+# `if (Cut.Name)`, a constant false of Ffx.Cut (src/Ffx.Atel.Game/Cut.cs, where each name's doc
+# comment says what the code does), so the source still compiles to the shipped bytes. Several
+# signatures may share a name: the copies of one feature in several workers are one switch. Only
+# blocks whose code is understood get a name. Our own names: no game code or text.
+#
+# The comment after each line: where the blocks are (script, worker, entry, offset of the jmp).
+
+[cuts]
+# Dream Zanarkand's crowd (znkd1300): 29 blocks in entries 7 and 8 of workers 1-25, ten signatures
+# (the reaction motion and the variables differ per worker).
+"377cdffd6bbcf32a" = "ZanarkandCrowdFacingReaction"    # znkd1300 w01 e7 @03e6, w01 e8, w16 e7/e8, w22 e8
+"c11e26401db86acf" = "ZanarkandCrowdFacingReaction"    # znkd1300 w06 e7/e8, w11 e7/e8, w13 e8
+"b3e96bb130bca0b9" = "ZanarkandCrowdFacingReaction"    # znkd1300 w07, w12, w18, w19 e8
+"2f3dfaa90a445dfb" = "ZanarkandCrowdFacingReaction"    # znkd1300 w02, w03, w24 e8
+"eb897bfc2cfcb262" = "ZanarkandCrowdFacingReaction"    # znkd1300 w10, w15, w25 e8
+"f69af304ec508f07" = "ZanarkandCrowdFacingReaction"    # znkd1300 w09, w17, w23 e8
+"38e04526076d3092" = "ZanarkandCrowdFacingReaction"    # znkd1300 w21 e7/e8
+"7e3ee3a61d9f9c10" = "ZanarkandCrowdFacingReaction"    # znkd1300 w14, w20 e8
+"51c2de02b685fbed" = "ZanarkandCrowdFacingReaction"    # znkd1300 w08 e8
+"60ecdf250880a189" = "ZanarkandCrowdFacingReaction"    # znkd1300 w05 e8
+
+# The party's battle lines on the Mi'ihen Highroad (system_01, worker 3, entry 2).
+"afcbc04939d550ca" = "HighroadBattleLine335Tidus"      # system_01 w03 e2 @d94c
+"07a5a172ac2e4cec" = "HighroadBattleLine336AuronTidus" # system_01 w03 e2 @d9a6

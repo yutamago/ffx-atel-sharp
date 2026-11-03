@@ -86,6 +86,11 @@ and moved here when work began.
   so the game runs the hidden variant while vanilla stays as shipped. The
   vanilla source keeps compiling to the shipped bytes: the flags are names
   for `false` until a mod links in the switch.
+  Step 1 (static, 2026-11-03): `atel dead` and
+  [research/dead-code.md](research/dead-code.md). Most blocks are branches
+  of macros whose parameter was a constant (blitzball, the `mcfr0100`
+  sequences); a few are real leads, and three are named (`data/cut-names.toml`,
+  `Ffx.Cut`).
 
 2026-11-03:
 
