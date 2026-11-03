@@ -284,14 +284,16 @@ using (JsonDocument overlay = JsonDocument.Parse(File.ReadAllText(Path.Combine(r
 }
 
 // Modder-facing names and docs by hand (the "docs" section): a verified name, a one-line summary, parameter
-// renames and descriptions. The symbol's RE notes then go to <remarks>.
-Dictionary<ushort, (string? Name, string? Summary, Dictionary<string, string> Rename, Dictionary<string, string> Params)> docs = [];
+// renames and descriptions. The symbol's RE notes then go to <remarks>, and after them "notes": what Atel#
+// verified itself (in FFX.exe, at the call sites).
+Dictionary<ushort, (string? Name, string? Summary, Dictionary<string, string> Rename, Dictionary<string, string> Params, string? Notes)> docs = [];
 using (JsonDocument overlay = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data", "native-types.json")))) {
     if (overlay.RootElement.TryGetProperty("docs", out JsonElement docsElement)) {
         foreach (JsonProperty n in docsElement.EnumerateObject()) {
             JsonElement e = n.Value;
             Dictionary<string, string> Map(string key) => e.TryGetProperty(key, out JsonElement m) ? m.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!) : [];
-            docs[(ushort)Hex(n.Name)] = (e.TryGetProperty("name", out JsonElement nm) ? nm.GetString() : null, e.TryGetProperty("summary", out JsonElement su) ? su.GetString() : null, Map("rename"), Map("params"));
+            docs[(ushort)Hex(n.Name)] = (e.TryGetProperty("name", out JsonElement nm) ? nm.GetString() : null, e.TryGetProperty("summary", out JsonElement su) ? su.GetString() : null, Map("rename"), Map("params"),
+                e.TryGetProperty("notes", out JsonElement no) ? no.GetString() : null);
         }
     }
 }
@@ -439,7 +441,8 @@ foreach (IGrouping<int, KeyValuePair<ushort, NativeSlots>> group in slots.OrderB
             foreach (Match m in Regex.Matches(summary + string.Concat((hand.Params ?? []).Values), "<paramref name=\"(\\w+)\"")) {
                 if (!paramNames.Contains(m.Groups[1].Value)) throw new InvalidOperationException($"data/native-types.json: docs of 0x{id:x4}: <paramref> {m.Groups[1].Value} is no parameter");
             }
-            cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>{where} Reverse engineering: {doc}</remarks>\n");
+            string notes = hand.Notes is string n ? $" Verified for Atel#: {n}" : "";
+            cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>{where} Reverse engineering: {doc}{notes}</remarks>\n");
         }
         else {
             cs.Append(CultureInfo.InvariantCulture, $"    /// <summary>{doc}</summary>\n");

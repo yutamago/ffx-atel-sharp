@@ -465,8 +465,8 @@ writes on top of the Phase 2 shape:
   `RequestWaitEnd(…)` for `req0`/`reqw0`/`reqe0` and their `popfacc`
   (`variant: n` for `req1`…`req5`); `Call<W03>();`; `return;` (`end`, `ret`
   in a function worker); `Halt();` (`op_54`), `Breakpoint();` (`op_40`),
-  `End(x);` (`endp`); `Op77(a, b);` and `Op79(a, b, Addr(ref V3[0]));` for the
-  two opcodes not yet understood (13,191 and 1,566 statements). `RegA`, `RegB` and `LastResult` (the float
+  `End(x);` (`endp`); `Op77(a, b);` and `Op79(Addr(ref V3[0]), a, b);` for the
+  two opcodes not yet understood (since named `WaitForEntry` and `SetTriggerEntry`) (13,191 and 1,566 statements). `RegA`, `RegB` and `LastResult` (the float
   accumulator, `pushfacc`) are `Worker` members, so the 3,151 waiting calls
   read as `Msg.Choice(…); RegB = LastResult;`. The forms are
   explicit helpers for now; Phase 5 writes most requests in the `await` forms
@@ -787,6 +787,41 @@ replaces and the round trip stays byte for byte.
   (a constant worker of the script), `WaitForEntry(w, e);` and
   `WaitForPartyEntry(slot, e);`; `Op77`/`Op78` stay valid input. The usual
   shape is `_ = W24.E48Async(); WaitForEntry<W24>(48);`.
+- **`op_79` and more native names** (2026-11-03, review P4/P5; only verified
+  names, checked in FFX.exe): `op_79` (`0x00870d30`, 1,566 statements) is
+  `SetTriggerEntry(Addr(ref V38[0]), kind, entry)`. It pops entry, kind and
+  a variable; the first time (worker `+0x44` is 0) it copies its type's
+  default table into the variable (eight `u16`, `0x00876390`: `2 3 4 5 - - -
+  1` for most types), sets `table[kind] = entry` and points `+0x44` at it.
+  Triggers request `table[kind]` (`0x008763e0`) of the worker at the kind's
+  level (`0x008764f0`): the touch check pushes kind 3, the two line checks (`0x008680a0`,
+  `0x008684b0`) 4-6,
+  talking is kind 0 (`+0xab` bit 0). An opened treasure chest
+  (`Takarabox002`) points kind 0 at entry 6. ffx-rust still calls the table
+  the "vibration curve" (`TkGetVibrateCurve`); the defaults are entries,
+  not a curve. `Op79` stays valid input. Natives: 0x5057
+  `Chr.SetBoneUpdate_5057` → `SetBoneUpdateOf(worker, on)` (1,637 calls; the
+  handler finds that worker, `AtelGetBasicWork`, and calls
+  `Ch_SetCalcNorm` as 0x5056 does on its own), 0x01ba `ChrGetEquipModel_01ba`
+  → `ChrGetEquipModelOf(worker, kind)` (921; 0x0119's lookup on another
+  worker's bound character), 0x019d `WorkerDetach_019d` →
+  `WorkerDetachAndDispose(dispose)` (764; the handler `Worker_Detach`, which
+  `WorkerDetach` (0x0005) enters with 0; non-zero also frees the model's
+  data, `ChN_DataDispose`). 4,888 call sites renamed; 128 names still
+  generated. Same code under two ids, so the suffix stays and the summary
+  says so: `SetMotion_501b` (0x5000), `SetMotionSpeed_5021` (0x5018),
+  `GetNowEventJumpId_0087` (0x000f), `WorkerTriggerSetActive_0133` (0x0132);
+  `WaitMotion_501e` is `WaitMotion` plus a frame count in debug mode.
+  `AlwaysTrue019c` (961 calls) keeps its name: on PC it is `mov eax, 1;
+  ret`, every call is the last term of a confirm-button test (`PadPressed()
+  & 32` or `& 160`), and nothing available (ffx.sym, Fahrenheit's
+  `AtelFn_Std_19C_RetI`, no PS2 executable) says what the PS2 version
+  tested. Left for later: the `Cam_6xxx` natives (42, 7,291 calls)
+  wrap camera helpers (`0x007bb410`, `0x007bb970`, …) without verified
+  names, and `TurnSetPitch_002a` turns rotation `+0x38` (0x0028 `+0x34`
+  yaw, 0x0029 `+0x30`), which is roll or pitch by the axis convention.
+  The docs section takes `notes` now: what was verified for Atel#, after
+  the symbol's notes in `<remarks>`.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;

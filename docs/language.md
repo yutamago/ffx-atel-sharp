@@ -606,7 +606,8 @@ the instructions shown or to nothing.
 | `WaitForEntry<Lulu>(5)`, `WaitForEntry(worker, entry)` | `op_77` | wait until the worker has no request for the entry queued or running (`_ = Lulu.E5Async(); WaitForEntry<Lulu>(5);` waits for it to end); goes on at once when there is none |
 | `WaitForPartyEntry(slot, entry)` | `op_78` | the same for the worker of a party slot (0-2); unused by the shipped scripts |
 | `Op77(a, b)`, `Op78(a, b)` | `op_77`, `op_78` | the older names of the two above |
-| `Op79(a, b, c)` | `op_79` | an opcode not yet understood |
+| `SetTriggerEntry(Addr(ref V38[0]), kind, entry)` | `op_79` | the entry trigger `kind` (0 talking to the worker, 3 touching it, 4 crossing its line) requests of this worker; the worker's table of eight is kept in the variable (a `ushort[8]`), filled with its type's defaults (`2 3 4 5 …`) by the first call |
+| `Op79(table, kind, entry)` | `op_79` | the older name of `SetTriggerEntry` |
 | `RegA`, `RegB`, `LastResult` | `pusha`/`popa`, `pushb`/`popb`, `pushfacc` | the machine's registers |
 | `Asm("""…""")` | the lines | assembly in `atel disasm` syntax; the decompiler writes none since Phase 4, but it stays valid input |
 

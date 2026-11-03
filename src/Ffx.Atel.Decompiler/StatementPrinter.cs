@@ -85,6 +85,8 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
             $"WaitForEntry<{workerNames[w]}>({ToInt(Expr(e)).Text});",
         OpArgsStmt { Op: Opcodes.Op77 } x => $"WaitForEntry({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         OpArgsStmt { Op: Opcodes.Op78 } x => $"WaitForPartyEntry({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
+        // op_79 sets which entry a kind of trigger requests of this worker (Worker.SetTriggerEntry).
+        OpArgsStmt { Op: Opcodes.Op79 } x => $"SetTriggerEntry({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         OpArgsStmt x => $"Op{x.Op:x2}({string.Join(", ", x.Args.Select(a => ToInt(Expr(a)).Text))});",
         InlineStmt i => InlineCall(i),
         _ => throw No($"no C# for {s}"),
