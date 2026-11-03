@@ -1,0 +1,5 @@
+# kami0300, Thunder Plains
+
+[variables]
+# The dodge streak, as kami0000's ConsecutiveDodges.
+"Event:0x000e" = "ConsecutiveDodges"
