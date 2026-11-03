@@ -206,11 +206,12 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         }
     }
 
-    /// <summary>The domain of the values an expression holds: a variable's.</summary>
+    /// <summary>The domain of the values an expression holds: a variable's, or a native's result (<c>Btl.GetBattleId()</c>).</summary>
     private Domain? DomainOf(Expr e) => e switch {
         VarExpr v => vars[v.Var].Domain,
         ElemExpr x => vars[x.Var].Domain,
         Elem2Expr x => vars[x.Var].Domain,
+        CallExpr c => GameNames.NativeResults.GetValueOrDefault(c.Native),
         _ => null,
     };
 
@@ -228,7 +229,9 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         }
         if (d.EnumType is null) return Expr(new IntLit(v));
         Count(d.Name + "-cast");
-        return new E($"({d.EnumType}){(v < 0 ? $"({IntText(v)})" : IntText(v))}", CType.Int, PUnary, (long)v);
+        // A uint enum (Sfx) takes the value as unsigned, in hex: (Sfx)0x80000017.
+        string number = d.Unsigned ? "0x" + unchecked((uint)v).ToString("x", CultureInfo.InvariantCulture) : v < 0 ? $"({IntText(v)})" : IntText(v);
+        return new E($"({d.EnumType}){number}", CType.Int, PUnary, (long)v);
     }
 
     /// <summary>

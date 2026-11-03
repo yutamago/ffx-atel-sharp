@@ -13,13 +13,16 @@ namespace Ffx.Atel.Decompiler.Naming;
 /// </summary>
 /// <param name="Name">What the statistics count it as (<c>story</c>, the enum's name).</param>
 /// <param name="EnumType">The enum's C# name; null for <c>int</c> constants.</param>
-internal sealed class Domain(string name, string? enumType, Func<int, string?> member) {
-    public Domain(string name, string? enumType, IReadOnlyDictionary<int, string> members) : this(name, enumType, members.GetValueOrDefault) {
+/// <param name="Unsigned">The enum is a <c>uint</c> (<c>Sfx</c>): a cast writes the value in hex, as unsigned.</param>
+internal sealed class Domain(string name, string? enumType, Func<int, string?> member, bool unsigned = false) {
+    public Domain(string name, string? enumType, IReadOnlyDictionary<int, string> members, bool unsigned = false) : this(name, enumType, members.GetValueOrDefault, unsigned) {
     }
 
     public string Name { get; } = name;
 
     public string? EnumType { get; } = enumType;
+
+    public bool Unsigned { get; } = unsigned;
 
     /// <summary>The member for a value, qualified (<c>Story.S01340_Bjyt0400</c>); null if it has none.</summary>
     public string? Member(int value) => member(value);
@@ -57,26 +60,40 @@ internal static class GameNames {
     public static Domain? Enum(Type type) => type == typeof(Ffx.TextId) ? Text : !type.IsEnum ? null : s_enums.GetOrAdd(type, t => {
         Dictionary<int, string> members = [];
         foreach (FieldInfo f in t.GetFields(BindingFlags.Public | BindingFlags.Static)) {
-            members.TryAdd(System.Convert.ToInt32(f.GetRawConstantValue(), CultureInfo.InvariantCulture), $"{t.Name}.{f.Name}");
+            members.TryAdd(unchecked((int)System.Convert.ToInt64(f.GetRawConstantValue(), CultureInfo.InvariantCulture)), $"{t.Name}.{f.Name}");
         }
-        return new Domain(t.Name, t.Name, members);
+        return new Domain(t.Name, t.Name, members, System.Enum.GetUnderlyingType(t) == typeof(uint));
     });
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Domain> s_enums = new();
 
-    /// <summary>The domain of each parameter of each native whose parameter types are enums: by native id.</summary>
-    public static IReadOnlyDictionary<ushort, Domain?[]> NativeParameters => s_params.Value;
+    /// <summary>The <c>int</c> constants of a static class (<see cref="ValuesAttribute"/>: <c>Battle.Kami00_00</c>).</summary>
+    private static Domain Values(Type type) => s_values.GetOrAdd(type, t => new Domain(t.Name, null, Constants(t)));
 
-    private static readonly Lazy<Dictionary<ushort, Domain?[]>> s_params = new(() => {
-        Dictionary<ushort, Domain?[]> byId = [];
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Domain> s_values = new();
+
+    /// <summary>A parameter's or result's domain: its enum (or <c>TextId</c>), else the constants its <see cref="ValuesAttribute"/> names.</summary>
+    private static Domain? Of(ParameterInfo p) =>
+        Enum(p.ParameterType) ?? (p.GetCustomAttribute<ValuesAttribute>() is ValuesAttribute v ? Values(v.Constants) : null);
+
+    /// <summary>The domain of each parameter of each native whose parameters have one (an enum, named constants): by native id.</summary>
+    public static IReadOnlyDictionary<ushort, Domain?[]> NativeParameters => s_natives.Value.Parameters;
+
+    /// <summary>The domain of the results of natives that have one (<c>Btl.GetBattleId</c>: <c>Battle</c>), by native id.</summary>
+    public static IReadOnlyDictionary<ushort, Domain> NativeResults => s_natives.Value.Results;
+
+    private static readonly Lazy<(Dictionary<ushort, Domain?[]> Parameters, Dictionary<ushort, Domain> Results)> s_natives = new(() => {
+        Dictionary<ushort, Domain?[]> parameters = [];
+        Dictionary<ushort, Domain> results = [];
         foreach (Type t in Game.GetExportedTypes()) {
             foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)) {
                 if (m.GetCustomAttribute<NativeAttribute>() is not NativeAttribute a) continue;
-                Domain?[] domains = [.. m.GetParameters().Select(p => Enum(p.ParameterType))];
-                if (domains.Any(d => d is not null)) byId.TryAdd((ushort)a.Id, domains);
+                Domain?[] domains = [.. m.GetParameters().Select(Of)];
+                if (domains.Any(d => d is not null)) parameters.TryAdd((ushort)a.Id, domains);
+                if (Of(m.ReturnParameter) is Domain r) results.TryAdd((ushort)a.Id, r);
             }
         }
-        return byId;
+        return (parameters, results);
     });
 
     private static Dictionary<int, string> Constants(Type type) {

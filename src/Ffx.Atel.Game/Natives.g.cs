@@ -99,7 +99,7 @@ public static partial class Common
     /// <summary>0x0011: args (map, entrance); FUN_0086ff40(map, entrance, 1) -&gt; 0x0088ea60 writes them to the game state (0x00785240: +0 map, +2 previous, +0xc entrance); scripts &quot;pushimm 263; pushimm 0&quot; before end</summary>
     /// <remarks>Native <c>0x0011</c>, <c>Native_MapChange</c>; 2153 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0011)]
-    public static int MapChange(int map, int entrance) => throw Atel.Runtime.NotRunnable();
+    public static int MapChange(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0012: (x, z) floats: 0x00870970(worker, x, z, 0); 0; ported in native_move (script round 11); name from Atel_SetWorkerPosXZ(worker, x, z, 0): position = (x, 0, z), Ch_SetPos</summary>
     /// <remarks>Native <c>0x0012</c>, <c>Native_0012_SetPosXZ</c>; 1 calls in the shipped scripts.</remarks>
@@ -891,7 +891,7 @@ public static partial class Common
     /// <summary>0x00ab: (map, entrance): AtelSetEventJump2(map, entrance, 1); 0; ported in native_move (script round 11); name from AtelSetEventJump2(map, entrance, 1), the same call as MapChange 0x0011</summary>
     /// <remarks>Native <c>0x00ab</c>, <c>Native_00ab_MapChange</c>; 21 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00ab)]
-    public static int MapChange_00ab(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int MapChange_00ab(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00ac: 0x00870ed0(v); v; ported in native_move (script round 11); name from Atel_SetSaveDicIndexValue(v)</summary>
     /// <remarks>Native <c>0x00ac</c>, <c>Native_00ac_SetSaveDicValue</c>; 2 calls in the shipped scripts.</remarks>
@@ -1152,12 +1152,12 @@ public static partial class Common
     /// <param name="sfx">The sound effect.</param>
     /// <remarks>Native <c>0x00df</c>, <c>Native_SfxPlay</c>; 6510 calls in the shipped scripts. Reverse engineering: 0x00df (sfx) -&gt; sfx; Sfx_PlayDefault 0x00886e80: pan 0x3f, volume 0x7f</remarks>
     [Atel.Native(0x00df)]
-    public static int SfxPlay(int sfx) => throw Atel.Runtime.NotRunnable();
+    public static int SfxPlay(Sfx sfx) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00e0: (v): 0x00886eb0(v); v; ported in native_btl/native_move (script round 10); name from &quot;(v): 0x00886eb0(v)&quot; = SndSepStop</summary>
     /// <remarks>Native <c>0x00e0</c>, <c>Native_00e0_SndSepStop</c>; 512 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00e0)]
-    public static int SndSepStop(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SndSepStop(Sfx sfx) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00e1: jumps to 0x0086a9d0; ported in native_move (script round 11); BSim review: bit 1 of save event +0x13; no reader shows it is a battle status; name only; name from jmp to 0x0086a9d0 AtelGetBattleStatusSys (Fahrenheit&apos;s Switch name, bit 1 of g_SaveData +0x13)</summary>
     /// <remarks>Native <c>0x00e1</c>, <c>Native_00e1_GetBattleStatusSys</c>; 2 calls in the shipped scripts.</remarks>
@@ -1308,12 +1308,12 @@ public static partial class Common
     /// <param name="volume">The volume, 0-127.</param>
     /// <remarks>Native <c>0x00fd</c>, <c>Native_SfxPlayEx</c>; 9236 calls in the shipped scripts. Reverse engineering: 0x00fd (sfx, pan, volume 0-127) -&gt; sfx; Sfx_Play 0x00886e50 -&gt; FMOD cmd 0x33 (FmodSfx_Start)</remarks>
     [Atel.Native(0x00fd)]
-    public static int SfxPlayEx(int sfx, int pan, int volume) => throw Atel.Runtime.NotRunnable();
+    public static int SfxPlayEx(Sfx sfx, int pan, int volume) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00fe: 0x00886f60(b, a); a; ported in native_move (script round 11); name from &quot;0x00886f60(b, a)&quot; = SndSepVolumeDirect</summary>
     /// <remarks>Native <c>0x00fe</c>, <c>Native_00fe_SndSepVolumeDirect</c>; 24 calls in the shipped scripts.</remarks>
     [Atel.Native(0x00fe)]
-    public static int SndSepVolumeDirect(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SndSepVolumeDirect(Sfx sfx, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00ff: (id, pan): SndSepPanDirect(id, pan) (0x00886df0); pan; ported in native_mods (script round 19); name ours; name from &quot;SndSepPanDirect(id, pan)&quot;</summary>
     /// <remarks>Native <c>0x00ff</c>, <c>Native_00ff_SndSepPanDirect</c>; 0 calls in the shipped scripts.</remarks>
@@ -1323,7 +1323,7 @@ public static partial class Common
     /// <summary>0x0100: 0x00886ff0(c, b, a); a; ported in native_move (script round 11); name from &quot;0x00886ff0(c, b, a)&quot; = SndSepVolumeTranslate</summary>
     /// <remarks>Native <c>0x0100</c>, <c>Native_0100_SndSepVolumeTranslate</c>; 138 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0100)]
-    public static int SndSepVolumeTranslate(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SndSepVolumeTranslate(Sfx sfx, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0101: args (id, pan, frames) -&gt; frames: SndSepPanTranslate(id, pan, frames); ported in native_sys (script round 18); name ours; name from &quot;SndSepPanTranslate(id, pan, frames)&quot;</summary>
     /// <remarks>Native <c>0x0101</c>, <c>Native_0101_SndSepPanTranslate</c>; 0 calls in the shipped scripts.</remarks>
@@ -1378,12 +1378,12 @@ public static partial class Common
     /// <summary>0x010b (map, entrance) -&gt; 0; 0x0086ff40 -&gt; 0x0088ea60: game state 0x0112ca90 +0 = map, +2 = previous map, +0xc = entrance; scripts push (263, 0) then end</summary>
     /// <remarks>Native <c>0x010b</c>, <c>Native_MapJump</c>; 1359 calls in the shipped scripts.</remarks>
     [Atel.Native(0x010b)]
-    public static int MapJump(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int MapJump(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x010c: (map, entrance): AtelSetEventJump2(map, entrance, 0); 0; ported in native_move (script round 11); name from &quot;AtelSetEventJump2(map, entrance, 0)&quot;: map jump with the default fade, not 0x00bb/0x00bc&apos;s</summary>
     /// <remarks>Native <c>0x010c</c>, <c>Native_010c_MapChangeDefault</c>; 37 calls in the shipped scripts.</remarks>
     [Atel.Native(0x010c)]
-    public static int MapChangeDefault(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int MapChangeDefault(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x010d: (i) up to 0xfe: 0x0088e790(0xa004 + i); 1, else 0; ported in native_move (script round 11); name from 0x0088e790 = TkMsImportantSet (0xa004 + i), for i up to 0xfe</summary>
     /// <remarks>Native <c>0x010d</c>, <c>Native_010d_ImportantSetIndexed</c>; 38 calls in the shipped scripts.</remarks>
@@ -5088,7 +5088,7 @@ public static partial class Btl
     /// <summary>0x7002 start: (a, b) -&gt; 0x00781c90(a, 1, b); ported in native_btl/native_msg (script round 8); name from start &quot;0x00781c90(a, 1, b)&quot; MsBattleLabelExe; poll returns 1</summary>
     /// <remarks>Native <c>0x7002</c>, <c>Native_7002_BtlLabelExe</c>; 493 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7002, Polls = true)]
-    public static int LabelExe(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int LabelExe([Atel.Values(typeof(Battle))] int battle, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7003: (a, b) -&gt; 0x00795eb0(actor, 2, 0, -1, b, a); 0; ported in native_btl/native_msg (script round 8); name from &quot;0x00795eb0(actor, 2, 0, -1, b, a)&quot; MsSetChrDirTarget</summary>
     /// <remarks>Native <c>0x7003</c>, <c>Native_7003_ChrSetDirTarget</c>; 207 calls in the shipped scripts.</remarks>
@@ -5148,7 +5148,7 @@ public static partial class Btl
     /// <summary>0x700e: (sel): MsSetDamage(actor, sel, 0) (0x0078d980) for an actor; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetDamage(actor, sel, 0) (0x0078d980)&quot;</summary>
     /// <remarks>Native <c>0x700e</c>, <c>Native_700e_BtlSetDamage</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x700e)]
-    public static int SetDamage(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SetDamage(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Returns a battle property of the actors the selector picks (averaged over them).</summary>
     /// <remarks>Native <c>0x700f</c>, <c>Native_GetActorProperty</c>; 11619 calls in the shipped scripts. Reverse engineering: 0x700f: args (actor selector, property) -&gt; value; Battle_GetActorProperty(self, property, selector), averaged over the selected actors</remarks>
@@ -5258,6 +5258,7 @@ public static partial class Btl
     /// <summary>0x7024: () -&gt; Battle_GetBattleId (0x00782970; a jmp thunk); scripts compare it to constants like 0x2050000; 5 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
     /// <remarks>Native <c>0x7024</c>, <c>Native_BtlGetBattleId</c>; 473 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7024)]
+    [return: Atel.Values(typeof(Battle))]
     public static int GetBattleId() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7025: args (d int, c int, b int, a int) -&gt; int: out of MsActTargetSearch(actor, d, c, b, 4, a, 0, &amp;out) (0x007acd40), whose result goes to 0x00796430(actor, r); ported in native_btl (script round 12); name from &quot;MsActTargetSearch(actor, d, c, b, 4, a, 0, &amp;out)&quot; result to MsSetChrScriptTargets</summary>
@@ -5328,7 +5329,7 @@ public static partial class Btl
     /// <summary>0x7032: (selector, degrees): radians into +0x514/+0x518 of every picked actor, +0x512 = 1; 0; ported in native_btl/native_move (script round 10); name from radians into +0x514/+0x518 of every picked actor, +0x512 = 1; 0</summary>
     /// <remarks>Native <c>0x7032</c>, <c>Native_7032_ActorSetRadians514</c>; 71 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7032)]
-    public static int ActorSetRadians514(int a0, float a1) => throw Atel.Runtime.NotRunnable();
+    public static int ActorSetRadians514(Target selector, float a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7033: (b): actor +0x32 = b &amp; 1; 0; ported in native_btl/native_move (script round 9); name from actor +0x32 = b &amp; 1; 0</summary>
     /// <remarks>Native <c>0x7033</c>, <c>Native_7033_ActorSetField32</c>; 20 calls in the shipped scripts.</remarks>
@@ -5353,12 +5354,12 @@ public static partial class Btl
     /// <summary>0x7037: (b, a) -&gt; 0x007ac840(actor, a, b, 1); ported in native_btl/native_msg (script round 8); name from &quot;0x007ac840(actor, a, b, 1)&quot; MsChrAddExtraCommand_007ac840</summary>
     /// <remarks>Native <c>0x7037</c>, <c>Native_7037_ChrAddExtraCommand</c>; 118 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7037)]
-    public static int ChrAddExtraCommand(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrAddExtraCommand(Target selector, Command command) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7038: (b, a): 0x007acb40(actor, a, b); ported in native_btl/native_move (script round 9); name from &quot;0x007acb40(actor, a, b)&quot; MsChrDelExtraCommand_007acb40</summary>
     /// <remarks>Native <c>0x7038</c>, <c>Native_7038_ChrDelExtraCommand</c>; 55 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7038)]
-    public static int ChrDelExtraCommand(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrDelExtraCommand(Target selector, Command command) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7039: 0x0078cca0(actor, record), 0x007a8f20(); 0; ported in native_btl/native_move (script round 9); name from &quot;0x0078cca0(actor, record), 0x007a8f20()&quot; MsDeathTerminate, resetZanmatoSepList</summary>
     /// <remarks>Native <c>0x7039</c>, <c>Native_7039_ChrDeathTerminate</c>; 50 calls in the shipped scripts.</remarks>
@@ -5373,7 +5374,7 @@ public static partial class Btl
     /// <summary>Calls <c>MsSetCommandUse</c> for each actor the selector picks; returns how many.</summary>
     /// <remarks>Native <c>0x703b</c>, <c>CT_703B_ret_setCommandDisabled</c>; 1003 calls in the shipped scripts. Reverse engineering: fh v3:exact 0x007a6f10 +CT_703B_ret_setCommandDisabled</remarks>
     [Atel.Native(0x703b)]
-    public static int SetCommandUse(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SetCommandUse(Target selector, Command command, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x703c start: as 0x7097 with guard value 2; ported in native_btl/native_move (script round 9); name from start &quot;as 0x7097 with guard value 2&quot;; dump: MsAtelRequestSystem(v, 2, ...); poll waits</summary>
     /// <remarks>Native <c>0x703c</c>, <c>Native_703c_AtelRequestSystem</c>; 170 calls in the shipped scripts.</remarks>
@@ -5423,7 +5424,7 @@ public static partial class Btl
     /// <summary>0x7045: (sel) -&gt; MsSetMove(first of sel, 0xc) (0x007a9fc0, ST0) over the double at 0x00b43d70, rounded to f32, truncated; ported in native_mods (script round 21); name from MsSetMove(first actor of sel, 0xc) (0x007a9fc0) over the double at 0x00b43d70, as f32, truncated</summary>
     /// <remarks>Native <c>0x7045</c>, <c>Native_7045_SelFirstSetMove</c>; 44 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7045)]
-    public static int SelFirstSetMove(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SelFirstSetMove(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7046: args (v int) -&gt; 0: MsMoveSplineSet(v) (0x007ab140); ported in native_btl (script round 12); name from &quot;MsMoveSplineSet(v) (0x007ab140)&quot;</summary>
     /// <remarks>Native <c>0x7046</c>, <c>Native_7046_MoveSplineSet</c>; 15 calls in the shipped scripts.</remarks>
@@ -5448,7 +5449,7 @@ public static partial class Btl
     /// <summary>0x704a: (selector): how many picked actors have +0x415 set; ported in native_btl/native_msg (script round 8); name from how many picked actors have +0x415 set</summary>
     /// <remarks>Native <c>0x704a</c>, <c>Native_704a_SelCountField415</c>; 184 calls in the shipped scripts.</remarks>
     [Atel.Native(0x704a)]
-    public static int SelCountField415(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SelCountField415(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x704b (start): args (selector int, motion int, b int) -&gt; the args word: 1 when MsSetMotion(i, motion, b, 0, 1, worker, &amp;out) (0x007ab360) set out for any picked actor; ported in native_btl (script round 12); name from start and poll: &quot;MsSetMotion(i, motion, b, 0, 1, worker, &amp;out)&quot;</summary>
     /// <remarks>Native <c>0x704b</c>, <c>Native_704b_ChrSetMotion</c>; 252 calls in the shipped scripts.</remarks>
@@ -5473,7 +5474,7 @@ public static partial class Btl
     /// <summary>0x704f: args (selector int, v int) -&gt; 0; the selected actors&apos; +0xddd = v; ported in native_btl2 (script round 18); name from the selected actors&apos; +0xddd = v; 0; +0xddd is STAT_EVENT_CHR (property 0x50)</summary>
     /// <remarks>Native <c>0x704f</c>, <c>Native_704f_SelSetFieldDdd</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x704f)]
-    public static int SelSetFieldDdd(int selector, int v) => throw Atel.Runtime.NotRunnable();
+    public static int SelSetFieldDdd(Target selector, int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7050 (start): args (selector int) -&gt; the args word: MsSetChrVisibleBtl2Event(worker, MsGetChrBit(actor, selector, 0, 1), -1) (0x007a89c0); ported in native_btl (script round 12); name from start and poll: &quot;MsSetChrVisibleBtl2Event(worker, MsGetChrBit(...), -1)&quot;</summary>
     /// <remarks>Native <c>0x7050</c>, <c>Native_7050_ChrVisibleBtl2Event</c>; 39 calls in the shipped scripts.</remarks>
@@ -5518,7 +5519,7 @@ public static partial class Btl
     /// <summary>0x7058: (selector, motion): 0 when the picked actor motion +0x3f0 is 0x007a8c80(it, motion), else -1; ported in native_btl/native_move (script round 9); name from &quot;0 when the picked actor motion +0x3f0 is 0x007a8c80(it, motion), else -1&quot; ms_motion_trans</summary>
     /// <remarks>Native <c>0x7058</c>, <c>Native_7058_ChrCheckMotion</c>; 175 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7058)]
-    public static int ChrCheckMotion(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrCheckMotion(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7059 (float): MsGetTargetDist(actor, v, 1); ported in native_btl/native_move (script round 9); name from &quot;MsGetTargetDist(actor, v, 1)&quot; float</summary>
     /// <remarks>Native <c>0x7059</c>, <c>Native_7059_GetTargetDist</c>; 66 calls in the shipped scripts.</remarks>
@@ -5603,22 +5604,22 @@ public static partial class Btl
     /// <summary>0x7069: (p4, p3, p2, p1) -&gt; MsActTargetSearch(0, p4, p3, p2, 7, p1, 0, &amp;pick) (0x007acd40)&apos;s pick (an out word, zeroed first); ported in native_mods (script round 21); 0x7069: args (selector, property, unused, mode) -&gt; actor index; like 0x7010 without the filters and without setting targets (Battle_FilterActors, Rng 7); used as (-14, 92, 0, 0)</summary>
     /// <remarks>Native <c>0x7069</c>, <c>Native_BtlFindActor</c>; 553 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7069)]
-    public static int FindActor(int selector, int property, int unused, int mode) => throw Atel.Runtime.NotRunnable();
+    public static int FindActor(Target selector, ActorProperty property, int unused, int mode) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x706a: args (selector int) -&gt; 0 when +0xdc0 == 1 &lt;&lt; index for the selected actor, else -1; ported in native_btl2 (script round 18); name from 0 when +0xdc0 == 1 &lt;&lt; index for the selected actor, else -1</summary>
     /// <remarks>Native <c>0x706a</c>, <c>Native_706a_ActorCheckTargetBit</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x706a)]
-    public static int ActorCheckTargetBit(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ActorCheckTargetBit(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x706b: (selector, a, b): 0x0082aea0(picked model, a, b &amp; 1); 0; ported in native_btl/native_move (script round 9); name from &quot;0x0082aea0(picked model, a, b &amp; 1)&quot; Ch_ModelSetHide</summary>
     /// <remarks>Native <c>0x706b</c>, <c>Native_706b_ChrModelSetHide</c>; 124 calls in the shipped scripts.</remarks>
     [Atel.Native(0x706b)]
-    public static int ChrModelSetHide(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrModelSetHide(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x706c: (sel, k): for the first actor x of sel, the record of its +0x14 actor: with +0xf2c set and k at most 0x1f, sound k (+0xeac + 4 k) plays (MsSEP3Dregist; ported in native_mods (script round 21); name from for the first actor of sel, its +0x14 actor with +0xf2c set and k &lt;= 0x1f: sound k (+0xeac + 4k) via MsSEP3Dregist (0x007a0a30)</summary>
     /// <remarks>Native <c>0x706c</c>, <c>Native_706c_ActorPlaySound</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x706c)]
-    public static int ActorPlaySound(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ActorPlaySound(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>(script r28) 0x706d third slot: outside the water with MsBattleStatusMenuless_007a8c20: MsSoundStreamPlay(Battle_FirstSelectedActor(actor, word 1, 0, 1), word 0), 0; else 1; ported in native_btl2; name ours; name from Int slot &quot;MsSoundStreamPlay(Battle_FirstSelectedActor(...), word 0)&quot;; poll waits SndSyncMusicStandby</summary>
     /// <remarks>Native <c>0x706d</c>, <c>Native_706d_SoundStreamPlay_Int</c>; 8 calls in the shipped scripts.</remarks>
@@ -5673,7 +5674,7 @@ public static partial class Btl
     /// <summary>0x7077: (sel, a): MsGetTargetDist(x, a, 0) (0x007a9a40, 0.0 when the first actor x of sel is 0xff) over the double at 0x00b49968 plus the one at 0x00b43d80, r; ported in native_mods (script round 21); name from MsGetTargetDist (0x007a9a40) (x, a, 0), 0.0 when the first actor is 0xff</summary>
     /// <remarks>Native <c>0x7077</c>, <c>Native_7077_SelGetTargetDist</c>; 12 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7077)]
-    public static int SelGetTargetDist(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SelGetTargetDist(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7078: args (selector int, b int, a int) -&gt; int: MsGetComInfo(picked, b, a) (0x0078cd30); ported in native_btl (script round 12); name from &quot;MsGetComInfo(picked, b, a) (0x0078cd30)&quot;</summary>
     /// <remarks>Native <c>0x7078</c>, <c>Native_7078_ChrGetComInfo</c>; 19 calls in the shipped scripts.</remarks>
@@ -5688,12 +5689,12 @@ public static partial class Btl
     /// <summary>0x707a: (selector): 0x0079a920(picked, its -16 pick, 0, 0, 0); ported in native_btl/native_move (script round 9); name from &quot;0x0079a920(picked, ...)&quot; MsGetDamageResult</summary>
     /// <remarks>Native <c>0x707a</c>, <c>Native_707a_GetDamageResult</c>; 82 calls in the shipped scripts.</remarks>
     [Atel.Native(0x707a)]
-    public static int GetDamageResult(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int GetDamageResult(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x707b: (selector, k): 0x0079fd40(picked, k) (k 9 only when 0x007a8920(picked)); ported in native_btl/native_msg (script round 8); name from &quot;0x0079fd40(picked, k)&quot; MsChrSePlay_0079fd40</summary>
     /// <remarks>Native <c>0x707b</c>, <c>Native_707b_ChrSePlay</c>; 335 calls in the shipped scripts.</remarks>
     [Atel.Native(0x707b)]
-    public static int ChrSePlay(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSePlay(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x707c: poll: 5 without an actor, or when +0xf2c is set or +0xf2e clear on the actor (its +0x14 actor when +0x11 is clear); ported in native_btl2 (script round 18); name from poll: 5 without an actor, or when the actor&apos;s (or its +0x14 owner&apos;s when +0x11 is clear) +0xf2c is set or +0xf2e clear</summary>
     /// <remarks>Native <c>0x707c</c>, <c>Native_707c_WaitActorF2c_Poll</c>; 1 calls in the shipped scripts.</remarks>
@@ -5713,7 +5714,7 @@ public static partial class Btl
     /// <summary>0x707f: (selector): 0x007ab2a0(picked); 0; ported in native_btl/native_move (script round 9); name from &quot;0x007ab2a0(picked)&quot; MsSetBtlPosReset</summary>
     /// <remarks>Native <c>0x707f</c>, <c>Native_707f_ChrResetBtlPos</c>; 68 calls in the shipped scripts.</remarks>
     [Atel.Native(0x707f)]
-    public static int ChrResetBtlPos(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ChrResetBtlPos(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7080: (v): 0x008720e0(handle, v) with MsGetChrHandle(2) (0x00795080) when there is one; 0; ported in native_mods (script round 21); name ours; name from &quot;0x008720e0(handle, v)&quot; Atel_SetChrAltParts_008720e0</summary>
     /// <remarks>Native <c>0x7080</c>, <c>Native_7080_ChrSetAltParts</c>; 2 calls in the shipped scripts.</remarks>
@@ -5763,7 +5764,7 @@ public static partial class Btl
     /// <summary>0x7089: (sel, se, frames) -&gt; MsRegSEfade(first of sel, se, frames) (0x007a00d0), 0 for none; ported in native_mods (script round 21); name ours; name from &quot;MsRegSEfade(first of sel, se, frames) (0x007a00d0)&quot;</summary>
     /// <remarks>Native <c>0x7089</c>, <c>Native_7089_RegSeFade</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7089)]
-    public static int RegSeFade(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int RegSeFade(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x708a: args (v int) -&gt; 0: 0x00782b40(v); ported in native_btl (script round 12); name from &quot;0x00782b40(v)&quot; Enc_ResetSceneWeights_00782b40</summary>
     /// <remarks>Native <c>0x708a</c>, <c>Native_708a_EncResetWeights</c>; 1 calls in the shipped scripts.</remarks>
@@ -5778,7 +5779,7 @@ public static partial class Btl
     /// <summary>0x708c: (a, b): 0x00782ba0(a, b); ported in native_btl/native_move (script round 9); name from &quot;0x00782ba0(a, b)&quot; Enc_SetGroupWeight_00782ba0</summary>
     /// <remarks>Native <c>0x708c</c>, <c>Native_708c_EncSetGroupWeight</c>; 34 calls in the shipped scripts.</remarks>
     [Atel.Native(0x708c)]
-    public static int EncSetGroupWeight(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int EncSetGroupWeight([Atel.Values(typeof(Battle))] int battle, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x708d: the i8 at 0x0112c9e2; ported in native_mods (script round 21); 0x708d: () -&gt; (signed char)0x0112c9e2, the actor whose turn last started (set with 0x0112c9df/e0 in the turn code ~0x00792350); ?exact meaning; 8 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
     /// <remarks>Native <c>0x708d</c>, <c>Native_BtlGetTurnActor</c>; 1101 calls in the shipped scripts.</remarks>
@@ -5853,7 +5854,7 @@ public static partial class Btl
     /// <summary>0x709b: args (selector int) -&gt; float v.y of 0x007956e0(index, &amp;v); ported in native_btl2 (script round 18); name ours; name from &quot;float v.y of 0x007956e0(index, &amp;v)&quot; MsGetChrPos</summary>
     /// <remarks>Native <c>0x709b</c>, <c>Native_709b_ChrGetPosY</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x709b)]
-    public static float ChrGetPosY(int selector) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetPosY(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x709c: args (a int, b int) -&gt; float the other angle from a to b (0x007c4990 fourth result) in degrees; ported in native_btl2 (script round 18); name from the other angle from a to b in degrees (0x007c4990 MsVectorRect2Polar, fourth result)</summary>
     /// <remarks>Native <c>0x709c</c>, <c>Native_709c_ActorAngleTo</c>; 27 calls in the shipped scripts.</remarks>
@@ -5868,7 +5869,7 @@ public static partial class Btl
     /// <summary>0x709e: (selector, a, b): 0x007b74d0(picked, a, b); ported in native_btl/native_move (script round 9); name from &quot;0x007b74d0(picked, a, b)&quot; MsEffectSignal_007b74d0</summary>
     /// <remarks>Native <c>0x709e</c>, <c>Native_709e_ChrEffectSignal</c>; 100 calls in the shipped scripts.</remarks>
     [Atel.Native(0x709e)]
-    public static int ChrEffectSignal(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrEffectSignal(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x709f: args (selector int) -&gt; float MsGetChrTargetDir - MsGetChrDir of the selected actor in degrees; ported in native_btl2 (script round 18); name ours; name from &quot;MsGetChrTargetDir - MsGetChrDir of the selected actor in degrees&quot;</summary>
     /// <remarks>Native <c>0x709f</c>, <c>Native_709f_GetTargetDirDiff</c>; 12 calls in the shipped scripts.</remarks>
@@ -5913,12 +5914,12 @@ public static partial class Btl
     /// <summary>0x70a7: (sel, a) -&gt; 0x007b2c90(first of sel, a)&apos;s ST0; ported in native_mods (script round 21); name ours; name from &quot;0x007b2c90(first of sel, a)&apos;s ST0&quot; MsGetChrMotionInfo_007b2c90</summary>
     /// <remarks>Native <c>0x70a7</c>, <c>Native_70a7_ChrGetMotionInfo</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70a7)]
-    public static float ChrGetMotionInfo(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetMotionInfo(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70a8: (selector, property, value f): MsSetChrMotionInfo(picked, property, value); 0; ported in native_btl/native_move (script round 9); name from &quot;MsSetChrMotionInfo(picked, property, value)&quot;</summary>
     /// <remarks>Native <c>0x70a8</c>, <c>Native_70a8_ChrSetMotionInfo</c>; 116 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70a8)]
-    public static int ChrSetMotionInfo(int a0, int a1, float a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetMotionInfo(Target selector, int a1, float a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>(script r28) 0x70a9 start: (win): argument word = Clamp0To6_007a86e0(win); -&gt; it (table 0x00c430b8); ported in native_btl2; name ours; name from poll: TOCloseMessageWindow, 5 when TOIsMessageStatus3Pressed or (!SndGetStreamState() and state 3)</summary>
     /// <remarks>Native <c>0x70a9</c>, <c>Native_70a9_MsgWaitCloseStream</c>; 870 calls in the shipped scripts.</remarks>
@@ -5933,7 +5934,7 @@ public static partial class Btl
     /// <summary>func 0x70ab: pops value, property, actor; calls 0x007b4b70</summary>
     /// <remarks>Native <c>0x70ab</c>, <c>Native_SetActorProperty</c>; 4536 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70ab)]
-    public static int SetActorProperty(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetActorProperty(ActorProperty property, int value) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ac (float): (i) -&gt; 0x007b2c90(actor, i); ported in native_btl/native_msg (script round 8); name from &quot;(i) -&gt; 0x007b2c90(actor, i)&quot; MsGetChrMotionInfo_007b2c90</summary>
     /// <remarks>Native <c>0x70ac</c>, <c>Native_70ac_ChrGetMotionInfo</c>; 472 calls in the shipped scripts.</remarks>
@@ -5958,7 +5959,7 @@ public static partial class Btl
     /// <summary>0x70b0: (selector): picked actor&apos;s step count from +0x40e (scaled by +0x3fc/+0x400) or the +0x4cc/+0x4d0 steps to cover 0x007a9fc0(i, 12) - +0x4bc; ported in native_btl/native_move (script round 10); name from &quot;picked actor&apos;s step count from +0x40e ... or the steps to cover 0x007a9fc0(i, 12)&quot;</summary>
     /// <remarks>Native <c>0x70b0</c>, <c>Native_70b0_ChrGetMoveSteps</c>; 150 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70b0)]
-    public static int ChrGetMoveSteps(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ChrGetMoveSteps(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70b1: args (v int) -&gt; debug (mod-tool candidate): dbgPrintf(&quot;##### %d : %x : c%02d #####&quot;, v, v, actor) (a bare ret in this build); 0; debug, not ported (mod-tool candidate); name from &quot;dbgPrintf(&quot; %d : %x : c%02d &quot;, v, v, actor) (a bare ret in this build)&quot;</summary>
     /// <remarks>Native <c>0x70b1</c>, <c>Native_70b1_DebugPrint</c>; 15 calls in the shipped scripts.</remarks>
@@ -5988,7 +5989,7 @@ public static partial class Btl
     /// <summary>0x70b6: (sel) -&gt; MsSetMove(first of sel, 0xc) over 0x007a88e0(the actor&apos;s record) (both ST0, the divisor rounded to f32), rounded to f32, truncated; ported in native_mods (script round 21); name from MsSetMove(first actor, 0xc) over 0x007a88e0 = MsCueMoveSpeed_007a88e0 (both ST0)</summary>
     /// <remarks>Native <c>0x70b6</c>, <c>Native_70b6_SelCueMoveSpeed</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70b6)]
-    public static int SelCueMoveSpeed(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SelCueMoveSpeed(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70b7: (win, k): TODrawAMES_EVJIMAKU_ALBHED(win, text k) (0x0089b290) from *0x0112a9b8; 0; ported in native_mods (script round 21); name ours; name from &quot;TODrawAMES_EVJIMAKU_ALBHED(win, text k) (0x0089b290)&quot;</summary>
     /// <remarks>Native <c>0x70b7</c>, <c>Native_70b7_MsgDrawEvjimakuAlbhed</c>; 12 calls in the shipped scripts.</remarks>
@@ -6003,12 +6004,12 @@ public static partial class Btl
     /// <summary>0x70b9: args (selector int) -&gt; float out of 0x00795170(0xb, MsGetChrBit(actor, selector, 0, 1), 0, &amp;out); ported in native_btl2 (script round 18); name from float out of MsGetChrInfo (0xb, MsGetChrBit(actor, selector, 0, 1), 0, &amp;out)</summary>
     /// <remarks>Native <c>0x70b9</c>, <c>Native_70b9_ChrGetInfoB</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70b9)]
-    public static float ChrGetInfoB(int selector) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetInfoB(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ba: args (selector int) -&gt; float out of 0x00795170(0xa, MsGetChrBit(actor, selector, 0, 1), 0, &amp;out); ported in native_btl2 (script round 18); name from float out of MsGetChrInfo (0xa, MsGetChrBit(actor, selector, 0, 1), 0, &amp;out)</summary>
     /// <remarks>Native <c>0x70ba</c>, <c>Native_70ba_ChrGetInfoA</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70ba)]
-    public static float ChrGetInfoA(int selector) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetInfoA(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70bb: args (v int) -&gt; 0: the actor&apos;s +0x415 = 0x10, +0x417 = 0, +0x452 = 0, +0x45a = v (u16); ported in native_btl (script round 12); name from actor +0x415 = 0x10, +0x417 = 0, +0x452 = 0, +0x45a = v (u16); 0</summary>
     /// <remarks>Native <c>0x70bb</c>, <c>Native_70bb_ActorSetField45a</c>; 1 calls in the shipped scripts.</remarks>
@@ -6018,17 +6019,17 @@ public static partial class Btl
     /// <summary>0x70bc: args (selector int) start: the selected actor into the argument word; -&gt; its index; ported in native_btl2 (script round 18); name ours; name from poll &quot;5 once the actor in the argument word has +0xe12 clear&quot; (kind-7 effect count)</summary>
     /// <remarks>Native <c>0x70bc</c>, <c>Native_70bc_ChrWaitEffect7</c>; 6 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70bc, Polls = true)]
-    public static int ChrWaitEffect7(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrWaitEffect7(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70bd: args (selector int) start: the selected actor into the argument word; -&gt; its index; ported in native_btl2 (script round 18); name ours; name from poll &quot;5 once the actor in the argument word has +0xe13 clear&quot; (kind-8 effect count)</summary>
     /// <remarks>Native <c>0x70bd</c>, <c>Native_70bd_ChrWaitEffect8</c>; 3 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70bd, Polls = true)]
-    public static int ChrWaitEffect8(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrWaitEffect8(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70be (float): args (selector int) -&gt; float: the picked actor&apos;s direction (MsGetChrDir 0x00794d20) in degrees (MsNearRag(0, d) * 180 / pi); ported in native_btl (script round 12); name from &quot;the picked actor&apos;s direction (MsGetChrDir 0x00794d20) in degrees&quot;</summary>
     /// <remarks>Native <c>0x70be</c>, <c>Native_70be_ChrGetDir</c>; 84 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70be)]
-    public static float ChrGetDir(int selector) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetDir(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70bf: args (v f) -&gt; 0; actor +0x3ac = v, 0x00832610(model, v) with a model; ported in native_btl2 (script round 18); name from actor +0x3ac = v (f32); 0x00832610 = Ch_BindSetScale (model, v) with a model; BSim review: model +0x1b4 = v, inside the binding block +0x1a0..+0x1b8; scale role only from name</summary>
     /// <remarks>Native <c>0x70bf</c>, <c>Native_70bf_ChrBindSetScale</c>; 0 calls in the shipped scripts.</remarks>
@@ -6038,7 +6039,7 @@ public static partial class Btl
     /// <summary>0x70c0: (sel) -&gt; 0x00794990(first of sel)&apos;s ST0; ported in native_mods (script round 21); name ours; name from &quot;0x00794990(first of sel)&apos;s ST0&quot; MsGetChrLiftHeight_00794990</summary>
     /// <remarks>Native <c>0x70c0</c>, <c>Native_70c0_ChrGetLiftHeight</c>; 39 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c0)]
-    public static float ChrGetLiftHeight(int a0) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetLiftHeight(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70c1: args (b int, a int) -&gt; int distance between the selected actors (0x007c3030), truncated by _ftol2_sse; ported in native_btl2 (script round 18); name ours; name from &quot;int distance between the selected actors (0x007c3030)&quot; MsPointLen2D</summary>
     /// <remarks>Native <c>0x70c1</c>, <c>Native_70c1_ChrGetDistance</c>; 0 calls in the shipped scripts.</remarks>
@@ -6053,12 +6054,12 @@ public static partial class Btl
     /// <summary>0x70c3 (float): args (selector int) -&gt; float: MsGetChrTargetDir(picked, 0) (0x007958c0) in degrees, as 0x70be; ported in native_btl (script round 12); name from &quot;MsGetChrTargetDir(picked, 0) (0x007958c0) in degrees&quot;</summary>
     /// <remarks>Native <c>0x70c3</c>, <c>Native_70c3_ChrGetTargetDir</c>; 87 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c3)]
-    public static float ChrGetTargetDir(int selector) => throw Atel.Runtime.NotRunnable();
+    public static float ChrGetTargetDir(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70c4: args (selector int) -&gt; 1 when a weapon slot of the selected actor holds a weapon with +3 bit 3; ported in native_btl2 (script round 18); name from 1 when a weapon slot of the selected actor holds a weapon with +3 bit 3 (MsGetSaveWeapon)</summary>
     /// <remarks>Native <c>0x70c4</c>, <c>Native_70c4_ActorHasWeaponFlag</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c4)]
-    public static int ActorHasWeaponFlag(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ActorHasWeaponFlag(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70c5: 1 when the byte 0x0112c9f5 is set; ported in native_mods (script round 21); name from g_BtlPartyLeaves (0x0112c9f5) set</summary>
     /// <remarks>Native <c>0x70c5</c>, <c>Native_70c5_BtlGetPartyLeaves</c>; 1 calls in the shipped scripts.</remarks>
@@ -6078,37 +6079,37 @@ public static partial class Btl
     /// <summary>0x70c8: (sel, a) -&gt; 0x0079fda0(first of sel, a), 0 for none; ported in native_mods (script round 21); name ours; name from &quot;0x0079fda0(first of sel, a)&quot; MsChrSePlay2_0079fda0</summary>
     /// <remarks>Native <c>0x70c8</c>, <c>Native_70c8_ChrSePlay2</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c8)]
-    public static int ChrSePlay2(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSePlay2(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70c9: (selector, k): 0x0079fdf0(picked, k); ported in native_btl/native_move (script round 9); name from &quot;0x0079fdf0(picked, k)&quot; MsChrSePlayUnhasted_0079fdf0</summary>
     /// <remarks>Native <c>0x70c9</c>, <c>Native_70c9_ChrSePlayUnhasted</c>; 110 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70c9)]
-    public static int ChrSePlayUnhasted(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSePlayUnhasted(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ca: (sel, se) -&gt; MsRegSEplay2(first of sel, se) (0x007a0140), 0 for none; ported in native_mods (script round 21); name ours; name from &quot;MsRegSEplay2(first of sel, se) (0x007a0140)&quot;</summary>
     /// <remarks>Native <c>0x70ca</c>, <c>Native_70ca_RegSePlay2</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70ca)]
-    public static int RegSePlay2(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int RegSePlay2(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70cb: (sel, se) -&gt; MsRegSEplay3(first of sel, se) (0x007a0170), 0 for none; ported in native_mods (script round 21); name ours; name from &quot;MsRegSEplay3(first of sel, se) (0x007a0170)&quot;</summary>
     /// <remarks>Native <c>0x70cb</c>, <c>Native_70cb_RegSePlay3</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70cb)]
-    public static int RegSePlay3(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int RegSePlay3(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70cc: (selector): actor +0xdc0 = the set; ported in native_btl/native_move (script round 9); name from &quot;actor +0xdc0 = the set&quot;; +0xdc0 is the target mask (Native_BtlSelectTarget)</summary>
     /// <remarks>Native <c>0x70cc</c>, <c>Native_70cc_BtlSetTargets</c>; 15 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70cc)]
-    public static int SetTargets(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SetTargets(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70cd: (selector): actor +0xdc0 |= MsGetChrBit set; the set; ported in native_btl/native_move (script round 9); name from &quot;actor +0xdc0 or= MsGetChrBit set&quot;; +0xdc0 target mask</summary>
     /// <remarks>Native <c>0x70cd</c>, <c>Native_70cd_BtlAddTargets</c>; 23 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70cd)]
-    public static int AddTargets(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int AddTargets(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ce: (selector): actor +0xdc0 &amp;= !the set; ported in native_btl/native_move (script round 9); name from &quot;actor +0xdc0 &amp;= !the set&quot;; +0xdc0 target mask</summary>
     /// <remarks>Native <c>0x70ce</c>, <c>Native_70ce_BtlRemoveTargets</c>; 14 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70ce)]
-    public static int RemoveTargets(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int RemoveTargets(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70cf: the i8 at *0x0112a9c0 + 1; ported in native_mods (script round 21); name from i8 at *0x0112a9c0 + 1 (g_BtlVoiceEvent)</summary>
     /// <remarks>Native <c>0x70cf</c>, <c>Native_70cf_BtlGetVoiceEvent</c>; 370 calls in the shipped scripts.</remarks>
@@ -6123,27 +6124,27 @@ public static partial class Btl
     /// <summary>0x70d1: args (selector int) -&gt; int: the picked actor&apos;s +0xe12; ported in native_btl (script round 12); name from &quot;the picked actor&apos;s +0xe12&quot; (kind-7 effect count, MsSetChrEffect_0079eb10)</summary>
     /// <remarks>Native <c>0x70d1</c>, <c>Native_70d1_ChrGetEffect7Count</c>; 6 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d1)]
-    public static int ChrGetEffect7Count(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrGetEffect7Count(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d2: args (selector int) -&gt; the selected actor&apos;s byte +0xe13; ported in native_btl2 (script round 18); name ours; name from &quot;the selected actor&apos;s byte +0xe13&quot; (kind-8 effect count, MsSetChrEffect8)</summary>
     /// <remarks>Native <c>0x70d2</c>, <c>Native_70d2_ChrGetEffect8Count</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d2)]
-    public static int ChrGetEffect8Count(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrGetEffect8Count(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d3: (sel, b, a): MsSetChrEffect_0079eb10(x, b, 7, a, 1) for the first actor x of sel, whose +0xe12 counts up when it starts; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrEffect_0079eb10(x, b, 7, a, 1) ... +0xe12 counts up&quot;</summary>
     /// <remarks>Native <c>0x70d3</c>, <c>Native_70d3_ChrSetEffect7</c>; 6 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d3)]
-    public static int ChrSetEffect7_70d3(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetEffect7_70d3(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d4: (sel, b, a) -&gt; 0x0079eba0(first of sel, b, a, 1); ported in native_mods (script round 21); name ours; name from &quot;0x0079eba0(first of sel, b, a, 1)&quot; MsSetChrEffect8_0079eba0</summary>
     /// <remarks>Native <c>0x70d4</c>, <c>Native_70d4_ChrSetEffect8</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d4)]
-    public static int ChrSetEffect8_70d4(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetEffect8_70d4(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d5: (selector): actor +0x6d1 = picked; picked; ported in native_btl/native_move (script round 9); name from selected actors&apos; +0x6d1 = picked; +0x6d1 is STAT_SUMMONER (property 0x106; fh: Chr.summoned_by_id)</summary>
     /// <remarks>Native <c>0x70d5</c>, <c>Native_70d5_SelSetField6d1</c>; 25 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d5)]
-    public static int SelSetField6d1(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SelSetField6d1(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d6: args (c, b, a) -&gt; 0x00789bf0(chr i, chr j, r, ...) with r = 0x0078ce50(i, 0, -1, 0, &amp;a), i/j selected by c/b; ported in native_btl2 (script round 18); name ours; name from &quot;0x00789bf0(chr i, chr j, r, ...)&quot; MsCalcDamageCommand with MsGetCommand</summary>
     /// <remarks>Native <c>0x70d6</c>, <c>Native_70d6_CalcDamageCommand</c>; 0 calls in the shipped scripts.</remarks>
@@ -6153,7 +6154,7 @@ public static partial class Btl
     /// <summary>0x70d7: args (selector int, motion int) -&gt; 0: MsDamageSetMotion(picked, motion, picked != actor) (0x0078ca20) unless the picked actor&apos;s +0x422 actor has +0xdcc; ported in native_btl (script round 12); name from &quot;MsDamageSetMotion(picked, motion, picked != actor) (0x0078ca20)&quot;</summary>
     /// <remarks>Native <c>0x70d7</c>, <c>Native_70d7_DamageSetMotion</c>; 4 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70d7)]
-    public static int DamageSetMotion(int selector, int motion) => throw Atel.Runtime.NotRunnable();
+    public static int DamageSetMotion(Target selector, int motion) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d8: args (v int) -&gt; v; the byte 0x0112ca06 = v &amp; 1; ported in native_btl2 (script round 18); name from byte 0x0112ca06 = v &amp; 1; v</summary>
     /// <remarks>Native <c>0x70d8</c>, <c>Native_70d8_BtlSetByteCa06</c>; 33 calls in the shipped scripts.</remarks>
@@ -6178,7 +6179,7 @@ public static partial class Btl
     /// <summary>0x70dc: args (selector int, i int) -&gt; 0: 40 bytes of the name table *0x0112a9b8 (entry MsGetSaveConfigHiragana() + 2i) into the picked actor&apos;s +0x540; ported in native_btl (script round 12); name from &quot;40 bytes of the name table *0x0112a9b8 ... into the picked actor&apos;s +0x540&quot; (name, cf. 0x7091)</summary>
     /// <remarks>Native <c>0x70dc</c>, <c>Native_70dc_ChrSetName</c>; 11 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70dc)]
-    public static int ChrSetName(int selector, int i) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetName(Target selector, int i) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70dd: args (v int) -&gt; v; the word 0x0112c8fc = v; ported in native_btl2 (script round 18); name from word 0x0112c8fc = v; v</summary>
     /// <remarks>Native <c>0x70dd</c>, <c>Native_70dd_BtlSetWordC8fc</c>; 0 calls in the shipped scripts.</remarks>
@@ -6193,7 +6194,7 @@ public static partial class Btl
     /// <summary>0x70df: args (v int) -&gt; 1 when 0x0112a8e0 is set and i16 *(*0x0112a9f0) == v &gt;&gt; 16, else 0; ported in native_btl2 (script round 18); name from 1 when g_BtlStatus (0x0112a8e0) is set and i16 *(*0x0112a9f0) == v &gt;&gt; 16</summary>
     /// <remarks>Native <c>0x70df</c>, <c>Native_70df_BtlCheckSceneField</c>; 17 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70df)]
-    public static bool CheckSceneField(int v) => throw Atel.Runtime.NotRunnable();
+    public static bool CheckSceneField([Atel.Values(typeof(Battle))] int battle) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e0: 1 when the actor can act and its partner (+0xded) has +0xdf1 clear; ported in native_btl/native_move (script round 9); name from 1 when the actor can act and its partner (+0xded) has +0xdf1 clear</summary>
     /// <remarks>Native <c>0x70e0</c>, <c>Native_70e0_ActorPartnerReady</c>; 94 calls in the shipped scripts.</remarks>
@@ -6208,7 +6209,7 @@ public static partial class Btl
     /// <summary>0x70e2: (selector, v): 0x0083d040(picked model, 4, v); 0; ported in native_btl/native_move (script round 9); name from &quot;0x0083d040(picked model, 4, v)&quot; Ch_TextureSetAnim</summary>
     /// <remarks>Native <c>0x70e2</c>, <c>Native_70e2_ChrSetTextureAnim</c>; 49 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70e2)]
-    public static int ChrSetTextureAnim(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetTextureAnim(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e3: args (v int) -&gt; 0; once: 0x0112be9c = v, 0x0083c4a0(0x40), 0x0112be98 = 0x00687020(v), 0x00799f00(it, v); ported in native_btl2 (script round 18); name ours; name from &quot;once: 0x0112be9c = v, ... = user_malloc(v), MsMemCheckRegist(it, v)&quot;</summary>
     /// <remarks>Native <c>0x70e3</c>, <c>Native_70e3_BtlAllocMemory</c>; 6 calls in the shipped scripts.</remarks>
@@ -6223,12 +6224,12 @@ public static partial class Btl
     /// <summary>0x70e5: (sel, b, a): 0x0079eca0(first of sel, b, a); 0; ported in native_mods (script round 21); name ours; name from &quot;0x0079eca0(first of sel, b, a)&quot; MsSetOwnerEffect7_0079eca0</summary>
     /// <remarks>Native <c>0x70e5</c>, <c>Native_70e5_SetOwnerEffect7</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70e5)]
-    public static int SetOwnerEffect7(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SetOwnerEffect7(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e6: (sel, b, a): 0x0079ec40(first of sel, b, a); 0; ported in native_mods (script round 21); name ours; name from &quot;0x0079ec40(first of sel, b, a)&quot; MsSetOwnerEffect8_0079ec40</summary>
     /// <remarks>Native <c>0x70e6</c>, <c>Native_70e6_SetOwnerEffect8</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70e6)]
-    public static int SetOwnerEffect8(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SetOwnerEffect8(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70e7: args (command int) -&gt; actor +0xdc0 = 0x007996d0(actor, command, !(rec +0x1a) &gt;&gt; 1 &amp; 1, 1), rec = 0x0078ce50(actor, 0, -1, 0, &amp;command); ported in native_btl2 (script round 18); name ours; name from &quot;actor +0xdc0 = 0x007996d0(actor, command, ...)&quot; MsGetCommandTarget; +0xdc0 target mask</summary>
     /// <remarks>Native <c>0x70e7</c>, <c>Native_70e7_SetCommandTargets</c>; 7 calls in the shipped scripts.</remarks>
@@ -6273,7 +6274,7 @@ public static partial class Btl
     /// <summary>0x70ef: args (selector int, signal int) -&gt; 0: MsEffectSendSignal(picked, signal) (0x0079e4f0); ported in native_btl (script round 12); name from &quot;MsEffectSendSignal(picked, signal) (0x0079e4f0)&quot;</summary>
     /// <remarks>Native <c>0x70ef</c>, <c>Native_70ef_EffectSendSignal</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x70ef)]
-    public static int EffectSendSignal(int selector, int signal) => throw Atel.Runtime.NotRunnable();
+    public static int EffectSendSignal(Target selector, int signal) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70f0: the i32 at 0x0112c900 as f32 (helpers::atel_get_battle_count_f, whose shim it is); ported in native_mods (script round 21)</summary>
     /// <remarks>Native <c>0x70f0</c>, <c>Atel_GetBattleCountF</c>; 0 calls in the shipped scripts.</remarks>
@@ -6358,7 +6359,7 @@ public static partial class Btl
     /// <summary>0x7100: (sel) -&gt; 0x007a8be0(MsGetChrBit(actor, sel, 0, 1)) (0x00794330); ported in native_mods (script round 21); name from 0x007a8be0 = MsAnyChrMotion (MsGetChrBit(actor, sel, 0, 1))</summary>
     /// <remarks>Native <c>0x7100</c>, <c>Native_7100_AnyChrMotion</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7100)]
-    public static bool AnyChrMotion(int a0) => throw Atel.Runtime.NotRunnable();
+    public static bool AnyChrMotion(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7101: the i8 at 0x0112a905; ported in native_mods (script round 21); name from i8 at 0x0112a905 (g_BtlDebugFull)</summary>
     /// <remarks>Native <c>0x7101</c>, <c>Native_7101_BtlGetDebugFull</c>; 3 calls in the shipped scripts.</remarks>
@@ -6373,7 +6374,7 @@ public static partial class Btl
     /// <summary>0x7103: args (selector int, x f, y f, z f) -&gt; 0: 0x008350a0(model, &amp;v) on the selected actor&apos;s model; ported in native_btl2 (script round 18); name ours; name from &quot;0x008350a0(model, &amp;v) on the selected actor&apos;s model&quot; Ch_NeckSetTargetPos</summary>
     /// <remarks>Native <c>0x7103</c>, <c>Native_7103_ChrSetNeckTarget</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7103)]
-    public static int ChrSetNeckTarget(int selector, float xF, float yF, float zF) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetNeckTarget(Target selector, float xF, float yF, float zF) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7104: (a, b, c) -&gt; 0x0079d2a0(a, b, c); ported in native_btl/native_msg (script round 8); name from &quot;0x0079d2a0(a, b, c)&quot; MsComBufAdd_0079d2a0</summary>
     /// <remarks>Native <c>0x7104</c>, <c>Native_7104_ComBufAdd</c>; 71 calls in the shipped scripts.</remarks>
@@ -6403,7 +6404,7 @@ public static partial class Btl
     /// <summary>0x7109: args (selector int, reset int, f f) -&gt; int: the number of picked actors; each with a model: +0x407 = 1, with reset 0x00796070(i, 0), +0x505 = 1, +0x50c = 0; +0x43d = 0, +0x538 = f; ported in native_btl (script round 12); name from the number of picked actors; each with a model: +0x407 = 1, MsSetChrGravMode (0x00796070)</summary>
     /// <remarks>Native <c>0x7109</c>, <c>Native_7109_SelSetGravMode</c>; 7 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7109)]
-    public static int SelSetGravMode(int selector, int reset, float fF) => throw Atel.Runtime.NotRunnable();
+    public static int SelSetGravMode(Target selector, int reset, float fF) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x710a: the i8 at 0x0112ca10, which becomes 1; ported in native_mods (script round 21); name from the i8 at 0x0112ca10 becomes 1; 0</summary>
     /// <remarks>Native <c>0x710a</c>, <c>Native_710a_BtlSetByteCa10</c>; 1 calls in the shipped scripts.</remarks>
@@ -6438,12 +6439,12 @@ public static partial class Btl
     /// <summary>0x7110: args (selector int) -&gt; index; the selected actor&apos;s model +0x4d4 = 1 (selector 5 -&gt; 0 while 0x011363bc); ported in native_btl2 (script round 18); name from 0x00834770 = Ch_MouthSetAutoTalk: the selected actor&apos;s model +0x4d4 = 1</summary>
     /// <remarks>Native <c>0x7110</c>, <c>Native_7110_ChrSetMouthAutoTalk</c>; 153 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7110)]
-    public static int ChrSetMouthAutoTalk(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetMouthAutoTalk(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7111: args (selector int) -&gt; index; the selected actor&apos;s model +0x4d4 = 0 (selector 5 -&gt; 0 while 0x011363bc); ported in native_btl2 (script round 18); name from the selected actor&apos;s model +0x4d4 = 0</summary>
     /// <remarks>Native <c>0x7111</c>, <c>Native_7111_ChrClearMouthAutoTalk</c>; 153 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7111)]
-    public static int ChrClearMouthAutoTalk(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrClearMouthAutoTalk(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7112: args (c int, _ f, b int, a int) -&gt; 0: 0x00795eb0(actor, c, 1, -1, b, a); ported in native_btl2 (script round 18); name ours; name from &quot;0x00795eb0(actor, c, 1, -1, b, a)&quot; MsSetChrDirTarget</summary>
     /// <remarks>Native <c>0x7112</c>, <c>Native_7112_ChrSetDirTarget</c>; 1 calls in the shipped scripts.</remarks>
@@ -6473,7 +6474,7 @@ public static partial class Btl
     /// <summary>0x7117: args (targets int, command int) -&gt; 1: Battle_QueueCommand(actor, command, MsGetChrBit(actor, targets, 0, 1, 1, 0x40)) after MsMotionPosCheck when +0x3f9 is set; 0 without an actor; ported in native_btl (script round 12); name from &quot;Battle_QueueCommand(actor, command, MsGetChrBit(...)) after MsMotionPosCheck&quot;</summary>
     /// <remarks>Native <c>0x7117</c>, <c>Native_7117_BtlQueueCommand</c>; 20 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7117)]
-    public static int QueueCommand_7117(int targets, int command) => throw Atel.Runtime.NotRunnable();
+    public static int QueueCommand_7117(Target targets, Command command) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7118: args (v int) -&gt; int: v; the byte 0x0112ca11 = v; ported in native_btl (script round 12); name from g_BtlNoSummonReturn (0x0112ca11) = v; v</summary>
     /// <remarks>Native <c>0x7118</c>, <c>Native_7118_BtlSetNoSummonReturn</c>; 1 calls in the shipped scripts.</remarks>
@@ -6488,7 +6489,7 @@ public static partial class Btl
     /// <summary>0x711a: args (selector int, a f, b f, c f) -&gt; 0: 0x00824c90(model, c, b, a) on the selected actor&apos;s model; ported in native_btl2 (script round 18); name ours; name from &quot;0x00824c90(model, c, b, a)&quot; Ch_WindSet</summary>
     /// <remarks>Native <c>0x711a</c>, <c>Native_711a_ChrSetWind</c>; 1 calls in the shipped scripts.</remarks>
     [Atel.Native(0x711a)]
-    public static int ChrSetWind(int selector, float aF, float bF, float cF) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetWind(Target selector, float aF, float bF, float cF) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x711b: args (v int) -&gt; v &amp; 1; the byte 0x0112ca13 = it; ported in native_btl2 (script round 18); name from byte 0x0112ca13 = v &amp; 1; v &amp; 1</summary>
     /// <remarks>Native <c>0x711b</c>, <c>Native_711b_BtlSetByteCa13</c>; 0 calls in the shipped scripts.</remarks>
@@ -6528,7 +6529,7 @@ public static partial class Btl
     /// <summary>0x7122: args (selector int) -&gt; index; the selected actor&apos;s model +0x4d4 = 1; ported in native_btl2 (script round 18); name from the selected actor&apos;s model +0x4d4 = 1; index</summary>
     /// <remarks>Native <c>0x7122</c>, <c>Native_7122_ChrSetField4d4</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7122)]
-    public static int ChrSetField4d4(int selector) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetField4d4(Target selector) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7123: args (weapon int) -&gt; MsAttachWeapon(5, weapon) (0x00793330); ported in native_btl2 (script round 18); name ours; name from &quot;MsAttachWeapon(5, weapon) (0x00793330)&quot;</summary>
     /// <remarks>Native <c>0x7123</c>, <c>Native_7123_ChrAttachWeapon</c>; 2 calls in the shipped scripts.</remarks>
@@ -7304,7 +7305,7 @@ public static partial class GroupC
     /// <summary>0xc016: args (v int) -&gt; 1: 0x00886e80(v); ported in native_sys (script round 18); name ours; name from &quot;0x00886e80(v)&quot;=SndSepPlaySimple (Sfx_Play(sfx, 0x3f, 0x7f))</summary>
     /// <remarks>Native <c>0xc016</c>, <c>Native_c016_SepPlaySimple</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0xc016)]
-    public static int SepPlaySimple(int v) => throw Atel.Runtime.NotRunnable();
+    public static int SepPlaySimple(Sfx sfx) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc017: args (v int) -&gt; 1: 0x00886eb0(v); ported in native_sys (script round 18); name ours; name from &quot;0x00886eb0(v)&quot;=SndSepStop</summary>
     /// <remarks>Native <c>0xc017</c>, <c>Native_c017_SepStop</c>; 0 calls in the shipped scripts.</remarks>

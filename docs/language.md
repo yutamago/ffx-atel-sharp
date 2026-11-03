@@ -162,7 +162,7 @@ and runs it with `call`, synchronously, on the caller's worker.
 public sealed partial class Larva
 {
     [Postfix(nameof(Init))]
-    void Tougher() { Btl.SetActorProperty(0, Scaled(1234, 3)); }
+    void Tougher() { Btl.SetActorProperty(ActorProperty.Hp, Scaled(1234, 3)); }
 
     static int Scaled(int hp, int percent) => hp + hp * percent / 100;
 
@@ -303,7 +303,7 @@ public sealed partial class Larva
 {
     public static async Task<int> DamageAsync(int amount, Priority priority = Priority.P1)
     {
-        Btl.SetActorProperty(0, Btl.GetActorProperty(Target.Own, ActorProperty.Hp) - amount);
+        Btl.SetActorProperty(ActorProperty.Hp, Btl.GetActorProperty(Target.Own, ActorProperty.Hp) - amount);
         return Btl.GetActorProperty(Target.Own, ActorProperty.Hp);
     }
 }
@@ -433,9 +433,14 @@ workers that run the code; in a script compiled whole, those workers' private da
 - `bool` exists for conditions. ATEL has no `bool` type: a comparison pushes 0 or 1, and a
   condition tests any value against 0.
 - Enums of the reference assembly type native parameters: `Target`, `ActorProperty`, `Command`,
-  `BattleMotion`, `Model` (`Btl.GetActorProperty(Target.Own, ActorProperty.Hp)`,
-  `Common.SetModel(Model.Tidu)`). A member compiles to its number; a cast (`(Target)V2`) compiles
-  to nothing.
+  `BattleMotion`, `Model`, `Map`, `Sfx` (`Btl.GetActorProperty(Target.Own, ActorProperty.Hp)`,
+  `Common.SetModel(Model.Tidu)`, `Common.MapJump(Map.Kami0000, 0)`). A member compiles to its
+  number; a cast (`(Target)V2`, `(Sfx)0x80000017`) compiles to nothing. `Sfx` has no members yet:
+  sound effects are written as casts, in hex.
+- Battle ids are `int` constants, `Battle.Kami00_00` (`Btl.LabelExe(Battle.Kami00_00, 1)`,
+  `if (Btl.GetBattleId() == Battle.Kami00_00)`): the scripts keep them in `int` registers, so an
+  enum would need casts there. A native parameter or result that takes them is marked
+  `[Values(typeof(Battle))]`.
 - `Text[12]` is a message ID (`TextId`, see "Text"); an `int` converts to `TextId` implicitly.
 - ATEL has no conversions, so every cast compiles to nothing. Where C# needs one the decompiler
   writes it: `(int)` for a float passed to an `int` parameter, `(byte)(V2 + I0)` to store an `int`
@@ -649,7 +654,7 @@ partial class M999
 partial class Larva
 {
     [Postfix(nameof(Init))]
-    static void MoreHp() { Btl.SetActorProperty(0, 1234); }
+    static void MoreHp() { Btl.SetActorProperty(ActorProperty.Hp, 1234); }
 
     [Prefix(nameof(E2))]
     static void SkipWhenLow()

@@ -663,6 +663,47 @@ replaces and the round trip stays byte for byte.
   `ActorProperty` 47,168, `BattleMotion` 2,215, `Command` 1,574), constant
   casts 1,107 (`BattleMotion` 782, `Target` 247, `Command` 73,
   `ActorProperty` 5), computed values cast 8,962; 33,759 `Text[n]`.
+- **More named values** (2026-11-03, review P7; only verified names):
+  `Btl.SetActorProperty` (`0x70ab`, `(property, value)` on the worker's own
+  actor: `MsSetChrStatInfo(actor, property, -13, value)`, ffx-rust
+  `native_move.rs`) takes an `ActorProperty`. The first argument of 54 more
+  battle natives is a `Target`: those whose ported handler picks actors by
+  it (ffx.sym `(selector, …)`/`(sel, …)`, `MsGetChrBit`; `FindActor` through
+  `MsActTargetSearch(self, selector, property, …)`, its property an
+  `ActorProperty`). `Command` for the command of `SetCommandUse`
+  (`MsSetCommandUse`), `ChrAddExtraCommand`/`ChrDelExtraCommand`
+  (`MsChrAdd/DelExtraCommand(chr, command, selector, …)`) and `QueueCommand_7117`.
+  `Target` names the monster ids too: a selector `0x1000 | n` picks every
+  actor with that id (`MsGetChrBit`), named after the monster's `chr_` model
+  (`Target.Biran`; 315 members, `Monster` in front where `Target` has the
+  name). **Battle ids** (`Battle.g.cs`, from btl.h through Fahrenheit's
+  `BtlId`, 818): field `<< 16 |` formation, `int` constants as `Story` (the
+  scripts keep the id in `int` registers), for `Btl.LabelExe`
+  (`MsBattleLabelExe`; 462 of its 493 calls pass one), `EncSetGroupWeight`,
+  `CheckSceneField` and the result of `Btl.GetBattleId` (`MsGetBattleScene`):
+  `switch (Btl.GetBattleId())` cases and comparisons with it are named. A
+  parameter or result takes such constants by `[Values(typeof(Battle))]`
+  (`"int:Battle"` in `data/native-types.json`); the decompiler's domains
+  now include natives' results. **Maps** (`Map.g.cs`, `tools/gen-maps.cs`):
+  the number `MapChange`, `MapChange_00ab`, `MapJump` and `MapChangeDefault`
+  take (`AtelSetEventJump2(map, entrance, …)`) is the event's index in the
+  game's map table `event/header/eventid.bin` (`MapJump(393, 0)` runs
+  `scene1`, checked in game, [loader.md](research/loader.md)); an enum of the
+  400 named entries after their scripts (`Map.Hiku0800`), each summary
+  giving the script's namespace. Only the event names and numbers are
+  written. **Sound effects**: `Sfx`, a `uint` enum without members (bit 31:
+  block or separate SE, ffx-rust `sound.md`; no names known), for
+  `SfxPlay`, `SfxPlayEx`, `SndSepStop`, `SndSepVolumeDirect`,
+  `SndSepVolumeTranslate`, `SepPlaySimple`, so ids read in hex as casts:
+  `Common.SfxPlay((Sfx)0x80000017)` (was `SfxPlay(-2147483625)`).
+- Not named yet, for lack of a verified source: the message window flags
+  (`MsgSetFlags`; the bits are known, `0x400`…`0x8000`, not their meaning),
+  pad buttons (the scripts' `g_PadPressed` is remapped by `FUN_00888c40`;
+  Fahrenheit's input bits are for another address), field motion ids (per
+  model), the motion of `ChrCheckMotion` and other battle natives, the map
+  numbers natives return (`GetEventJumpMap`'s cases go past the table),
+  battle ids kept in registers before the comparison (`I0 =
+  Btl.GetBattleId(); if (I0 == …)`), and sound effect names.
 - **Models and workers**: `Model` (`Enums.g.cs`, from `pc.ath`, `mon.ath`,
   `npc.ath`, `sum.ath`, `wep.ath`, `obj.ath`, `skl.ath` through Fahrenheit's
   `*Id` tables; one member per value, the `chr_` name where the header gives

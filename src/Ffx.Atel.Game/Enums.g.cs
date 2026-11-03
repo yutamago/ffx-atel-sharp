@@ -6,7 +6,7 @@
 
 namespace Ffx;
 
-/// <summary>A battle target selector: the negative values name actor groups (<c>T_XTargetId</c>); 0-<c>0x13</c> are the party actors by character (<c>T_XPlySaveId</c>), <c>0x14</c>-<c>0x1b</c> the monster slots (ffx-rust docs/formats/battle.md: <c>MsGetChr</c>); the scripts also pass monster ids (<c>0x1000 | n</c>).</summary>
+/// <summary>A battle target selector: the negative values name actor groups (<c>T_XTargetId</c>); 0-<c>0x13</c> are the party actors by character (<c>T_XPlySaveId</c>), <c>0x14</c>-<c>0x1b</c> the monster slots (ffx-rust docs/formats/battle.md: <c>MsGetChr</c>); a monster id (<c>0x1000 | n</c>) picks every actor with that id (<c>MsGetChrBit</c>), named after the monster's <c>chr_</c> model (<c>mon.ath</c>).</summary>
 /// <remarks>From <c>btlmot.ath</c> (Fahrenheit's <c>TargetId</c>), <c>ply_save.ath</c> (Fahrenheit's <c>PlySaveId</c>).</remarks>
 public enum Target
 {
@@ -118,6 +118,634 @@ public enum Target
     Monster6 = 0x001a,
     /// <summary>monster slot 7 (actor 0x1b)</summary>
     Monster7 = 0x001b,
+    /// <summary>every actor of monster <c>chr_dummy</c></summary>
+    MonsterDummy = 0x1000,
+    /// <summary>every actor of monster <c>chr_koura_01</c></summary>
+    Koura01 = 0x1001,
+    /// <summary>every actor of monster <c>chr_koura_02</c></summary>
+    Koura02 = 0x1002,
+    /// <summary>every actor of monster <c>chr_koura_03</c></summary>
+    Koura03 = 0x1003,
+    /// <summary>every actor of monster <c>chr_koura_04</c></summary>
+    Koura04 = 0x1004,
+    /// <summary>every actor of monster <c>chr_koura_05</c></summary>
+    Koura05 = 0x1005,
+    /// <summary>every actor of monster <c>chr_garuki_01</c></summary>
+    Garuki01 = 0x1006,
+    /// <summary>every actor of monster <c>chr_garuki_02</c></summary>
+    Garuki02 = 0x1007,
+    /// <summary>every actor of monster <c>chr_garuki_03</c></summary>
+    Garuki03 = 0x1008,
+    /// <summary>every actor of monster <c>chr_wolf_01</c></summary>
+    Wolf01 = 0x1009,
+    /// <summary>every actor of monster <c>chr_wolf_02</c></summary>
+    Wolf02 = 0x100a,
+    /// <summary>every actor of monster <c>chr_wolf_03</c></summary>
+    Wolf03 = 0x100b,
+    /// <summary>every actor of monster <c>chr_wolf_04</c></summary>
+    Wolf04 = 0x100c,
+    /// <summary>every actor of monster <c>chr_wolf_05</c></summary>
+    Wolf05 = 0x100d,
+    /// <summary>every actor of monster <c>chr_wolf_06</c></summary>
+    Wolf06 = 0x100e,
+    /// <summary>every actor of monster <c>chr_wolf_07</c></summary>
+    Wolf07 = 0x100f,
+    /// <summary>every actor of monster <c>chr_pudding_01</c></summary>
+    Pudding01 = 0x1010,
+    /// <summary>every actor of monster <c>chr_pudding_02</c></summary>
+    Pudding02 = 0x1011,
+    /// <summary>every actor of monster <c>chr_pudding_03</c></summary>
+    Pudding03 = 0x1012,
+    /// <summary>every actor of monster <c>chr_pudding_04</c></summary>
+    Pudding04 = 0x1013,
+    /// <summary>every actor of monster <c>chr_pudding_05</c></summary>
+    Pudding05 = 0x1014,
+    /// <summary>every actor of monster <c>chr_pudding_06</c></summary>
+    Pudding06 = 0x1015,
+    /// <summary>every actor of monster <c>chr_lizard_01</c></summary>
+    Lizard01 = 0x1016,
+    /// <summary>every actor of monster <c>chr_lizard_02</c></summary>
+    Lizard02 = 0x1017,
+    /// <summary>every actor of monster <c>chr_lizard_03</c></summary>
+    Lizard03 = 0x1018,
+    /// <summary>every actor of monster <c>chr_lizard_04</c></summary>
+    Lizard04 = 0x1019,
+    /// <summary>every actor of monster <c>chr_lizard_05</c></summary>
+    Lizard05 = 0x101a,
+    /// <summary>every actor of monster <c>chr_lizard_06</c></summary>
+    Lizard06 = 0x101b,
+    /// <summary>every actor of monster <c>chr_bird_01</c></summary>
+    Bird01 = 0x101c,
+    /// <summary>every actor of monster <c>chr_bird_02</c></summary>
+    Bird02 = 0x101d,
+    /// <summary>every actor of monster <c>chr_bird_03</c></summary>
+    Bird03 = 0x101e,
+    /// <summary>every actor of monster <c>chr_insect_01</c></summary>
+    Insect01 = 0x101f,
+    /// <summary>every actor of monster <c>chr_insect_02</c></summary>
+    Insect02 = 0x1020,
+    /// <summary>every actor of monster <c>chr_insect_03</c></summary>
+    Insect03 = 0x1021,
+    /// <summary>every actor of monster <c>chr_insect_04</c></summary>
+    Insect04 = 0x1022,
+    /// <summary>every actor of monster <c>chr_ariman_01</c></summary>
+    Ariman01 = 0x1023,
+    /// <summary>every actor of monster <c>chr_ariman_02</c></summary>
+    Ariman02 = 0x1024,
+    /// <summary>every actor of monster <c>chr_ariman_03</c></summary>
+    Ariman03 = 0x1025,
+    /// <summary>every actor of monster <c>chr_ariman_04</c></summary>
+    Ariman04 = 0x1026,
+    /// <summary>every actor of monster <c>chr_plant_01</c></summary>
+    Plant01 = 0x1027,
+    /// <summary>every actor of monster <c>chr_plant_02</c></summary>
+    Plant02 = 0x1028,
+    /// <summary>every actor of monster <c>chr_sahagin_01</c></summary>
+    Sahagin01 = 0x1029,
+    /// <summary>every actor of monster <c>chr_m042</c></summary>
+    M042 = 0x102a,
+    /// <summary>every actor of monster <c>chr_sahagin_02n</c></summary>
+    Sahagin02n = 0x102b,
+    /// <summary>every actor of monster <c>chr_zoo_01</c></summary>
+    Zoo01 = 0x102c,
+    /// <summary>every actor of monster <c>chr_zoo_02</c></summary>
+    Zoo02 = 0x102d,
+    /// <summary>every actor of monster <c>chr_sand_01</c></summary>
+    Sand01 = 0x102e,
+    /// <summary>every actor of monster <c>chr_sand_02</c></summary>
+    Sand02 = 0x102f,
+    /// <summary>every actor of monster <c>chr_golem_01</c></summary>
+    Golem01 = 0x1030,
+    /// <summary>every actor of monster <c>chr_golem_02</c></summary>
+    Golem02 = 0x1031,
+    /// <summary>every actor of monster <c>chr_ghost_01</c></summary>
+    Ghost01 = 0x1032,
+    /// <summary>every actor of monster <c>chr_flesius_01</c></summary>
+    Flesius01 = 0x1033,
+    /// <summary>every actor of monster <c>chr_flesius_02</c></summary>
+    Flesius02 = 0x1034,
+    /// <summary>every actor of monster <c>chr_rising_01</c></summary>
+    Rising01 = 0x1035,
+    /// <summary>every actor of monster <c>chr_rising_02</c></summary>
+    Rising02 = 0x1036,
+    /// <summary>every actor of monster <c>chr_4spike_01</c></summary>
+    Monster4spike01 = 0x1037,
+    /// <summary>every actor of monster <c>chr_4spike_02</c></summary>
+    Monster4spike02 = 0x1038,
+    /// <summary>every actor of monster <c>chr_4spike_03</c></summary>
+    Monster4spike03 = 0x1039,
+    /// <summary>every actor of monster <c>chr_tako_01</c></summary>
+    Tako01 = 0x103a,
+    /// <summary>every actor of monster <c>chr_dragon_01</c></summary>
+    Dragon01 = 0x103b,
+    /// <summary>every actor of monster <c>chr_dragon_02</c></summary>
+    Dragon02 = 0x103c,
+    /// <summary>every actor of monster <c>chr_dragon_03</c></summary>
+    Dragon03 = 0x103d,
+    /// <summary>every actor of monster <c>chr_dragon_04</c></summary>
+    Dragon04 = 0x103e,
+    /// <summary>every actor of monster <c>chr_dragon_05</c></summary>
+    Dragon05 = 0x103f,
+    /// <summary>every actor of monster <c>chr_morbol_01</c></summary>
+    Morbol01 = 0x1040,
+    /// <summary>every actor of monster <c>chr_morbol_02</c></summary>
+    Morbol02 = 0x1041,
+    /// <summary>every actor of monster <c>chr_fighter_01</c></summary>
+    Fighter01 = 0x1042,
+    /// <summary>every actor of monster <c>chr_fighter_02</c></summary>
+    Fighter02 = 0x1043,
+    /// <summary>every actor of monster <c>chr_pirania_11</c></summary>
+    Pirania11 = 0x1044,
+    /// <summary>every actor of monster <c>chr_pirania_12</c></summary>
+    Pirania12 = 0x1045,
+    /// <summary>every actor of monster <c>chr_pirania_13</c></summary>
+    Pirania13 = 0x1046,
+    /// <summary>every actor of monster <c>chr_pirania_21</c></summary>
+    Pirania21 = 0x1047,
+    /// <summary>every actor of monster <c>chr_pirania_22</c></summary>
+    Pirania22 = 0x1048,
+    /// <summary>every actor of monster <c>chr_pirania_23</c></summary>
+    Pirania23 = 0x1049,
+    /// <summary>every actor of monster <c>chr_pirania_31</c></summary>
+    Pirania31 = 0x104a,
+    /// <summary>every actor of monster <c>chr_pirania_32</c></summary>
+    Pirania32 = 0x104b,
+    /// <summary>every actor of monster <c>chr_pirania_33</c></summary>
+    Pirania33 = 0x104c,
+    /// <summary>every actor of monster <c>chr_element_01</c></summary>
+    Element01 = 0x104d,
+    /// <summary>every actor of monster <c>chr_element_02</c></summary>
+    Element02 = 0x104e,
+    /// <summary>every actor of monster <c>chr_element_03</c></summary>
+    Element03 = 0x104f,
+    /// <summary>every actor of monster <c>chr_element_04</c></summary>
+    Element04 = 0x1050,
+    /// <summary>every actor of monster <c>chr_element_05</c></summary>
+    Element05 = 0x1051,
+    /// <summary>every actor of monster <c>chr_element_06</c></summary>
+    Element06 = 0x1052,
+    /// <summary>every actor of monster <c>chr_element_07</c></summary>
+    Element07 = 0x1053,
+    /// <summary>every actor of monster <c>chr_blade_01</c></summary>
+    Blade01 = 0x1054,
+    /// <summary>every actor of monster <c>chr_behi_01</c></summary>
+    Behi01 = 0x1055,
+    /// <summary>every actor of monster <c>chr_behi_02</c></summary>
+    Behi02 = 0x1056,
+    /// <summary>every actor of monster <c>chr_chimera_01</c></summary>
+    Chimera01 = 0x1057,
+    /// <summary>every actor of monster <c>chr_chimera_02</c></summary>
+    Chimera02 = 0x1058,
+    /// <summary>every actor of monster <c>chr_qual_01</c></summary>
+    Qual01 = 0x1059,
+    /// <summary>every actor of monster <c>chr_qual_02</c></summary>
+    Qual02 = 0x105a,
+    /// <summary>every actor of monster <c>chr_2leg_01</c></summary>
+    Monster2leg01 = 0x105b,
+    /// <summary>every actor of monster <c>chr_2leg_02</c></summary>
+    Monster2leg02 = 0x105c,
+    /// <summary>every actor of monster <c>chr_2leg_02f</c></summary>
+    Monster2leg02f = 0x105d,
+    /// <summary>every actor of monster <c>chr_2leg_03</c></summary>
+    Monster2leg03 = 0x105e,
+    /// <summary>every actor of monster <c>chr_monolith_01</c></summary>
+    Monolith01 = 0x105f,
+    /// <summary>every actor of monster <c>chr_4leg_01</c></summary>
+    Monster4leg01 = 0x1060,
+    /// <summary>every actor of monster <c>chr_4leg_02</c></summary>
+    Monster4leg02 = 0x1061,
+    /// <summary>every actor of monster <c>chr_4leg_03</c></summary>
+    Monster4leg03 = 0x1062,
+    /// <summary>every actor of monster <c>chr_ultima_01</c></summary>
+    Ultima01 = 0x1063,
+    /// <summary>every actor of monster <c>chr_omega_01</c></summary>
+    Omega01 = 0x1064,
+    /// <summary>every actor of monster <c>chr_takoboss</c></summary>
+    Takoboss = 0x1065,
+    /// <summary>every actor of monster <c>chr_shin2</c></summary>
+    Shin2 = 0x1066,
+    /// <summary>every actor of monster <c>chr_shin2_arm</c></summary>
+    Shin2Arm = 0x1067,
+    /// <summary>every actor of monster <c>chr_eater</c></summary>
+    Eater = 0x1068,
+    /// <summary>every actor of monster <c>chr_denden</c></summary>
+    Denden = 0x1069,
+    /// <summary>every actor of monster <c>chr_magicsq_01</c></summary>
+    Magicsq01 = 0x106a,
+    /// <summary>every actor of monster <c>chr_shinz_l1</c></summary>
+    ShinzL1 = 0x106b,
+    /// <summary>every actor of monster <c>chr_shinz_l2</c></summary>
+    ShinzL2 = 0x106c,
+    /// <summary>every actor of monster <c>chr_bajiboss</c></summary>
+    Bajiboss = 0x106d,
+    /// <summary>every actor of monster <c>chr_kikai1</c></summary>
+    Kikai1 = 0x106e,
+    /// <summary>every actor of monster <c>chr_kikai2</c></summary>
+    Kikai2 = 0x106f,
+    /// <summary>every actor of monster <c>chr_kimari_b</c></summary>
+    KimariB = 0x1070,
+    /// <summary>every actor of monster <c>chr_shin_se</c></summary>
+    ShinSe = 0x1071,
+    /// <summary>every actor of monster <c>chr_shin1</c></summary>
+    Shin1 = 0x1072,
+    /// <summary>every actor of monster <c>chr_shinz_w1</c></summary>
+    ShinzW1 = 0x1073,
+    /// <summary>every actor of monster <c>chr_inu_02</c></summary>
+    Inu02 = 0x1074,
+    /// <summary>every actor of monster <c>chr_shin3</c></summary>
+    Shin3 = 0x1075,
+    /// <summary>every actor of monster <c>chr_magicsq_02</c></summary>
+    Magicsq02 = 0x1076,
+    /// <summary>every actor of monster <c>chr_ef1</c></summary>
+    Ef1 = 0x1077,
+    /// <summary>every actor of monster <c>chr_ef2</c></summary>
+    Ef2 = 0x1078,
+    /// <summary>every actor of monster <c>chr_makaboss</c></summary>
+    Makaboss = 0x1079,
+    /// <summary>every actor of monster <c>chr_countdown</c></summary>
+    Countdown = 0x107a,
+    /// <summary>every actor of monster <c>chr_countdownb</c></summary>
+    Countdownb = 0x107b,
+    /// <summary>every actor of monster <c>chr_simoa</c></summary>
+    Simoa = 0x107c,
+    /// <summary>every actor of monster <c>chr_anima_b</c></summary>
+    AnimaB = 0x107d,
+    /// <summary>every actor of monster <c>chr_simoa01</c></summary>
+    Simoa01 = 0x107e,
+    /// <summary>every actor of monster <c>chr_simoa01_w</c></summary>
+    Simoa01W = 0x107f,
+    /// <summary>every actor of monster <c>chr_ebon1</c></summary>
+    Ebon1 = 0x1080,
+    /// <summary>every actor of monster <c>chr_ebon3</c></summary>
+    Ebon3 = 0x1081,
+    /// <summary>every actor of monster <c>chr_yunareska</c></summary>
+    Yunareska = 0x1082,
+    /// <summary>every actor of monster <c>chr_simoa03</c></summary>
+    Simoa03 = 0x1083,
+    /// <summary>every actor of monster <c>chr_jecht</c></summary>
+    Jecht = 0x1084,
+    /// <summary>every actor of monster <c>chr_crane</c></summary>
+    Crane = 0x1085,
+    /// <summary>every actor of monster <c>chr_biran</c></summary>
+    Biran = 0x1086,
+    /// <summary>every actor of monster <c>chr_enche</c></summary>
+    Enche = 0x1087,
+    /// <summary>every actor of monster <c>chr_shin_arml</c></summary>
+    ShinArml = 0x1088,
+    /// <summary>every actor of monster <c>chr_shin_armr</c></summary>
+    ShinArmr = 0x1089,
+    /// <summary>every actor of monster <c>chr_shin_back</c></summary>
+    ShinBack = 0x108a,
+    /// <summary>every actor of monster <c>chr_shin2_kai</c></summary>
+    Shin2Kai = 0x108b,
+    /// <summary>every actor of monster <c>chr_shin_head</c></summary>
+    ShinHead = 0x108c,
+    /// <summary>every actor of monster <c>chr_guad_e</c></summary>
+    GuadE = 0x108d,
+    /// <summary>every actor of monster <c>chr_simoa02</c></summary>
+    Simoa02 = 0x108e,
+    /// <summary>every actor of monster <c>chr_simoa2_w</c></summary>
+    Simoa2W = 0x108f,
+    /// <summary>every actor of monster <c>chr_kimari_w</c></summary>
+    KimariW = 0x1090,
+    /// <summary>every actor of monster <c>chr_shinz_l3</c></summary>
+    ShinzL3 = 0x1091,
+    /// <summary>every actor of monster <c>chr_ido</c></summary>
+    Ido = 0x1092,
+    /// <summary>every actor of monster <c>chr_shinz_L4</c></summary>
+    ShinzL4 = 0x1093,
+    /// <summary>every actor of monster <c>chr_shinz_L5</c></summary>
+    ShinzL5 = 0x1094,
+    /// <summary>every actor of monster <c>chr_syd</c></summary>
+    Syd = 0x1095,
+    /// <summary>every actor of monster <c>chr_magicsq_03</c></summary>
+    Magicsq03 = 0x1096,
+    /// <summary>every actor of monster <c>chr_dragon_e01</c></summary>
+    DragonE01 = 0x1097,
+    /// <summary>every actor of monster <c>chr_robot_e01</c></summary>
+    RobotE01 = 0x1098,
+    /// <summary>every actor of monster <c>chr_otyu_e01</c></summary>
+    OtyuE01 = 0x1099,
+    /// <summary>every actor of monster <c>chr_magicsq_04</c></summary>
+    Magicsq04 = 0x109a,
+    /// <summary>every actor of monster <c>chr_sahagin_e01</c></summary>
+    SahaginE01 = 0x109b,
+    /// <summary>every actor of monster <c>chr_sahagin_e02</c></summary>
+    SahaginE02 = 0x109c,
+    /// <summary>every actor of monster <c>chr_zoo_e01</c></summary>
+    ZooE01 = 0x109d,
+    /// <summary>every actor of monster <c>chr_blade_e01</c></summary>
+    BladeE01 = 0x109e,
+    /// <summary>every actor of monster <c>chr_shin4</c></summary>
+    Shin4 = 0x109f,
+    /// <summary>every actor of monster <c>chr_shin3_head</c></summary>
+    Shin3Head = 0x10a0,
+    /// <summary>every actor of monster <c>chr_shin3_arm</c></summary>
+    Shin3Arm = 0x10a1,
+    /// <summary>every actor of monster <c>chr_kusabi</c></summary>
+    Kusabi = 0x10a2,
+    /// <summary>every actor of monster <c>chr_valfare_e</c></summary>
+    ValfareE = 0x10a3,
+    /// <summary>every actor of monster <c>chr_ifrit_e</c></summary>
+    IfritE = 0x10a4,
+    /// <summary>every actor of monster <c>chr_ixion_e</c></summary>
+    IxionE = 0x10a5,
+    /// <summary>every actor of monster <c>chr_shiva_e</c></summary>
+    ShivaE = 0x10a6,
+    /// <summary>every actor of monster <c>chr_bahamot_e</c></summary>
+    BahamotE = 0x10a7,
+    /// <summary>every actor of monster <c>chr_anima_e</c></summary>
+    AnimaE = 0x10a8,
+    /// <summary>every actor of monster <c>chr_yojinbou_e</c></summary>
+    YojinbouE = 0x10a9,
+    /// <summary>every actor of monster <c>chr_tank</c></summary>
+    Tank = 0x10aa,
+    /// <summary>every actor of monster <c>chr_kusabi2</c></summary>
+    Kusabi2 = 0x10ab,
+    /// <summary>every actor of monster <c>chr_jechtken</c></summary>
+    Jechtken = 0x10ac,
+    /// <summary>every actor of monster <c>chr_option_l</c></summary>
+    OptionL = 0x10ad,
+    /// <summary>every actor of monster <c>chr_option_r</c></summary>
+    OptionR = 0x10ae,
+    /// <summary>every actor of monster <c>chr_yunareska_arm</c></summary>
+    YunareskaArm = 0x10af,
+    /// <summary>every actor of monster <c>chr_yevonju</c></summary>
+    Yevonju = 0x10b0,
+    /// <summary>every actor of monster <c>chr_magicsq_05</c></summary>
+    Magicsq05 = 0x10b1,
+    /// <summary>every actor of monster <c>chr_mag_e</c></summary>
+    MagE = 0x10b2,
+    /// <summary>every actor of monster <c>chr_dog_e</c></summary>
+    DogE = 0x10b3,
+    /// <summary>every actor of monster <c>chr_rag_e</c></summary>
+    RagE = 0x10b4,
+    /// <summary>every actor of monster <c>chr_iron_11</c></summary>
+    Iron11 = 0x10b5,
+    /// <summary>every actor of monster <c>chr_iron_12</c></summary>
+    Iron12 = 0x10b6,
+    /// <summary>every actor of monster <c>chr_iron_21</c></summary>
+    Iron21 = 0x10b7,
+    /// <summary>every actor of monster <c>chr_iron_22</c></summary>
+    Iron22 = 0x10b8,
+    /// <summary>every actor of monster <c>chr_basil_01</c></summary>
+    Basil01 = 0x10b9,
+    /// <summary>every actor of monster <c>chr_basil_02</c></summary>
+    Basil02 = 0x10ba,
+    /// <summary>every actor of monster <c>chr_adman_01</c></summary>
+    Adman01 = 0x10bb,
+    /// <summary>every actor of monster <c>chr_belial_01</c></summary>
+    Belial01 = 0x10bc,
+    /// <summary>every actor of monster <c>chr_otyugh_01</c></summary>
+    Otyugh01 = 0x10bd,
+    /// <summary>every actor of monster <c>chr_otyugh_02</c></summary>
+    Otyugh02 = 0x10be,
+    /// <summary>every actor of monster <c>chr_f_ebon_01</c></summary>
+    FEbon01 = 0x10bf,
+    /// <summary>every actor of monster <c>chr_f_ebon_02</c></summary>
+    FEbon02 = 0x10c0,
+    /// <summary>every actor of monster <c>chr_bomb_01</c></summary>
+    Bomb01 = 0x10c1,
+    /// <summary>every actor of monster <c>chr_bomb_02</c></summary>
+    Bomb02 = 0x10c2,
+    /// <summary>every actor of monster <c>chr_g_ebon_01</c></summary>
+    GEbon01 = 0x10c3,
+    /// <summary>every actor of monster <c>chr_g_ebon_02</c></summary>
+    GEbon02 = 0x10c4,
+    /// <summary>every actor of monster <c>chr_s_ebon_11</c></summary>
+    SEbon11 = 0x10c5,
+    /// <summary>every actor of monster <c>chr_s_ebon_12</c></summary>
+    SEbon12 = 0x10c6,
+    /// <summary>every actor of monster <c>chr_s_ebon_21</c></summary>
+    SEbon21 = 0x10c7,
+    /// <summary>every actor of monster <c>chr_s_ebon_22</c></summary>
+    SEbon22 = 0x10c8,
+    /// <summary>every actor of monster <c>chr_koyokoyo_01</c></summary>
+    Koyokoyo01 = 0x10c9,
+    /// <summary>every actor of monster <c>chr_magicp_01</c></summary>
+    Magicp01 = 0x10ca,
+    /// <summary>every actor of monster <c>chr_magicp_02</c></summary>
+    Magicp02 = 0x10cb,
+    /// <summary>every actor of monster <c>chr_magicp_03</c></summary>
+    Magicp03 = 0x10cc,
+    /// <summary>every actor of monster <c>chr_magicp_04</c></summary>
+    Magicp04 = 0x10cd,
+    /// <summary>every actor of monster <c>chr_magicp_05</c></summary>
+    Magicp05 = 0x10ce,
+    /// <summary>every actor of monster <c>chr_sabo_01</c></summary>
+    Sabo01 = 0x10cf,
+    /// <summary>every actor of monster <c>chr_sabo_02</c></summary>
+    Sabo02 = 0x10d0,
+    /// <summary>every actor of monster <c>chr_mist_01</c></summary>
+    Mist01 = 0x10d1,
+    /// <summary>every actor of monster <c>chr_last2_01</c></summary>
+    Last2_01 = 0x10d2,
+    /// <summary>every actor of monster <c>chr_treasure_01</c></summary>
+    Treasure01 = 0x10d3,
+    /// <summary>every actor of monster <c>chr_fighter_03</c></summary>
+    Fighter03 = 0x10d4,
+    /// <summary>every actor of monster <c>chr_guad_01</c></summary>
+    Guad01 = 0x10d5,
+    /// <summary>every actor of monster <c>chr_kinoko_01</c></summary>
+    Kinoko01 = 0x10d6,
+    /// <summary>every actor of monster <c>chr_kinoko_02</c></summary>
+    Kinoko02 = 0x10d7,
+    /// <summary>every actor of monster <c>chr_kinoko_03</c></summary>
+    Kinoko03 = 0x10d8,
+    /// <summary>every actor of monster <c>chr_blade_02</c></summary>
+    Blade02 = 0x10d9,
+    /// <summary>every actor of monster <c>chr_bomb_03</c></summary>
+    Bomb03 = 0x10da,
+    /// <summary>every actor of monster <c>chr_mist_02</c></summary>
+    Mist02 = 0x10db,
+    /// <summary>every actor of monster <c>chr_ghost_02</c></summary>
+    Ghost02 = 0x10dc,
+    /// <summary>every actor of monster <c>chr_plant_03</c></summary>
+    Plant03 = 0x10dd,
+    /// <summary>every actor of monster <c>chr_guad_02</c></summary>
+    Guad02 = 0x10de,
+    /// <summary>every actor of monster <c>chr_tonberi_01</c></summary>
+    Tonberi01 = 0x10df,
+    /// <summary>every actor of monster <c>chr_tonberi_02</c></summary>
+    Tonberi02 = 0x10e0,
+    /// <summary>every actor of monster <c>chr_ariman_05</c></summary>
+    Ariman05 = 0x10e1,
+    /// <summary>every actor of monster <c>chr_bomb_04</c></summary>
+    Bomb04 = 0x10e2,
+    /// <summary>every actor of monster <c>chr_chimera_03</c></summary>
+    Chimera03 = 0x10e3,
+    /// <summary>every actor of monster <c>chr_4spike_04</c></summary>
+    Monster4spike04 = 0x10e4,
+    /// <summary>every actor of monster <c>chr_golem_03</c></summary>
+    Golem03 = 0x10e5,
+    /// <summary>every actor of monster <c>chr_zoo_01t</c></summary>
+    Zoo01t = 0x10e6,
+    /// <summary>every actor of monster <c>chr_wolf_01t</c></summary>
+    Wolf01t = 0x10e7,
+    /// <summary>every actor of monster <c>chr_pudding_01t</c></summary>
+    Pudding01t = 0x10e8,
+    /// <summary>every actor of monster <c>chr_bird_01t</c></summary>
+    Bird01t = 0x10e9,
+    /// <summary>every actor of monster <c>chr_plant_01t</c></summary>
+    Plant01t = 0x10ea,
+    /// <summary>every actor of monster <c>chr_koura_01t</c></summary>
+    Koura01t = 0x10eb,
+    /// <summary>every actor of monster <c>chr_koura_02t</c></summary>
+    Koura02t = 0x10ec,
+    /// <summary>every actor of monster <c>chr_treasure_01t</c></summary>
+    Treasure01t = 0x10ed,
+    /// <summary>every actor of monster <c>chr_zoo_02e</c></summary>
+    Zoo02e = 0x10ee,
+    /// <summary>every actor of monster <c>chr_lizard_07</c></summary>
+    Lizard07 = 0x10ef,
+    /// <summary>every actor of monster <c>chr_koura_06</c></summary>
+    Koura06 = 0x10f0,
+    /// <summary>every actor of monster <c>chr_pudding_07</c></summary>
+    Pudding07 = 0x10f1,
+    /// <summary>every actor of monster <c>chr_ariman_07</c></summary>
+    Ariman07 = 0x10f2,
+    /// <summary>every actor of monster <c>chr_mist_03</c></summary>
+    Mist03 = 0x10f3,
+    /// <summary>every actor of monster <c>chr_blade_03</c></summary>
+    Blade03 = 0x10f4,
+    /// <summary>every actor of monster <c>chr_lizard_08</c></summary>
+    Lizard08 = 0x10f5,
+    /// <summary>every actor of monster <c>chr_koura_07</c></summary>
+    Koura07 = 0x10f6,
+    /// <summary>every actor of monster <c>chr_ariman_06</c></summary>
+    Ariman06 = 0x10f7,
+    /// <summary>every actor of monster <c>chr_isal_01</c></summary>
+    Isal01 = 0x10f8,
+    /// <summary>every actor of monster <c>chr_ginnem_01</c></summary>
+    Ginnem01 = 0x10f9,
+    /// <summary>every actor of monster <c>chr_velgemine_01</c></summary>
+    Velgemine01 = 0x10fa,
+    /// <summary>every actor of monster <c>chr_mimix_01</c></summary>
+    Mimix01 = 0x10fb,
+    /// <summary>every actor of monster <c>chr_mimix_02</c></summary>
+    Mimix02 = 0x10fc,
+    /// <summary>every actor of monster <c>chr_mimix_03</c></summary>
+    Mimix03 = 0x10fd,
+    /// <summary>every actor of monster <c>chr_valfare_01</c></summary>
+    Valfare01 = 0x10fe,
+    /// <summary>every actor of monster <c>chr_invi_00</c></summary>
+    Invi00 = 0x10ff,
+    /// <summary>every actor of monster <c>chr_mimix_04</c></summary>
+    Mimix04 = 0x1100,
+    /// <summary>every actor of monster <c>chr_mparts_01</c></summary>
+    Mparts01 = 0x1101,
+    /// <summary>every actor of monster <c>chr_valfare_02</c></summary>
+    Valfare02 = 0x1102,
+    /// <summary>every actor of monster <c>chr_efreet_02</c></summary>
+    Efreet02 = 0x1103,
+    /// <summary>every actor of monster <c>chr_mparts_02</c></summary>
+    Mparts02 = 0x1104,
+    /// <summary>every actor of monster <c>chr_mparts_03</c></summary>
+    Mparts03 = 0x1105,
+    /// <summary>every actor of monster <c>chr_mparts_04</c></summary>
+    Mparts04 = 0x1106,
+    /// <summary>every actor of monster <c>chr_rifle_01</c></summary>
+    Rifle01 = 0x1107,
+    /// <summary>every actor of monster <c>chr_flamegun_01</c></summary>
+    Flamegun01 = 0x1108,
+    /// <summary>every actor of monster <c>chr_anima_01</c></summary>
+    Anima01 = 0x1109,
+    /// <summary>every actor of monster <c>chr_inu_01</c></summary>
+    Inu01 = 0x110a,
+    /// <summary>every actor of monster <c>chr_anima_down_01</c></summary>
+    AnimaDown01 = 0x110b,
+    /// <summary>every actor of monster <c>chr_anima_up_01</c></summary>
+    AnimaUp01 = 0x110c,
+    /// <summary>every actor of monster <c>chr_katana_01</c></summary>
+    Katana01 = 0x110d,
+    /// <summary>every actor of monster <c>chr_koduka_01</c></summary>
+    Koduka01 = 0x110e,
+    /// <summary>every actor of monster <c>chr_syuriken_01</c></summary>
+    Syuriken01 = 0x110f,
+    /// <summary>every actor of monster <c>chr_mparts_18</c></summary>
+    Mparts18 = 0x1112,
+    /// <summary>every actor of monster <c>chr_mparts_19</c></summary>
+    Mparts19 = 0x1113,
+    /// <summary>every actor of monster <c>chr_b_ultima_01</c></summary>
+    BUltima01 = 0x1114,
+    /// <summary>every actor of monster <c>chr_b_shin2</c></summary>
+    BShin2 = 0x1115,
+    /// <summary>every actor of monster <c>chr_b_shin2_arm</c></summary>
+    BShin2Arm = 0x1116,
+    /// <summary>every actor of monster <c>chr_b_eater</c></summary>
+    BEater = 0x1117,
+    /// <summary>every actor of monster <c>chr_b_shin3</c></summary>
+    BShin3 = 0x1118,
+    /// <summary>every actor of monster <c>chr_b_makaboss</c></summary>
+    BMakaboss = 0x1119,
+    /// <summary>every actor of monster <c>chr_b_ebon1</c></summary>
+    BEbon1 = 0x111a,
+    /// <summary>every actor of monster <c>chr_b_ef2</c></summary>
+    BEf2 = 0x111b,
+    /// <summary>every actor of monster <c>chr_efreet_01</c></summary>
+    Efreet01 = 0x111c,
+    /// <summary>every actor of monster <c>chr_b_koura_03</c></summary>
+    BKoura03 = 0x1124,
+    /// <summary>every actor of monster <c>chr_b_garuki_03</c></summary>
+    BGaruki03 = 0x1125,
+    /// <summary>every actor of monster <c>chr_b_wolf_07</c></summary>
+    BWolf07 = 0x1126,
+    /// <summary>every actor of monster <c>chr_b_pudding_06</c></summary>
+    BPudding06 = 0x1127,
+    /// <summary>every actor of monster <c>chr_b_lizard_06</c></summary>
+    BLizard06 = 0x1128,
+    /// <summary>every actor of monster <c>chr_b_bird_02</c></summary>
+    BBird02 = 0x1129,
+    /// <summary>every actor of monster <c>chr_b_insect_03</c></summary>
+    BInsect03 = 0x112a,
+    /// <summary>every actor of monster <c>chr_b_ariman_03</c></summary>
+    BAriman03 = 0x112b,
+    /// <summary>every actor of monster <c>chr_b_zoo_02</c></summary>
+    BZoo02 = 0x112c,
+    /// <summary>every actor of monster <c>chr_b_sand_02</c></summary>
+    BSand02 = 0x112d,
+    /// <summary>every actor of monster <c>chr_b_4spike_03</c></summary>
+    B4spike03 = 0x112e,
+    /// <summary>every actor of monster <c>chr_b_dragon_05</c></summary>
+    BDragon05 = 0x112f,
+    /// <summary>every actor of monster <c>chr_b_morbol_01</c></summary>
+    BMorbol01 = 0x1130,
+    /// <summary>every actor of monster <c>chr_b_fighter_02</c></summary>
+    BFighter02 = 0x1131,
+    /// <summary>every actor of monster <c>chr_b_element_06</c></summary>
+    BElement06 = 0x1132,
+    /// <summary>every actor of monster <c>chr_b_behi_01</c></summary>
+    BBehi01 = 0x1133,
+    /// <summary>every actor of monster <c>chr_b_chimera_02</c></summary>
+    BChimera02 = 0x1134,
+    /// <summary>every actor of monster <c>chr_b_qual_02</c></summary>
+    BQual02 = 0x1135,
+    /// <summary>every actor of monster <c>chr_b_iron_12</c></summary>
+    BIron12 = 0x1136,
+    /// <summary>every actor of monster <c>chr_b_basil_02</c></summary>
+    BBasil02 = 0x1137,
+    /// <summary>every actor of monster <c>chr_b_belial_01</c></summary>
+    BBelial01 = 0x1138,
+    /// <summary>every actor of monster <c>chr_b_bomb_01</c></summary>
+    BBomb01 = 0x1139,
+    /// <summary>every actor of monster <c>chr_b_sabo_01</c></summary>
+    BSabo01 = 0x113a,
+    /// <summary>every actor of monster <c>chr_b_last2_01</c></summary>
+    BLast2_01 = 0x113b,
+    /// <summary>every actor of monster <c>chr_b_kinoko_03</c></summary>
+    BKinoko03 = 0x113c,
+    /// <summary>every actor of monster <c>chr_b_tonberi_02</c></summary>
+    BTonberi02 = 0x113d,
+    /// <summary>every actor of monster <c>chr_b_blade_e01</c></summary>
+    BBladeE01 = 0x113e,
+    /// <summary>every actor of monster <c>chr_angel_b</c></summary>
+    AngelB = 0x1158,
+    /// <summary>every actor of monster <c>chr_angel_r</c></summary>
+    AngelR = 0x1159,
+    /// <summary>every actor of monster <c>chr_angel_l</c></summary>
+    AngelL = 0x115a,
+    /// <summary>every actor of monster <c>chr_zero</c></summary>
+    Zero = 0x13e7,
 }
 
 /// <summary>A battle actor's property, read and written by <c>Btl.GetActorProperty</c> and <c>Btl.SetActorsProperty</c> (<c>MsGetChrStatInfo</c>, <c>MsSetChrStatInfo</c>; <c>T_XChrStatId</c>, ffx-rust docs/formats/battle.md).</summary>
