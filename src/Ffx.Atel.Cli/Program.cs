@@ -16,7 +16,7 @@ internal static class Program {
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
-        """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + """
+        """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + DeadCommand.Usage + "\n" + """
 
         The game is found through FFX_GAME_DIR (the folder with FFX.exe), or --game <dir>.
         """;
@@ -46,7 +46,7 @@ internal static class Program {
         args.RemoveAt(0);
         string gameDir = game ?? throw new UsageException("set FFX_GAME_DIR or pass --game <dir>");
         // Whole-corpus commands take the machine-wide corpus lock: one at a time, they each use several GB.
-        bool wholeCorpus = command is "roundtrip" or "survey" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"))
+        bool wholeCorpus = command is "roundtrip" or "survey" or "dead" or "export" or "compile-all" || (command == "decompile" && args.Contains("all"))
                         || (command == "text" && TextCommand.IsWholeCorpus(args));
         using VbfArchive archive = wholeCorpus ? GameData.OpenArchiveExclusive(gameDir) : GameData.OpenArchive(gameDir);
         switch (command) {
@@ -106,6 +106,8 @@ internal static class Program {
                 return ModCommands.Link(archive, args, output);
             case "survey":
                 return SurveyCommand.Run(archive, args, output);
+            case "dead":
+                return DeadCommand.Run(archive, args, output);
             default:
                 throw new UsageException($"unknown command {command}\n{Usage}");
         }

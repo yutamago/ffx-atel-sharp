@@ -53,6 +53,11 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         foreach (string signature in LibraryNames.Default.Names.Keys.Where(s => !shared.Classes.Any(c => c.Signature == s))) {
             failures.Add($"library: {signature} in data/library-names.toml names no class");
         }
+        // Dead block names by signature (docs/research/dead-code.md, "Names"): every one names a block.
+        HashSet<string> cuts = [.. totals.CutSignatures];
+        foreach (string signature in CutNames.Default.Names.Keys.Where(s => !cuts.Contains(s))) {
+            failures.Add($"cuts: {signature} in data/cut-names.toml names no dead block");
+        }
         List<SourceFile> libraryFiles = shared.Files();
         ScriptLibrary library = ScriptLibrary.FromTrees(libraryFiles.Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath)));
         IReadOnlyList<Diagnostic> libraryAll = library.Check();

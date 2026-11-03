@@ -11,6 +11,13 @@ namespace Ffx.Atel.Decompiler;
 /// <summary>What structuring a worker made: constructs by kind, what stayed <c>goto</c>, pins and fallbacks.</summary>
 internal sealed class FlowStats {
     public Dictionary<string, int> Constructs { get; } = [];
+
+    /// <summary>Dead blocks written with a name (<c>if (Cut.…)</c>), by name.</summary>
+    public Dictionary<string, int> Cuts { get; } = [];
+
+    /// <summary>The signatures of the named dead blocks (<see cref="Layout.DeadSignature"/>).</summary>
+    public HashSet<string> CutSignatures { get; } = new(StringComparer.Ordinal);
+
     public int Gotos, LabelPins, Fallbacks, MergedMethods, FlatWorkers;
 }
 
@@ -41,6 +48,7 @@ internal sealed partial class WorkerDecompiler {
     private readonly StatementPrinter _printer;
     private readonly bool _functionWorker;
     private readonly Dictionary<uint, int> _indexOf = [];
+    private readonly Layout.CutNames _cuts;
 
     public FlowStats Flow { get; } = new();
 
@@ -55,8 +63,10 @@ internal sealed partial class WorkerDecompiler {
 
     private static void Reason(string why, Built b) => Reasons.AddOrUpdate($"{why} {b.Kind}", 1, (_, v) => v + 1);
 
-    public WorkerDecompiler(ScriptBlock block, int worker, VarInfo[] vars, IReadOnlyList<VarEntry> table, NativeSignatures natives, string[] workerNames) {
+    /// <param name="cuts">Names for dead blocks (<c>data/cut-names.toml</c> by default).</param>
+    public WorkerDecompiler(ScriptBlock block, int worker, VarInfo[] vars, IReadOnlyList<VarEntry> table, NativeSignatures natives, string[] workerNames, Layout.CutNames? cuts = null) {
         _block = block;
+        _cuts = cuts ?? Layout.CutNames.Default;
         _worker = worker;
         Bytecode.Script.Worker w = block.Workers[worker];
         _functionWorker = w.Type == 0;
@@ -141,10 +151,12 @@ internal sealed partial class WorkerDecompiler {
             foreach (Built b in m.Built) {
                 string k = b.Kind.ToString();
                 Flow.Constructs[k] = Flow.Constructs.GetValueOrDefault(k) + 1;
+                if (b.Node is IfStmt { Cut: not null }) Flow.CutSignatures.Add(DeadSignatureOf(m.Units, b.Start, DeadUnits(m, b).To));
             }
             if (m.Pin is not null) Flow.LabelPins++;
             Walk(m.Body, s => {
                 if (s is GotoStmt or CondGotoStmt) Flow.Gotos++;
+                if (s is IfStmt { Cut: string cut }) Flow.Cuts[cut] = Flow.Cuts.GetValueOrDefault(cut) + 1;
             });
         }
     }
@@ -183,7 +195,7 @@ internal sealed partial class WorkerDecompiler {
 
     private void StructureMethod(Method m) {
         while (true) {
-            Structurer st = new(m.Units, Asm, m.Flat ? AllOff(m) : m.Disabled);
+            Structurer st = new(m.Units, Asm, m.Flat ? AllOff(m) : m.Disabled, _cuts.Names.Count == 0 ? null : (jump, end) => _cuts.NameOf(DeadSignatureOf(m.Units, jump, end)));
             if (st.Fail && !m.Flat) continue;
             m.Body = st.Body;
             m.Built = st.Built;
@@ -596,11 +608,11 @@ internal sealed class TreeWriter(StringBuilder sb, StatementPrinter printer, Scr
                     break;
                 }
                 case IfStmt i:
-                    sb.Append(pad).Append("if (").Append(i.Condition is null ? "false" : printer.Condition(i.Condition)).Append(")\n");
+                    sb.Append(pad).Append("if (").Append(ConditionText(i)).Append(")\n");
                     Braced(i.Then, depth);
                     IReadOnlyList<Stmt>? other = i.Else;
                     while (other is [IfStmt elseIf]) {
-                        sb.Append(pad).Append("else if (").Append(elseIf.Condition is null ? "false" : printer.Condition(elseIf.Condition)).Append(")\n");
+                        sb.Append(pad).Append("else if (").Append(ConditionText(elseIf)).Append(")\n");
                         Braced(elseIf.Then, depth);
                         other = elseIf.Else;
                     }
@@ -644,6 +656,9 @@ internal sealed class TreeWriter(StringBuilder sb, StatementPrinter printer, Scr
         }
         Flush();
     }
+
+    /// <summary>An <c>if</c>'s condition: <c>false</c> or <c>Cut.Name</c> for dead code.</summary>
+    private string ConditionText(IfStmt i) => i.Condition is not null ? printer.Condition(i.Condition) : i.Cut is string cut ? "Cut." + cut : "false";
 
     private void Braced(IReadOnlyList<Stmt> body, int depth) {
         string pad = Pad(depth);

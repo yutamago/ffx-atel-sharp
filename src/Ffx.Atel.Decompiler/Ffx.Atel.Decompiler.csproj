@@ -14,6 +14,8 @@
         <EmbeddedResource Include="../../data/names/**/*.toml" LogicalName="names/%(RecursiveDir)%(Filename)%(Extension)" />
         <!-- Hand-written names for library classes, by the signature of their code (docs/source-repo.md, "Library names"). -->
         <EmbeddedResource Include="../../data/library-names.toml" LogicalName="library-names.toml" />
+        <!-- Hand-written names for dead if (false) blocks, by the signature of their code (docs/research/dead-code.md, "Names"). -->
+        <EmbeddedResource Include="../../data/cut-names.toml" LogicalName="cut-names.toml" />
         <!-- Hand-written English names (docs/plan.md, Decisions 2026-11-02). -->
         <EmbeddedResource Include="../../data/actor-names.json" LogicalName="actor-names.json" />
     </ItemGroup>
