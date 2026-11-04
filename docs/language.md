@@ -379,10 +379,16 @@ method of the worker, and a call at every place (docs/plan.md, 2026-11-04;
   a mod's `partial` class of the worker can call it too, and when the library shares the worker
   between scripts the methods go with the worker into its library class.
 - **Names.** `RepeatedNN`, numbered in the order the cover takes them, unless
-  `data/inline-names.toml` names the body's signature (its C# with the script's variables left out):
-  `WinPoseCamera`, `ShowStatIcon`, `ScrollListAndAdd`, `HidePlayerPanel`, `WaitForMotionFrame`, ….
-  The names say what the natives do; a parameter is named after the native argument it is first passed
-  to (`motion`, `slot`, `x`), typed as that argument (`TextId`, an enum) when every use is one.
+  `data/inline-names.toml` names the body's signature (a hash of its statements as lifted from the
+  bytecode: natives by number, constants by value, variables by location; not of its C#, so a name
+  stays when the decompiler's C# changes):
+  `WinPoseCamera`, `ShowStatIcon`, `ScoreGoal`, `DrawPlayerPanel`, `ScrollList`, `SayWithVoiceSkippable`,
+  `WaitForMotionFrame`, …. The names say what the natives and members do (for the blitzball HUD, read
+  with the texts it shows); the same code in several workers or scripts has one name. The table may
+  name the parameters (`ShowStatIcon(stat, slot, highlight)`) and give a summary, written as the
+  method's `<summary>` (the calls go to `<remarks>`). A parameter it does not name is named after the
+  native argument it is first passed to (`motion`, `slot`, `x`), typed as that argument (`TextId`, an
+  enum) when every use is one. When a worker has two methods of one name, the second is `Name2`.
 - `atel decompile` writes them by default; the API's `RepeatOptions.Disabled` turns them off.
 
 ## Requests

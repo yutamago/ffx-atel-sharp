@@ -1,23 +1,578 @@
 # Names for the inline methods the decompiler writes for code a worker repeats (docs/language.md,
-# "Repeated code"), by the signature of the method's body: its code as C#, with the script's
-# variables and the parameters' names left out. A method not named here is RepeatedNN. Each name
-# says what the code does, read off the natives it calls, not a guessed role; a parameter list
-# after the name renames the parameters in order. Our own names: no game code or text.
+# "Repeated code"), by the signature of the method's body: a hash of its statements as lifted from the
+# bytecode (natives and opcodes by number, constants by value, variables by location word and length,
+# parameters by index), not of the C# the decompiler writes for them, so a name stays when that C#
+# changes. A method not named here is RepeatedNN.
+#
+#   "signature" = "Name"                     the method's name
+#   "signature" = "Name(a, b)"               and its parameters' names, in order
+#   "signature" = { name = "Name(a, b)", summary = "What it does." }
+#                                            and its <summary> (no double quotes; `x` is code)
+#
+# Each name says what the code does, read off the natives and members it calls and, for the
+# blitzball HUD, the texts it shows: not a guessed role. The same code in several workers or scripts
+# has one name (a signature per copy where the variables lie elsewhere). The blitzball words: a panel
+# is a player's HUD box (message window 4 or 5 and its sprite column), the shown value and colour
+# code are the variables the stat and digit sprites read, a tech is an entry of BlitzballPlayerTechs
+# (its cost, power and rate are the script's tech tables), the list is the ten-entry log of message
+# window 6. Our own names: no game code or text. The corpus test fails when a signature here names
+# no helper the decompiler writes.
 #
 # To list the signatures: ATEL_DUMP_REPEATS=<file> atel decompile all -o <dir> appends a line per
-# method (signature, worker, places, lines, body as C#) to <file>, which holds game code: keep it local.
+# method (signature, script.worker, places, lines, body as C#) to <file>, which holds game code:
+# keep it local.
 #
-# The comment after each line: how many workers have the method in the decompiled corpus.
+# The comment after each line: the workers that have the method in the decompiled corpus, their
+# calls, and the scripts.
 
 [helpers]
-"f38825695a7039b1" = "WinPoseCamera"                      # 505: sets the actor's win sound, then orbits the camera by its win pose (battle scripts)
-"1c4729d271927748" = "WinPoseCamera"                      # 505: the same, the win pose read first
-"3e3c3c49e396e3e0" = "ShowStatIcon"                       # 75: blitzball HUD: a stat's icon and value (V108), its colour (V145) by the buff and debuff arrays
-"75c498372da68af2" = "ShowStatIcon"                       # 65: the same for the player in V166
-"fe7bffe45145aa9d" = "ScrollListAndAdd(entry)"            # 72: blitzball: the ten-entry list V163 scrolled up by two, the entry added, written into message window 6
-"515d9ea8e33562e6" = "LoadAliasAutoMotions"               # 70: ChrLoadAlias, then the automatic motions 16, 18 and 19
-"72734ed0ecadfa38" = "HidePlayerPanel"                    # 68: blitzball HUD: closes message window 4 or 5 and hides a column of sprites
-"98e8350d55c7cff4" = "ShowTwoDigits"                      # 22: blitzball HUD: scales and places a sprite, the digit images of V108 / 10 and V108 % 10
-"5236c8c59149968f" = "ShowTwoDigits"                      # 22: the same at another scale
-"23066a860b1852d9" = "WaitForMotionFrame(frame)"          # 13: waits a frame at a time until the motion reaches frame (or starts over)
-"ff9e64e0f7a8482a" = "PlayStreamWithSubtitle"             # 25: battle: a voice stream started, its subtitle drawn while it plays
+"69f6a6e5e4d16f3e" = "RollTechs55And58"  # 1 workers, 7 calls: Bltz0000
+"50618e838fc694a2" = "RollTechs55And58"  # 1 workers, 7 calls: Cn_bltz0000
+"a56541529945b56b" = "RollTechs55And58"  # 1 workers, 7 calls: Psv_bltz0000
+"95debda24945b0c2" = "RollTechs55And58"  # 1 workers, 7 calls: Psvcn_bltz0000
+"1e486b16890466cd" = "RollTechs55And58"  # 1 workers, 7 calls: Bltz0002
+"632b71709ae6e246" = "DrawPlayerPanelOf(player)"  # 12 workers, 124 calls: Bltz0000
+"6d31c5231bb8553f" = "DrawPlayerPanelOf(player)"  # 12 workers, 124 calls: Cn_bltz0000
+"99af59117590aba3" = "DrawPlayerPanelOf(player)"  # 12 workers, 124 calls: Psv_bltz0000
+"e9831cc0b6470633" = "DrawPlayerPanelOf(player)"  # 12 workers, 124 calls: Psvcn_bltz0000
+"07cf14362fab6ea8" = "DrawPlayerPanelOf(player)"  # 12 workers, 124 calls: Bltz0002
+"e54c011c77e2849e" = "FillTechSlots(chance)"  # 4 workers, 8 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"402dd76a3ac8e6b7" = "DrawPlayerPanelOf(player)"  # 3 workers, 32 calls: Bltz0000
+"fdce6f5dda9c6882" = "DrawPlayerPanelOf(player)"  # 3 workers, 32 calls: Cn_bltz0000
+"7159bd23fb91ae95" = "DrawPlayerPanelOf(player)"  # 3 workers, 32 calls: Psv_bltz0000
+"96044683968be3e1" = "DrawPlayerPanelOf(player)"  # 3 workers, 32 calls: Psvcn_bltz0000
+"8c477c10e6375442" = "DrawPlayerPanelOf(player)"  # 3 workers, 32 calls: Bltz0002
+"7998ca323550f844" = "ShootWithTech"  # 10 workers, 20 calls: Bltz0000
+"1f85f8df0d5dc4dd" = "ShootWithTech"  # 10 workers, 20 calls: Cn_bltz0000
+"550c21ce2f0ef28f" = "ShootWithTech"  # 10 workers, 20 calls: Psv_bltz0000
+"fbe120257f5b7c9f" = "ShootWithTech"  # 10 workers, 20 calls: Psvcn_bltz0000
+"e974334b03a2a0da" = "ShootWithTech"  # 10 workers, 20 calls: Bltz0002
+"ad7afeca0f11adb3" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Psv_bltz0005, Psvcn_bltz0005
+"899ced3fd39c4988" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Psv_bltz0006, Psvcn_bltz0006
+"0731fe4e72e29ef3" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Bltz0000, Cn_bltz0000
+"ca274841c18fa1df" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Psv_bltz0000, Psvcn_bltz0000
+"6ac2cfb974d8a07c" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 2 workers, 54 calls: Bltz0002
+"ae51fffab2143ab3" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 2 workers, 44 calls: Bltz0004
+"c31a08e840565cc7" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Bltz0005, Cn_bltz0005
+"ee2260db0ce8f450" = "ShowFourDigits(player, thousandsSlot, panel, hundredsSlot, tensSlot, onesSlot)"  # 4 workers, 108 calls: Bltz0006, Cn_bltz0006
+"04f321b699cba966" = "RollReactionTech"  # 20 workers, 40 calls: Bltz0000, Cn_bltz0000
+"10f3899f15c268c7" = "RollReactionTech"  # 20 workers, 40 calls: Psv_bltz0000, Psvcn_bltz0000
+"0e274de6e5cd5020" = "RollReactionTech"  # 10 workers, 20 calls: Bltz0002
+"bbbf0e11e55c9e13" = { name = "PlayChosenTechByModel", summary = "The motion (unblended) for the model kind, with no chosen tech (rank 0) or by the chosen tech (26-37), with the learners of the tech listed for players 8 and up." }  # 40 workers, 80 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"567f1c371d5e6d57" = { name = "PlayChosenTechByModel", summary = "The motion (unblended) for the model kind, with no chosen tech (rank 0) or by the chosen tech (26-37), with the learners of the tech listed for players 8 and up." }  # 10 workers, 20 calls: Bltz0002
+"a2164ed9f5f6f0d9" = "WinPoseCamera"  # 505 workers, 1515 calls: Azit03_00, Azit03_01, Azit03_02 +502
+"955060435aabb6c7" = "WinPoseCamera"  # 1 workers, 3 calls: Bvyt09_05
+"d6daef33fd7f7e60" = "WinPoseCamera"  # 505 workers, 1515 calls: Azit03_00, Azit03_01, Azit03_02 +502
+"188ba265a6ea4313" = "WinPoseCamera"  # 1 workers, 3 calls: Bvyt09_05
+"6ea16984e5c96cc6" = "ShowStatIcon(stat, slot, player, highlight)"  # 8 workers, 432 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"2d4825abe2c7651a" = "ShowStatIcon(stat, slot, player, highlight)"  # 2 workers, 108 calls: Bltz0002
+"1f8299e4b62dd763" = { name = "PlayShotTechMotion(motion3, motion4, motion, effectY)", summary = "Per chosen shot tech: the request, the tech's sound, motion (unblended) and effect, then the state set to 2 and 3, W24's entry 9 requested and sprite 127 hidden." }  # 40 workers, 480 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"5d5f01502808fdda" = { name = "PlayShotTechMotion(motion3, motion4, motion, effectY)", summary = "Per chosen shot tech: the request, the tech's sound, motion (unblended) and effect, then the state set to 2 and 3, W24's entry 9 requested and sprite 127 hidden." }  # 10 workers, 120 calls: Bltz0002
+"66457db4d04dd268" = "CheckTechCosts(tech50, tech52, tech53, tech54, tech56, tech57)"  # 4 workers, 2832 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"b4e8df85ed2469b2" = { name = "ShowTwoDigits(slot, panel, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite at a panel's position, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 6 workers, 270 calls: Bltz0000, Cn_bltz0000
+"f543cb3603c21aba" = { name = "ShowTwoDigits(slot, panel, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite at a panel's position, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 6 workers, 270 calls: Psv_bltz0000, Psvcn_bltz0000
+"7693ba3c766263b2" = { name = "ShowTwoDigits(slot, panel, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite at a panel's position, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 3 workers, 135 calls: Bltz0002
+"5db80dc59f45d2fe" = "DrawPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 14 calls: Bltz0000
+"2f2069592d2028dc" = "DrawPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 14 calls: Cn_bltz0000
+"75d7edd60c55a165" = "DrawPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 14 calls: Psv_bltz0000
+"7d01fcceaa68e6d8" = "DrawPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 14 calls: Psvcn_bltz0000
+"ad51cbcc9449a8bb" = "DrawPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 14 calls: Bltz0002
+"38e160609551a025" = "WinPoseCameraByActor"  # 29 workers, 87 calls: Bsil03_00, Bsil03_01, Bsil03_02 +26
+"f06a127b272a0309" = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)"  # 40 workers, 2200 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"523e5fda88d84c26" = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)"  # 20 workers, 1050 calls: Bltz0001, Bltz0004
+"b11518c48d7dcce1" = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)"  # 10 workers, 550 calls: Bltz0002
+"f8c35958dcd5c1be" = "ComputePlayerStats"  # 4 workers, 92 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"d8554c7104a625d6" = { name = "ShowStatIcon(stat, slot, player)", summary = "A stat's icon sprite and its value into the shown value, by the stat selector." }  # 8 workers, 432 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"2afe889f86d74463" = { name = "ShowStatIcon(stat, slot, player)", summary = "A stat's icon sprite and its value into the shown value, by the stat selector." }  # 8 workers, 432 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"4c0a0a8163c24600" = "ShowTensDigit(slot, panel, dx)"  # 8 workers, 524 calls: Psv_bltz0005, Psv_bltz0006, Psvcn_bltz0005 +1
+"aea7dd45f2e35740" = "ShowTensDigit(slot, panel, dx)"  # 8 workers, 524 calls: Bltz0005, Bltz0006, Cn_bltz0005 +1
+"7160bf87d841ebe3" = { name = "WaitAndEndTech(frames)", summary = "Per chosen tech (26-37): waits, and for players 8 and up sets the state to 2, waits, to 3, requests W24's entry 9 and hides sprite 127." }  # 44 workers, 448 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"ddcd21597b7d49f1" = { name = "WaitAndEndTech(frames)", summary = "Per chosen tech (26-37): waits, and for players 8 and up sets the state to 2, waits, to 3, requests W24's entry 9 and hides sprite 127." }  # 11 workers, 112 calls: Bltz0002
+"fbc29e0579bb00db" = "GiveTechIfLearned(page1Bit, tech, page2Bit)"  # 4 workers, 1488 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"3f4a65021b2e818d" = "ScoreGoal"  # 2 workers, 12 calls: Bltz0000, Cn_bltz0000
+"0022914b3fb191b4" = "ScoreGoal"  # 2 workers, 12 calls: Psv_bltz0000, Psvcn_bltz0000
+"6f8718d1b79b4e8c" = "ScoreGoal"  # 1 workers, 6 calls: Bltz0002
+"6db45c74fc746feb" = "ShowStatIcon(stat, slot, highlight)"  # 52 workers, 172 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"ef2c6049625c7cbb" = "ShowStatIcon(stat, slot, highlight)"  # 13 workers, 43 calls: Bltz0002
+"3f5d92698d59b959" = { name = "GiveTechIfLearned(page1Bit, tech, page2Bit)", summary = "With a free slot, writes the tech into the player's BlitzballPlayerTechs when its bit is learned (page 1; page 2 is a dead block) and not given yet, and takes its cost from the budget." }  # 4 workers, 1344 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"9f23f9463c503f56" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 40 workers, 520 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"4682bb3f71fe6fb6" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 10 workers, 200 calls: Bltz0004
+"810ffff4f244a012" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 10 workers, 130 calls: Bltz0002
+"cc3125abee696240" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 8 workers, 88 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"37f366765fe69053" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 2 workers, 22 calls: Bltz0004
+"42d7bcf3d4d9ee86" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the entry added, written into message window 6." }  # 2 workers, 22 calls: Bltz0002
+"901662c18b037793" = "SetTechMotionByModel"  # 40 workers, 80 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"753329a14aa35140" = "DrawPanel0"  # 1 workers, 7 calls: Bltz0000
+"381181ca4aa28914" = "DrawPanel0"  # 1 workers, 7 calls: Cn_bltz0000
+"8c8e1286871da5f4" = "DrawPanel0"  # 1 workers, 7 calls: Psv_bltz0000
+"2d27cf556f7cf89e" = "DrawPanel0"  # 1 workers, 7 calls: Psvcn_bltz0000
+"7a41c3af4ffa39f4" = "DrawPanel0"  # 1 workers, 7 calls: Bltz0002
+"e7dea9af44196813" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Psv_bltz0006, Psvcn_bltz0006
+"3d1d69e3ef735273" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Psv_bltz0005, Psvcn_bltz0005
+"d887e7056ede6dec" = "ShowFourDigitsAtPanel0"  # 1 workers, 8 calls: Lchb0806
+"eff75a9ca0d96487" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Bltz0000, Cn_bltz0000
+"a9095e808016c3f8" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Psv_bltz0000, Psvcn_bltz0000
+"2d7cba07df2663df" = "ShowFourDigitsAtPanel0"  # 1 workers, 8 calls: Bltz0004
+"e1d0b933d6f9ef02" = "ShowFourDigitsAtPanel0"  # 1 workers, 9 calls: Bltz0002
+"33f1009f7a9fa14d" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Bltz0005, Cn_bltz0005
+"d15d05183a6dd555" = "ShowFourDigitsAtPanel0"  # 2 workers, 18 calls: Bltz0006, Cn_bltz0006
+"aabbf8729ae72f27" = "SlideInPanel0(stat)"  # 1 workers, 4 calls: Bltz0000
+"da56c7ac419e0da6" = "SlideInPanel0(stat)"  # 1 workers, 4 calls: Cn_bltz0000
+"683697aef2282f76" = "SlideInPanel0(stat)"  # 1 workers, 4 calls: Psv_bltz0000
+"e639e09f3503184c" = "SlideInPanel0(stat)"  # 1 workers, 4 calls: Psvcn_bltz0000
+"d1e36654da2aeaf2" = "SlideInPanel0(stat)"  # 1 workers, 4 calls: Bltz0002
+"3e51c2ef46c06523" = "SlideInPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 4 calls: Bltz0000
+"492abd4b71db342a" = "SlideInPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 4 calls: Cn_bltz0000
+"aa9121c6176d053b" = "SlideInPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 4 calls: Psv_bltz0000
+"5ec1087db08865b9" = "SlideInPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 4 calls: Psvcn_bltz0000
+"d35980eeffe72086" = "SlideInPlayerPanel(stat1, stat2, stat3)"  # 1 workers, 4 calls: Bltz0002
+"b7695960caadcca5" = { name = "HidePlayerPanel", summary = "Closes message window 4 or 5 and hides a column of panel sprites." }  # 52 workers, 632 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"e0409ebf044d6382" = { name = "HidePlayerPanel", summary = "Closes message window 4 or 5 and hides a column of panel sprites." }  # 13 workers, 158 calls: Bltz0002
+"43249b2f717a1abe" = { name = "HidePlayerPanel", summary = "Closes message window 4 or 5 and hides a column of panel sprites." }  # 3 workers, 26 calls: Bltz0004
+"abfe8f033d2b7bad" = "WinPoseCameraByActor"  # 10 workers, 30 calls: Nagi00_20, Nagi00_21, Nagi00_22 +7
+"b1ba8ebfa9101c05" = "ColourAndPlace(slot, panel, dx)"  # 4 workers, 262 calls: Bltz0000, Cn_bltz0000
+"467b3203ff27982b" = "ColourAndPlace(slot, panel, dx)"  # 4 workers, 262 calls: Psv_bltz0000, Psvcn_bltz0000
+"9ecb6d8fb354083d" = "ColourAndPlace(slot, panel, dx)"  # 2 workers, 131 calls: Bltz0002
+"8b6e68f266446913" = "RollBreakOrRequest(allowed)"  # 2 workers, 20 calls: Bltz0000, Cn_bltz0000
+"889ed488abca3395" = "RollBreakOrRequest(allowed)"  # 2 workers, 20 calls: Psv_bltz0000, Psvcn_bltz0000
+"2ef07508b5c8021c" = "RollBreakOrRequest(allowed)"  # 1 workers, 10 calls: Bltz0002
+"3f9347d7f99f20eb" = { name = "SlideInPanel0", summary = "Hides panel 0's sprites, then slides panel 0 in from the right, drawing it each frame." }  # 1 workers, 3 calls: Bltz0000
+"024d49a413bba152" = { name = "SlideInPanel0", summary = "Hides panel 0's sprites, then slides panel 0 in from the right, drawing it each frame." }  # 1 workers, 3 calls: Cn_bltz0000
+"3307164716bd789b" = { name = "SlideInPanel0", summary = "Hides panel 0's sprites, then slides panel 0 in from the right, drawing it each frame." }  # 1 workers, 3 calls: Psv_bltz0000
+"f455521f10a36aa7" = { name = "SlideInPanel0", summary = "Hides panel 0's sprites, then slides panel 0 in from the right, drawing it each frame." }  # 1 workers, 3 calls: Psvcn_bltz0000
+"ba2c2ab4cdf1584e" = { name = "SlideInPanel0", summary = "Hides panel 0's sprites, then slides panel 0 in from the right, drawing it each frame." }  # 1 workers, 3 calls: Bltz0002
+"7f8a48adfae63497" = { name = "SlideInPlayerPanel", summary = "Hides the panel's sprites, then slides the panel in from the right, drawing it each frame." }  # 1 workers, 3 calls: Bltz0000
+"fca40a3e10909f0f" = { name = "SlideInPlayerPanel", summary = "Hides the panel's sprites, then slides the panel in from the right, drawing it each frame." }  # 1 workers, 3 calls: Cn_bltz0000
+"aad641193f24317e" = { name = "SlideInPlayerPanel", summary = "Hides the panel's sprites, then slides the panel in from the right, drawing it each frame." }  # 1 workers, 3 calls: Psv_bltz0000
+"b2d30e5b52fd1f90" = { name = "SlideInPlayerPanel", summary = "Hides the panel's sprites, then slides the panel in from the right, drawing it each frame." }  # 1 workers, 3 calls: Psvcn_bltz0000
+"b2eb151ac793836d" = { name = "SlideInPlayerPanel", summary = "Hides the panel's sprites, then slides the panel in from the right, drawing it each frame." }  # 1 workers, 3 calls: Bltz0002
+"be2dc6ce22b906c2" = "WaitAndEndTech"  # 44 workers, 364 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"0b91a4a79e1350fa" = "WaitAndEndTech"  # 12 workers, 96 calls: Bltz0001
+"a77498507264e50e" = "WaitAndEndTech"  # 11 workers, 88 calls: Bltz0004
+"078e2bd4cbba38ab" = { name = "ShowStatIcon(stat, slot, player)", summary = "A stat's icon sprite (by the stat selector), its value into the shown value and its flag." }  # 2 workers, 88 calls: Bltz0004
+"1c65817e3bf3c9e6" = { name = "ShowStatIcon(stat, slot, player)", summary = "A stat's icon sprite (by the stat selector), its value into the shown value and its flag." }  # 2 workers, 88 calls: Lchb0806
+"7d215c9fb57c4477" = { name = "PlayTechWithEffect(rank, sound, motion, effect, effectY, endEntry)", summary = "The tech: its rank, sound and motion (unblended), the effect bound to the attach bone, the state set to 2 and 3, W24 entry 9 requested and sprite 127 hidden, then W18's entry awaited and the motion and effect ended." }  # 40 workers, 480 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"749406dc97ba2441" = { name = "PlayTechWithEffect(rank, sound, motion, effect, effectY, endEntry)", summary = "The tech: its rank, sound and motion (unblended), the effect bound to the attach bone, the state set to 2 and 3, W24 entry 9 requested and sprite 127 hidden, then W18's entry awaited and the motion and effect ended." }  # 10 workers, 120 calls: Bltz0002
+"5ccd92a7bebf25dd" = "PlayChosenTechByModel"  # 10 workers, 20 calls: Bltz0001
+"4acc543f7c7772c0" = "WaitAndEndPassTech"  # 48 workers, 336 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"1274f525be3cdf04" = "WaitAndEndPassTech"  # 12 workers, 84 calls: Bltz0002
+"19f3341ca215a21a" = "PlayShotTechMotion(motion3, motion, effectY)"  # 10 workers, 120 calls: Bltz0001
+"0f34c99b9d72c46f" = "ScrollListAndAdd(entry)"  # 20 workers, 120 calls: Psv_bltz0006, Psvcn_bltz0006
+"c1ff6ff07bd156e9" = "ScrollListAndAdd(entry)"  # 10 workers, 60 calls: Bltz0005, Cn_bltz0005
+"a853feb67a89618b" = "ScrollListAndAdd(entry)"  # 10 workers, 60 calls: Psv_bltz0005, Psvcn_bltz0005
+"2d8aedbcef5bc3f9" = "ScrollListAndAdd(entry)"  # 20 workers, 120 calls: Bltz0006, Cn_bltz0006
+"bae84589cfde814e" = "ShowPlayerMarker"  # 1 workers, 8 calls: Bltz0000
+"425ac37e48cc5c71" = "ShowPlayerMarker"  # 1 workers, 8 calls: Cn_bltz0000
+"40f0c9b299e6210e" = "ShowPlayerMarker"  # 1 workers, 8 calls: Psv_bltz0000
+"6fa7482dbb2fed74" = "ShowPlayerMarker"  # 1 workers, 8 calls: Psvcn_bltz0000
+"8973f61c28d674b8" = "ShowPlayerMarker"  # 1 workers, 8 calls: Bltz0002
+"04b1e3fd89461129" = "SetPassTechMotion(motion)"  # 48 workers, 384 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"d0c1f4f1e65482c4" = "SetPassTechMotion(motion)"  # 12 workers, 96 calls: Bltz0001
+"e784e4ba7b424ae7" = "SetPassTechMotion(motion)"  # 12 workers, 96 calls: Bltz0002
+"fe46cf3e6d056f42" = "SetTechMotion(motion1, motion2, motion3, motion4)"  # 40 workers, 320 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"81d937bd44cee5ab" = "SetTechMotion(motion1, motion2, motion3, motion4)"  # 10 workers, 80 calls: Bltz0002
+"6ef417deddea7fbf" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 2 workers, 36 calls: Bltz0000, Cn_bltz0000
+"78bc996d55e66507" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 2 workers, 36 calls: Psv_bltz0000, Psvcn_bltz0000
+"03af9463cff73a19" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10 (the tens hidden below 10), coloured by the stat's colour code." }  # 1 workers, 18 calls: Bltz0002
+"725413cb83a7cb9c" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of the shown value / 10 and % 10 (the tens hidden below 10), coloured by the colour code." }  # 22 workers, 44 calls: Bltz0000, Cn_bltz0000
+"7d91f23030d19a5c" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of the shown value / 10 and % 10 (the tens hidden below 10), coloured by the colour code." }  # 22 workers, 44 calls: Psv_bltz0000, Psvcn_bltz0000
+"c8bccac93036c0cf" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of the shown value / 10 and % 10 (the tens hidden below 10), coloured by the colour code." }  # 11 workers, 22 calls: Bltz0002
+"c79d1792317a226e" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Psv_bltz0006
+"6455f8fda4eef388" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Psv_bltz0005
+"3de0da60772dd867" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Psvcn_bltz0005
+"d361b0b17f96f4ed" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Psvcn_bltz0006
+"aaea129c0c28d319" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Bltz0005
+"86fd5ba3ece98573" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Bltz0006
+"4687a36ab06b9a49" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Cn_bltz0006
+"71c0763b0132e960" = { name = "DrawPanel0(deadX, stat1, stat2)", summary = "Panel 0: the four-digit value and the stat icons with their values (its x is a dead block)." }  # 1 workers, 3 calls: Cn_bltz0005
+"a114e8846822242a" = "PlayChosenTechByModel"  # 10 workers, 20 calls: Bltz0004
+"741ab94715e5c171" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0000
+"80eec21c95196d5f" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Cn_bltz0000
+"765d23719c6f4189" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psv_bltz0000
+"10ec13f5dc21e9a2" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psvcn_bltz0000
+"be926eb2ae1c7d1e" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0002
+"bc70b2634d41b2c0" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0000
+"170c05d558929fbd" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Cn_bltz0000
+"3008dab77ccdf6cd" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psv_bltz0000
+"16eb1c32ebeada6c" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psvcn_bltz0000
+"605d1f4d976f8edc" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0002
+"7cb7cf1caa467d8e" = "ShowFourDigitsAtPanel0"  # 2 workers, 4 calls: Psv_bltz0006, Psvcn_bltz0006
+"8e3e04f533da4049" = "ShowFourDigitsAtPanel0"  # 2 workers, 4 calls: Psv_bltz0005, Psvcn_bltz0005
+"715df2b3ecb7ed79" = "ShowFourDigitsAtPanel0"  # 1 workers, 2 calls: Lchb0806
+"dbc28e695f9560dc" = "ShowFourDigitsAtPanel0"  # 2 workers, 16 calls: Bltz0000, Cn_bltz0000
+"83d85b067df7a7d5" = "ShowFourDigitsAtPanel0"  # 2 workers, 16 calls: Psv_bltz0000, Psvcn_bltz0000
+"cd1723c93308cf70" = "ShowFourDigitsAtPanel0"  # 1 workers, 6 calls: Bltz0002
+"00b25340c8ac24db" = "ShowFourDigitsAtPanel0"  # 1 workers, 4 calls: Bltz0004
+"5a30f1e34212d7b0" = "ShowFourDigitsAtPanel0"  # 2 workers, 4 calls: Bltz0006, Cn_bltz0006
+"2d5f8d30df289be6" = "ShowFourDigitsAtPanel0"  # 2 workers, 4 calls: Bltz0005, Cn_bltz0005
+"17d41f3b01729c54" = "ListPlayersForTech"  # 40 workers, 320 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"3d29113049436c2b" = "ListPlayersForTech"  # 10 workers, 80 calls: Bltz0002
+"f2028a9f8adef846" = "PlayShotTechMotion(motion, effectY)"  # 10 workers, 120 calls: Bltz0004
+"a4bb00cc15c4622f" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Psv_bltz0005
+"5e78bd3f61690877" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Psv_bltz0006
+"ef953d8f3f58e8a0" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Psvcn_bltz0005
+"4e0b18c57f23def1" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Psvcn_bltz0006
+"399032dc26b8944a" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Bltz0005
+"75b13c754a6cde0d" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Bltz0006
+"cf717c33dfa5e1f4" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Cn_bltz0005
+"ee89e1d6bb6e59b7" = { name = "ShowPlayerMarker", summary = "The marker sprites of panel 0 (cyan by the player), after a dead block of the stat display." }  # 1 workers, 8 calls: Cn_bltz0006
+"68e4c8feb7508ee2" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psv_bltz0005
+"46816fc830fdbc6b" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psv_bltz0006
+"9e7b5651445798d3" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psvcn_bltz0005
+"2c0d765b10bc5edf" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Psvcn_bltz0006
+"c2777881ab76cdbc" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0006
+"b91050229fc2eb2c" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Bltz0005
+"75c289c595a7ad2f" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Cn_bltz0005
+"73b4a671469d66ac" = "DrawPlayerPanelOf(player)"  # 1 workers, 2 calls: Cn_bltz0006
+"d200aaf3c456349e" = "WriteList(entry)"  # 4 workers, 44 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"2c0c634b16e8f25e" = "WriteList(entry)"  # 4 workers, 364 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"4f48c0d925f268c5" = "WriteList(entry)"  # 4 workers, 44 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"f0fca5f613df86c4" = "WriteList(entry)"  # 1 workers, 91 calls: Bltz0002
+"a5c15e2527bb1b90" = "WriteList(entry)"  # 1 workers, 48 calls: Bltz0004
+"a0373f341e3d755b" = "WriteList(entry)"  # 1 workers, 16 calls: Lchb0806
+"f3da152c44c72077" = "PlayMotionAndWaitW18(motion)"  # 50 workers, 1000 calls: Bltz0000, Bltz0002, Cn_bltz0000 +2
+"f23642222603e119" = "PlayMotionAndWaitW18(motion)"  # 10 workers, 160 calls: Bltz0001
+"a75a1fb09dfd081a" = { name = "ShowTensDigit(slot, panel, dx)", summary = "The digit sprite of a value / 10, scaled, coloured by its flag and placed at the panel." }  # 3 workers, 113 calls: Lchb0806
+"85668cfec641b223" = { name = "ShowTensDigit(slot, panel, dx)", summary = "The digit sprite of a value / 10, scaled, coloured by its flag and placed at the panel." }  # 2 workers, 101 calls: Bltz0004
+"5ab362a3775673ea" = "ShowStatDigits"  # 2 workers, 4 calls: Psv_bltz0005, Psv_bltz0006
+"ca89207a553dfe25" = "ShowStatDigits"  # 1 workers, 2 calls: Lchb0806
+"7f1790eb94c2f375" = "ShowStatDigits"  # 2 workers, 4 calls: Psvcn_bltz0005, Psvcn_bltz0006
+"0128f90683f92e67" = "ShowStatDigits"  # 1 workers, 2 calls: Bltz0000
+"4030051ce404c95d" = "ShowStatDigits"  # 1 workers, 2 calls: Cn_bltz0000
+"bf7a33fa1ced0f96" = "ShowStatDigits"  # 1 workers, 2 calls: Psv_bltz0000
+"3ac79c3414976d19" = "ShowStatDigits"  # 1 workers, 2 calls: Psvcn_bltz0000
+"05a5e15389ae91c6" = "ShowStatDigits"  # 1 workers, 2 calls: Bltz0002
+"be4061ee4894acc2" = "ShowStatDigits"  # 1 workers, 2 calls: Bltz0001
+"8525a109b3f9e37f" = "ShowStatDigits"  # 1 workers, 2 calls: Bltz0004
+"1b821717c57e3c59" = "ShowStatDigits"  # 2 workers, 4 calls: Bltz0005, Bltz0006
+"d4a013c92ac41a0f" = "ShowStatDigits"  # 2 workers, 4 calls: Cn_bltz0005, Cn_bltz0006
+"91e8340633ca2cc3" = "FaceAndPlayShotMotion"  # 20 workers, 40 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"c20203387312e5ef" = "FaceAndPlayShotMotion"  # 20 workers, 40 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"fcff2735c4b8b5f8" = "FaceAndPlayShotMotion"  # 20 workers, 40 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"a33444e576fca048" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 6 workers, 16 calls: Bltz0000, Cn_bltz0000
+"d2a5f4abcf8d572a" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 2 workers, 8 calls: Bltz0000, Cn_bltz0000
+"22bd943d30bb5dea" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 6 workers, 16 calls: Psv_bltz0000, Psvcn_bltz0000
+"eb46534aa17a763e" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 2 workers, 8 calls: Psv_bltz0000, Psvcn_bltz0000
+"6e36c114559f3cbc" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 3 workers, 8 calls: Bltz0002
+"5be8ca814c65f93e" = { name = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot)", summary = "Scales and places a stat's sprite, then the digit sprites of V108 / 10 and V108 % 10, coloured by the stat's colour code." }  # 1 workers, 4 calls: Bltz0002
+"ee55d281dc602f1f" = "PlayStreamWithSubtitle(stream, subtitle)"  # 25 workers, 530 calls: Bsil05_00, Bsil05_01, Bsil05_02 +22
+"f37325fc3d4e6478" = "ShowPlayerRow"  # 2 workers, 8 calls: Bltz0201, Cn_bltz0201
+"33b4166a72c80343" = "ShowPlayerRow"  # 2 workers, 8 calls: Psv_bltz0201, Psvcn_bltz0201
+"892684b92f80bb14" = { name = "WaitAndEndTech", summary = "Per chosen tech (26-37): waits, sets the state to 2, waits, to 3 and hides sprite 127." }  # 11 workers, 112 calls: Bltz0001
+"6834c9c53c6ad3e0" = { name = "WaitAndEndTech", summary = "Per chosen tech (26-37): waits, sets the state to 2, waits, to 3 and hides sprite 127." }  # 12 workers, 96 calls: Bltz0004
+"9076375c6c677a77" = { name = "OpenNameWindow(player)", summary = "The player's name (MacroDicText 26) in message window 4 or 5, opened at the panel." }  # 10 workers, 120 calls: Bltz0000
+"01c1c282aab9ea2a" = { name = "OpenNameWindow(player)", summary = "The player's name (MacroDicText 26) in message window 4 or 5, opened at the panel." }  # 10 workers, 120 calls: Cn_bltz0000
+"795a7a7149f47fe8" = { name = "OpenNameWindow(player)", summary = "The player's name (MacroDicText 26) in message window 4 or 5, opened at the panel." }  # 10 workers, 120 calls: Psv_bltz0000
+"2ba16be50efa2253" = { name = "OpenNameWindow(player)", summary = "The player's name (MacroDicText 26) in message window 4 or 5, opened at the panel." }  # 10 workers, 120 calls: Psvcn_bltz0000
+"2632087cf371f828" = { name = "OpenNameWindow(player)", summary = "The player's name (MacroDicText 26) in message window 4 or 5, opened at the panel." }  # 10 workers, 120 calls: Bltz0002
+"8fdffc7ec01ebbe6" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite and its value into the shown value, by the stat selector." }  # 4 workers, 76 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"71046920fb6b0d9b" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite and its value into the shown value, by the stat selector." }  # 4 workers, 76 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"7ce28faa1557d9d0" = "ShowStatDigits"  # 2 workers, 6 calls: Psv_bltz0005, Psv_bltz0006
+"9498f781a8b6be31" = "ShowStatDigits"  # 1 workers, 3 calls: Lchb0806
+"db97399c1a01d8ce" = "ShowStatDigits"  # 2 workers, 6 calls: Psvcn_bltz0005, Psvcn_bltz0006
+"a2eb6e01ee5af2e7" = "ShowStatDigits"  # 2 workers, 6 calls: Bltz0005, Bltz0006
+"108e33718e382d5e" = "ShowStatDigits"  # 2 workers, 6 calls: Cn_bltz0005, Cn_bltz0006
+"2542c0b0dd07f128" = { name = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)", summary = "Stores the model kind, ChrLoadAlias, then the automatic motions 16, 18 and 19 (a dead second motion 16)." }  # 8 workers, 440 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"eb0d415d9000f2a5" = { name = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)", summary = "Stores the model kind, ChrLoadAlias, then the automatic motions 16, 18 and 19 (a dead second motion 16)." }  # 4 workers, 210 calls: Bltz0001, Bltz0004
+"541e49204559bd7b" = { name = "LoadAliasAutoMotions(kind, alias, motion16, deadMotion16, motion18And19)", summary = "Stores the model kind, ChrLoadAlias, then the automatic motions 16, 18 and 19 (a dead second motion 16)." }  # 2 workers, 110 calls: Bltz0002
+"fa5e5609c5604ac3" = "ComputePlayerStats"  # 4 workers, 12 calls: Bltz0200, Cn_bltz0200, Psv_bltz0200 +1
+"acec2ec2e0b3eed0" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite (by the stat selector, 1-8), its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches the stat." }  # 4 workers, 12 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"ab09b248eb0e6e94" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite (by the stat selector, 1-8), its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches the stat." }  # 1 workers, 3 calls: Bltz0002
+"fe3374cf1297fe1d" = "WaitForMotionFrame(frame)"  # 3 workers, 112 calls: Kino0200, Kino0500, Mcfr1100
+"cfa5d025f0bed6f0" = "WaitForMotionFrame(frame)"  # 2 workers, 77 calls: Kami0200, Znkd0800
+"181a30a27b1cf299" = "WaitForMotionFrame(frame)"  # 1 workers, 73 calls: Slik0200
+"4ccd46dedc0920f9" = "WaitForMotionFrame(frame)"  # 1 workers, 28 calls: Swin0000
+"d74246bcef9c4443" = "WaitForMotionFrame(frame)"  # 1 workers, 146 calls: Mcfr1200
+"a1971860e7990c47" = "WaitForMotionFrame(frame)"  # 1 workers, 74 calls: Kami0300
+"acefc1b482589898" = "WaitForMotionFrame(frame)"  # 1 workers, 39 calls: Znkd0801
+"7f540ea507fc6c85" = "WaitForMotionFrame(frame)"  # 1 workers, 96 calls: Mihn0100
+"b278ea810933e060" = "WaitForMotionFrame(frame)"  # 1 workers, 33 calls: Swin0200
+"281809aa5501929c" = "WaitForMotionFrame(frame)"  # 1 workers, 30 calls: Znkd1000
+"37eeba2b61937033" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Psv_bltz0006
+"3be9f04f58a0434e" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Psv_bltz0005
+"9ce596b6fc47e62e" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Psvcn_bltz0006
+"a16c52111b9b2d9e" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Psvcn_bltz0005
+"563c3f2e12a94ec9" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Bltz0006
+"b5f7500cbf9fbdd2" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Bltz0005
+"be677e9454d0ebcd" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Cn_bltz0005
+"1ef488581092b7b1" = { name = "OpenNameWindow(panel, player)", summary = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened above the panel." }  # 1 workers, 49 calls: Cn_bltz0006
+"2872aba7c85074cb" = "ShowStatIconOfListed(stat, slot, highlight)"  # 12 workers, 32 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"28188859563e0ca6" = "ShowStatIconOfListed(stat, slot, highlight)"  # 3 workers, 8 calls: Bltz0002
+"cd8d04714defba86" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two (with a request to W15), the player and the entry added, written into message window 6." }  # 10 workers, 215 calls: Lchb0806
+"26047d61ebb36029" = "FocusCameraOnPlayer"  # 4 workers, 28 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"9a7c5d82e148cfcc" = "FocusCameraOnPlayer"  # 4 workers, 28 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"7e12b0fe4bd64036" = "FocusCameraOnPlayer"  # 1 workers, 9 calls: Lchb0806
+"11d3a88df94d8752" = "FocusCameraOnPlayer"  # 1 workers, 7 calls: Bltz0001
+"1b231fa1729f6661" = "FocusCameraOnPlayer"  # 1 workers, 7 calls: Bltz0004
+"03d7a404b9a98fd6" = "ScrollList"  # 1 workers, 25 calls: Test39
+"546960da29d98977" = "ScrollList"  # 1 workers, 16 calls: Lchb0806
+"3e7e341e7ce385fe" = "ScrollList"  # 4 workers, 364 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"3722978502d87152" = "ScrollList"  # 1 workers, 48 calls: Bltz0004
+"00ae9c67cf287651" = "ScrollList"  # 1 workers, 91 calls: Bltz0002
+"270c25246f4bfd13" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the player and the entry added, written into message window 6." }  # 2 workers, 38 calls: Psv_bltz0006, Psvcn_bltz0006
+"dc8084bef7eb5186" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the player and the entry added, written into message window 6." }  # 2 workers, 38 calls: Bltz0005, Cn_bltz0005
+"27fe1bf7187d09e3" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the player and the entry added, written into message window 6." }  # 2 workers, 38 calls: Psv_bltz0005, Psvcn_bltz0005
+"1bc33b024bdcc152" = { name = "ScrollListAndAdd(entry)", summary = "The ten-entry list scrolled up by two, the player and the entry added, written into message window 6." }  # 2 workers, 38 calls: Bltz0006, Cn_bltz0006
+"d16d183f8909a393" = "MoveBesideTidus"  # 24 workers, 144 calls: Znkd1300
+"29de42876acd9036" = "AverageTeamLevels(row, column)"  # 4 workers, 40 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"c35d2a5e3181211f" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 8 workers, 28 calls: Psv_bltz0005, Psv_bltz0006, Psvcn_bltz0005 +1
+"c2764a39a8fc4913" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 8 workers, 28 calls: Bltz0005, Bltz0006, Cn_bltz0005 +1
+"76a3d2bc3f6f2681" = { name = "PlayChosenTechByModel", summary = "The motion for the model kind, with no chosen tech or by the chosen tech." }  # 20 workers, 40 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"62652e4b3aee5c5b" = "ShowStatDigits"  # 1 workers, 3 calls: Bltz0000
+"3c520a3cc855abe3" = "ShowStatDigits"  # 1 workers, 3 calls: Cn_bltz0000
+"c56da492dcf965f4" = "ShowStatDigits"  # 1 workers, 3 calls: Psv_bltz0000
+"cded2681bdbd2051" = "ShowStatDigits"  # 1 workers, 3 calls: Psvcn_bltz0000
+"724d9f91430eb092" = "ShowStatDigits"  # 1 workers, 3 calls: Bltz0002
+"67505586c667f916" = "ShowStatDigits"  # 1 workers, 3 calls: Bltz0004
+"897042e8a6661390" = "ApplyPassTech"  # 2 workers, 24 calls: Bltz0000, Cn_bltz0000
+"6fe806322690840d" = "ApplyShotTech"  # 2 workers, 24 calls: Bltz0000, Cn_bltz0000
+"18faaacce19511ab" = "ApplyPassTech"  # 2 workers, 24 calls: Psv_bltz0000, Psvcn_bltz0000
+"cd7da5d02b5e5dc6" = "ApplyShotTech"  # 2 workers, 24 calls: Psv_bltz0000, Psvcn_bltz0000
+"8b3893b76b2f1234" = { name = "ApplyChosenTech", summary = "Without a chosen tech, shows the action (players 8 and up), takes the player's cost and sets the value from the stat; with one, takes the tech's cost and adds its power to the stat (at most 99)." }  # 1 workers, 12 calls: Bltz0002
+"d5a86b1ec739d405" = { name = "ApplyChosenTech", summary = "Without a chosen tech, shows the action (players 8 and up), takes the player's cost and sets the value from the stat; with one, takes the tech's cost and adds its power to the stat (at most 99)." }  # 1 workers, 12 calls: Bltz0002
+"33462009956609f6" = "SayVoicedWithAutoTalk(voice, text, speaker)"  # 7 workers, 232 calls: Kami0100, Slik0400, Slik0800 +4
+"79b5fa1b85d2b5c2" = "PlayMotionSet"  # 3 workers, 9 calls: Znkd1300
+"dbe3119d795a26d6" = "PlayMotionSet"  # 2 workers, 7 calls: Znkd1300
+"f01c13178fdb54ba" = "PlayMotionSet"  # 1 workers, 3 calls: Znkd1300
+"5d12847ba11c5dd3" = "PlayMotionSet"  # 1 workers, 3 calls: Znkd1300
+"78a05b72033a5346" = "PlayMotionSet"  # 3 workers, 9 calls: Znkd1300
+"eec2963dd1649fbf" = "PlayMotionSet"  # 3 workers, 9 calls: Znkd1300
+"2bf654e5f9c24580" = "PlayMotionSet"  # 3 workers, 9 calls: Znkd1300
+"c76fddce87be2ebd" = "PlayMotionSet"  # 1 workers, 3 calls: Znkd1300
+"3605d7eb7d06dd55" = "PlayMotionSet"  # 2 workers, 6 calls: Znkd1300
+"1c98af54c2291b66" = "OpenNameWindow(panel, player)"  # 1 workers, 44 calls: Bltz0000
+"1272acfe0dfd49b8" = "OpenNameWindow(panel, player)"  # 1 workers, 44 calls: Cn_bltz0000
+"fdabec3f13823c1a" = "OpenNameWindow(panel, player)"  # 1 workers, 44 calls: Psv_bltz0000
+"04cf602fdd50ee0c" = "OpenNameWindow(panel, player)"  # 1 workers, 44 calls: Psvcn_bltz0000
+"8e462bcb79ff5cf1" = "OpenNameWindow(panel, player)"  # 1 workers, 44 calls: Bltz0002
+"7d94bfed9e0f402d" = "OpenNameWindow(panel, player)"  # 1 workers, 34 calls: Bltz0004
+"625b4b96f9e48fca" = "SortPlayersByDistance"  # 4 workers, 16 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"4d57a7376ca8e96c" = "SortPlayersByDistance"  # 1 workers, 4 calls: Bltz0002
+"987eacf41e419b64" = "ShowScoreboard(effect)"  # 2 workers, 4 calls: Bltz0000, Cn_bltz0000
+"3fb2218419c2ada1" = "ShowScoreboard(effect)"  # 2 workers, 4 calls: Psv_bltz0000, Psvcn_bltz0000
+"d37b07c5766d0063" = "ShowScoreboard(effect)"  # 1 workers, 2 calls: Bltz0002
+"46b55beaff73a64e" = "ShowScoreboard(effect)"  # 1 workers, 2 calls: Bltz0004
+"80516368316b1de9" = "ShowMapPartsByFlags"  # 4 workers, 24 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"c8bc605fe0de779b" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite (by the stat selector, 1-8), its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches the stat." }  # 4 workers, 20 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"b63b385bb4931b65" = { name = "ShowStatIcon(stat, slot)", summary = "A stat's icon sprite (by the stat selector, 1-8), its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches the stat." }  # 1 workers, 5 calls: Bltz0002
+"7a7024b88622d2e8" = { name = "PlayChosenTechByModel", summary = "The motion for the model kind, with no chosen tech or by the chosen tech." }  # 10 workers, 20 calls: Lchb0806
+"85665f645ba615d9" = { name = "FocusCameraOnPlayer", summary = "The camera cut to the player's worker (its position kept), then the player panels' message windows and sprites closed." }  # 4 workers, 40 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"d359f8e8d9df2c67" = { name = "FocusCameraOnPlayer", summary = "The camera cut to the player's worker (its position kept), then the player panels' message windows and sprites closed." }  # 1 workers, 10 calls: Bltz0002
+"be378c2025a672d1" = "RequestAndRollReactionTech(priority, worker, entry)"  # 10 workers, 20 calls: Bltz0001
+"9b076f970b0ec520" = "ToggleListWindow"  # 2 workers, 142 calls: Bltz0000, Cn_bltz0000
+"24df09203ea8e388" = "ToggleListWindow"  # 2 workers, 142 calls: Psv_bltz0000, Psvcn_bltz0000
+"0c440daccc8b78d3" = "ToggleListWindow"  # 1 workers, 64 calls: Bltz0002
+"730742eafd339d2e" = "ToggleListWindow"  # 1 workers, 42 calls: Bltz0004
+"45108d017d749519" = { name = "ShowPlayerMarker", summary = "The marker sprites of the player in the loop (cyan for players 8 and up), after a dead block of the stat display." }  # 1 workers, 2 calls: Bltz0000
+"2f94ff65e8b9a47c" = { name = "ShowPlayerMarker", summary = "The marker sprites of the player in the loop (cyan for players 8 and up), after a dead block of the stat display." }  # 1 workers, 2 calls: Cn_bltz0000
+"6e04affb5a7bd836" = { name = "ShowPlayerMarker", summary = "The marker sprites of the player in the loop (cyan for players 8 and up), after a dead block of the stat display." }  # 1 workers, 2 calls: Psv_bltz0000
+"c15de1681b46680c" = { name = "ShowPlayerMarker", summary = "The marker sprites of the player in the loop (cyan for players 8 and up), after a dead block of the stat display." }  # 1 workers, 2 calls: Psvcn_bltz0000
+"cf54caf2bf531a99" = { name = "ShowPlayerMarker", summary = "The marker sprites of the player in the loop (cyan for players 8 and up), after a dead block of the stat display." }  # 1 workers, 2 calls: Bltz0002
+"7da77dbe642cd1ca" = "CountWorkersWithin(worker1, radius1, worker2, radius2, worker3, radius3)"  # 16 workers, 144 calls: Sins0500
+"bafe11e3382a9c5e" = "CountWorkersWithin(worker1, radius1, worker2, radius2, worker3, radius3)"  # 1 workers, 9 calls: Sins0500
+"cbae30343d907c1f" = "CountWorkersWithin(worker1, radius1, worker2, radius2, worker3, radius3)"  # 1 workers, 9 calls: Sins0500
+"ac3053ac85c23845" = "SetByVoiceEvent(withEvent, value, withoutEvent)"  # 7 workers, 291 calls: System_01
+"6b7c8556e419313d" = "PlayTechWithEffect(rank, motion, effect, effectY, endEntry)"  # 10 workers, 150 calls: Bltz0001
+"a616856471c308b3" = "SetMapParts"  # 4 workers, 16 calls: Bltz0200, Cn_bltz0200, Psv_bltz0200 +1
+"650e5d8b98adacab" = { name = "ShowFourDigits", summary = "A four-digit value as digit sprites at x 300-330 (leading zeros hidden)." }  # 5 workers, 10 calls: Test39
+"c122ad85dbf14135" = { name = "ShowFourDigits", summary = "A four-digit value as digit sprites at x 300-330 (leading zeros hidden)." }  # 2 workers, 6 calls: Test39
+"e4098ac49cf6bb67" = { name = "SetTechMotion(motion)", summary = "Per chosen tech (16-25): its rank (1-4) and the motion, unblended." }  # 12 workers, 96 calls: Bltz0004
+"8dbffef313028e3a" = "RandomOffsets"  # 2 workers, 16 calls: Scene4, Scene6
+"a7af632eba4dc113" = "RandomOffsets"  # 2 workers, 16 calls: Scene4, Scene6
+"065724139b38236f" = "RandomOffsets"  # 2 workers, 16 calls: Scene4, Scene6
+"9acca9d25f093234" = "RandomOffsets"  # 2 workers, 16 calls: Scene4, Scene6
+"1f90ae095d0ef743" = "PlayTechWithEffect(rank, motion, effect, effectY, endEntry)"  # 10 workers, 150 calls: Bltz0004
+"cbd081c47e3407c2" = "ApplyChosenTech"  # 4 workers, 24 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"99fd3d99ce3ab7bf" = "ApplyChosenTech"  # 4 workers, 24 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"b3ae2c9b0c0dc509" = "ApplyChosenTech"  # 4 workers, 24 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"741748ae7b37fca3" = "ApplyChosenTech"  # 4 workers, 24 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"96d2ebcc0d914c41" = "FaceAndPlayShotMotion"  # 5 workers, 10 calls: Lchb0806
+"599e8c46a1423726" = "FaceAndPlayShotMotion"  # 5 workers, 10 calls: Lchb0806
+"199cd3396ab47743" = { name = "SetTechMotion(motion1, motion2, motion3, motion4)", summary = "Per chosen tech (26-37): its rank and the motion, unblended." }  # 10 workers, 80 calls: Bltz0001
+"88f04123304454ed" = "FindTechAndListLearners(tech1, tech2)"  # 10 workers, 50 calls: Bltz0004
+"4e5d72eae8ebc8e2" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 2 workers, 6 calls: Psv_bltz0005, Psvcn_bltz0005
+"7c0983be495fdcbc" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 2 workers, 6 calls: Psv_bltz0006, Psvcn_bltz0006
+"61f55f640941730d" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 2 workers, 6 calls: Bltz0005, Cn_bltz0005
+"898ae68bf685966c" = "ShowTwoDigits(slot, dx, tensSlot, tensDx, onesSlot, onesDx)"  # 2 workers, 6 calls: Bltz0006, Cn_bltz0006
+"d76b3f20e9d6f44d" = "SetMotionByModel(motion0, motion1, motion2)"  # 8 workers, 128 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"372cddeba6ba758a" = "SetMotionByModel(motion0, motion1, motion2)"  # 2 workers, 32 calls: Bltz0002
+"4fc44363b7162e8a" = "SetMinimapMarkers(first, last, ownMarker, otherMarker)"  # 4 workers, 96 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"4e3a45d443c5ef1c" = "SetMinimapMarkers(first, last, ownMarker, otherMarker)"  # 1 workers, 18 calls: Bltz0004
+"6642e6082bd53164" = "SetMinimapMarkers(first, last, ownMarker, otherMarker)"  # 1 workers, 24 calls: Bltz0002
+"aa43a229f7b072d0" = "CheckMonsterCaptures(needed, monster, flagIndex, flagBit)"  # 2 workers, 54 calls: Full_nagi0700, Nagi0700
+"6d0e635aab4ee6fa" = "ShowFourDigitsOfListed"  # 2 workers, 4 calls: Bltz0000, Cn_bltz0000
+"54ef011060af01df" = "ShowFourDigitsOfListed"  # 2 workers, 4 calls: Psv_bltz0000, Psvcn_bltz0000
+"96f8d00d15ec632f" = "ShowFourDigitsOfListed"  # 1 workers, 2 calls: Bltz0002
+"2a41c5ca0536bdcc" = "ShowFourDigitsOfPlayer"  # 2 workers, 4 calls: Bltz0000, Cn_bltz0000
+"04038665b161ef83" = "ShowFourDigitsOfPlayer"  # 2 workers, 4 calls: Psv_bltz0000, Psvcn_bltz0000
+"d9639c7ecbfec915" = "ShowFourDigitsOfPlayer"  # 1 workers, 2 calls: Bltz0002
+"a8319ebda20c7110" = "ListPlayersForTechAndSignal(frames, frames2)"  # 4 workers, 40 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"8c1892fef0e88428" = "ListPlayersForTechAndSignal(frames, frames2)"  # 1 workers, 10 calls: Bltz0002
+"ddca644b40d32604" = { name = "SetTechMotion(motion1, motion2, motion3)", summary = "Per chosen tech (31-39): its rank (1-3) and the motion, unblended." }  # 10 workers, 80 calls: Bltz0004
+"d74c1c07c3b35896" = { name = "ShowFourDigits", summary = "A four-digit value as digit sprites at x 300-330 (leading zeros hidden)." }  # 5 workers, 10 calls: Test39
+"0f60a0be47c6c46f" = "HidePlayerPanel"  # 4 workers, 36 calls: Psv_bltz0005, Psv_bltz0006, Psvcn_bltz0005 +1
+"cddac72fe11e27d6" = "HidePlayerPanel"  # 4 workers, 36 calls: Bltz0005, Bltz0006, Cn_bltz0005 +1
+"8f31d353d169df97" = "ClearUncoveredTechs(player1, player2, player3, player4, player5, player6)"  # 1 workers, 130 calls: Test21
+"e33224e5aee5a88b" = "ResetPlayerTechStats"  # 4 workers, 8 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"6e3d4c208a641870" = "ListTechsIfAffordable(tech, tech2)"  # 4 workers, 56 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"28c049630195c5aa" = "ListTechsIfAffordable(tech, tech2)"  # 1 workers, 14 calls: Bltz0002
+"48018d0f55aee92c" = "RandomizeLevelAndStats"  # 4 workers, 20 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"5a6a872a386c0ac3" = "MoveToWithPitch(x, y, z)"  # 5 workers, 165 calls: Bltz0000, Bltz0002, Cn_bltz0000 +2
+"e35d8b629a7f9fae" = "ShowStatIcon(stat, slot, highlight)"  # 4 workers, 8 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"a8a27b16dcebdd41" = "ShowStatIcon(stat, slot, highlight)"  # 1 workers, 2 calls: Bltz0002
+"62b2d1bfd5f59a9f" = "PlayVoiceSkippable(voice)"  # 9 workers, 84 calls: Bvyt0000, Bvyt0600, Genk0600 +6
+"6a706c7ca0aeaa53" = "SlideMarkerTo(x, frames, y)"  # 2 workers, 44 calls: Bltz0005, Cn_bltz0005
+"6333dea2faae842e" = "SlideMarkerTo(x, frames, y)"  # 2 workers, 44 calls: Psv_bltz0005, Psvcn_bltz0005
+"b1f009f77ffde3fe" = "ColourAndPlace(slot, dx)"  # 2 workers, 10 calls: Bltz0000, Cn_bltz0000
+"be78e5911ee73e7c" = "ColourAndPlace(slot, dx)"  # 2 workers, 10 calls: Bltz0000, Cn_bltz0000
+"9ee215d77f7e7607" = "ColourAndPlace(slot, dx)"  # 2 workers, 10 calls: Psv_bltz0000, Psvcn_bltz0000
+"4548eb980f03d595" = "ColourAndPlace(slot, dx)"  # 2 workers, 10 calls: Psv_bltz0000, Psvcn_bltz0000
+"6b64d28482b7297d" = "ColourAndPlace(slot, dx)"  # 1 workers, 5 calls: Bltz0002
+"1dd7b631141cc7ca" = "ColourAndPlace(slot, dx)"  # 1 workers, 5 calls: Bltz0002
+"01fa1814266a6d8a" = { name = "ShowFourDigitsAtPanel0", summary = "Player 0's four-digit value as digit sprites at panel 0 (leading zeros hidden), violet while its flag array is set." }  # 2 workers, 4 calls: Psv_bltz0006, Psvcn_bltz0006
+"a2921e832f8d15a4" = { name = "ShowFourDigitsAtPanel0", summary = "Player 0's four-digit value as digit sprites at panel 0 (leading zeros hidden), violet while its flag array is set." }  # 2 workers, 4 calls: Bltz0006, Cn_bltz0006
+"29a4f050057d4e67" = "ListTechIfAffordable(tech)"  # 4 workers, 72 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"1a93ce50188cf311" = "ListTechIfAffordable(tech)"  # 1 workers, 18 calls: Bltz0002
+"658a3a3231587ccc" = "ListTechIfAffordable(tech)"  # 1 workers, 14 calls: Bltz0004
+"3acde470539ddabe" = "ListTechIfAffordable(tech)"  # 1 workers, 12 calls: Bltz0001
+"556e851cccb3a49d" = { name = "HidePlayerPanel", summary = "Hides a column of panel sprites (the message window close is dead)." }  # 4 workers, 36 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"b9bb1d1848706906" = { name = "HidePlayerPanel", summary = "Hides a column of panel sprites (the message window close is dead)." }  # 1 workers, 9 calls: Bltz0002
+"738ab4358cabde8d" = "ClearList"  # 4 workers, 24 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"ee20c76ac8279838" = "ClearList"  # 4 workers, 24 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+"dfd0ff0181c2b005" = { name = "SetMinimapMarkers(first, last, ownMarker, otherMarker)", summary = "The minimap marker of players first to last - 1: 512 while flagged, the own marker for the current player, else the other marker." }  # 4 workers, 72 calls: Bltz0006, Cn_bltz0006, Psv_bltz0006 +1
+"dc13be08b9ee6800" = "SayWithVoiceSkippable(voice, text)"  # 1 workers, 62 calls: Testpub2
+"08a47ae28eeb5f59" = { name = "OpenNameWindow", summary = "Panel position set; the name window is a dead block." }  # 1 workers, 9 calls: Bltz0000
+"e91807f359e7a5b1" = { name = "OpenNameWindow", summary = "Panel position set; the name window is a dead block." }  # 1 workers, 9 calls: Cn_bltz0000
+"db21ae8d201f282d" = { name = "OpenNameWindow", summary = "Panel position set; the name window is a dead block." }  # 1 workers, 9 calls: Psv_bltz0000
+"b919db4f2531a5ae" = { name = "OpenNameWindow", summary = "Panel position set; the name window is a dead block." }  # 1 workers, 9 calls: Psvcn_bltz0000
+"6476106aab47d0e4" = { name = "OpenNameWindow", summary = "Panel position set; the name window is a dead block." }  # 1 workers, 9 calls: Bltz0002
+"b956572b3e9c9678" = { name = "ColourAndPlace", summary = "Scales and colours a sprite by the colour code (0-5), then places it." }  # 2 workers, 12 calls: Bltz0000, Cn_bltz0000
+"6236e0303b403c85" = { name = "ColourAndPlace", summary = "Scales and colours a sprite by the colour code (0-5), then places it." }  # 2 workers, 12 calls: Psv_bltz0000, Psvcn_bltz0000
+"da2c5b7da4c1bfe3" = { name = "ColourAndPlace", summary = "Scales and colours a sprite by the colour code (0-5), then places it." }  # 1 workers, 6 calls: Bltz0002
+"1f79241b81753395" = "CountDownContract"  # 2 workers, 6 calls: Bltz0201, Cn_bltz0201
+"908a145794a89eb9" = "CountDownContract"  # 2 workers, 6 calls: Psv_bltz0201, Psvcn_bltz0201
+"ba66af90fdcb14d3" = "SetCameraPolarBySide"  # 4 workers, 92 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"9a5edf41d03d99a0" = "SetCameraPolarBySide"  # 1 workers, 23 calls: Bltz0002
+"2e17cf7d76b6c5da" = { name = "OpenNameWindow", summary = "The player's name (V102) in message window 4 or 5, opened at the panel." }  # 2 workers, 36 calls: Bltz0000, Cn_bltz0000
+"238b6e4b3b644597" = { name = "OpenNameWindow", summary = "The player's name (V102) in message window 4 or 5, opened at the panel." }  # 2 workers, 36 calls: Psv_bltz0000, Psvcn_bltz0000
+"ed87e71675412138" = { name = "OpenNameWindow", summary = "The player's name (V102) in message window 4 or 5, opened at the panel." }  # 1 workers, 18 calls: Bltz0002
+"45f278b27587f906" = { name = "SlideMarkerTo(x, frames, y)", summary = "Moves sprites 127 and 126 from off screen to (x, y) in equal steps over the frames." }  # 2 workers, 24 calls: Psv_bltz0006, Psvcn_bltz0006
+"0fbb3a7c2823acb0" = { name = "SlideMarkerTo(x, frames, y)", summary = "Moves sprites 127 and 126 from off screen to (x, y) in equal steps over the frames." }  # 2 workers, 24 calls: Bltz0006, Cn_bltz0006
+"7c8426a0ebe10dba" = "CountAurochsWin"  # 4 workers, 12 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"ba0f3f8d9791952c" = { name = "ShowPlayerMarker", summary = "The current player's marker sprites (cyan for players 8 and up)." }  # 2 workers, 30 calls: Bltz0000, Cn_bltz0000
+"d34b1c0256397d83" = { name = "ShowPlayerMarker", summary = "The current player's marker sprites (cyan for players 8 and up)." }  # 2 workers, 30 calls: Psv_bltz0000, Psvcn_bltz0000
+"66faa913428a6b27" = { name = "ShowPlayerMarker", summary = "The current player's marker sprites (cyan for players 8 and up)." }  # 1 workers, 15 calls: Bltz0002
+"298de948cd317adb" = "ListTechIfAffordable(tech)"  # 4 workers, 48 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"bc204948e76fc706" = "ListTechIfAffordable(tech)"  # 1 workers, 12 calls: Bltz0002
+"70654c0557e99a46" = "ListTechIfAffordable(tech)"  # 1 workers, 12 calls: Bltz0001
+"58d1ea8110991dd6" = { name = "SayVoicedWithAutoTalk(text, speaker, voice)", summary = "A voiced line: the window opened, the speaker's mouth moving while the voice plays (stopped on button 32 once the window is ready, the next voice prepared), then the window closed." }  # 2 workers, 37 calls: Kami0000, Slik0000
+"d3566e9a77d9ede4" = { name = "SayWithVoiceSkippable(voice, text)", summary = "A voiced line: the voice prepared, the window opened, the voice stopped when the buttons pressed are not 32, then the window closed." }  # 1 workers, 38 calls: Dome0400
+"334d6d9d0248ade9" = "PlayStreamWithSubtitleAndTalk(stream, speaker, subtitle)"  # 3 workers, 50 calls: Bsil05_52, Bsil07_51, Slik02_00
+"8910059b888a8b55" = "SetParty(member1, member2, member3, member4, member5, member6)"  # 1 workers, 75 calls: Testbattle
+"9098554a30f1ad76" = { name = "ApplyChosenTech", summary = "Without a chosen tech, the value is the player's stat; with one, its cost is taken (but for techs 35-37) and the value is the stat plus the tech's power, at most 99." }  # 4 workers, 24 calls: Bltz0000, Cn_bltz0000, Psv_bltz0000 +1
+"50547262af67750a" = { name = "ApplyChosenTech", summary = "Without a chosen tech, the value is the player's stat; with one, its cost is taken (but for techs 35-37) and the value is the stat plus the tech's power, at most 99." }  # 1 workers, 6 calls: Bltz0002
+"a285bf634b430435" = "ApplyChosenTech"  # 1 workers, 6 calls: Bltz0001
+"7f84c7915a8e76e6" = "ApplyChosenTech"  # 1 workers, 6 calls: Bltz0004
+"32d867bcf979c779" = "ApplyChosenTech"  # 1 workers, 6 calls: Bltz0001
+"93ecd3c378851e18" = "ApplyChosenTech"  # 1 workers, 6 calls: Bltz0004
+"1db2b90f0ca373a1" = "OpenAndPlayVoice(text, voice)"  # 1 workers, 39 calls: Test25
+"c0059d5ca14642e6" = "MoveViaPoint(x, y, z, x2, y2, z2)"  # 4 workers, 87 calls: Kino0100, Mihn0000
+"300c77324238ffaa" = { name = "SetMapParts(hide1, hide2, hide3, show1, show2, show3)", summary = "Hides three map parts and parts 22-27, then shows three." }  # 4 workers, 56 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"f3aa9a6ab96bdf51" = "AskChoice"  # 1 workers, 15 calls: Bvyt1100
+"31adcedd853339f1" = "AskChoice"  # 1 workers, 15 calls: Bvyt1100
+"22a6071c49349a95" = "GiveReward(text, reward, flagIndex, flagBit, state)"  # 2 workers, 54 calls: Full_nagi0700, Nagi0700
+"d48291dc11d1ba69" = "Clamp(max)"  # 4 workers, 76 calls: Bltz0201, Cn_bltz0201, Psv_bltz0201 +1
+"aae84fa590c3678f" = "SayForFrames(text)"  # 1 workers, 61 calls: Scene6
+"74e28380aa4da826" = { name = "SetMinimapMarkers", summary = "The minimap markers of players 0-4: 512 while flagged, the own marker for the current player, else the other marker." }  # 4 workers, 36 calls: Bltz0005, Cn_bltz0005, Psv_bltz0005 +1
+
+[summaries]
+ApplyChosenTech = "Without a chosen tech, takes the player's cost and sets the value from the stat; with one, takes the tech's cost and adds its power to the stat."
+ApplyPassTech = "The pass (Action: Pass, shown for players 8 and up): without a chosen tech the player's cost is taken and the value is the pass stat; with one, the tech's cost is taken and its power added (at most 99)."
+ApplyShotTech = "The shot (Action: Shoot, shown for players 8 and up): without a chosen tech the player's cost is taken and the value is the shot stat; with one, the tech's cost is taken and its power added (at most 99)."
+AskChoice = "Opens the question, shows the choice (MsgShowWaitResult) and closes it, then a switch on the answer."
+AverageTeamLevels = "The average of BlitzballPlayerLevels over the Aurochs (team 5) and over the team picked from the table, then a switch on the latter."
+CheckMonsterCaptures = "When the captures of a monster (CheckCaptMonster) reach the number needed, counts it and sets the bit in the flag array."
+CheckTechCosts = "Sets the flag when any of techs 50, 52, 53, 54, 56 and 57 (each where its argument is set) costs more than the budget."
+Clamp = "Clamps the computed value to 1-max."
+ClearList = "The ten list entries set to 92 and written into message window 6."
+ClearUncoveredTechs = "Clears both pages of BlitzballPlayerUncoveredTechs for six players."
+ColourAndPlace = "Scales and colours a sprite by the colour code (0-5), then places it at the panel's position plus dx."
+ComputePlayerStats = "For the sixteen players: each stat from BlitzballPlayerLevels by its curve (linear, square or fourth root, or a power), clamped to 1-9999."
+CountAurochsWin = "BlitzballAurochsWins raised by one after a won match (not in mode 2, below 65000), the wins written into message window 0, and a switch on every fifth win."
+CountDownContract = "When the player has a contract (not 255), notes the player and lowers BlitzballPlayerContracts by one; at 0 the contract ends."
+CountWorkersWithin = "Counts how many of three workers are within their radius (DistanceXZ) of this worker."
+DrawPanel0 = "Panel 0: the four-digit value and the stat icons with their values."
+DrawPlayerPanel = "The player panel: the four-digit value, then three stat icons with their two-digit values (each stat picked by a selector, 1-8), coloured by the buff and debuff arrays."
+DrawPlayerPanelOf = "The player panel for one player: the four-digit value and the stat icons, values and markers."
+FaceAndPlayShotMotion = "Stops, faces a worker, then plays the motion for the model kind and the chosen shot tech (or none), with the request after 34 frames."
+FillTechSlots = "Per player kind: for each tech the player has learned and has not yet, with a 1-in-chance roll and a free slot, writes it into BlitzballPlayerTechs and takes its cost from the budget."
+FindTechAndListLearners = "Which of two techs the player has in a slot, then the players of the team who may learn it, a request to W24 and the state set to 2 and 3."
+FocusCameraOnPlayer = "The camera cut to the player's worker, then the player panels' message windows and sprites closed."
+GiveReward = "Sets bit flag 1 or 2, says the line, gives the event reward, sets the bit in a save array and the state."
+GiveTechIfLearned = "With a free slot, writes the tech into the player's BlitzballPlayerTechs when its bit is learned (page 2; page 1 is a dead block) and not given yet, and takes its cost from the budget."
+HidePlayerPanel = "Closes message window 5 and hides a column of panel sprites."
+ListPlayersForTech = "Lists the players of the current team for whom the current tech is uncovered but not yet learned (by the bit arrays per page)."
+ListPlayersForTechAndSignal = "Lists the players that may learn the current tech (by the learned and uncovered bits), requests W24 entry 7, waits, sets the state to 2, waits, to 3, and requests W24 entry 9."
+ListTechIfAffordable = "Adds a tech to the list when the player has it in a slot and can pay its cost."
+ListTechsIfAffordable = "Adds each of two techs to the list when the player has it in a slot and can pay its cost."
+LoadAliasAutoMotions = "Stores the model kind, ChrLoadAlias, then the automatic motions 16, 18 and 19 (a folded team branch: a dead second motion 16)."
+MoveBesideTidus = "Picks a random distance (0-18) on a random side of Tidus along x, turns towards that point and starts moving there (without waiting)."
+MoveToWithPitch = "Stops, faces the point (yaw and pitch), then turns and moves to it and waits."
+MoveViaPoint = "Turns and moves to the first point and waits, then to the second."
+OpenAndPlayVoice = "Opens a window, then prepares and plays a voice, stopping it on button 32, and waits for the sound."
+OpenNameWindow = "The player's name (MacroDicText 26) in message window 4 (window 5 is dead), opened at the panel."
+PlayChosenTechByModel = "The motion for the model kind, with no chosen tech or by the chosen tech, with the learners of the tech listed."
+PlayMotionAndWaitW18 = "The motion (unblended), W32 entry 8 requested, W18's entry 9 awaited, then the motion's end."
+PlayMotionSet = "Stops all movement, then plays the motion of the selected set (switch on a constant) unless it is already playing."
+PlayShotTechMotion = "Per chosen shot tech: its motion and effect, the state set to 2 and 3 and sprite 127 hidden."
+PlayStreamWithSubtitle = "A voice stream started; while the battle's subtitle switch is on, its subtitle drawn and the window closed when the stream ends; then waits for the stream."
+PlayStreamWithSubtitleAndTalk = "A voice stream started with the speaker's mouth moving; while the battle's subtitle switch is on, its subtitle drawn and the window closed when the stream ends; then waits for the stream."
+PlayTechWithEffect = "The tech: its rank and motion, the effect bound to the attach bone, the state set to 2 and 3 and sprite 127 hidden, then W18's entry awaited and the motion and effect ended."
+PlayVoiceSkippable = "Prepares and starts a voice, stops it when button 32 is pressed, then waits for the sound."
+RandomOffsets = "Random signed offsets (up to 80, 40, 80) and a random value above 25 into the worker's variables."
+RandomizeLevelAndStats = "A player's BlitzballPlayerLevels set to the average level - 5 plus a random 0-9 (at most 99), then the stats from the level by their curves."
+RequestAndRollReactionTech = "Requests a worker's entry, then with the action's chance the player's matching tech is rolled (rate and cost); on success its effect, the learners listed and the state set to 2 and 3."
+ResetPlayerTechStats = "Clears a player's per-match tech values, then takes the highest rate and cost of the techs in the player's slots per tech kind."
+RollBreakOrRequest = "With the player's chance and cost (and allowed set), a player near the goal worker (21 or 22, distance under 400) breaks off; otherwise the action is requested from W01 and W18, the log updated and every panel closed."
+RollReactionTech = "By the action's rank (1, 3 or 4): with the action's chance, the other player rolls the matching tech of theirs (rate and cost); on success its sound and effect, the players who may learn techs 46 or 47 listed, the cost taken and the list updated; else a request to W32."
+RollTechs55And58 = "Tries the player's techs 55 and 58 in turn: when the player has the tech in a slot and the random roll is under its rate and the cost is affordable, the stat arrays are cleared, the cost taken and the player panel redrawn with the effect; then the players are sorted by distance (SortPlayersByDistance)."
+SayForFrames = "Opens the window, waits until it is open and for the frame count, then closes it."
+SayVoicedWithAutoTalk = "A voiced line: the voice prepared, the window opened, the speaker's mouth moving while the voice plays (stopped on button 32 once the window is ready), then the window closed."
+SayWithVoiceSkippable = "A voiced line: the voice prepared, the window opened, the voice stopped on buttons 160 once the window is ready, then the window closed."
+ScoreGoal = "A goal: the sound, the goal log entry, the scorer's team's score (BlitzballAurochsScore or BlitzballOpponentScore) raised by one, the effects and the scoreboard digits (TexSwapSetFrame), then every message window and panel sprite closed."
+ScrollList = "The ten-entry list scrolled up by two, with a request to W19."
+ScrollListAndAdd = "The ten-entry list scrolled up by two, the player and the entry added, written into message window 6 and the window opened."
+SetByVoiceEvent = "Two variables set by whether the battle's voice event is 2."
+SetCameraPolarBySide = "The camera's polar position, its first value by whether the current player is on the first side (under 8)."
+SetMapParts = "Hides and shows a fixed set of map parts, and parts 7 and up by bit 0 of each entry of a save array."
+SetMinimapMarkers = "The minimap marker of players first-last: 512 while flagged, the own marker for the current player, else the other marker."
+SetMotionByModel = "The motion for the model kind (0-2), blending off."
+SetParty = "Adds six party members, then swaps members into the first slots."
+SetPassTechMotion = "Per chosen pass tech (14-22): its rank (1-3) and the motion, unblended."
+SetTechMotion = "Per chosen tech (26-37): its rank (1-4), its sound and the motion, unblended."
+SetTechMotionByModel = "The motion (unblended) and rank for the model kind and the chosen tech (26-34), or none."
+ShootWithTech = "The shot by the chosen shot tech: its motion, sound and effects per tech, then the panel and markers."
+ShowFourDigits = "A player's four-digit value as digit sprites at a panel (leading zeros hidden), violet while its flag array is set."
+ShowFourDigitsAtPanel0 = "The current player's four-digit value as digit sprites at panel 0 (leading zeros hidden), violet while its flag array is set."
+ShowFourDigitsOfListed = "The four-digit value of the listed player in the loop as digit sprites at its panel (leading zeros hidden), violet while its flag array is set."
+ShowFourDigitsOfPlayer = "The player's four-digit value as digit sprites at the panel (leading zeros hidden), violet while its flag array is set."
+ShowMapPartsByFlags = "Hides or shows map parts 7 and up by bit 0 of each entry of a save array."
+ShowPlayerMarker = "The marker sprites of panel 0 (cyan for players 8 and up), after a dead block of the stat display."
+ShowPlayerRow = "A player's row in message window 0: the name (MacroDicText 26) and a value as digit sprites."
+ShowScoreboard = "Slides the scoreboard in: the team icon, both teams' scores and the match clock as digit sprites, then waits for W01's entry 50 and stops the effects."
+ShowStatDigits = "The two-digit value of the selected stat (switch on a constant) as digit sprites at panel 0."
+ShowStatIcon = "A stat's icon sprite (by the stat selector, 1-8), its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches."
+ShowStatIconOfListed = "A stat's icon sprite (by the stat selector, 1-8) for the listed player in the loop, its value into the shown value and its colour code: 1 or 2 by the buff and debuff arrays, 3 when the highlight matches."
+ShowTensDigit = "The digit sprite of the shown value / 10, scaled, coloured and placed at the panel."
+ShowTwoDigits = "Scales and places a stat's sprite, then the digit sprites of the shown value / 10 and % 10 (the tens hidden below 10)."
+SlideInPanel0 = "Hides panel 0's sprites, then slides panel 0 in from the right (x from 670 to 370, 50 a frame), drawing it each frame."
+SlideInPlayerPanel = "Hides the panel's sprites, then slides the panel in from the right (x from 640 to 340, 50 a frame), drawing it each frame."
+SlideMarkerTo = "Moves sprites 127 and 126 to (x, y) in equal steps over the frames, shown and coloured each frame."
+SortPlayersByDistance = "The sixteen players sorted by their distance (WorkerDistance) to the current player."
+ToggleListWindow = "Message window 6 opened with the list text, or closed, by the window switch."
+WaitAndEndPassTech = "Per chosen pass tech (14-22): waits, sets the state to 2, waits, to 3, requests W24's entry 9 and hides sprite 127."
+WaitAndEndTech = "Per chosen tech (26-34): waits, sets the state to 2, waits, to 3 and hides sprite 127."
+WaitForMotionFrame = "Waits a frame at a time until the motion reaches the frame (or starts over)."
+WinPoseCamera = "Sets the actor's win sound, then orbits the camera by its win pose (another pose underwater, a random one of three otherwise)."
+WinPoseCameraByActor = "The win camera of whichever party member V1 is (switch on the actor): its win sound, then the camera orbits by its win pose."
+WriteList = "The ten-entry list written into message window 6: the new entry last, the names (MacroDicText 26) and values set with MsgSetValue."
