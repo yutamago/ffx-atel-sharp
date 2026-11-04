@@ -110,7 +110,23 @@ and moved here when work began.
   on an `sdk-v*` tag); the user tags a release once they're confident it's
   ready for others to use.
 - **CI stays off** on the private repos (no GitHub billing): local
-  verification is the merge gate.
+  verification is the merge gate. (ffx-atel-sharp went public the same
+  day, so its CI runs again.)
+
+2026-11-04:
+
+- **The source reads object-oriented.** Natives that act on the worker
+  itself become members of the worker (`Pos = new Vector3(…)`, `Yaw = …`,
+  `Neck.Speed = 20`, `Motion.Play(…)`, `Turn.Start(…)`), get/set pairs
+  become properties, and natives on another worker become members of that
+  worker (`Tidus.StopMove()`). Still Phase 1: the compiler lowers the
+  members back onto the same natives, byte for byte.
+- **Repeated code becomes shared `[Inline]` functions.** Sequences that
+  recur across scripts with only different values are written once, as an
+  inline function the compiler expands in place (as `Dialogue.Say`), so the
+  bytecode stays identical.
+- **The in-game switch for `Cut.*` blocks is its own mod**, separate from
+  the loader: a debug mod with a menu, which patches the loaded scripts.
 
 ## What the bytecode says about the original language
 
