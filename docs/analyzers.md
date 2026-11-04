@@ -47,6 +47,8 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3002](#atl3002) | error | `call` deeper than 3 | |
 | [ATL3003](#atl3003) | error | inline method calls itself | |
 | [ATL3004](#atl3004) | error | argument of an inline method with an effect | a variable first |
+| [ATL3005](#atl3005) | error | argument of a `[Constant]` parameter (`Wait.Seconds`) is not a constant | a literal or a `const` |
+| [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
 
 "Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
 do not list it.
@@ -348,4 +350,28 @@ Dialogue.Say(Text[12], window: I0);                    // fine: a variable
 Dialogue.Say(Text[12], window: Common.Random16());     // ATL3004
 int w = Common.Random16();
 Dialogue.Say(Text[12], window: w);                     // fine
+```
+
+### ATL3005
+
+**Argument must be a constant** (error). A `[Constant]` parameter's value is used when the script is
+compiled: `Wait.Seconds(s)` counts its frames from `s` ([language.md](language.md#waiting-in-seconds)).
+A literal, a `const` and arithmetic of them are constants; a variable, a register, a parameter or a
+call is not.
+
+```csharp
+const float Pause = 1.5f;
+Wait.Seconds(Pause);                                   // fine: Wait.Frames(45)
+Wait.Seconds(F0);                                      // ATL3005
+```
+
+### ATL3006
+
+**Wait shorter than one frame** (error). `Wait.Seconds(s)` is `Wait.Frames(n)`, n = s × 30 rounded to
+the nearest frame. Scripts run once a frame, so a wait lasts at least one; an `s` that rounds to 0
+frames (below 1/60 s), a negative one, or one past 2,147,483,647 frames is an error.
+
+```csharp
+Wait.Seconds(1f / 30);                                 // fine: Wait.Frames(1)
+Wait.Seconds(0.01f);                                   // ATL3006: 0.3 frames
 ```

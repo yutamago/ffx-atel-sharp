@@ -28,3 +28,5 @@ ATL3001 | Atel.Calls | Error | CallAnalyzer
 ATL3002 | Atel.Calls | Error | CallAnalyzer
 ATL3003 | Atel.Calls | Error | InlineAnalyzer
 ATL3004 | Atel.Calls | Error | InlineAnalyzer
+ATL3005 | Atel.Calls | Error | InlineAnalyzer
+ATL3006 | Atel.Calls | Error | InlineAnalyzer

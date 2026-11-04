@@ -1356,6 +1356,15 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   (an inline method calls itself), ATL3004 (an argument with an effect);
   an inline call is no `call` level and `[Inline(Waits = true)]` is a wait.
 
+- **Waits in seconds** (2026-11-04; [research/frame-timing.md](research/frame-timing.md)).
+  The world (field, events, battle) ticks 30 times a second whatever FFX.exe
+  draws; the 60 fps main menu stops it. So `Wait.Seconds(s)` is
+  `Wait.Frames(round(s × 30))`, halves away from zero, counted from a constant
+  at compile time (`[Constant]`, ATL3005; under one frame ATL3006). Not an
+  inline template: a template substitutes the argument and cannot count frames
+  from it, so the compiler lowers the call itself. The decompiler keeps
+  writing `Wait.Frames`.
+
 - **Named dead blocks, switched on at link time** (2026-11-03;
   [research/dead-code.md](research/dead-code.md#switching-a-block-on)).
   `[assembly: EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]` in a mod;

@@ -12,11 +12,12 @@ namespace Ffx.Atel.Analyzers;
 
 /// <summary>
 ///     Inline methods (<c>[Inline]</c>, docs/language.md "Inline methods"): one that calls itself, directly or
-///     through others (ATL3003), and an argument that does more than give a value (ATL3004).
+///     through others (ATL3003), an argument that does more than give a value (ATL3004), a <c>[Constant]</c>
+///     parameter's argument that is no constant (ATL3005), and a <c>Wait.Seconds</c> shorter than a frame (ATL3006).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class InlineAnalyzer : DiagnosticAnalyzer {
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [Rules.InlineRecursion, Rules.InlineArgument];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [Rules.InlineRecursion, Rules.InlineArgument, Rules.ConstantArgument, Rules.WaitBelowOneFrame];
 
     public override void Initialize(AnalysisContext context) {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -33,6 +34,9 @@ public sealed class InlineAnalyzer : DiagnosticAnalyzer {
                     if (a.ArgumentKind == ArgumentKind.Explicit && HasEffect(a.Value, eager)) {
                         c.ReportDiagnostic(Diagnostic.Create(Rules.InlineArgument, a.Value.Syntax.GetLocation(), $"{i.TargetMethod.ContainingType.Name}.{i.TargetMethod.Name}"));
                     }
+                    else if (a.ArgumentKind == ArgumentKind.Explicit && IsConstantParameter(a.Parameter)) {
+                        CheckConstant(c, i.TargetMethod, a);
+                    }
                 }
                 if (c.ContainingSymbol is IMethodSymbol caller && model.IsInline(caller)) {
                     edges.Add((caller.OriginalDefinition, i.TargetMethod.OriginalDefinition, i.Syntax.GetLocation()));
@@ -47,6 +51,31 @@ public sealed class InlineAnalyzer : DiagnosticAnalyzer {
                 }
             });
         });
+    }
+
+    /// <summary>A parameter with <c>[Constant]</c> (<c>Ffx.Atel.ConstantAttribute</c>).</summary>
+    private static bool IsConstantParameter(IParameterSymbol? p) => p?.GetAttributes().Any(x =>
+        x.AttributeClass is { Name: "ConstantAttribute", ContainingNamespace: { Name: "Atel", ContainingNamespace.Name: "Ffx" } }) == true;
+
+    /// <summary>ATL3005 for an argument without a constant value; for <c>Wait.Seconds</c>, ATL3006 when it is no frame.</summary>
+    private static void CheckConstant(OperationAnalysisContext c, IMethodSymbol method, IArgumentOperation a) {
+        Optional<object?> value = a.Value.ConstantValue;
+        if (!value.HasValue || value.Value is not (float or double or int or long or short or byte or sbyte or ushort or uint)) {
+            c.ReportDiagnostic(Diagnostic.Create(Rules.ConstantArgument, a.Value.Syntax.GetLocation(), $"{method.ContainingType.Name}.{method.Name}"));
+            return;
+        }
+        if (method.Name != "Seconds" || method.ContainingType is not { Name: "Wait", ContainingNamespace: { Name: "Ffx", ContainingNamespace.IsGlobalNamespace: true } }) return;
+        double seconds = System.Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (FramesOf(seconds) is null) {
+            string frames = double.IsNaN(seconds) || double.IsInfinity(seconds) ? "no number of" : (seconds * 30).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            c.ReportDiagnostic(Diagnostic.Create(Rules.WaitBelowOneFrame, a.Value.Syntax.GetLocation(), a.Value.Syntax.ToString(), frames));
+        }
+    }
+
+    /// <summary>The compiler's count (StatementReader.FramesOf): seconds × 30, halves away from zero; null below 1 frame or past int.</summary>
+    internal static int? FramesOf(double seconds) {
+        double frames = System.Math.Round(seconds * 30, System.MidpointRounding.AwayFromZero);
+        return !double.IsNaN(frames) && !double.IsInfinity(frames) && frames >= 1 && frames <= int.MaxValue ? (int)frames : null;
     }
 
     /// <summary>

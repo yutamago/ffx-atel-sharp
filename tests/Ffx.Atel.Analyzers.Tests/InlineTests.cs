@@ -66,4 +66,47 @@ public sealed class InlineTests {
             }
         }
         """);
+
+    [Fact]
+    public void WaitSecondsTakesAConstantOfAFrameOrMore() => Verify("""
+        public sealed class W00 : Worker1
+        {
+            [Register(0)] public static float F0;
+
+            [Entry(0)]
+            void E0()
+            {
+                const float Pause = 1.5f;
+                Wait.Seconds(1.23f);
+                Wait.Seconds(Pause);
+                Wait.Seconds(0.5f * 3);
+                Wait.Seconds(2);
+                Wait.Seconds({|ATL3005:F0|});
+                Wait.Seconds({|ATL3006:0.01f|});
+                Wait.Seconds({|ATL3006:-1f|});
+            }
+        }
+        """);
+
+    [Fact]
+    public void WaitSecondsIsAWait() => Verify("""
+        public sealed class W00 : Worker1
+        {
+            [Register(0)] public int I0;
+
+            [Entry(1)]
+            void E1()
+            {
+                I0 = 3;
+                {|ATL0001:Wait.Seconds(1f)|};
+                Common.WaitFrames(I0);
+            }
+
+            [Entry(3)]
+            void E3()
+            {
+                I0 = 1;
+            }
+        }
+        """);
 }
