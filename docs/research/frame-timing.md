@@ -35,6 +35,13 @@ not run for this. The engine findings are also in ffx-rust (`docs/formats/frame-
    polls, `WaitFrames(0)` included, ends the worker's run for that tick, and the frame count is an
    integer. A script cannot act between two ticks, because nothing in the game happens there for it
    to see. At 30 ticks a second, one frame (1/30 s) is the finest step.
+5. **Unity's timing.** FFX.exe already uses a fixed step with an accumulator (`FixedUpdate`), but
+   it always runs at least one tick per drawn frame, has no interpolation, and scales time only by
+   1, 2 or 4. A `FixedUpdate`-like model (0 ticks per frame, any `timeScale` including slow motion,
+   interpolated drawing) is a realistic Fahrenheit mod and keeps the simulation exact. Moving
+   everything to `Update`/`Time.deltaTime`, or changing the tick rate (30 → 60 Hz), means rewriting
+   every per-tick duration and rate in the code and in the scripts' data. That belongs in the Rust
+   port, if anywhere ("Unity's timing model" below).
 
 ## The loop
 
@@ -184,6 +191,97 @@ in mind), or call `Sg_MainLoop`'s update part in a loop of its own. Some of it d
   draw, present) a second on its test machine (ffx-rust `docs/harness.md`), about ×15 in full
   frames. A tick without its draw is cheaper, but this has not been measured. ×100 would be 3,000
   ticks a second, which is likely beyond one core in heavy scenes.
+
+## Unity's timing model
+
+How FFX.exe's timing compares with Unity's two models, and what moving it to either would take.
+
+### What FFX.exe has today
+
+FFX.exe is already a fixed-step simulation with an accumulator, close to Unity's `FixedUpdate`, with
+four differences:
+
+| Unity | FFX.exe |
+|---|---|
+| `Time.fixedDeltaTime` (0.02 s by default) | One tick, 1/30 s. The 30 and 60 are `.rdata` constants of `Sg_FrameSync` (`0x00b922c8` 30.0, `0x00b4a180` 60.0), and every system counts whole ticks (below) |
+| Accumulator: 0, 1 or more `FixedUpdate`s per rendered frame | `Sg_FrameSync`'s carries (`0x012fb7f8`, `0x012fb7fc`) give 1 to 9 ticks per drawn frame, **never 0**: with fewer than 2 due, the hold is 1 and the carries are cleared. A frame faster than 1/30 s still ticks once. That is why drawing at 60 fps runs the game at ×2 |
+| `Time.maximumDeltaTime` (0.333 s) | `dt` capped at 0.3 s (`0x00b3eb44`): at most 9 ticks per frame |
+| `Time.timeScale`, any float | The booster's `g_SpdCtrlScales` (`0x00c38e1c`: 1, 2, 4) scales `dt` before `Sg_FrameSync`. A scale below 1 does nothing, because a frame never gets fewer than 1 tick |
+| Rigidbody interpolation between the last two fixed steps | None. Each drawn frame shows the last tick |
+| `Update` (once per rendered frame, `Time.deltaTime`) | Not separate. What runs once per `Sg_MainLoop` (`Ch_CalcMiddle`, the field animation, fades, the draw) is tied to the tick at 30 fps too |
+
+### (1) Fixed step like `FixedUpdate`: realistic as a mod
+
+This is (a) and (b) above, plus 0-tick frames and a fractional time scale:
+
+1. **0 ticks per frame.** Hook `Sg_FrameSync` (`0x00821e80`, ported in `ffx-sg` `state.rs`
+   `frame_sync`) so that ticks = ⌊(carry + `dt` × scale) × 30⌋, 0 included, with the rest carried.
+   The game's own 60 Hz first test ("fewer than 2 due → 1") goes. A 0-tick frame takes the draw-only
+   path of (a): `Sg_SetExecFrames(0)` plus holding what runs once per `Sg_MainLoop`.
+2. **`timeScale`.** Hook `SpdCtrl_ScaleElapsedTime` (`0x006f7340`) to multiply by any float: 0.25 for
+   slow motion (a tick every fourth frame at 30 fps, every eighth at 60), 100 for fast-forward. Above
+   ×9, raise the 0.3 s cap or use exec frames ((b)). Unlike the booster, this works everywhere,
+   including the places `SpdCtrl_IsMapExcluded` and `Sg_CanSpeedUp` exclude, so those cases (movies,
+   voice-synced scenes) need a decision of their own: keep them at ×1, as the booster does.
+3. **Interpolation.** As in (a) step 4: camera first, then the characters' matrices. In slow motion
+   it matters more, because at 0.25 a frozen tick lasts 4 drawn frames.
+4. **Real-time parts stay real time.** FMOD, movies, the sync clock and loading (the table above) are
+   not ticks. Slow motion leaves the music and voices at ×1, as Unity's `timeScale` does with an
+   `AudioSource` unless its pitch is changed. Scaling FMOD's pitch to match would put voice-synced scenes out of step.
+
+The simulation stays bit-exact: the same ticks run in the same order, only spread differently over
+drawn frames. Determinism, replays and every frame count in the scripts stay valid.
+
+### (2) Variable step like `Update` with `Time.deltaTime`: belongs in the Rust port
+
+Every system that steps once per tick would take the frame's `dt` instead. These count whole ticks
+today:
+
+| System | Where | What counts ticks |
+|---|---|---|
+| Script VM | `Script_Run` `0x008641e0`, through `TkUpdateEventJump` `0x0088d3d0` | One run per worker per tick. Waits are integer tick counts: `Native_WaitFrames_Poll_0000` `0x0085c6b0`, 124,718 `WaitFrames` calls in the shipped scripts |
+| Natives with durations | `TurnSetFrames`, `MoveSetFrames`, `GetTurnFrames`, `SetMapFadeFrames`, the camera's eased moves (`MoveEased`, `FocusTimeEase`), message waits | Arguments in frames, compiled into the scripts as constants |
+| Natives with rates | `Native_SetTurnSpeed` `0x0085a480` (radians a frame, default π/64), `MoveSpeed`, motion speeds | Per-frame steps, compiled into the scripts as constants |
+| Moves and turns | `Atel_MoveUpdate_00868990` | One step of the move record per tick |
+| Motion | `SG_UpdateMotion` `0x00838c90`, `SG_SeqFrame` `0x008377c0`, `Ch_MotionLoopFrame` `0x008392d0` | Time `+0x740` += speed per tick in 8.8 fixed point, so half steps exist (`g_ChrMotionHalf` `0x013017f8`, set only from a debug menu, `ChrMenu_buttons_0084cf60`; `g_FrameRate88` `0x023cbbec` with keep-fps). Sequences step in whole frames |
+| Eases | `Sg_AnimValF` `0x00836020` | value += (target − value) / frames, frames −1 per tick: a per-tick ratio, not a rate |
+| Collision and ground | `Atel_MoveUpdate` against the id (collision) mesh (`Sg_IdGetNormal` `0x0083e130`, id data `0x01301a84`), the player's control (`Sg_ControlPlayer` `0x0082d180`) | A move per tick, tested once per tick. A longer step could pass through thin walls |
+| Cloth | `Sg_ClothStep` `0x00822de0` | One Verlet-style step with rods and collision per tick; the CRT `rand()` for wind |
+| Particles and effects | The `ppp` programs (`pppDrawShapeField*Emit`, `0x00742750`..`0x00745f70`), `MsEffectProcess` `0x00787e00`, `op_loop_ffx_after` `0x007ff680` (`g_OpLoopCount` `0x023328d4`) | Integer countdowns and per-tick velocities, recompiled from PS2 EE and VU code |
+| Camera | `MsCameraProcess` `0x007be110` | Channels step per tick; movie cameras use the video frame (`MovieCameraFrame_0076edc0`) |
+| Battle | `MsBattleProcess` `0x00790c10` and its steps (`_Order`, `_ChrDamage`, `_Status`, `_InputCue`) | Turn order is by counter (CTB), not time, but every animation, effect and wait inside a turn counts ticks |
+| Field and fades | `Yn_FieldProc_0091a8c0`, `Sg_DrawFilter` `0x0082c0c0` (i16 counters), `Pause_Update` `0x008ab340` | Per-tick counters |
+| Encounters | `MsBattleEncountExe` `0x00780d10`, `ResetEncountExe` `0x00780ff0` | Rolled against step counters that the player's moves advance in the world update |
+| Sound sync | `Sg_SyncCutScene` `0x00821d60` | The `SyncData` tables give a frame per step (`frame << 7` into `0x012fb828`) |
+| Randomness | `g_Vu0_R` `0x00c0a000` (`op_random` `0x007e6700`, effects), the main thread's CRT `rand()` (drawn by `op_loop_ffx_after` each tick), the cloth's per-job seeds; the battle's generators (`0x00c42200`, `0x01135ee0`) | Drawn a fixed number of times per tick. With a variable step, the draw count follows the frame rate, so the same inputs give different results. The harness's replays depend on the fixed tick (ffx-rust `docs/harness.md`, "Pinned state") |
+
+Converting these is not a mod. The durations and rates are data in 1,621 compiled scripts, the motion
+and effect files and the battle tables, all in ticks. The code is PS2-era C and recompiled EE and VU
+code, in thousands of functions. Ease, collision and cloth would also change behaviour (`Sg_AnimValF`'s
+1/frames ratio, tunnelling, cloth stability) unless each gets a careful dt form. In the Rust port it
+is possible system by system, but it gives up the port's parity with the original (`docs/rewrite-plan.md`,
+"Determinism"). The usual compromise is model (1) with interpolation: Unity games keep physics in
+`FixedUpdate` for the same reason.
+
+### Changing the tick rate (`Time.fixedDeltaTime`), e.g. 30 → 60 Hz
+
+Patching `Sg_FrameSync`'s constants (30 → 60, 60 → 120) and the limiter to 1 vsync gives 60 ticks a
+second, and everything above runs twice as fast. Every per-tick quantity would have to be halved:
+
+- **Scripts.** Every frame count (`WaitFrames(n)` → 2n, the turn, move, fade and camera frames) and
+  every per-frame rate (turn speeds, move speeds) in all 1,621 scripts. The linker could rewrite
+  constants, but computed values (`WaitFrames(V3)`, `GetTurnFrames`'s result) and frame comparisons
+  (`if (count > 30)`) cannot be found mechanically.
+- **Motion.** The 8.8 step could be halved (the debug `g_ChrMotionHalf` does it), but the sequences'
+  whole-frame waits cannot.
+- **Effects.** Integer countdowns and velocities in the `ppp` and `opus` programs, which are data.
+- **Eases.** `Sg_AnimValF` over 2n frames gives a different curve unless the ratio changes too.
+- **Sync data and movie cameras.** Keyed on 30 Hz frames and 29.97 Hz video frames.
+- **Randomness.** Twice the per-tick draws, so a different sequence.
+
+On FFX.exe that is not realistic: half the work would be data that cannot be told apart from other
+numbers. A port could do it with each system taking its own step, which is model (2) with a fixed
+step. Smooth 60+ fps is cheaper through interpolation (1), which keeps the 30 Hz simulation.
 
 ## (c) Waits shorter than a frame
 
