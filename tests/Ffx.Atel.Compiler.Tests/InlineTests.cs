@@ -188,13 +188,54 @@ public sealed class InlineTests {
         Assert.Equal([(0, 40)], vm.Calls.Where(c => c.Id == 0x0064).Select(c => (c.Args[0].AsInt, c.Args[1].AsInt)));
     }
 
+    // An inline method that assigns the script's variables, keeps a local in a register and takes a call.
+    private const string Turning = """
+            [Inline(Waits = true)]
+            [InlineLocal("kind", 3)]
+            static void TurnBy([Eager] float yaw, int small)
+            {
+                Common.TurnSetYaw(yaw);
+                int kind = Common.GetTurnKind();
+                Chr.SetMotion(Common.GetTurnMotion(kind));
+                Common.TurnSetFrames(0f, Common.GetTurnFrames(kind, small, 30));
+                Hp = kind + small;
+                Table[small] += 2;
+                Common.TurnWait();
+            }
+        """;
+
+    private const string TurningWritten = """
+                Common.TurnSetYaw(Common.GetYawToMoveTarget());
+                I3 = Common.GetTurnKind();
+                Chr.SetMotion(Common.GetTurnMotion(I3));
+                Common.TurnSetFrames(0f, Common.GetTurnFrames(I3, 1, 30));
+                Hp = I3 + 1;
+                Table[1] += 2;
+                Common.TurnWait();
+                Common.TurnSetYaw(1.5f);
+                I3 = Common.GetTurnKind();
+                Chr.SetMotion(Common.GetTurnMotion(I3));
+                Common.TurnSetFrames(0f, Common.GetTurnFrames(I3, 2, 30));
+                Hp = I3 + 2;
+                Table[2] += 2;
+                Common.TurnWait();
+        """;
+
+    [Fact]
+    public void AnInlineMethodAssignsKeepsALocalInARegisterAndTakesACall() {
+        Assert.Equal(Block(TurningWritten), Block("TurnBy(Common.GetYawToMoveTarget(), 1);\nTurnBy(1.5f, 2);", Turning));
+    }
+
     [Theory]
     [InlineData("Dialogue.Say(Text[1], window: Common.Random16());", "", "is used where its parameter is")]
     [InlineData("Dialogue.Say(Text[1], window: Hp++);", "", "is used where its parameter is")]
     [InlineData("Dialogue.Say(Text[1], nope: 1);", "", "has no parameter nope")]
     [InlineData("Hp = 1;", "[Inline] static void A() { B(); }\n[Inline] static void B() { A(); }\nstatic void C() { A(); }", "calls itself")]
     [InlineData("Hp = 1;", "[Inline] static void W() { Common.WaitFrames(1); }\nstatic void C() { W(); }", "mark it [Inline(Waits = true)]")]
-    [InlineData("Hp = 1;", "[Inline] static void S() { Hp = 2; }\nstatic void C() { S(); }", "is not a variable")]
+    [InlineData("Hp = 1;", "[Inline] static void S(int a) { a = 2; }\nstatic void C() { S(1); }", "not something to assign to")]
+    [InlineData("Hp = 1;", "[Inline] static void L() { int k = Hp; Chr.SetMotion(k); }\nstatic void C() { L(); }", "has a local")]
+    [InlineData("Hp = 1;", "[Inline] static void E([Eager] int a) { Chr.SetMotion(1); Chr.SetMotion(a); }\nstatic void C() { E(1); }", "[Eager] parameter a")]
+    [InlineData("Hp = 1;", "[Inline, InlineLocal(\"k\", 2)] static void N() { Chr.SetMotion(1); }\nstatic void C() { N(); }", "does not declare")]
     public void WhatAnInlineMethodCannotDo(string body, string members, string message) {
         CompileException ex = Assert.Throws<CompileException>(() => ScriptCompiler.Compile([ScriptCompiler.Parse(Script(body, members), "M996.cs")]));
         Assert.Contains(message, ex.Message, StringComparison.Ordinal);

@@ -13,6 +13,12 @@ internal sealed partial class StatementReader {
     /// <summary>The inline methods calls may name; the reference assembly's when not set.</summary>
     public InlineMethods? Inlines { get; init; }
 
+    /// <summary>Reading an inline method's body: its locals that live in a register (<c>[InlineLocal]</c>), by name.</summary>
+    public IReadOnlyDictionary<string, int>? RegisterLocals { get; set; }
+
+    /// <summary>The <see cref="RegisterLocals"/> the body declared.</summary>
+    public HashSet<string> RegisterLocalsDeclared { get; } = new(StringComparer.Ordinal);
+
     /// <summary>
     ///     The inline method a call names: <c>Dialogue.Say(…)</c>, or <c>Say(…)</c> in its own class, the script class
     ///     or <c>Worker</c> (the reference assembly's helpers on every worker, written with its members).
@@ -23,6 +29,8 @@ internal sealed partial class StatementReader {
             IdentifierNameSyntax id => (Class is null ? null : table.Find(Class, id.Identifier.ValueText))
                 ?? (ScriptClass is null ? null : table.Find(ScriptClass, id.Identifier.ValueText))
                 ?? table.Find(nameof(Worker), id.Identifier.ValueText),
+            // A component's (Turn.To): on this worker's component only, never another worker's (Tidus.Turn).
+            MemberAccessExpressionSyntax { Expression: not IdentifierNameSyntax, Name: IdentifierNameSyntax } access when InlineMethods.IsComponent(ClassName(access.Expression)) => null,
             MemberAccessExpressionSyntax { Name: IdentifierNameSyntax m } access => table.Find(ClassName(access.Expression), m.Identifier.ValueText),
             _ => null,
         };
@@ -73,8 +81,10 @@ internal sealed partial class StatementReader {
             if (p >= values.Length) throw Error(a, $"{macro.Name} takes {macro.Params.Count} arguments");
             if (values[p] is not null) throw Error(a, $"{macro.Name}'s parameter {macro.Params[p].Name} is given twice");
             (List<Stmt> pre, Expr value) = Apart(() => ReadExpr(a.Expression));
-            if (pre.Count > 0 || !Inline.IsArgument(value)) {
-                throw Error(a.Expression, $"an argument of inline method {macro.Name} is used where its parameter is, so it is a constant, a variable or an expression of them (no call, ++, ?: or &&)");
+            if (pre.Count > 0 || !(Inline.IsArgument(value) || (macro.Params[p].Eager && Inline.IsEagerArgument(value)))) {
+                throw Error(a.Expression, macro.Params[p].Eager
+                    ? $"an argument of inline method {macro.Name} is evaluated at the start, so it is a value or a native's call (no ++, ?:, && or LastResult)"
+                    : $"an argument of inline method {macro.Name} is used where its parameter is, so it is a constant, a variable or an expression of them (no call, ++, ?: or &&)");
             }
             values[p] = value;
         }

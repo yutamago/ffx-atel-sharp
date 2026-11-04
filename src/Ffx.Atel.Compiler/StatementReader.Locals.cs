@@ -153,6 +153,18 @@ internal sealed partial class StatementReader {
             }
             if (v.ArgumentList is not null) throw Error(v, "a local cannot be an array");
             bool declaredFloat = !d.Type.IsVar && FloatType(d.Type);
+            // An inline method's local in a register of the caller ([InlineLocal("kind", 3)]).
+            if (RegisterLocals?.TryGetValue(name, out int register) == true) {
+                if (d.Type.IsVar) throw Error(d.Type, $"{name} lives in a register: give its type, int or float");
+                RegExpr reg = new(declaredFloat ? RegKind.Float : RegKind.Int, register);
+                if (register < 0 || register >= (declaredFloat ? 10 : 4)) throw Error(v, $"{name} lives in register {register}, which an {(declaredFloat ? "float" : "int")} local does not have");
+                (List<Stmt> rpre, Expr? rvalue) = v.Initializer is null ? ([], null) : Apart(() => ReadExpr(v.Initializer.Value));
+                list.AddRange(rpre);
+                if (rvalue is not null) list.Add(new AssignStmt(reg, rvalue));
+                Bind(name, reg, v.Identifier);
+                RegisterLocalsDeclared.Add(name);
+                continue;
+            }
             (List<Stmt> pre, Expr? value) = v.Initializer is null ? ([], null) : Apart(() => ReadExpr(v.Initializer.Value));
             bool isFloat = d.Type.IsVar
                 ? value is null ? throw Error(v, "var needs an initializer") : IsFloat(value)

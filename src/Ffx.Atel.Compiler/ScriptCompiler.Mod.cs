@@ -140,7 +140,10 @@ public static partial class ScriptCompiler {
         // Link.Entry can name a new entry anywhere in the mod.
         // Helper methods (plain methods; an `async` method is a new entry) become function workers after
         // the new workers.
-        HelperTable helpers = new(mainName) { Inlines = InlineMethods.With([.. vanillaTrees, .. modTrees]) };
+        InlineMethods inlines = InlineMethods.With([.. vanillaTrees, .. modTrees]);
+        inlines.Script = new InlineMethods.ScriptContext(variables, workers, cls =>
+            Registers([.. vanillaParts.GetValueOrDefault(cls) ?? [], .. modParts.GetValueOrDefault(cls) ?? []]));
+        HelperTable helpers = new(mainName) { Inlines = inlines };
         AddHelpers(helpers, mainName, mainModParts, functionWorker: false, registers: false);
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             List<ClassDeclarationSyntax> all = [.. vanillaParts[worker], .. parts];
