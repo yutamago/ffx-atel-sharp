@@ -1,0 +1,141 @@
+{
+  "comment": "The object-oriented surface over the natives (docs/language.md, \"Members\"; docs/research/oo-surface.md). tools/gen-members.cs writes src/Ffx.Atel.Game/Members.g.cs from this file and data/natives.json; the compiler lowers each member onto its native, and the decompiler writes the member where the bytes allow. \"groups\": the containers members go into: \"component\" (a property of every worker, Turn.Start()), \"indexed\" (a property of every worker indexed by the native's first argument, Sprites[3].Show(…)), \"static\" (an engine-wide static class, Wait.Frames(…)). \"members\": native id -> \"member\" (a path: \"Pos\" a member of the worker, \"Turn.Start\" a member of a group, \"Pos.X\" a component of a Vector3 property), \"as\" (\"method\", the default; \"get\" or \"set\" for a property), \"worker\" (the native's first argument is the worker it acts on: unqualified the member passes Common.GetWorkerId(-1), Tidus.Member passes Tidus's number, Workers[n].Member passes n), \"vector\" (the setter's three float arguments are a Vector3), \"bool\" (the setter's value is 0 or 1: a bool property). Names come from the native's verified name and its summary; a member names nothing the native's documentation does not say.",
+  "groups": {
+    "Turn": {
+      "kind": "component",
+      "type": "TurnControl",
+      "summary": "The worker's turn: set it up (<see cref=\"TurnControl.Yaw\"/>, <see cref=\"TurnControl.SetFrames\"/>), start it (<see cref=\"TurnControl.Start\"/>), wait for it (<see cref=\"TurnControl.Wait\"/>)."
+    },
+    "Move": {
+      "kind": "component",
+      "type": "MoveControl",
+      "summary": "The worker's move: set it up (<see cref=\"MoveControl.Target\"/>, <see cref=\"MoveControl.Speed\"/>), start it (<see cref=\"MoveControl.Start\"/>), wait for it (<see cref=\"MoveControl.Wait\"/>)."
+    },
+    "Motion": {
+      "kind": "component",
+      "type": "MotionControl",
+      "summary": "The motion of the worker's model. Assign a motion id to set it (<c>Motion = 0x71050;</c>, <c>Chr.SetMotion</c>); its members play, wait for and release motions."
+    },
+    "Neck": {
+      "kind": "component",
+      "type": "NeckControl",
+      "summary": "The neck of the worker's model: where it looks and how fast it turns there."
+    },
+    "Sprites": {
+      "kind": "indexed",
+      "type": "SpriteList",
+      "item": "Sprite",
+      "summary": "The screen's sprites by slot (0-127): <c>Sprites[3].Show(V12)</c>."
+    },
+    "Wait": {
+      "kind": "static",
+      "summary": "Waiting: frames, for ever."
+    },
+    "Camera": {
+      "kind": "static",
+      "summary": "The event camera: its eye, the point it looks at, roll and screen depth, and its moves."
+    },
+    "Sound": {
+      "kind": "static",
+      "summary": "Sound effects."
+    }
+  },
+  "members": {
+    "0x0126": { "member": "Pos", "as": "set", "vector": true },
+    "0x0038": { "member": "Pos.X", "as": "get", "worker": true },
+    "0x0039": { "member": "Pos.Y", "as": "get", "worker": true },
+    "0x003a": { "member": "Pos.Z", "as": "get", "worker": true },
+    "0x0013": { "member": "Position", "as": "set", "vector": true },
+    "0x0095": { "member": "Yaw", "as": "set" },
+    "0x0091": { "member": "Yaw", "as": "get" },
+    "0x0093": { "member": "Yaw", "as": "get", "worker": true },
+    "0x0096": { "member": "Pitch", "as": "set" },
+    "0x0001": { "member": "Model", "as": "set" },
+    "0x0042": { "member": "PartyIndex", "as": "set" },
+    "0x006c": { "member": "MoveSpeed", "as": "set" },
+    "0x0061": { "member": "TalkRange", "as": "set" },
+    "0x0063": { "member": "TalkAngle", "as": "set" },
+    "0x0034": { "member": "EnableTrigger" },
+    "0x0035": { "member": "DisableTrigger" },
+    "0x0005": { "member": "Detach" },
+    "0x019d": { "member": "DetachAndDispose" },
+    "0x5008": { "member": "Hidden", "as": "set", "bool": true },
+    "0x500f": { "member": "BodyHit", "as": "set", "bool": true },
+    "0x500e": { "member": "GroundFollow", "as": "set", "bool": true },
+    "0x5009": { "member": "PushWeight", "as": "set" },
+    "0x5017": { "member": "GroundMode", "as": "set" },
+    "0x5076": { "member": "AutoTalk", "as": "set", "bool": true },
+    "0x507e": { "member": "AutoTalk", "as": "set", "bool": true, "worker": true },
+
+    "0x0028": { "member": "Turn.Yaw", "as": "set" },
+    "0x0029": { "member": "Turn.Pitch", "as": "set" },
+    "0x002e": { "member": "Turn.Speed", "as": "set" },
+    "0x002f": { "member": "Turn.Speed2", "as": "set" },
+    "0x001d": { "member": "Turn.SetFrames" },
+    "0x0019": { "member": "Turn.Start" },
+    "0x001b": { "member": "Turn.Wait" },
+    "0x0078": { "member": "Turn.Stop", "worker": true },
+    "0x00c6": { "member": "Turn.GetKind" },
+    "0x00c7": { "member": "Turn.GetMotion" },
+    "0x00c8": { "member": "Turn.GetFrames" },
+    "0x00c5": { "member": "Turn.SetMotions" },
+
+    "0x0015": { "member": "Move.Target", "as": "set", "vector": true },
+    "0x0016": { "member": "Move.Speed", "as": "set" },
+    "0x0017": { "member": "Move.ArriveRadius", "as": "set" },
+    "0x0021": { "member": "Move.Yaw", "as": "set" },
+    "0x001c": { "member": "Move.SetFrames" },
+    "0x0018": { "member": "Move.Start" },
+    "0x001a": { "member": "Move.Wait" },
+    "0x0077": { "member": "Move.Stop", "worker": true },
+    "0x00d1": { "member": "Move.StopAllLevels" },
+    "0x001f": { "member": "Move.YawToTarget", "as": "get" },
+    "0x0020": { "member": "Move.PitchToTarget", "as": "get" },
+
+    "0x5000": { "member": "Motion", "as": "set" },
+    "0x505d": { "member": "Motion.Current", "as": "get" },
+    "0x501a": { "member": "Motion.Play" },
+    "0x5003": { "member": "Motion.Wait" },
+    "0x5005": { "member": "Motion.Release" },
+    "0x5032": { "member": "Motion.PlayDefault" },
+    "0x5025": { "member": "Motion.SetAuto" },
+    "0x5034": { "member": "Motion.Blend", "as": "set" },
+    "0x505c": { "member": "Motion.NextBlend", "as": "set" },
+    "0x5018": { "member": "Motion.Speed", "as": "set" },
+    "0x504c": { "member": "Motion.Speed", "as": "set", "worker": true },
+    "0x5051": { "member": "Motion.Frame", "as": "get" },
+    "0x5075": { "member": "Motion.Frame", "as": "get", "worker": true },
+
+    "0x5079": { "member": "Neck.Enabled", "as": "set", "bool": true },
+    "0x507a": { "member": "Neck.Target", "as": "set" },
+    "0x507b": { "member": "Neck.TargetPos", "as": "set", "vector": true },
+    "0x507c": { "member": "Neck.TargetCamera" },
+    "0x5084": { "member": "Neck.Speed", "as": "set" },
+    "0x507d": { "member": "Neck.SetRot" },
+
+    "0x011b": { "member": "Sprites.Show" },
+    "0x011c": { "member": "Sprites.Hide" },
+    "0x011f": { "member": "Sprites.SetPos" },
+    "0x0120": { "member": "Sprites.SetScale" },
+    "0x0129": { "member": "Sprites.SetColor" },
+
+    "0x0000": { "member": "Wait.Frames" },
+    "0x01d1": { "member": "Wait.FramesUnlessHddMode" },
+    "0x005f": { "member": "Wait.Forever" },
+
+    "0x6002": { "member": "Camera.Pos", "as": "set", "vector": true },
+    "0x6020": { "member": "Camera.LookAt", "as": "set", "vector": true },
+    "0x603a": { "member": "Camera.Roll", "as": "set" },
+    "0x603b": { "member": "Camera.ScreenDepth", "as": "set" },
+    "0x6004": { "member": "Camera.SetPolar" },
+    "0x6014": { "member": "Camera.MoveEased" },
+    "0x6032": { "member": "Camera.FocusTimeEase" },
+    "0x601a": { "member": "Camera.Wait" },
+    "0x6038": { "member": "Camera.FocusWait" },
+    "0x6016": { "member": "Camera.MoveFinish" },
+    "0x6034": { "member": "Camera.FocusCut" },
+
+    "0x00df": { "member": "Sound.Play" },
+    "0x00fd": { "member": "Sound.Play" }
+  }
+}

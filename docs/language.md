@@ -476,6 +476,95 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 - Many natives still have generated names (`Btl.ActorSetField505`, `Common.MsgGetText_0236`) and
   untyped parameters (`a0`, `a1`). Names and types come from `data/native-types.json` and the
   generator `tools/gen-natives.cs`.
+- The natives most scripts call are also members of the worker and of static classes (`Pos = …`,
+  `Turn.Start(…)`, `Wait.Frames(…)`): see "Members". The decompiler writes those.
+
+## Members
+
+**Available.** The natives most scripts call are also members of the worker, of a component of the worker, or
+of an engine-wide static class, so that the source reads as object-oriented C#. A member is its native: the
+compiler lowers it onto exactly the call the native's form gives, and the decompiler writes the member wherever
+the bytes are that call. The native's form (`Common.SetPos(…)`) stays valid everywhere.
+
+```csharp
+// bsvr0000, Rikku.E8Async, as the natives:            // and as members:
+Common.SetPos(4.623341f, -19.153864f, 587.17316f);      Pos = new Vector3(4.623341f, -19.153864f, 587.17316f);
+Common.WorkerStopMove(Common.GetWorkerId(-1));          Move.Stop();
+Common.SetYaw(-0.307183f);                              Yaw = -0.307183f;
+Chr.SetNeckSpeed(20);                                   Neck.Speed = 20;
+Chr.SetNeckTarget(10);                                  Neck.Target = 10;
+Common.WaitFrames(95);                                  Wait.Frames(95);
+Common.TurnSetYaw(1.572062f);                           Turn.Yaw = 1.572062f;
+I3 = Common.GetTurnKind();                              I3 = Turn.GetKind();
+Chr.SetMotion(Common.GetTurnMotion(I3));                Motion = Turn.GetMotion(I3);
+Common.TurnSetFrames(0f, Common.GetTurnFrames(I3, 15, 30));   Turn.SetFrames(0f, Turn.GetFrames(I3, 15, 30));
+Common.TurnStart(0, 4099, 0);                           Turn.Start(0, 4099, 0);
+Common.TurnWait();                                      Turn.Wait();
+Chr.ReleaseMotion();                                    Motion.Release();
+Chr.PlayMotion(0x71050, 0, 1, 0, -1);                   Motion.Play(0x71050, 0, 1, 0, -1);
+Chr.WaitMotion();                                       Motion.Wait();
+```
+
+| Form | Is | Example |
+|---|---|---|
+| a property of the worker | a native on this worker; `=` calls the setter's native, a read the getter's | `Yaw = 1.5f;`, `F0 = Yaw;`, `Hidden = true;`, `Model = Model.Rikk;` |
+| a `Vector3` property | the native's three float arguments, written as `new Vector3(x, y, z)` (or `new(x, y, z)`); `.X`, `.Y`, `.Z` read through the natives that read one | `Pos = new Vector3(1f, 2f, 3f);`, `F0 = Pos.Y;` |
+| a method of the worker | the native's call | `EnableTrigger(0);`, `DetachAndDispose(1);` |
+| a component | the worker's `Turn`, `Move`, `Motion`, `Neck`; its members are natives | `Turn.Start(0, 4099, 0);`, `Move.Target = new Vector3(…);` |
+| `Motion = id` | the component takes an assignment: `Chr.SetMotion(id)` | `Motion = Turn.GetMotion(I3);` |
+| an indexed group | the native's first argument is the index | `Sprites[3].Show(V12);` |
+| a static class | an engine-wide native | `Wait.Frames(30);`, `Camera.Roll = 5f;`, `Sound.Play(sfx);` |
+| another worker | a native whose first argument is a worker: its class, or `Workers[n]` | `Tidus.AutoTalk = true;`, `F0 = Tidus.Pos.X;`, `Workers[V3].Turn.Stop();` |
+
+- **This worker, another worker.** A native that takes the worker it acts on is reached three ways:
+  written alone it acts on this worker and passes `Common.GetWorkerId(-1)`, the scripts' own idiom
+  (`Move.Stop()` is `Common.WorkerStopMove(Common.GetWorkerId(-1))`); `Tidus.Move.Stop()` passes Tidus's number
+  (its position in `[Workers]`); `Workers[n].Move.Stop()` passes `n`. Where the game has a native of its own for
+  this worker (`Yaw` reads `GetYaw`, `Tidus.Yaw` reads `GetWorkerYaw`), the member alone is that one.
+- **Properties are statements and values, as the natives are.** A setter is a statement (`Yaw = x;`); its
+  native's result is not read (where a script reads it, the source keeps the native's call). `+=` and the other
+  compound assignments are errors on a property: they would be two natives. A property without a getter
+  (`Pos` has none for the whole vector) is only assigned.
+- **`bool` properties** (`Hidden`, `BodyHit`, `GroundFollow`, `AutoTalk`, `Neck.Enabled`) take `true` and
+  `false` (1 and 0) or a condition; any other value as `AsBool(v)`.
+- `Vector3` is `Ffx.Vector3`, not `System.Numerics.Vector3` nor Unity's: ATEL has no structs, so a vector is
+  never stored, compared or computed with. It only ever is the value of a property, as `new Vector3(x, y, z)`,
+  whose three values go to the native as written; reading one is by component. A .NET vector would offer
+  arithmetic and methods no script can run, and need a `using` the decompiled files do not have. Anything else
+  with a `Vector3` is [ATL1001](analyzers.md#atl1001).
+- Members are `protected static` members of `Worker` (requested entries are static, and there is one
+  instance of each worker): `Tidus.Yaw` is C#'s static member access through Tidus's class, which the compiler
+  reads as Tidus's number. In C# a member of another worker that the natives only have for this worker
+  (`Tidus.Pos = …`) compiles; the Atel compiler reports it ("acts on this worker only").
+- A member is a member of the worker: a script-class helper (`static partial class M209`) has none; it calls
+  the natives.
+- **Names.** A member's name is its native's verified name, regrouped (`TurnSetYaw` is `Turn.Yaw`,
+  `WorkerStopTurn` is `Turn.Stop()`), or the native's documented meaning (`Chr.Hide(1)` is `Hidden = true`).
+  Natives whose meaning is not verified keep their own names and stay `Group.Native(…)` (docs/plan.md, "Only
+  verified names"). Each member's doc comment is its native's, with the native it calls.
+- **Generated.** `data/native-members.json` lists the natives that are members (path, getter or setter,
+  whether the first argument is a worker, whether the value is a `Vector3` or a `bool`);
+  `dotnet run tools/gen-members.cs` writes `src/Ffx.Atel.Game/Members.g.cs` from it and `data/natives.json`.
+  The compiler and the decompiler read the members from the reference assembly
+  (`Ffx.Atel.Compiler.NativeMembers`). 88 natives are members today, 65 % of the native calls in the shipped
+  scripts; [research/oo-surface.md](research/oo-surface.md) has the numbers and what comes next.
+- **Inline helpers** may be written with members: an `[Inline]` method of a worker (or, in the reference
+  assembly, of `Worker`, called without a class name) that says `Turn.Yaw = yaw; Turn.Start(0, 4099, 0);
+  Turn.Wait();` expands to the natives' calls as any inline method does.
+
+The groups and their members:
+
+| Group | Members (native) |
+|---|---|
+| the worker | `Pos` (`SetPos`; `.X` `.Y` `.Z`: `GetWorkerX/Y/Z`), `Position` (`SetPosition`), `Yaw` (`SetYaw`, `GetYaw`, another's `GetWorkerYaw`), `Pitch`, `Model`, `PartyIndex`, `MoveSpeed`, `TalkRange`, `TalkAngle`, `Hidden` (`Chr.Hide`), `BodyHit`, `GroundFollow`, `PushWeight`, `GroundMode`, `AutoTalk` (`SetAutoTalk`, another's `SetAutoTalkOf`), `EnableTrigger`, `DisableTrigger`, `Detach`, `DetachAndDispose` |
+| `Turn` | `Yaw`, `Pitch`, `Speed`, `Speed2`, `SetFrames`, `Start`, `Wait`, `Stop` (any worker), `GetKind`, `GetMotion`, `GetFrames`, `SetMotions` |
+| `Move` | `Target` (`Vector3`), `Speed`, `ArriveRadius`, `Yaw`, `SetFrames`, `Start`, `Wait`, `Stop` (any worker), `StopAllLevels`, `YawToTarget`, `PitchToTarget` |
+| `Motion` | `= id` (`SetMotion`), `Current`, `Play`, `Wait`, `Release`, `PlayDefault`, `SetAuto`, `Blend`, `NextBlend`, `Speed` (any worker), `Frame` (any worker) |
+| `Neck` | `Enabled`, `Target` (a worker's number), `TargetPos` (`Vector3`), `TargetCamera`, `Speed`, `SetRot` |
+| `Sprites[slot]` | `Show`, `Hide`, `SetPos`, `SetScale`, `SetColor` |
+| `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever` |
+| `Camera` | `Pos`, `LookAt` (`Vector3`), `Roll`, `ScreenDepth`, `SetPolar`, `MoveEased`, `FocusTimeEase`, `Wait`, `FocusWait`, `MoveFinish`, `FocusCut` |
+| `Sound` | `Play(sfx)`, `Play(sfx, pan, volume)` |
 
 ## Text
 

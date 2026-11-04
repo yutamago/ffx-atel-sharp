@@ -150,7 +150,7 @@ public sealed class SourceTests {
             "V1[1, 1] &= unchecked((byte)-65);",
             "V2 = unchecked((sbyte)300);",
             "V0 = 0x11170;",
-            "Common.MoveSetSpeed(2.5f);",
+            "Move.Speed = 2.5f;",
             "if (V0 > 2 & AsBool(V2))",
             "Request(1, 0, 0);",
             "F0 = I1;",
@@ -224,8 +224,8 @@ public sealed class SourceTests {
         DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m997/m997.bin", file);
         string[] expected = [
             "Common.MapJump(Map.Hiku0800, 0);",
-            "Common.SfxPlay((Sfx)0x80000017);",
-            "Common.SfxPlayEx((Sfx)0x16008, 63, 127);",
+            "Sound.Play((Sfx)0x80000017);",
+            "Sound.Play((Sfx)0x16008, 63, 127);",
             "Btl.SetActorProperty(ActorProperty.Maxmp, 1);",
             "Btl.SetActorsProperty(Target.Biran, ActorProperty.Hp, 0);",
             "Btl.LabelExe(Battle.Kami00_00, 1);",

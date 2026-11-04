@@ -19,14 +19,19 @@ made up for this page.
 | a coroutine | an **entry**: `public static async Task E6Async()`, run when another worker *requests* it |
 | `StartCoroutine(x)` | `_ = Lulu.E6Async();` (start it and go on) |
 | `yield return StartCoroutine(x)` | `await Lulu.E6Async();` (wait until it has run) |
-| `yield return new WaitForSeconds(0.5f)` | `Common.WaitFrames(15);` (frames, not seconds) |
+| `yield return new WaitForSeconds(0.5f)` | `Wait.Frames(15);` (frames, not seconds) |
+| `transform.position = new Vector3(…)` | `Pos = new Vector3(…);` (`Ffx.Vector3`; [language.md](language.md#members)) |
+| `GetComponent<Animator>().Play(…)` | `Motion.Play(…);` (the worker's components: `Turn`, `Move`, `Motion`, `Neck`) |
+| another object's member | `Tidus.Pos.X`, `Tidus.Turn.Stop();` |
 | `Debug.Log` | `Debug.Print($"hp = {Hp}");` (printed by the Atel loader, [formats/debug.md](formats/debug.md)) |
 | a static field | a variable of the script class: `[Var(Storage.Event, 0x0012)] public static byte V3;` |
 | a `ScriptableObject` holding text | the script's message table: `Text[71]` is message 71 |
 
 There is no `new`, no `string` outside `Debug`, no lists, no LINQ, no lambdas: the game's script
 machine (ATEL) runs integers, floats and calls into the engine ("natives", such as
-`Common.MsgSetText`). The analyzers tell you when you write something it cannot run.
+`Common.MsgSetText`). The natives most scripts call are also properties and methods of the worker
+(`Yaw = 1.5f;`, `Turn.Start(…)`), which compile to the same calls. The analyzers tell you when you
+write something it cannot run.
 
 ## A worker
 
@@ -35,13 +40,13 @@ public sealed partial class Guard : Worker1      // Worker1: an actor (a model o
 {
     protected override void Init()                // when the map loads
     {
-        Common.SetModel(Model.GaGatta216);        // its model
-        Common.SetPosition(10f, 0f, -40f);
+        Model = Model.GaGatta216;                 // its model
+        Pos = new Vector3(10f, 0f, -40f);         // where it stands
     }
 
     protected override void Main()                // then
     {
-        Common.WaitForever();                     // nothing to do until someone asks
+        Wait.Forever();                           // nothing to do until someone asks
     }
 
     [Entry(2)]
@@ -53,8 +58,20 @@ public sealed partial class Guard : Worker1      // Worker1: an actor (a model o
 ```
 
 Every worker runs on its own, like a coroutine per object, and all of them run each frame. A
-call to a native that takes time (`WaitFrames`, `MsgWaitEnd`, `MoveWait`) suspends the worker
-until it is done, as `yield return` would.
+call to a native that takes time (`Wait.Frames`, `Common.MsgWaitEnd`, `Move.Wait()`) suspends the
+worker until it is done, as `yield return` would.
+
+A worker's own natives are its members, as a `Transform` or an `Animator` would be:
+
+```csharp
+Move.Target = new Vector3(-7f, -15.6f, 562.3f);   // walk there
+Turn.Yaw = Move.YawToTarget;                       // facing the way
+Turn.Start(0, 53762, 0);
+Move.Start(0, 49155, 0);
+Move.Wait();                                       // until it has arrived
+Motion.Play(0x71050, 0, 1, 0, -1);                 // then play a motion once
+Motion.Wait();
+```
 
 `[Entry(n)]` gives the number the game and the other workers run the method by (entries 0 and 1
 are `Init` and `Main`). The decompiled names (`E6Async`, `W18`) are numbers until someone
@@ -69,7 +86,7 @@ A cutscene is usually one worker telling the others what to do, one step at a ti
 // in the worker that runs the scene
 _ = Wakka.WalkToBoatAsync();                      // start Wakka's entry, don't wait
 await Tidus.LookAtWakkaAsync();                   // run Tidus's entry and wait for it
-Common.WaitFrames(30);                            // 30 frames
+Wait.Frames(30);                                  // 30 frames
 ```
 
 What `await` means here: wait until that worker has run the entry. The other worker runs it, not

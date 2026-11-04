@@ -267,6 +267,8 @@ internal sealed partial class StatementReader(
         e is IdentifierNameSyntax id && LabelNumber(id.Identifier.ValueText) is int n ? n : throw Error(e, "labels are lN");
 
     private Stmt Assignment(AssignmentExpressionSyntax a) {
+        // A property of the object-oriented surface: its native's call (StatementReader.Members).
+        if (MemberSet(a) is Stmt member) return member;
         Expr target = Target(a.Left);
         if (a.IsKind(SyntaxKind.SimpleAssignmentExpression) && ConditionalInto(target, a.Right) is IfStmt direct) return direct;
         int mark = _pre.Count;
@@ -310,6 +312,8 @@ internal sealed partial class StatementReader(
         }
         if (HelperOf(call) is Helper helper) return HelperStatement(helper, call);
         if (InlineOf(call) is InlineMacro inline) throw Error(call, $"inline method {inline.Name} is a statement of its own");
+        // A method of the object-oriented surface: its native's call (StatementReader.Members).
+        if (MemberCall(call) is { } member) return new CallStmt(member.Id, member.Args);
         List<ArgumentSyntax> args = [.. call.ArgumentList.Arguments];
         switch (call.Expression) {
             case IdentifierNameSyntax { Identifier.ValueText: "Request" or "RequestWaitStart" or "RequestWaitEnd" } id: {
@@ -398,7 +402,8 @@ internal sealed partial class StatementReader(
         return e switch {
             InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "AsBool" } } => true,
             // A native typed bool (data/native-types.json, "result").
-            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } call => natives.TryGetValue(NativeName(call), out NativeSignature? sig) && sig.Result == "bool",
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } call => natives.TryGetValue(NativeName(call), out NativeSignature? sig) ? sig.Result == "bool" : MemberIsBool(call),
+            InvocationExpressionSyntax { Expression: IdentifierNameSyntax } call when Helpers is null || HelperOf(call) is null => MemberIsBool(call),
             PrefixUnaryExpressionSyntax u => u.IsKind(SyntaxKind.LogicalNotExpression),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalAndExpression or (int)SyntaxKind.LogicalOrExpression } => true,
             IdentifierNameSyntax id => Local(id.Identifier.ValueText) is LocalExpr { Slot: Slot { Bool: true } },
@@ -442,6 +447,9 @@ internal sealed partial class StatementReader(
                 return Name(id);
             case MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: true) is int constant:
                 return new IntLit(constant);
+            // A property of the object-oriented surface: its native's result (StatementReader.Members).
+            case MemberAccessExpressionSyntax m when MemberGet(m) is Expr member:
+                return member;
             // A new message: Text.New("…"), whose index the mod linker gives (Ffx.TextTable.New).
             case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Text" }, Name.Identifier.ValueText: "New" } } newText:
                 return NewText(newText);
@@ -452,6 +460,8 @@ internal sealed partial class StatementReader(
                 return Element(el);
             case InvocationExpressionSyntax helperCall when HelperOf(helperCall) is Helper helper:
                 return HelperValue(helper, helperCall);
+            case InvocationExpressionSyntax memberCall when MemberCall(memberCall) is { } member:
+                return new CallExpr(member.Id, member.Args);
             case AwaitExpressionSyntax awaited:
                 return AwaitValue(awaited);
             case InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "Pooled" }, ArgumentList.Arguments: [ArgumentSyntax index, ArgumentSyntax value] }: {
@@ -554,6 +564,7 @@ internal sealed partial class StatementReader(
         if (variables.TryGetValue(n, out VariableSymbol? v)) {
             return v.Entry.IsArray ? throw Error(id, $"{n} is an array") : new VarExpr(v.Index);
         }
+        if (MemberGet(id) is Expr member) return member;
         return n switch {
             "RegA" => new RegExpr(RegKind.A),
             "RegB" => new RegExpr(RegKind.B),

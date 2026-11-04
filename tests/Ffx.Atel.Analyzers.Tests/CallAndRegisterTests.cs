@@ -66,6 +66,28 @@ public sealed class CallAndRegisterTests {
         }
         """);
 
+    /// <summary>A member whose native polls (<c>Turn.Wait()</c>, <c>Wait.Frames(…)</c>) waits like the native.</summary>
+    [Fact]
+    public void MembersThatPollAreWaits() => Verify("""
+        public sealed class W00 : Worker1
+        {
+            [Register(0)] public int I0;
+
+            [Entry(1)]
+            void E1()
+            {
+                I0 = Turn.GetKind();
+                {|ATL0001:Turn.Wait()|};
+                Motion = Turn.GetMotion(I0);
+                {|ATL0001:Wait.Frames(1)|};
+                Common.WaitFrames(I0);
+            }
+
+            [Entry(2)]
+            void E2() { I0 = 5; }
+        }
+        """);
+
     [Fact]
     public void RegisterAcrossAWaitWrittenByAnotherEntry() => Verify("""
         public sealed class W00 : Worker1

@@ -26,8 +26,9 @@ internal sealed partial class StatementPrinter {
             string text = InlineArg(m, k, a);
             args.Add(named ? $"{p.Name}: {text}" : text);
         }
-        // A worker named like the method's class would hide it.
-        string name = workerNames.Contains(m.Name[..m.Name.IndexOf('.', StringComparison.Ordinal)], StringComparer.Ordinal) ? "Ffx." + m.Name : m.Name;
+        // A worker named like the method's class would hide it; a helper of Worker is every worker's own.
+        string cls = m.Name[..m.Name.IndexOf('.', StringComparison.Ordinal)];
+        string name = cls == "Worker" ? m.Name[(cls.Length + 1)..] : workerNames.Contains(cls, StringComparer.Ordinal) ? "Ffx." + m.Name : m.Name;
         return $"{name}({string.Join(", ", args)});";
     }
 
