@@ -6,7 +6,7 @@ using System.Text;
 using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Code;
 
-namespace Ffx.Atel.Cli.Repeats;
+namespace Ffx.Atel.Decompiler.Repeats;
 
 // The shape of a statement (docs/research/repeats.md, "Method"): its tree with every constant, and with
 // --vars every variable, replaced by a hole. Two statements of the same shape differ only in the values
@@ -67,6 +67,8 @@ internal sealed class BlockRecord {
     public StmtInfo[] Stmts = [];
     public int[] HoleFrom = [];
     public int[] HoleTo = [];
+    /// <summary>The block's statements as walked.</summary>
+    public IReadOnlyList<Stmt> Source = [];
 }
 
 /// <summary>
@@ -105,7 +107,7 @@ internal sealed class ShapeWalker(ShapeTable table, NativeSignatures natives, bo
         BlockRecord? rec = null;
         int saveBlock = _block, saveAt = _at;
         if (register) {
-            rec = new BlockRecord { Parent = _block, ParentAt = _at, Ordinal = ordinal, Method = _method, Dead = _dead, HoleFrom = new int[list.Count], HoleTo = new int[list.Count] };
+            rec = new BlockRecord { Parent = _block, ParentAt = _at, Ordinal = ordinal, Method = _method, Dead = _dead, HoleFrom = new int[list.Count], HoleTo = new int[list.Count], Source = list };
             _block = Blocks.Count;
             Blocks.Add(rec);
         }
@@ -280,6 +282,14 @@ internal sealed class ShapeWalker(ShapeTable table, NativeSignatures natives, bo
                 }
                 esc &= ~(Esc.Break | Esc.GotoCase);
                 if (Rebuild) r = new SwitchStmt(sel, sections);
+                break;
+            }
+            case InlineStmt x: {
+                // A call of an inline method folded before (Dialogue.Say, Turn.To): one statement, its arguments the holes.
+                if (x.Macro.Waits) t |= Traits.Waits;
+                k.Append('M').Append(x.Macro.Name);
+                List<Expr> args = Args(x.Args, k, ref t);
+                if (Rebuild) r = new InlineStmt(x.Macro, args, Inline.Expand(x.Macro, args));
                 break;
             }
             case BreakStmt:

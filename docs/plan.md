@@ -129,6 +129,15 @@ and moved here when work began.
   recur across scripts with only different values are written once, as an
   inline function the compiler expands in place (as `Dialogue.Say`), so the
   bytecode stays identical.
+  Step 1 (2026-11-04): inline methods may assign the script's variables, request entries (`async Task`
+  when they await, called with `await`), keep a local in a register (`[InlineLocal]`) and take a call
+  as an `[Eager]` argument; the reference assembly has `Turn.To`, `Move.To`, `Dialogue.SayWithVoice`,
+  `ChangeMap`, `Party.RestoreAll` and others, and the decompiler folds each worker's own repeated code
+  into inline methods of the worker (`data/inline-names.toml` names the common ones). W36 of
+  `bltz0000`: 190,402 lines → 15,447; the corpus 7,842,894 → 4,403,971; still byte for byte
+  ([language.md](language.md#repeated-code), [research/repeats.md](research/repeats.md#status)).
+  Not done: the constant `if` on a parameter that would merge a macro's two foldings into one helper
+  (they stay two).
 - **The in-game switch for `Cut.*` blocks is its own mod**, separate from
   the loader: a debug mod with a menu, which patches the loaded scripts.
 

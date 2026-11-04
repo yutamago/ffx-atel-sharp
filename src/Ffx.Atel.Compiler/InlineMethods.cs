@@ -53,7 +53,16 @@ public sealed class InlineMethods {
     internal ScriptContext? Script { get; set; }
 
     /// <summary>What a script's inline methods may name: the variables, the workers and a class's <c>[Register]</c> fields.</summary>
-    internal sealed record ScriptContext(IReadOnlyDictionary<string, VariableSymbol> Variables, IReadOnlyDictionary<string, int> Workers, Func<string, IReadOnlyDictionary<string, RegExpr>> Registers);
+    internal sealed record ScriptContext(IReadOnlyDictionary<string, VariableSymbol> Variables, IReadOnlyDictionary<string, int> Workers, Func<string, IReadOnlyDictionary<string, RegExpr>> Registers) {
+        /// <summary>The entries requests name (<see cref="StatementReader.EntryMethods"/>).</summary>
+        public IReadOnlyDictionary<string, Dictionary<string, int>>? EntryMethods { get; init; }
+
+        /// <summary>In a mod, the entries the linker numbers (<see cref="StatementReader.RequestTargets"/>).</summary>
+        public Func<string, string, (Expr, Expr)?>? RequestTargets { get; init; }
+
+        /// <summary>The entries with parameters (<see cref="StatementReader.Signatures"/>).</summary>
+        public Func<string, string, EntrySignature?>? Signatures { get; init; }
+    }
 
     /// <summary>
     ///     The class a component's inline methods are declared in, by the component's name: <c>Turn.To(…)</c> is
@@ -100,16 +109,20 @@ public sealed class InlineMethods {
 
     private InlineMacro Read(string cls, MethodDeclarationSyntax m) {
         string name = $"{cls}.{m.Identifier.ValueText}";
-        if (m.ReturnType is not PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword }) throw CompileException.At(m.ReturnType, $"inline method {name} returns nothing (void)");
+        // void, or async Task when its code awaits a request (called as `await Name(…);`).
+        bool isAsync = m.Modifiers.Any(SyntaxKind.AsyncKeyword);
+        if (isAsync ? m.ReturnType is not IdentifierNameSyntax { Identifier.ValueText: "Task" } : m.ReturnType is not PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword }) {
+            throw CompileException.At(m.ReturnType, $"inline method {name} returns nothing: void, or async Task when it awaits a request");
+        }
         if (m.TypeParameterList is not null) throw CompileException.At(m.TypeParameterList, "an inline method is not generic");
-        if (m.Modifiers.Any(SyntaxKind.AsyncKeyword)) throw CompileException.At(m, "an inline method is not async");
         List<InlineParam> parameters = [];
         StatementReader reader = Reader(cls);
         foreach (ParameterSyntax p in m.ParameterList.Parameters) {
             if (p.Modifiers.Count > 0 || p.Type is null) throw CompileException.At(p, "an inline method's parameter is a value (no ref, out, in or params)");
             bool isFloat = p.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword };
-            if (!isFloat && p.Type is not (PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword or (int)SyntaxKind.BoolKeyword } or IdentifierNameSyntax { Identifier.ValueText: "TextId" })) {
-                throw CompileException.At(p.Type, "an inline method's parameter is int, float, bool or TextId");
+            // TextId and the enums (Map, Target, …) are integers.
+            if (!isFloat && p.Type is not (PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword or (int)SyntaxKind.BoolKeyword } or IdentifierNameSyntax or QualifiedNameSyntax)) {
+                throw CompileException.At(p.Type, "an inline method's parameter is int, float, bool, TextId or an enum");
             }
             Expr? def = null;
             if (p.Default is not null) {
@@ -145,8 +158,12 @@ public sealed class InlineMethods {
             switch (s) {
                 case CallStmt c: waits |= ScriptCompiler.Natives[c.Native]?.Polls ?? true; break;
                 case OpStmt or EndWithStmt: throw CompileException.At(m, $"inline method {name} ends nothing (no return): its code runs on after the call");
-                case GotoStmt or CondGotoStmt or LabelStmt or AsmStmt or EntryStmt or CallWorkerStmt or RequestStmt or OpArgsStmt:
-                    throw CompileException.At(m, $"inline method {name} holds {s.GetType().Name[..^4]}: an inline method calls natives and inline methods, with if, loops and switch");
+                case GotoStmt or CondGotoStmt or LabelStmt or AsmStmt or EntryStmt:
+                    throw CompileException.At(m, $"inline method {name} holds {s.GetType().Name[..^4]}: an inline method calls natives, inline methods and function workers and requests entries, with if, loops and switch");
+                case RequestStmt or CallWorkerStmt or OpArgsStmt:
+                    // A request, a function worker's call, an opcode not understood: waits, as the analyzers take them.
+                    waits = true;
+                    break;
             }
         });
         bool local = false;
@@ -168,7 +185,9 @@ public sealed class InlineMethods {
     // A template of the reference assembly uses only its parameters, constants, natives and other inline
     // methods; one of a script also the script's variables, its workers and its class's registers.
     private StatementReader Reader(string cls) => Script is { } s
-        ? new(s.Variables, s.Registers(cls), ScriptCompiler.NativesByName.Value, s.Workers, false) { Class = cls, Inlines = this }
+        ? new(s.Variables, s.Registers(cls), ScriptCompiler.NativesByName.Value, s.Workers, false) {
+            Class = cls, Inlines = this, EntryMethods = s.EntryMethods ?? new Dictionary<string, Dictionary<string, int>>(), RequestTargets = s.RequestTargets, Signatures = s.Signatures,
+        }
         : new(new Dictionary<string, VariableSymbol>(), new Dictionary<string, RegExpr>(), ScriptCompiler.NativesByName.Value, new Dictionary<string, int>(), false) {
             Class = cls, Inlines = this,
         };

@@ -3,6 +3,9 @@
         <Description>ATEL bytecode to Atel (C#) source.</Description>
     </PropertyGroup>
     <ItemGroup>
+        <!-- The repeats miner (Repeats/), which atel repeats runs over the corpus. -->
+        <InternalsVisibleTo Include="atel" />
+        <InternalsVisibleTo Include="Ffx.Atel.Cli.Tests" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
@@ -16,6 +19,8 @@
         <EmbeddedResource Include="../../data/library-names.toml" LogicalName="library-names.toml" />
         <!-- Hand-written names for dead if (false) blocks, by the signature of their code (docs/research/dead-code.md, "Names"). -->
         <EmbeddedResource Include="../../data/cut-names.toml" LogicalName="cut-names.toml" />
+        <!-- Hand-written names for the inline methods of a worker's repeated code, by the signature of their body (docs/language.md, "Repeated code"). -->
+        <EmbeddedResource Include="../../data/inline-names.toml" LogicalName="inline-names.toml" />
         <!-- Hand-written English names (docs/plan.md, Decisions 2026-11-02). -->
         <EmbeddedResource Include="../../data/actor-names.json" LogicalName="actor-names.json" />
     </ItemGroup>

@@ -119,7 +119,7 @@ namespace Ffx
 
     /// <summary>The worker's turn: set it up (<see cref="TurnControl.Yaw"/>, <see cref="TurnControl.SetFrames"/>), start it (<see cref="TurnControl.Start"/>), wait for it (<see cref="TurnControl.Wait"/>).</summary>
     /// <remarks>The worker's <c>Turn</c> property (<c>Turn.…</c>; another worker's: <c>Tidus.Turn.…</c>, <c>Workers[n].Turn.…</c>).</remarks>
-    public sealed class TurnControl
+    public sealed partial class TurnControl
     {
         private TurnControl() { }
 
@@ -195,7 +195,7 @@ namespace Ffx
 
     /// <summary>The worker's move: set it up (<see cref="MoveControl.Target"/>, <see cref="MoveControl.Speed"/>), start it (<see cref="MoveControl.Start"/>), wait for it (<see cref="MoveControl.Wait"/>).</summary>
     /// <remarks>The worker's <c>Move</c> property (<c>Move.…</c>; another worker's: <c>Tidus.Move.…</c>, <c>Workers[n].Move.…</c>).</remarks>
-    public sealed class MoveControl
+    public sealed partial class MoveControl
     {
         private MoveControl() { }
 
@@ -256,7 +256,7 @@ namespace Ffx
 
     /// <summary>The motion of the worker's model. Assign a motion id to set it (<c>Motion = 0x71050;</c>, <c>Chr.SetMotion</c>); its members play, wait for and release motions.</summary>
     /// <remarks>The worker's <c>Motion</c> property (<c>Motion.…</c>; another worker's: <c>Tidus.Motion.…</c>, <c>Workers[n].Motion.…</c>).</remarks>
-    public sealed class MotionControl
+    public sealed partial class MotionControl
     {
         private MotionControl() { }
 
@@ -318,7 +318,7 @@ namespace Ffx
 
     /// <summary>The neck of the worker's model: where it looks and how fast it turns there.</summary>
     /// <remarks>The worker's <c>Neck</c> property (<c>Neck.…</c>; another worker's: <c>Tidus.Neck.…</c>, <c>Workers[n].Neck.…</c>).</remarks>
-    public sealed class NeckControl
+    public sealed partial class NeckControl
     {
         private NeckControl() { }
 
@@ -352,7 +352,7 @@ namespace Ffx
     }
 
     /// <summary>The screen's sprites by slot (0-127): <c>Sprites[3].Show(V12)</c>.</summary>
-    public sealed class SpriteList
+    public sealed partial class SpriteList
     {
         private SpriteList() { }
 
@@ -400,7 +400,7 @@ namespace Ffx
     }
 
     /// <summary>Waiting: frames, for ever.</summary>
-    public static class Wait
+    public static partial class Wait
     {
 
         /// <summary>Waits <paramref name="frames"/> frames.</summary>
@@ -422,7 +422,7 @@ namespace Ffx
     }
 
     /// <summary>The event camera: its eye, the point it looks at, roll and screen depth, and its moves.</summary>
-    public static class Camera
+    public static partial class Camera
     {
 
         /// <summary>Sets the camera's eye position.</summary>
@@ -489,7 +489,7 @@ namespace Ffx
     }
 
     /// <summary>Sound effects.</summary>
-    public static class Sound
+    public static partial class Sound
     {
 
         /// <summary>Plays sound effect <paramref name="sfx"/> at the default pan and full volume. Returns the sound.</summary>

@@ -92,7 +92,11 @@ internal sealed partial class StatementReader(
                 if (d is not null) list.AddRange([.. pre.Select(x => At(x, s)), At(d, s)]);
                 return;
             }
-            // An inline method's call: its code in place (docs/encoding.md, "Inline methods").
+            // An inline method's call: its code in place (docs/encoding.md, "Inline methods"); `await` for one that
+            // awaits requests (an async inline method).
+            case ExpressionStatementSyntax { Expression: AwaitExpressionSyntax { Expression: InvocationExpressionSyntax awaited } } when InlineOf(awaited) is InlineMacro asyncInline:
+                list.AddRange(ExpandInline(asyncInline, awaited).Select(x => At(x, s)));
+                return;
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } when InlineOf(call) is InlineMacro inline:
                 list.AddRange(ExpandInline(inline, call).Select(x => At(x, s)));
                 return;

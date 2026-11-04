@@ -178,9 +178,8 @@ public static partial class ScriptCompiler {
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         // Helper methods (of the workers and the script class) become function workers after the others.
-        InlineMethods inlines = InlineMethods.With(trees);
-        inlines.Script = new InlineMethods.ScriptContext(variables, workerIndex,
-            cls => workerIndex.ContainsKey(cls) ? Registers(WorkerParts([.. byName[cls]], library).Parts) : new Dictionary<string, RegExpr>());
+        // A shared worker's inline methods are in its library class.
+        InlineMethods inlines = InlineMethods.With([.. trees, .. library.Trees]);
         HelperTable helpers = new(mainClass.Identifier.ValueText) { Inlines = inlines };
         AddHelpers(helpers, mainClass.Identifier.ValueText, mainParts, functionWorker: false, registers: false);
         foreach (string workerName in workerIndex.Keys) {
@@ -200,6 +199,9 @@ public static partial class ScriptCompiler {
             }
         }
         EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));
+        inlines.Script = new InlineMethods.ScriptContext(variables, workerIndex, cls => InlineRegisters(cls, byName, library)) {
+            EntryMethods = entryMethods, Signatures = SignatureOf,
+        };
         List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
@@ -412,6 +414,7 @@ public static partial class ScriptCompiler {
         StatementReader reader = new(variables, registers, NativesByName.Value, workers, wi.Type == 0, links) {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
             Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass, Inlines = helpers?.Inlines,
+            InlineClasses = [.. parts.Select(p => p.Identifier.ValueText).Distinct(StringComparer.Ordinal).Reverse()],
             Signatures = signatures, RequestTargets = requestTargets, NewTexts = newTexts,
         };
 
@@ -463,6 +466,19 @@ public static partial class ScriptCompiler {
     ///     A worker's parts and type: its base class is Worker0 … Worker6, or a library class, whose parts
     ///     (and its base's) come first.
     /// </summary>
+    /// <summary>The registers an inline method of class <paramref name="cls"/> may name: its worker's (with the library classes it derives from), or a library class's.</summary>
+    private static Dictionary<string, RegExpr> InlineRegisters(string cls, ILookup<string, ClassDeclarationSyntax> byName, ScriptLibrary library) {
+        List<ClassDeclarationSyntax> own = [.. byName[cls]];
+        if (own.Count == 0) own = [.. library.Classes[cls]];
+        if (own.Count == 0 || own.All(p => p.BaseList is null)) return Registers(own);
+        try {
+            return Registers(WorkerParts(own, library).Parts);
+        }
+        catch (CompileException) {
+            return Registers(own);
+        }
+    }
+
     private static (List<ClassDeclarationSyntax> Parts, ushort Type) WorkerParts(List<ClassDeclarationSyntax> own, ScriptLibrary library) {
         List<ClassDeclarationSyntax> parts = [.. own];
         ushort? type = null;

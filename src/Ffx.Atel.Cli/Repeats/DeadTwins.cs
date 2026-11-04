@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+using Ffx.Atel.Decompiler.Repeats;
+
 namespace Ffx.Atel.Cli.Repeats;
 
 // A macro's `if (PARAM == k) A else B` with PARAM a constant was folded by the original compiler into a

@@ -20,8 +20,9 @@ public sealed record ParamExpr(int Index) : Expr;
 ///     A parameter of an inline method: its name, whether it is a <c>float</c>, and its constant default.
 ///     <paramref name="Eager"/>: used once, in the method's first statement, before anything else there runs
 ///     (<c>[Eager]</c>), so its argument may be a call: substituted, it is evaluated once, first.
+///     <paramref name="Type"/>: the C# type when it is not <c>int</c> or <c>float</c> (<c>TextId</c>, an enum).
 /// </summary>
-public sealed record InlineParam(string Name, bool Float, Expr? Default, bool Eager = false);
+public sealed record InlineParam(string Name, bool Float, Expr? Default, bool Eager = false, string? Type = null);
 
 /// <summary>An inline method: its name (<c>Dialogue.Say</c>), parameters and template.</summary>
 public sealed class InlineMacro {
@@ -48,6 +49,9 @@ public sealed class InlineMacro {
 
     /// <summary>The C# name, <c>Class.Method</c>.</summary>
     public string Name { get; }
+
+    /// <summary>How a call is written when not <see cref="Name"/>: a worker's own method, called by its name alone.</summary>
+    public string? CallName { get; init; }
 
     public IReadOnlyList<InlineParam> Params { get; }
 
@@ -155,17 +159,19 @@ public static class Inline {
     }
 
     /// <summary>Whether two statements or expressions are the same tree (no parameters).</summary>
-    public static bool Same(object? a, object? b) => Unify(a, b, [], []);
+    public static bool Same(object? a, object? b) => Unify(a, b, [], [], literal: true);
 
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_props = new();
 
     private static PropertyInfo[] Props(Type t) => s_props.GetOrAdd(t, x => [.. x.GetProperties(BindingFlags.Public | BindingFlags.Instance)
         .Where(p => p.GetIndexParameters().Length == 0 && !(x == typeof(FloatLit) && p.Name == nameof(FloatLit.Value)))]);
 
-    private static bool Unify(object? t, object? v, Expr?[] bind, bool[] eager) {
-        if (t is ParamExpr p) {
+    // literal: compare as trees, a ParamExpr by its index (a value bound before, or Same, may hold the
+    // parameters of the template the code is in).
+    private static bool Unify(object? t, object? v, Expr?[] bind, bool[] eager, bool literal = false) {
+        if (t is ParamExpr p && !literal) {
             if (v is not Expr e) return false;
-            if (bind[p.Index] is Expr had) return Unify(had, e, bind, eager);
+            if (bind[p.Index] is Expr had) return Unify(had, e, bind, eager, literal: true);
             if (!IsArgument(e) && !(eager[p.Index] && IsEagerArgument(e))) return false;
             bind[p.Index] = e;
             return true;
@@ -174,16 +180,16 @@ public static class Inline {
         if (t is IList lt) {
             if (v is not IList lv || lt.Count != lv.Count) return false;
             for (int k = 0; k < lt.Count; k++) {
-                if (!Unify(lt[k], lv[k], bind, eager)) return false;
+                if (!Unify(lt[k], lv[k], bind, eager, literal)) return false;
             }
             return true;
         }
         if (t.GetType() != v.GetType()) return false;
         if (t is Stmt or Expr or SwitchSection or CaseLabel) {
             // An inline call inside a template (a helper that calls another): the same method, its arguments unified.
-            if (t is InlineStmt ti) return ReferenceEquals(ti.Macro, ((InlineStmt)v).Macro) && Unify(ti.Args, ((InlineStmt)v).Args, bind, eager);
+            if (t is InlineStmt ti) return ReferenceEquals(ti.Macro, ((InlineStmt)v).Macro) && Unify(ti.Args, ((InlineStmt)v).Args, bind, eager, literal);
             foreach (PropertyInfo prop in Props(t.GetType())) {
-                if (!Unify(prop.GetValue(t), prop.GetValue(v), bind, eager)) return false;
+                if (!Unify(prop.GetValue(t), prop.GetValue(v), bind, eager, literal)) return false;
             }
             return true;
         }

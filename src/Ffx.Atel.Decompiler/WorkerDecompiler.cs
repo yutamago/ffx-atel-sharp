@@ -73,6 +73,8 @@ internal sealed partial class WorkerDecompiler {
         _code = block.Decode(w);
         _lifter = new StatementLifter(block, worker, table, natives);
         _printer = new StatementPrinter(vars, natives, workerNames, _functionWorker) { Self = worker };
+        _natives = natives;
+        _name = workerNames[worker];
 
         for (int i = 0; i < _code.Count; i++) _indexOf[_code[i].Offset] = i;
         List<int>[] labelsAt = new List<int>[_code.Count];
@@ -563,6 +565,7 @@ internal sealed partial class WorkerDecompiler {
             });
         }
         TreeWriter writer = new(sb, _printer, _block, _worker, annotate, csharpTargets);
+        PrepareOwnInlines();
         _printer.Counting = true;
         for (int m = 0; m < _methods.Count; m++) {
             Method method = _methods[m];
@@ -574,6 +577,7 @@ internal sealed partial class WorkerDecompiler {
             writer.Block(method.Body, 2);
             sb.Append(Indent).Append("}\n");
         }
+        WriteOwnInlines(sb, writer);
     }
 }
 

@@ -127,16 +127,20 @@ public static class ScriptDecompiler {
     /// <param name="overlay">Hand-written names for workers, entries and variables (<see cref="NameOverlay"/>); by default this repo's <c>data/names/</c> file of the script.</param>
     /// <param name="deadBlocks">Whether to list the dead blocks with their code (<see cref="DecompiledScript.DeadBlocks"/>; <c>atel dead</c>).</param>
     /// <param name="cuts">Names for dead blocks (<see cref="CutNames"/>); by default this repo's <c>data/cut-names.toml</c>.</param>
+    /// <param name="repeats">
+    ///     How each worker's repeated code becomes inline methods of its own (<see cref="RepeatOptions"/>): the
+    ///     defaults when null, none with <see cref="RepeatOptions.Disabled"/>.
+    /// </param>
     /// <exception cref="ScriptFormatException">The block has a shape the source cannot hold.</exception>
     /// <exception cref="FormatException">The overlay names something the script does not have, or gives a name twice.</exception>
-    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, NameOverlay? overlay = null, bool deadBlocks = false, CutNames? cuts = null) {
+    public static DecompiledScript Decompile(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, NameOverlay? overlay = null, bool deadBlocks = false, CutNames? cuts = null, RepeatOptions? repeats = null) {
         overlay ??= NameOverlay.Load(null, archivePath);
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
         ScriptImage image = ScriptImage.FromBlock(block);
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
 
-        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts);
+        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions());
         EntryNaming.Apply(workers, workerNames, overlay);
         RequestNaming.Assign(workers, workerNames);
 
@@ -320,7 +324,7 @@ public static class ScriptDecompiler {
     }
 
     /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
-    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts) {
+    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats) {
         string[] varNames = VariableNames(image.Variables, overlay);
         string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames], overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
@@ -329,6 +333,7 @@ public static class ScriptDecompiler {
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
             w.FoldInline(inline);
+            w.FoldRepeats(repeats);
         }
         return (varNames, workerNames, workers);
     }
@@ -341,10 +346,11 @@ public static class ScriptDecompiler {
     /// <param name="archivePath">The file's path in the game's archive.</param>
     /// <param name="file">The script file.</param>
     /// <param name="inline">The inline methods to fold.</param>
-    public static StructuredScript Structured(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null) {
+    /// <param name="repeats">Each worker's repeated code as inline methods of its own (<see cref="RepeatOptions"/>); none when null.</param>
+    public static StructuredScript Structured(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, RepeatOptions? repeats = null) {
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
-        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null);
+        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null, repeats ?? RepeatOptions.Disabled);
         return new StructuredScript(names, [.. workers.Select((w, i) => new StructuredWorker(i, workerNames[i], w.Bodies, w.Print))]);
     }
 

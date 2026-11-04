@@ -177,7 +177,7 @@ foreach (Group g in groups.Values) {
         case "component": {
             cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{g.Summary}</summary>\n");
             cs.Append(CultureInfo.InvariantCulture, $"    /// <remarks>The worker's <c>{g.Name}</c> property (<c>{g.Name}.…</c>; another worker's: <c>Tidus.{g.Name}.…</c>, <c>Workers[n].{g.Name}.…</c>).</remarks>\n");
-            cs.Append(CultureInfo.InvariantCulture, $"    public sealed class {g.Type}\n    {{\n        private {g.Type}() {{ }}\n");
+            cs.Append(CultureInfo.InvariantCulture, $"    public sealed partial class {g.Type}\n    {{\n        private {g.Type}() {{ }}\n");
             if (containers[""].Assigns.TryGetValue(g.Name, out var assign)) {
                 string valueType = CsType(assign.Values[0]);
                 cs.Append(CultureInfo.InvariantCulture, $"\n        /// <summary>Assigning a value to the worker's <c>{g.Name}</c> calls <c>{assign.Native.Class}.{assign.Native.Method}</c>: <c>{g.Name} = …;</c>.</summary>\n");
@@ -189,7 +189,7 @@ foreach (Group g in groups.Values) {
         }
         case "indexed": {
             cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{g.Summary}</summary>\n");
-            cs.Append(CultureInfo.InvariantCulture, $"    public sealed class {g.Type}\n    {{\n        private {g.Type}() {{ }}\n\n");
+            cs.Append(CultureInfo.InvariantCulture, $"    public sealed partial class {g.Type}\n    {{\n        private {g.Type}() {{ }}\n\n");
             string index = c.Methods.Values.SelectMany(m => m).Select(m => m.Native.Args[0].Name).FirstOrDefault() ?? "index";
             cs.Append(CultureInfo.InvariantCulture, $"        /// <summary>The one at <paramref name=\"{index}\"/>.</summary>\n");
             cs.Append(CultureInfo.InvariantCulture, $"        public {g.Item} this[int {index}] => throw Atel.Runtime.NotRunnable();\n    }}\n");
@@ -201,7 +201,7 @@ foreach (Group g in groups.Values) {
         }
         case "static": {
             cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{g.Summary}</summary>\n");
-            cs.Append(CultureInfo.InvariantCulture, $"    public static class {g.Name}\n    {{\n");
+            cs.Append(CultureInfo.InvariantCulture, $"    public static partial class {g.Name}\n    {{\n");
             WriteMembers(c, "        ", "public static ", "Atel.");
             cs.Append("    }\n");
             break;

@@ -122,7 +122,7 @@ public sealed class InlineTests {
 
     private static byte[] Block(string body, string members = "") {
         SyntaxTree tree = ScriptCompiler.Parse(Script(body, members), "M996.cs");
-        Assert.DoesNotContain(ScriptCompiler.Check([tree]), d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Empty(ScriptCompiler.Check([tree]).Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()));
         return ScriptCompiler.Compile([tree]).Block();
     }
 
@@ -224,6 +224,65 @@ public sealed class InlineTests {
     [Fact]
     public void AnInlineMethodAssignsKeepsALocalInARegisterAndTakesACall() {
         Assert.Equal(Block(TurningWritten), Block("TurnBy(Common.GetYawToMoveTarget(), 1);\nTurnBy(1.5f, 2);", Turning));
+    }
+
+    [Fact]
+    public void TheReferenceAssemblysTurnIsTheWorkersOwn() {
+        // Turn.To is TurnControl.To, called on this worker's Turn; another worker's Turn has no inline method.
+        CompileException ex = Assert.Throws<CompileException>(() => ScriptCompiler.Compile([ScriptCompiler.Parse(Script("Larva.Turn.To(1f);"), "M996.cs")]));
+        Assert.DoesNotContain("Common.TurnSetYaw", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheReferenceAssemblysHelpersCompileToTheirNatives() {
+        Assert.Equal(Block("""
+                    Common.TurnSetYaw(Common.GetYawToMoveTarget());
+                    I3 = Common.GetTurnKind();
+                    Chr.SetMotion(Common.GetTurnMotion(I3));
+                    Common.TurnSetFrames(0f, Common.GetTurnFrames(I3, 15, 30));
+                    Common.TurnStart(0, 4099, 0);
+                    Common.TurnWait();
+                    Chr.ReleaseMotion();
+                    Common.SetMapFadeFrames(15);
+                    Common.SetMapFadeType(0);
+                    Common.MapChange(Map.Bsvr0100, 2);
+            """), Block("Turn.To(Common.GetYawToMoveTarget());\nChangeMap(Map.Bsvr0100, 2);"));
+    }
+
+    [Fact]
+    public void RepeatedCodeBecomesAnInlineMethodOfTheWorker() {
+        // Fourteen copies of ten statements that differ in one value: one method of the worker's own, fourteen calls.
+        string copy(int k) => string.Join("\n", Enumerable.Range(0, 10).Select(j => j == 4
+            ? $"Chr.SetMotion({100 + k});"
+            : j % 2 == 0 ? $"Hp = Hp + {j};" : $"Common.WaitFrames({j});"));
+        byte[] block = Block(string.Join("\n", Enumerable.Range(0, 14).Select(copy)));
+        DecompiledScript d = ScriptDecompiler.Decompile(NewCodeTests.Path, ScriptFile.Parse(File(block)));
+        string source = d.Source;
+        Assert.Contains("[Inline(Waits = true)]", source, StringComparison.Ordinal);
+        Assert.Contains("private static void Repeated01(int motion)", source, StringComparison.Ordinal);
+        Assert.Contains("Repeated01(111);", source, StringComparison.Ordinal);
+        Assert.Equal(14, d.Stats.Inline["repeats-calls"]);
+        Assert.Equal(block, ScriptCompiler.Compile([.. d.Files().Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath))]).Block());
+        Assert.DoesNotContain(ScriptCompiler.Check([.. d.Files().Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath))]), x => x.Severity == DiagnosticSeverity.Error);
+
+        // Off: the code as it is.
+        string plain = ScriptDecompiler.Decompile(NewCodeTests.Path, ScriptFile.Parse(File(block)), repeats: RepeatOptions.Disabled).Source;
+        Assert.DoesNotContain("Repeated01", plain, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheDecompilerWritesTheReferenceAssemblysHelpers() {
+        byte[] block = Block("""
+                    Common.TurnSetYaw(Common.GetYawToMoveTarget());
+                    I3 = Common.GetTurnKind();
+                    Chr.SetMotion(Common.GetTurnMotion(I3));
+                    Common.TurnSetFrames(0f, Common.GetTurnFrames(I3, 15, 30));
+                    Common.TurnStart(0, 4099, 0);
+                    Common.TurnWait();
+                    Chr.ReleaseMotion();
+            """);
+        string source = ScriptDecompiler.Decompile(NewCodeTests.Path, ScriptFile.Parse(File(block))).Source;
+        Assert.Contains("Turn.To(Move.YawToTarget);", source, StringComparison.Ordinal);
     }
 
     [Theory]

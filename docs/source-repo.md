@@ -241,8 +241,9 @@ do: each uses every core and several GB, so they wait for one another.
   monsters.
 - `Start.slnx` (the Thunder Plains and the monsters: open this first),
   `Atel.slnx` (everything but blitzball and the variants), `Events.slnx`,
-  `Battles.slnx`, `Monsters.slnx`, `Blitzball.slnx` (each blitzball script
-  is its own project of about 2 GB to compile), `Variants.slnx` (see below),
+  `Battles.slnx`, `Monsters.slnx`, `Blitzball.slnx` (only when an area's source is over 64 MB,
+  each of its scripts its own project; since the blitzball scripts' repeated code is written once,
+  2026-11-04, they are one area project of 57 MB and in `Atel.slnx`), `Variants.slnx` (see below),
   `.vscode/`.
 - In each script folder, beside the script class and the workers:
   `<Script>.Layout.cs` (the header, pins and pools, and the workers'

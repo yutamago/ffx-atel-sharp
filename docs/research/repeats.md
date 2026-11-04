@@ -8,8 +8,7 @@ such code is written once, as an `[Inline]` helper the compiler writes out at
 each call (as `Dialogue.Say`), so the bytes stay the same. This page finds
 the candidates, measures what they would save, checks that each one gives
 the shipped bytes back, and proposes names and signatures for the first
-ones. The decompiler's output is unchanged; nothing here is folded in the
-source yet.
+ones. Since 2026-11-04 the decompiler folds them ([Status](#status)).
 
 Numbers are from `atel repeats` at ffx-atel-sharp `76a2cb8` plus this
 change, over all 1,621 scripts.
@@ -331,3 +330,44 @@ parameter's most common value is in `repeats.md`, e.g. 448 for 6,690 of the
 3. Blitzball helpers belong to the blitzball scripts, not the reference
    assembly: the decompiler would need inline methods from the source repo
    (`InlineMethods.With(trees)` already reads them from C#).
+
+## Status
+
+2026-11-04: Phase 1, byte for byte. What was built, against the plan above:
+
+- **The language gaps** ([language.md](../language.md#inline-methods)): an inline method may read and
+  assign the script's variables and its worker's registers (the blitzball macros), request entries
+  and call function workers, hold opcode statements, and be `async Task` when it awaits a request (a
+  call is `await Name(…);`: W36's big block awaits W18). `[InlineLocal("kind", 3)]` keeps a local in
+  register `I3` (the turn), and an `[Eager]` parameter, used once in the first statement, takes a call
+  (`Turn.To(Move.YawToTarget)`). The analyzers know an inline call is no request (ATL2005, ATL2008).
+- **General helpers** in the reference assembly (`src/Ffx.Atel.Game/Inline/`): `Turn.To` (R008 with
+  its `TurnSetYaw`, 5,148 calls in the decompiled corpus), `Turn.InFrames` (R046, 1,037), `Move.To`
+  (R005, 7,475), `Move.StartWithTurnAndWait` (R023, 1,651), `Move.InFrames` (R025, 2,210),
+  `Dialogue.SayWithVoice` (R002, 5,388), `ChangeMap` (R035, 2,087) and `JumpToMap` (1,357),
+  `Party.RestoreAll` (R024, 137). Left out: camera runs whose arguments are not described yet
+  (R001, R004, R006), and two-line runs that read as well written out (R016).
+- **Each worker's own repeats.** The miner moved into the decompiler (`Repeats/`) and runs per worker
+  after the reference assembly's methods are folded, so `Dialogue.Say` and `Turn.To` are single
+  statements to it. Per worker rather than per script or per family: a helper names the worker's
+  registers and the script's variable numbers, it travels with the worker into the library, and the
+  cover of one worker is not fragmented by small helpers that recur elsewhere (the problem of
+  "Blitzball" above): W36's seven-copy block is the cover's first helper. A run needs 8 lines, 100
+  lines saved and at most 6 parameters; shorter ones read better written out than as a call of an
+  unnamed method. Bodies are folded with the helpers taken after them; each worker is lowered again
+  and compared, and keeps nothing if it differs (no worker did).
+- **Names**: `RepeatedNN`, or a name from `data/inline-names.toml` by the body's signature (11
+  signatures today: `WinPoseCamera` in 1,010 battle workers, `ShowStatIcon`, `ScrollListAndAdd`,
+  `HidePlayerPanel`, `ShowTwoDigits`, `LoadAliasAutoMotions`, `WaitForMotionFrame`, …).
+- **The constant `if` on a parameter** is not done: the two foldings of one macro stay two helpers.
+  It needs the expansion to give the original's label order where the constant `if` starts before
+  `A`, which nothing checks yet.
+
+| | before | after |
+|---|---|---|
+| W36 of `bltz0000` | 190,402 lines | 15,447 lines (its helpers included) |
+| the decompiled corpus (`.cs` lines) | 7,842,894 | 4,403,971 (−43.8 %) |
+| the blitzball area | `Blitzball.slnx`, a project per script | one area project, 57 MB |
+| worker helpers | | 3,617 methods (232 `async Task`) in 667 script folders |
+| `atel roundtrip --check` | 1,621 / 1,621 | 1,621 / 1,621, 0 C# errors, 221 warnings (ATL2006) |
+
