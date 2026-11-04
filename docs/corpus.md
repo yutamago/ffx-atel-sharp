@@ -268,6 +268,12 @@ files), and 356 are never used. Pin both.
 | 5 | 1,382 events | 3 | line triggers with a position (`LineGetCrossSide`, `TriggerSetLine`) |
 | 6 | 116 events | 4 | point triggers with map sprites |
 
+FFX.exe confirms and sharpens these (2026-11-05, [language.md](language.md#workers)): type 1 is
+the actor the engine steps as a character, 2 and 3 a line and a box checked against the player,
+5 and 6 a line and a box checked against another worker, 4 has no position at all. The source
+names them `Actor`, `LineTrigger` (`BattleWorker` outside events), `BoxTrigger`, `LogicWorker`,
+`LineSensor`, `BoxSensor` and `FunctionWorker` (type 0).
+
 Entries that only `end`: 60 % of type 2 event workers' entries, 49 % of
 type 3's, 32 % of type 1's. Entry 0 only ends in 60 % of type 4 workers
 and 58 % of monster workers. Triggers (types 2, 3) have a fixed entry set

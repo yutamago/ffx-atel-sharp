@@ -326,10 +326,18 @@ public static partial class ScriptCompiler {
         _ => "",
     };
 
+    /// <summary>The worker type a base class names: <c>Worker0</c> … <c>Worker6</c>, or their names (<c>Actor</c> is type 1).</summary>
     private static ushort? WorkerType(TypeSyntax type) {
         string n = SimpleName(type);
-        return n.Length == 7 && n.StartsWith("Worker", StringComparison.Ordinal) && n[6] is >= '0' and <= '6' ? (ushort)(n[6] - '0') : null;
+        if (n.Length == 7 && n.StartsWith("Worker", StringComparison.Ordinal) && n[6] is >= '0' and <= '6') return (ushort)(n[6] - '0');
+        return TypeNames.TryGetValue(n, out ushort t) ? t : null;
     }
+
+    /// <summary>The reference assembly's names of the worker types (<c>Ffx.Atel.Actor : Worker1</c>).</summary>
+    private static readonly Dictionary<string, ushort> TypeNames = new(StringComparer.Ordinal) {
+        ["FunctionWorker"] = 0, ["Actor"] = 1, ["LineTrigger"] = 2, ["BattleWorker"] = 2, ["BoxTrigger"] = 3,
+        ["LogicWorker"] = 4, ["LineSensor"] = 5, ["BoxSensor"] = 6,
+    };
 
     /// <summary>An entry, a label or an instruction of a worker, in code order; where it came from for errors.</summary>
     private sealed record WorkerItem(AsmLineKind Kind, int Number, CodeOp Op, Location? Where);
@@ -489,11 +497,11 @@ public static partial class ScriptCompiler {
             if (type is not null) break;
             string baseName = SimpleName(b.Type);
             List<ClassDeclarationSyntax> inherited = [.. library.Classes[baseName]];
-            if (inherited.Count == 0 || !seen.Add(baseName)) throw CompileException.At(b, "a worker derives from Worker0 … Worker6 or a library class");
+            if (inherited.Count == 0 || !seen.Add(baseName)) throw CompileException.At(b, "a worker derives from a worker type (Actor, LineTrigger, …, or Worker0 … Worker6) or a library class");
             parts.InsertRange(0, inherited);
             b = inherited.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
         }
-        return (parts, type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from Worker0 … Worker6 or a library class"));
+        return (parts, type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from a worker type (Actor, LineTrigger, …, or Worker0 … Worker6) or a library class"));
     }
 
     /// <summary>A worker's <c>[Register(n)]</c> fields: <c>int</c> for the integer registers, <c>float</c> for the float ones.</summary>

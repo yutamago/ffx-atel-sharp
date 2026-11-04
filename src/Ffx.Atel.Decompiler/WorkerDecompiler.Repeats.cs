@@ -34,7 +34,10 @@ public sealed record RepeatOptions(int MinSaved = 100, int MinLines = 8, int Max
 // travel with the worker's code (into the library, when the worker is shared).
 internal sealed partial class WorkerDecompiler {
     private readonly NativeSignatures _natives;
-    private readonly string _name;
+    private readonly string[] _workerNames;
+
+    /// <summary>The worker's name, read when used: <see cref="Naming.WorkerNaming.AssignRoles"/> may rename it after <see cref="Structure"/>.</summary>
+    private string _name => _workerNames[_worker];
 
     /// <summary>The worker's own inline methods, as written: the method, its body as printed (calls of later ones folded), its calls.</summary>
     private readonly List<(InlineMacro Macro, IReadOnlyList<Stmt> Printed, int Calls)> _own = [];

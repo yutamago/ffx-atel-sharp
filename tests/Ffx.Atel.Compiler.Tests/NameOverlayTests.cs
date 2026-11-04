@@ -88,7 +88,7 @@ public sealed class NameOverlayTests {
         DecompiledScript named = ScriptDecompiler.Decompile(Path, file, overlay: NameOverlay.Parse(Names, "monsters/m997.toml"));
         string[] expected = [
             "typeof(W00), typeof(Helper)",
-            "public sealed partial class Helper : Worker1",
+            "public sealed partial class Helper : Actor",
             "public static async Task WaveAsync()",
             "_ = Helper.WaveAsync();",
             "await Helper.WaveAsync();",

@@ -99,7 +99,7 @@ void E3() { I0 = 5; }
 
 Waits are `await`, natives with `Polls` (`[Native(…, Polls = true)]`) and `RequestWaitStart`,
 `RequestWaitEnd`, directly in the method (not through helpers). Liveness is per method, over
-Roslyn's control flow graph. Function workers (`Worker0`) are left out: they run on their
+Roslyn's control flow graph. Function workers (`FunctionWorker`, `Worker0`) are left out: they run on their
 caller's level and registers.
 
 Fix: use a local (the compiler saves locals across waits), another register, or suppress where

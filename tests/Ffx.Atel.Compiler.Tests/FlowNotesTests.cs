@@ -172,7 +172,7 @@ public sealed class FlowNotesTests {
         // The named class takes its name; the others keep their numbers.
         Assert.Equal(numbered.Classes.Select(c => c.Signature == signature ? "Waiter" : c.Name), named.Classes.Select(c => c.Name));
         SourceFile waiter = named.Files().Single(f => f.RelativePath == "Library/Waiter.cs");
-        Assert.Contains("/// <summary>Waits &lt;forever&gt; &amp; answers.</summary>\npublic abstract class Waiter : Worker2\n", waiter.Text, StringComparison.Ordinal);
+        Assert.Contains("/// <summary>Waits &lt;forever&gt; &amp; answers.</summary>\npublic abstract class Waiter : BattleWorker\n", waiter.Text, StringComparison.Ordinal);
         Assert.Contains($"// Signature {signature} ", waiter.Text, StringComparison.Ordinal);
         ScriptLibrary library = ScriptLibrary.FromTrees(Parse(named.Files()));
         Assert.Empty(library.Check());

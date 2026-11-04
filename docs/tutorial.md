@@ -65,11 +65,11 @@ projects use the SDK (`--sdk` copies the package into `vanilla/.atel/packages/` 
 in `vanilla/global.json`), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
 analyzers, and any C# IDE opens it.
 
-Open `vanilla/Monsters/M209/W01.cs`. Worker 1 is the Larva's battle worker (a `Worker2`, as every
+Open `vanilla/Monsters/M209/W01.cs`. Worker 1 is the Larva's battle worker (a `BattleWorker`, worker type 2, as every
 monster worker), and its `Init` is entry 0, which the engine runs when the monster is set up:
 
 ```csharp
-public sealed partial class W01 : Worker2
+public sealed partial class W01 : BattleWorker
 {
     protected override void Init()
     {
