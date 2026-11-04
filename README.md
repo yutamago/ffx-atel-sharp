@@ -30,6 +30,7 @@ How it works:
 - [`docs/research/loader.md`](docs/research/loader.md): the loader in the game, and the in-game checks.
 - [`docs/research/dead-code.md`](docs/research/dead-code.md): the dead `if (false)` blocks, what they are, and names for them.
 - [`docs/research/repeats.md`](docs/research/repeats.md): the code that repeats with only different values, as candidate inline helpers.
+- [`docs/research/oo-surface.md`](docs/research/oo-surface.md): the object-oriented members over the natives, how they were chosen and measured.
 - [`docs/source-repo.md`](docs/source-repo.md): the private repo of decompiled source.
 
 ## Status
@@ -57,6 +58,10 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   (`Btl.SetActorsProperty(Target.Own, ActorProperty.Hp, 0)`), messages as
   `Text[12]`, workers named after the model they load, and `Init`/`Main`
   overrides for the engine's entries 0 and 1.
+- The source reads object-oriented: the natives most scripts call are members of the worker
+  (`Pos = new Vector3(…)`, `Yaw = …`, `Turn.Start(…)`, `Motion.Play(…)`, `Tidus.Pos.X`) and of
+  static classes (`Wait.Frames(…)`, `Camera.Roll = …`), generated from `data/native-members.json`
+  and compiled back onto the same natives ([`docs/language.md`](docs/language.md#members)).
 - The analyzers report C# that ATEL cannot run (21 rules), in the IDE and
   in `atel compile --check`; see [`docs/analyzers.md`](docs/analyzers.md).
 - Mods (Phase 9): `atel compile-mod` compiles a mod's C# (`partial`

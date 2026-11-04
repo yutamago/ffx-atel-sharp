@@ -60,7 +60,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     public string Statement(Stmt s) => s switch {
         AssignStmt a => Assign(a),
         CompoundStmt c => Compound(c),
-        CallStmt c => Call(c.Native, c.Args).Text + ";",
+        CallStmt c => MemberStatement(c) ?? Call(c.Native, c.Args).Text + ";",
         RequestStmt r => Request(r),
         CallWorkerStmt c => c.Worker < workerNames.Length ? CallWorker(c.Worker, workerNames[c.Worker]) : throw No("call to a worker that does not exist"),
         GotoStmt g => $"goto l{g.Label};",
@@ -222,7 +222,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
             case BinaryExpr b:
                 return Binary(b);
             case CallExpr c:
-                return Call(c.Native, c.Args);
+                return MemberValue(c) ?? Call(c.Native, c.Args);
             default:
                 throw No($"no C# for {e}");
         }

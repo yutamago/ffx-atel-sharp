@@ -48,6 +48,14 @@ internal sealed class AtelModel {
     // ----- Where symbols come from ----------------------------------------------------------
 
     /// <summary>Declared in the .NET base library (namespaces <c>System</c> and <c>Microsoft</c>).</summary>
+    /// <summary>A member of the object-oriented surface's attribute (<c>Ffx.Atel.NativeMemberAttribute</c>, docs/language.md, "Members").</summary>
+    public static bool IsNativeMember(INamedTypeSymbol? attribute) =>
+        attribute is { Name: "NativeMemberAttribute", ContainingNamespace: { Name: "Atel", ContainingNamespace: { Name: "Ffx", ContainingNamespace.IsGlobalNamespace: true } } };
+
+    /// <summary>The reference assembly's <c>Ffx.Vector3</c>: three floats, only ever the value of a property.</summary>
+    public static bool IsVector3(ITypeSymbol? type) =>
+        type is { TypeKind: TypeKind.Struct, Name: "Vector3", ContainingNamespace: { Name: "Ffx", ContainingNamespace.IsGlobalNamespace: true } };
+
     public static bool IsBaseLibrary(ISymbol symbol) {
         INamespaceSymbol? ns = symbol as INamespaceSymbol ?? symbol.ContainingNamespace;
         if (symbol is IArrayTypeSymbol) return false;
@@ -112,7 +120,8 @@ internal sealed class AtelModel {
     /// <summary>A native: a method of the reference assembly with <c>[Native]</c>.</summary>
     /// <summary>A native that polls, or an inline method that waits (<c>[Inline(Waits = true)]</c>).</summary>
     public bool Polls(IMethodSymbol method) => polls.GetOrAdd(method.OriginalDefinition, m => m.GetAttributes().Any(a =>
-        (SymbolEqualityComparer.Default.Equals(a.AttributeClass, NativeAttribute) && a.NamedArguments.Any(n => n.Key == "Polls" && n.Value.Value is true))
+        ((SymbolEqualityComparer.Default.Equals(a.AttributeClass, NativeAttribute) || IsNativeMember(a.AttributeClass))
+            && a.NamedArguments.Any(n => n.Key == "Polls" && n.Value.Value is true))
         || (SymbolEqualityComparer.Default.Equals(a.AttributeClass, InlineAttribute) && a.NamedArguments.Any(n => n.Key == "Waits" && n.Value.Value is true))));
 
     /// <summary>Whether a <c>Worker</c> member named <paramref name="name"/> is <paramref name="method"/>.</summary>

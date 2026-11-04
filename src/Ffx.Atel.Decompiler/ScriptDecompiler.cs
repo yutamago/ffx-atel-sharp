@@ -322,7 +322,7 @@ public static class ScriptDecompiler {
     /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
     private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts) {
         string[] varNames = VariableNames(image.Variables, overlay);
-        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')], overlay);
+        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames], overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts))];
         inline ??= Compiler.InlineMethods.Game.All;
@@ -353,6 +353,9 @@ public static class ScriptDecompiler {
 
     /// <summary>The natives of the reference assembly (<c>Ffx.Atel.Game</c>).</summary>
     public static NativeSignatures Natives => s_natives.Value;
+
+    /// <summary>The names of the object-oriented surface a worker class must not take (it would hide them, or be hidden).</summary>
+    private static IEnumerable<string> MemberNames => [.. Compiler.NativeMembers.Default.WorkerRoots, .. Compiler.NativeMembers.Default.StaticRoots, "Workers"];
 
     private static readonly Lazy<NativeSignatures> s_natives = new(() => NativeSignatures.FromAssembly(typeof(NativeAttribute).Assembly));
 

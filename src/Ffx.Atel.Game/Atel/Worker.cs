@@ -12,7 +12,7 @@ namespace Ffx.Atel;
 ///     needs where ATEL has none. None of them runs on .NET; each compiles to fixed bytecode
 ///     (docs/plan.md, "Phase 3: statements").
 /// </remarks>
-public abstract class Worker {
+public abstract partial class Worker {
     /// <summary>
     ///     Code the decompiler cannot express yet, in the assembly syntax of <c>atel disasm</c>
     ///     (without <c>worker</c> lines; <c>lN:</c> places the worker's jump label N). A worker's

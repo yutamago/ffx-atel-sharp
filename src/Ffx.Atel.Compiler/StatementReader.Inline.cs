@@ -13,12 +13,16 @@ internal sealed partial class StatementReader {
     /// <summary>The inline methods calls may name; the reference assembly's when not set.</summary>
     public InlineMethods? Inlines { get; init; }
 
-    /// <summary>The inline method a call names: <c>Dialogue.Say(…)</c>, or <c>Say(…)</c> in its own class or the script class.</summary>
+    /// <summary>
+    ///     The inline method a call names: <c>Dialogue.Say(…)</c>, or <c>Say(…)</c> in its own class, the script class
+    ///     or <c>Worker</c> (the reference assembly's helpers on every worker, written with its members).
+    /// </summary>
     private InlineMacro? InlineOf(InvocationExpressionSyntax call) {
         InlineMethods table = Inlines ?? InlineMethods.Game;
         return call.Expression switch {
             IdentifierNameSyntax id => (Class is null ? null : table.Find(Class, id.Identifier.ValueText))
-                ?? (ScriptClass is null ? null : table.Find(ScriptClass, id.Identifier.ValueText)),
+                ?? (ScriptClass is null ? null : table.Find(ScriptClass, id.Identifier.ValueText))
+                ?? table.Find(nameof(Worker), id.Identifier.ValueText),
             MemberAccessExpressionSyntax { Name: IdentifierNameSyntax m } access => table.Find(ClassName(access.Expression), m.Identifier.ValueText),
             _ => null,
         };

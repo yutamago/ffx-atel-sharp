@@ -121,6 +121,10 @@ and moved here when work began.
   become properties, and natives on another worker become members of that
   worker (`Tidus.StopMove()`). Still Phase 1: the compiler lowers the
   members back onto the same natives, byte for byte.
+  Step 1 (2026-11-04): 88 natives are members (65 % of the shipped scripts' native calls), generated
+  from `data/native-members.json`; the decompiler writes 2,035,998 member uses and the corpus still
+  round-trips byte for byte ([language.md](language.md#members),
+  [research/oo-surface.md](research/oo-surface.md)).
 - **Repeated code becomes shared `[Inline]` functions.** Sequences that
   recur across scripts with only different values are written once, as an
   inline function the compiler expands in place (as `Dialogue.Say`), so the

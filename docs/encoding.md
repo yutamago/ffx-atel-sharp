@@ -123,6 +123,13 @@ the same `add` for `int` and `float`, and the signed compares always (the unsign
 | `W.E5Async(Priority.P3)` | `push 3` as the level | level 1 without the argument |
 | `Request(l, w, e, variant: 2)` | `…; req2; popfacc` | the fallback form; `RequestWaitStart`, `RequestWaitEnd` likewise |
 | `RequestParty(l, slot, e)` | `l; slot; e; op_39; popfacc` | |
+| `Turn.Start(0, 4099, 0);` | `push 0; push 4099; push 0; func_facc 0x0019` | a member method is its native's call ([language.md](language.md#members)) |
+| `Yaw = x;` | `x; func_facc 0x0095` | a property's setter: its native called with the value, as a statement |
+| `F0 = Yaw;` | `func 0x0091; popf f0` | a property's getter: its native's result |
+| `Pos = new Vector3(x, y, z);` | `x; y; z; func_facc 0x0126` | a `Vector3`: its three values, as written |
+| `Move.Stop();` | `pushimm -1; func 0x0033; func_facc 0x0077` | a worker native without a worker: `Common.GetWorkerId(-1)` first |
+| `Tidus.Move.Stop();`, `Workers[n].Move.Stop();` | `push 1` (Tidus's number) or `n`, then `func_facc 0x0077` | the worker first, then the member's arguments |
+| `Sprites[3].Show(v);` | `push 3; v; func_facc 0x011b` | the index first |
 
 `func_facc` for a statement and `func` for a used result hold for all 3,146,543 calls. A native
 that waits for an answer is read back with `pushfacc` 3,151 times and as `func` 408 times: the

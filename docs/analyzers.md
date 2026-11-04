@@ -119,6 +119,10 @@ static Item[] Rewards = { Item.Potion };  // fine
 Anonymous objects and `stackalloc` too. A .NET type's `new` is reported as ATL1003/ATL1004, a
 delegate's as ATL1007. Fix: fields for state; arrays as fields.
 
+One exception: `new Vector3(x, y, z)` (or `new(x, y, z)`) as the value assigned to a property
+(`Pos = new Vector3(1f, 2f, 3f);`) creates nothing: the property's native takes the three values
+([language.md](language.md#members)). A `Vector3` anywhere else (`var v = new Vector3(…)`) is ATL1001.
+
 ### ATL1002
 
 **`string` outside `Debug`** (error). ATEL has no strings: messages are IDs (`Text[12]`), debug

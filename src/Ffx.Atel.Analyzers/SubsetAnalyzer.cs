@@ -78,6 +78,12 @@ public sealed class SubsetAnalyzer : DiagnosticAnalyzer {
     private static void ObjectCreation(OperationAnalysisContext c) {
         ITypeSymbol? type = c.Operation.Type;
         if (CompileTimeOnly(c.Operation.Syntax)) return;
+        // `Pos = new Vector3(x, y, z)`: no object, the property's native takes the three values (docs/language.md, "Members").
+        if (AtelModel.IsVector3(type)) {
+            IOperation value = c.Operation;
+            while (value.Parent is IConversionOperation { IsImplicit: true } conversion) value = conversion;
+            if (value.Parent is ISimpleAssignmentOperation { Target: IPropertyReferenceOperation } assignment && assignment.Value == value) return;
+        }
         // A .NET type is reported as what it is (ATL1003, ATL1004), a delegate as ATL1007; at the
         // type where it is written (`new()` takes the declared type, reported there).
         if (type is not null && (AtelModel.IsBaseLibrary(type) || type.TypeKind == TypeKind.Delegate)) {

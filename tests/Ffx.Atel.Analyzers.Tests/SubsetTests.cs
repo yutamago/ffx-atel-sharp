@@ -97,6 +97,21 @@ public sealed class SubsetTests {
         }
         """);
 
+    /// <summary>A Vector3 is the value of a property (<c>Pos = new Vector3(…)</c>, docs/language.md "Members"), nothing else.</summary>
+    [Fact]
+    public void Vector3OnlyAsAPropertysValue() => Verify("""
+        public sealed class W00 : Worker1
+        {
+            void E0()
+            {
+                Pos = new Vector3(1f, 2f, 3f);
+                Move.Target = new(1f, 2f, 3f);
+                Camera.LookAt = new Vector3(0f, 0f, 0f);
+                var v = {|ATL1001:new Vector3(1f, 2f, 3f)|};
+            }
+        }
+        """);
+
     [Fact]
     public void Strings() => Verify("""
         public sealed class W00 : Worker1
