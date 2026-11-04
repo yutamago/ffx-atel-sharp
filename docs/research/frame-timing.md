@@ -259,7 +259,7 @@ Converting these is not a mod. The durations and rates are data in 1,621 compile
 and effect files and the battle tables, all in ticks. The code is PS2-era C and recompiled EE and VU
 code, in thousands of functions. Ease, collision and cloth would also change behaviour (`Sg_AnimValF`'s
 1/frames ratio, tunnelling, cloth stability) unless each gets a careful dt form. In the Rust port it
-is possible system by system, but it gives up the port's parity with the original (`docs/rewrite-plan.md`,
+is possible system by system, but it gives up the port's parity with the original (ffx-rust `docs/rewrite-plan.md`,
 "Determinism"). The usual compromise is model (1) with interpolation: Unity games keep physics in
 `FixedUpdate` for the same reason.
 
