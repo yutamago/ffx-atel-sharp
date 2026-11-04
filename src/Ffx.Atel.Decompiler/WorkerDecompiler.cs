@@ -18,6 +18,9 @@ internal sealed class FlowStats {
     /// <summary>The signatures of the named dead blocks (<see cref="Layout.DeadSignature"/>).</summary>
     public HashSet<string> CutSignatures { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The signatures of the worker's own inline methods (<see cref="Layout.InlineNames.Signature"/>).</summary>
+    public HashSet<string> HelperSignatures { get; } = new(StringComparer.Ordinal);
+
     public int Gotos, LabelPins, Fallbacks, MergedMethods, FlatWorkers;
 }
 
@@ -72,6 +75,7 @@ internal sealed partial class WorkerDecompiler {
         _functionWorker = w.Type == 0;
         _code = block.Decode(w);
         _lifter = new StatementLifter(block, worker, table, natives);
+        _table = table;
         _printer = new StatementPrinter(vars, natives, workerNames, _functionWorker) { Self = worker };
         _natives = natives;
         _name = workerNames[worker];

@@ -36,6 +36,9 @@ internal sealed partial class WorkerDecompiler {
     private readonly NativeSignatures _natives;
     private readonly string _name;
 
+    /// <summary>The script's class name, for the <c>ATEL_DUMP_REPEATS</c> list.</summary>
+    public string Script { get; init; } = "";
+
     /// <summary>The worker's own inline methods, as written: the method, its body as printed (calls of later ones folded), its calls.</summary>
     private readonly List<(InlineMacro Macro, IReadOnlyList<Stmt> Printed, int Calls)> _own = [];
 
@@ -110,6 +113,10 @@ internal sealed partial class WorkerDecompiler {
             }
         }
         foreach ((InlineMacro macro, _, int n) in _own) {
+            if (_signatures.TryGetValue(macro.Body, out string? signature)) Flow.HelperSignatures.Add(signature);
+            if (Environment.GetEnvironmentVariable("ATEL_DUMP_REPEATS") is string dump && _dumpLines.TryGetValue(macro.Body, out string? line)) {
+                lock (s_dumpLock) File.AppendAllText(dump, line);
+            }
             CountInline("repeats-helpers");
             CountInline("repeats-calls", n);
         }
@@ -193,7 +200,7 @@ internal sealed partial class WorkerDecompiler {
         InlineMacro macro = new(name, ps, template, waits) { CallName = name[(name.IndexOf('.', StringComparison.Ordinal) + 1)..] };
         // The miner's own check: the template finds its first place again and gives it back.
         if (Inline.Match(macro, list, i) is not Expr[] a || !Inline.Same(Inline.Expand(macro, a), run)) return null;
-        // The body must be C#; its text without names is its signature, which data/inline-names.toml may name.
+        // The body must be C#; its statements as lifted are its signature, which data/inline-names.toml may name.
         string code;
         _printer.Params = [.. ps.Select((p, k) => p with { Name = string.Create(CultureInfo.InvariantCulture, $"p{k}") })];
         try {
@@ -205,20 +212,38 @@ internal sealed partial class WorkerDecompiler {
         finally {
             _printer.Params = null;
         }
-        string signature = InlineNames.Signature(code);
-        if (Environment.GetEnvironmentVariable("ATEL_DUMP_REPEATS") is string dump) {
-            lock (s_dumpLock) File.AppendAllText(dump, $"{signature}\t{_name}\t{h.Places.Count}\t{h.Run.Lines}\t{code.Replace("\n", " | ", StringComparison.Ordinal)}\n");
+        string? signature;
+        try {
+            signature = InlineNames.Signature(template, _table);
         }
-        if (InlineNames.Default.Find(signature) is { } found && (found.Params is null || found.Params.Count == ps.Count)) {
+        catch (ArgumentException) {
+            signature = null;
+        }
+        _dumpLines[template] = $"{signature ?? "-"}\t{Script}.{_name}\t{h.Places.Count}\t{h.Run.Lines}\t{code.Replace("\n", " | ", StringComparison.Ordinal)}\n";
+        if (signature is not null) _signatures[template] = signature;
+        if (signature is not null && InlineNames.Default.Find(signature) is { } found && (found.Params is null || found.Params.Count == ps.Count)) {
             string unique = found.Name;
             for (int k = 2; !_ownNames.Add(unique); k++) unique = found.Name + k.ToString(CultureInfo.InvariantCulture);
             if (found.Params is IReadOnlyList<string> names) ps = [.. ps.Select((p, k) => p with { Name = names[k] })];
             macro = new InlineMacro($"{_name}.{unique}", ps, template, waits) { CallName = unique };
+            if (found.Summary is string summary) _summaries[macro] = summary;
         }
         return macro;
     }
 
     private static readonly object s_dumpLock = new();
+
+    /// <summary>The script's variable table, for the signatures.</summary>
+    private readonly IReadOnlyList<VarEntry> _table;
+
+    /// <summary>The signatures of the bodies made (by template), for <see cref="FlowStats.HelperSignatures"/>.</summary>
+    private readonly Dictionary<IReadOnlyList<Stmt>, string> _signatures = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The <c>ATEL_DUMP_REPEATS</c> line of each body made (by template), written for the methods kept.</summary>
+    private readonly Dictionary<IReadOnlyList<Stmt>, string> _dumpLines = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>What the worker's named inline methods do, from the table.</summary>
+    private readonly Dictionary<InlineMacro, string> _summaries = [];
 
     /// <summary>The names the worker's own inline methods took from the table, so that two of them get two names.</summary>
     private readonly HashSet<string> _ownNames = new(StringComparer.Ordinal);
@@ -296,9 +321,16 @@ internal sealed partial class WorkerDecompiler {
     private void WriteOwnInlines(StringBuilder sb, TreeWriter writer) {
         foreach ((InlineMacro m, IReadOnlyList<Stmt> printed, int calls) in _own) {
             sb.Append('\n');
-            string natives = string.Join(", ", NativesOf(m.Body).Take(6));
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"/// <summary>Code this worker repeats with only different values, written once: {calls} call{(calls == 1 ? "" : "s")}")
-                .Append(natives.Length > 0 ? $" ({natives})" : "").Append(".</summary>\n");
+            string count = string.Create(CultureInfo.InvariantCulture, $"{calls} call{(calls == 1 ? "" : "s")}");
+            if (_summaries.TryGetValue(m, out string? summary)) {
+                sb.Append(Indent).Append("/// <summary>").Append(DocText(summary)).Append("</summary>\n");
+                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"/// <remarks>Code this worker repeats with only different values, written once: {count}.</remarks>\n");
+            }
+            else {
+                string natives = string.Join(", ", NativesOf(m.Body).Take(6));
+                sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"/// <summary>Code this worker repeats with only different values, written once: {count}")
+                    .Append(natives.Length > 0 ? $" ({natives})" : "").Append(".</summary>\n");
+            }
             sb.Append(Indent).Append(m.Waits ? "[Inline(Waits = true)]\n" : "[Inline]\n");
             string ps = string.Join(", ", m.Params.Select(p => $"{p.Type ?? (p.Float ? "float" : "int")} {p.Name}"));
             string returns = _printer.AsyncInlines.Contains(m) ? "async Task" : "void";
@@ -313,6 +345,15 @@ internal sealed partial class WorkerDecompiler {
             }
             sb.Append(Indent).Append("}\n");
         }
+    }
+
+    /// <summary>A summary from the table as XML documentation: escaped, <c>`code`</c> as <c>&lt;c&gt;</c>.</summary>
+    private static string DocText(string text) {
+        string escaped = text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
+        string[] parts = escaped.Split('`');
+        StringBuilder sb = new();
+        for (int k = 0; k < parts.Length; k++) sb.Append(k % 2 == 1 && k < parts.Length - 1 ? $"<c>{parts[k]}</c>" : (k % 2 == 1 ? "`" : "") + parts[k]);
+        return sb.ToString();
     }
 
     private IEnumerable<string> NativesOf(IReadOnlyList<Stmt> body) {

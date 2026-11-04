@@ -62,6 +62,9 @@ public sealed record DecompileStats {
     /// <summary>The signatures of those blocks (<see cref="DeadSignature"/>, the keys of <c>data/cut-names.toml</c>).</summary>
     public IReadOnlySet<string> CutSignatures { get; init; } = new HashSet<string>();
 
+    /// <summary>The signatures of the workers' own inline methods (<see cref="InlineNames.Signature"/>, the keys of <c>data/inline-names.toml</c>).</summary>
+    public IReadOnlySet<string> HelperSignatures { get; init; } = new HashSet<string>();
+
     /// <summary><c>goto</c> statements left (<c>goto lN;</c>, <c>if (…) goto lN;</c>).</summary>
     public int Gotos { get; init; }
 
@@ -159,6 +162,7 @@ public static class ScriptDecompiler {
             Constructs = workers.SelectMany(w => w.Flow.Constructs).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
             Cuts = workers.SelectMany(w => w.Flow.Cuts).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
             CutSignatures = workers.SelectMany(w => w.Flow.CutSignatures).ToHashSet(StringComparer.Ordinal),
+            HelperSignatures = workers.SelectMany(w => w.Flow.HelperSignatures).ToHashSet(StringComparer.Ordinal),
             Gotos = workers.Sum(w => w.Flow.Gotos),
             LabelPins = workers.Sum(w => w.Flow.LabelPins),
             Fallbacks = workers.Sum(w => w.Flow.Fallbacks),
@@ -328,7 +332,7 @@ public static class ScriptDecompiler {
         string[] varNames = VariableNames(image.Variables, overlay);
         string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames], overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
-        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts))];
+        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts) { Script = names.ClassName })];
         inline ??= Compiler.InlineMethods.Game.All;
         foreach (WorkerDecompiler w in workers) {
             w.Structure();
@@ -439,6 +443,7 @@ public sealed class DecompileTotals {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _inline = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _cuts = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _cutSignatures = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _helperSignatures = new(StringComparer.Ordinal);
 
     public long Scripts => _scripts;
     public long Statements => _statements;
@@ -462,6 +467,7 @@ public sealed class DecompileTotals {
         foreach ((string k, int n) in s.Inline) _inline.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Cuts) _cuts.AddOrUpdate(k, n, (_, v) => v + n);
         foreach (string sig in s.CutSignatures) _cutSignatures.TryAdd(sig, 0);
+        foreach (string sig in s.HelperSignatures) _helperSignatures.TryAdd(sig, 0);
     }
 
     /// <summary>Named dead blocks over all scripts, by name (<see cref="DecompileStats.Cuts"/>).</summary>
@@ -469,6 +475,9 @@ public sealed class DecompileTotals {
 
     /// <summary>The signatures of the named dead blocks over all scripts.</summary>
     public IReadOnlyCollection<string> CutSignatures => (IReadOnlyCollection<string>)_cutSignatures.Keys;
+
+    /// <summary>The signatures of the workers' own inline methods over all scripts.</summary>
+    public IReadOnlyCollection<string> HelperSignatures => (IReadOnlyCollection<string>)_helperSignatures.Keys;
 
     /// <summary>Inline calls and dialogue lines over all scripts (<see cref="DecompileStats.Inline"/>).</summary>
     public IReadOnlyDictionary<string, long> Inline => _inline;
