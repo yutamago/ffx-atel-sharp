@@ -45,6 +45,11 @@ public sealed class CorpusTests(ITestOutputHelper output) {
             totals.Add(decompiled[i].Stats);
         });
         SharedLibrary shared = SharedWorkers.Build([.. decompiled.Select(d => d.Parts)]);
+        // Helper names by signature (docs/language.md, "Repeated code"): every one names a helper the decompiler wrote.
+        HashSet<string> helpers = [.. totals.HelperSignatures];
+        foreach (string signature in InlineNames.Default.Signatures.Where(s => !helpers.Contains(s))) {
+            failures.Add($"helpers: {signature} in data/inline-names.toml names no helper");
+        }
         // Library names by signature (docs/source-repo.md, "Library names"): a class's users have one
         // signature, and every name in data/library-names.toml still names a class.
         Dictionary<string, string?> signatures = decompiled.SelectMany(d => d.Parts.Workers.Select(w => (Key: $"{d.Parts.Names.Namespace}.{w.Name}", w.Signature)))

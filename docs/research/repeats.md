@@ -357,8 +357,9 @@ parameter's most common value is in `repeats.md`, e.g. 448 for 6,690 of the
   unnamed method. Bodies are folded with the helpers taken after them; each worker is lowered again
   and compared, and keeps nothing if it differs (no worker did).
 - **Names**: `RepeatedNN`, or a name from `data/inline-names.toml` by the body's signature (11
-  signatures today: `WinPoseCamera` in 1,010 battle workers, `ShowStatIcon`, `ScrollListAndAdd`,
-  `HidePlayerPanel`, `ShowTwoDigits`, `LoadAliasAutoMotions`, `WaitForMotionFrame`, …).
+  signatures at first: `WinPoseCamera` in 1,010 battle workers, `ShowStatIcon`, `ScrollListAndAdd`,
+  `HidePlayerPanel`, `ShowTwoDigits`, `LoadAliasAutoMotions`, `WaitForMotionFrame`, …; see
+  [Names](#names) for the second pass).
 - **The constant `if` on a parameter** is not done: the two foldings of one macro stay two helpers.
   It needs the expansion to give the original's label order where the constant `if` starts before
   `A`, which nothing checks yet.
@@ -371,3 +372,41 @@ parameter's most common value is in `repeats.md`, e.g. 448 for 6,690 of the
 | worker helpers | | 3,617 methods (232 `async Task`) in 667 script folders |
 | `atel roundtrip --check` | 1,621 / 1,621 | 1,621 / 1,621, 0 C# errors, 221 warnings (ATL2006) |
 
+
+## Names
+
+2026-11-04, second pass. Of the 3,617 helpers the decompiler wrote, 2,250 were `RepeatedNN`. The
+signatures (`ATEL_DUMP_REPEATS`, whose lines now carry `Script.Worker`) were grouped into families: the
+same body with only its constants different, which is how the `cn_`, `psv_` and `psvcn_` copies, the
+blitzball players' workers (`W02`-`W13`) and the scripts' own variants differ. 547 signatures make 343
+families; they were named most-used first (helpers, then call sites × lines), each read in the
+decompiled C# with its texts (`--text-comments`, the Japanese text where the English is missing).
+
+- A name says what the code does with the natives and members it calls: `ShowFourDigits`,
+  `SortPlayersByDistance` (`WorkerDistance` of the sixteen players, an insertion sort),
+  `SetMinimapMarkers`, `MoveViaPoint`. Blitzball names lean on what is verified: the save fields'
+  names (`ScoreGoal` raises `BlitzballAurochsScore` or `BlitzballOpponentScore` and sets the scoreboard
+  digits; `ComputePlayerStats` evaluates each stat's curve of `BlitzballPlayerLevels`), the texts a
+  helper shows (`ApplyPassTech` and `ApplyShotTech` open "Action: Pass" and "Action: Shoot"), and the
+  tech lists those two fill (`PlayShotTechMotion` switches on the shot list). Tech numbers stay numbers
+  (`RollTechs55And58`): their names are not in the scripts.
+- Parameters are named where the body shows their use (`ShowStatIcon(stat, slot, highlight)`: the
+  stat selector, the sprite, the value compared with the highlighted index); a summary goes with each
+  name (`[summaries]`, by name; a signature may give its own).
+- The key is a hash of the body's statements as lifted, not of its C# (the first table hashed the C#
+  text with the variables' numbers left out, so any change to how the decompiler writes code would
+  have unnamed helpers silently). Natives, operators and opcodes go by number, constants by value,
+  variables by location word, length and row length, as the library's worker signatures; a call of a
+  reference-assembly inline method by the statements it stands for. Not the bytecode itself: a helper
+  is a run of statements with holes, and which instructions a hole came from is not kept. The corpus
+  test fails when a key names no helper.
+- Left as `RepeatedNN`: bodies whose effect the code alone does not tell (a battle's camera table by
+  `GetBattleId`, a request sequence of the Cloister of Trials, the blitzball league table updates), and
+  single helpers of test maps.
+
+| | before | after |
+|---|---|---|
+| signatures named | 11 | 458 (164 of the 343 families; 90 names) |
+| helpers named | 1,367 of 3,617 | 3,339 (278 `RepeatedNN` left) |
+| their places (the miner's count) | | 38,543 of 41,508 |
+| `W36` of `bltz0000` | 2 of 42 named | 41 of 42 (`Repeated42`, a sequence of requests, left) |
