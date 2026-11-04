@@ -29,6 +29,7 @@ How it works:
 - [`docs/formats/script-block.md`](docs/formats/script-block.md): the script block, byte for byte.
 - [`docs/research/loader.md`](docs/research/loader.md): the loader in the game, and the in-game checks.
 - [`docs/research/dead-code.md`](docs/research/dead-code.md): the dead `if (false)` blocks, what they are, and names for them.
+- [`docs/research/repeats.md`](docs/research/repeats.md): the code that repeats with only different values, as candidate inline helpers.
 - [`docs/source-repo.md`](docs/source-repo.md): the private repo of decompiled source.
 
 ## Status
@@ -108,7 +109,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |
 | `editors/rider` | the Rider plugin that shows message text and names (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |

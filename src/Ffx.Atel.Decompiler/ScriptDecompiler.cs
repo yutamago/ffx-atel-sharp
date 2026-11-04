@@ -11,6 +11,18 @@ using Ffx.Atel.Decompiler.Naming;
 
 namespace Ffx.Atel.Decompiler;
 
+/// <summary>A script's code as structured statements (<see cref="ScriptDecompiler.Structured"/>).</summary>
+public sealed record StructuredScript(SourceNames Names, IReadOnlyList<StructuredWorker> Workers);
+
+/// <summary>
+///     A worker's methods as structured statements: per method, the entries it starts and its body;
+///     <see cref="Print"/> writes statements of this worker as the decompiler would (C#, indented by depth 0).
+/// </summary>
+public sealed record StructuredWorker(int Index, string Name, IReadOnlyList<StructuredMethod> Methods, Func<IReadOnlyList<Stmt>, string> Print);
+
+/// <summary>A method of a worker: the entries it starts (the first is its own) and its statements.</summary>
+public sealed record StructuredMethod(IReadOnlyList<int> Entries, IReadOnlyList<Stmt> Body);
+
 /// <summary>A script as C# source.</summary>
 public sealed record DecompiledScript(SourceNames Names, ScriptSource Parts, DecompileStats Stats) {
     /// <summary>The script as one file (Phase 2's shape).</summary>
@@ -124,15 +136,7 @@ public static class ScriptDecompiler {
         ScriptImage image = ScriptImage.FromBlock(block);
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
 
-        string[] varNames = VariableNames(image.Variables, overlay);
-        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')], overlay);
-        VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
-        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts))];
-        inline ??= Compiler.InlineMethods.Game.All;
-        foreach (WorkerDecompiler w in workers) {
-            w.Structure();
-            w.FoldInline(inline);
-        }
+        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts);
         EntryNaming.Apply(workers, workerNames, overlay);
         RequestNaming.Assign(workers, workerNames);
 
@@ -313,6 +317,35 @@ public static class ScriptDecompiler {
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
         return new WorkerSource(name, w, "", $"Worker{wi.Type}", sb.ToString()) { Pins = pins, PrivateData = privateData };
+    }
+
+    /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
+    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts) {
+        string[] varNames = VariableNames(image.Variables, overlay);
+        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.')], overlay);
+        VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
+        WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts))];
+        inline ??= Compiler.InlineMethods.Game.All;
+        foreach (WorkerDecompiler w in workers) {
+            w.Structure();
+            w.FoldInline(inline);
+        }
+        return (varNames, workerNames, workers);
+    }
+
+    /// <summary>
+    ///     A script's code as structured statements, without writing it (<c>atel repeats</c>): per worker, its
+    ///     methods' bodies as <see cref="Decompile"/> writes them, after the calls of <paramref name="inline"/>
+    ///     are folded (the reference assembly's when null, none when empty).
+    /// </summary>
+    /// <param name="archivePath">The file's path in the game's archive.</param>
+    /// <param name="file">The script file.</param>
+    /// <param name="inline">The inline methods to fold.</param>
+    public static StructuredScript Structured(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null) {
+        SourceNames names = SourceNames.ForPath(archivePath);
+        ScriptBlock block = file.Script;
+        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null);
+        return new StructuredScript(names, [.. workers.Select((w, i) => new StructuredWorker(i, workerNames[i], w.Bodies, w.Print))]);
     }
 
     /// <summary>The C# name of each native (<c>Btl.SetStat</c>), from the reference assembly.</summary>

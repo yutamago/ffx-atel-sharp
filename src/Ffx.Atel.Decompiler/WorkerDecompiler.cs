@@ -534,6 +534,21 @@ internal sealed partial class WorkerDecompiler {
         return used;
     }
 
+    /// <summary>The methods as they are now: entries and structured body (<see cref="ScriptDecompiler.Structured"/>).</summary>
+    public IReadOnlyList<StructuredMethod> Bodies => [.. _methods.Select(m => new StructuredMethod([.. m.Entries], [.. m.Body]))];
+
+    /// <summary>Statements of this worker as C# (depth 0), as <see cref="WriteMethods"/> writes them; jumps stay as they are.</summary>
+    public string Print(IReadOnlyList<Stmt> list) {
+        StringBuilder sb = new();
+        HashSet<int> targets = [];
+        Walk(list, s => {
+            if (s is GotoStmt g) targets.Add(g.Label);
+            if (s is CondGotoStmt c) targets.Add(c.Label);
+        });
+        new TreeWriter(sb, _printer, _block, _worker, _ => null, targets).Block(list, 0);
+        return sb.ToString();
+    }
+
     // ----- Writing -------------------------------------------------------------------------------
 
     private const string Indent = "    ";
