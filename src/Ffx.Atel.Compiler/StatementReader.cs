@@ -315,6 +315,8 @@ internal sealed partial class StatementReader(
             return DebugCalls.Read(call, debugMethod, ReadExpr) ?? throw Error(call, $"Debug.{debugMethod} cannot be left out here; make it a statement of its own");
         }
         if (HelperOf(call) is Helper helper) return HelperStatement(helper, call);
+        // Wait.Seconds(s): WaitFrames of s × 30 (StatementReader.Seconds).
+        if (IsWaitSeconds(call)) return WaitSeconds(call);
         if (InlineOf(call) is InlineMacro inline) throw Error(call, $"inline method {inline.Name} is a statement of its own");
         // A method of the object-oriented surface: its native's call (StatementReader.Members).
         if (MemberCall(call) is { } member) return new CallStmt(member.Id, member.Args);
@@ -464,6 +466,8 @@ internal sealed partial class StatementReader(
                 return Element(el);
             case InvocationExpressionSyntax helperCall when HelperOf(helperCall) is Helper helper:
                 return HelperValue(helper, helperCall);
+            case InvocationExpressionSyntax seconds when IsWaitSeconds(seconds):
+                throw Error(seconds, "Wait.Seconds is a statement of its own (it gives no value)");
             case InvocationExpressionSyntax memberCall when MemberCall(memberCall) is { } member:
                 return new CallExpr(member.Id, member.Args);
             case AwaitExpressionSyntax awaited:

@@ -60,3 +60,11 @@ public sealed class InlineLocalAttribute(string name, int register) : Attribute 
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
 public sealed class EagerAttribute : Attribute;
+
+/// <summary>
+///     A parameter whose argument is a compile-time constant: a literal, a <c>const</c>, or arithmetic of them. The
+///     compiler computes with the value when it compiles the call (<see cref="Ffx.Wait.Seconds"/> counts its frames
+///     so); anything else is ATL3005.
+/// </summary>
+[AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
+public sealed class ConstantAttribute : Attribute;

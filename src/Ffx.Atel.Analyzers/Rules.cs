@@ -170,4 +170,16 @@ public static class Rules {
         "This argument of inline method '{0}' is substituted where its parameter is used and evaluated there, perhaps several times or none; pass a constant, a variable or an expression of them",
         CallCategory, DiagnosticSeverity.Error,
         "An [Inline] method's arguments are substituted like a C macro's: each is evaluated where its parameter is used. An argument that calls something, assigns, or increments would run as often as the parameter is used. Compute the value into a variable first.");
+
+    public static readonly DiagnosticDescriptor ConstantArgument = Rule(
+        "ATL3005", "Argument must be a constant",
+        "'{0}' takes a constant here (a literal, a const, or arithmetic of them): the compiler computes with it when it compiles the call",
+        CallCategory, DiagnosticSeverity.Error,
+        "A [Constant] parameter's value is used when the script is compiled, not when it runs: Wait.Seconds counts its frames from it. A variable, a register or a call has no value then.");
+
+    public static readonly DiagnosticDescriptor WaitBelowOneFrame = Rule(
+        "ATL3006", "Wait shorter than one frame",
+        "Wait.Seconds({0}) is {1} frames; the shortest wait is one frame, 1/30 s, the longest 2147483647 frames",
+        CallCategory, DiagnosticSeverity.Error,
+        "Wait.Seconds(s) compiles to Wait.Frames(n), n = s × 30 rounded to the nearest frame. Scripts run once a frame (30 a second), so a wait lasts at least one frame; a value that rounds to 0 frames, a negative one, or one beyond int's range is an error.");
 }

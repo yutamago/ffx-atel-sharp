@@ -668,9 +668,37 @@ The groups and their members:
 | `Motion` | `= id` (`SetMotion`), `Current`, `Play`, `Wait`, `Release`, `PlayDefault`, `SetAuto`, `Blend`, `NextBlend`, `Speed` (any worker), `Frame` (any worker) |
 | `Neck` | `Enabled`, `Target` (a worker's number), `TargetPos` (`Vector3`), `TargetCamera`, `Speed`, `SetRot` |
 | `Sprites[slot]` | `Show`, `Hide`, `SetPos`, `SetScale`, `SetColor` |
-| `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever` |
+| `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever`; `Seconds` (below) |
 | `Camera` | `Pos`, `LookAt` (`Vector3`), `Roll`, `ScreenDepth`, `SetPolar`, `MoveEased`, `FocusTimeEase`, `Wait`, `FocusWait`, `MoveFinish`, `FocusCut` |
 | `Sound` | `Play(sfx)`, `Play(sfx, pan, volume)` |
+
+### Waiting in seconds
+
+**Available.** `Wait.Seconds(s)` waits `s` seconds of game time. The compiler writes it as
+`Wait.Frames(n)`, with n = s × `Wait.FramesPerSecond` (30) rounded to the nearest frame, halves away
+from zero, so the script holds the same bytes as with `Wait.Frames(n)`:
+
+```csharp
+Wait.Seconds(1.23f);        // Wait.Frames(37): 36.9 frames
+Wait.Seconds(0.25f);        // Wait.Frames(8): 7.5, a half goes up
+Wait.Seconds(2);            // Wait.Frames(60)
+const float Pause = 1.5f;
+Wait.Seconds(Pause);        // Wait.Frames(45)
+```
+
+- A frame is one tick of the world update. FFX.exe runs it 30 times a second on the field, in events
+  and in battle, whatever it draws. The main menu draws at 60 fps but stops the world, so scripts
+  never tick at 60 ([research/frame-timing.md](research/frame-timing.md)).
+- `s` is a constant: a literal, a `const`, or `+ - * /` of them, computed as C# does (`3 / 2` is 1).
+  Anything else is [ATL3005](analyzers.md#atl3005): the frames are counted at compile time.
+- At least one frame: less than half a frame (1/60 s), 0, or a negative value is
+  [ATL3006](analyzers.md#atl3006). A script runs once per tick, so it has no shorter wait;
+  `Wait.Frames(0)` waits one frame too.
+- Game time: twice or four times as fast with the PC's speed-up booster, slower when the PC cannot
+  keep up. While a movie with a camera plays, a frame wait counts the movie's frames (29.97 a second).
+- The decompiler writes `Wait.Frames`; the bytes do not say whether the source said seconds.
+- It is a statement (it gives no value), and may be used in an `[Inline(Waits = true)]` method with a
+  constant argument (not a parameter).
 
 ## Text
 
