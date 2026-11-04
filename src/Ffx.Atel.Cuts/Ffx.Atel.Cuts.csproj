@@ -1,0 +1,22 @@
+<Project Sdk="Fahrenheit.Sdk/1.0.0-alpha12">
+    <!-- The Fahrenheit mod (yuta.atel.cuts) that switches named dead blocks (Cut.*) on and off in the loaded scripts
+         while the game runs, from a menu; separate from the loader (docs/research/dead-code.md). -->
+    <PropertyGroup>
+        <AssemblyName>yuta.atel.cuts</AssemblyName>
+        <RootNamespace>Ffx.Atel.Cuts</RootNamespace>
+        <AssemblyTitle>Atel cuts</AssemblyTitle>
+        <Product>Atel</Product>
+        <Description>Switches the named dead blocks of the game's scripts (Cut.*) on and off while the game runs: F8 opens the menu.</Description>
+        <FhManifestFlags>NONE</FhManifestFlags>
+        <!-- Fahrenheit loads mods from <Fahrenheit>/mods/<id>/. -->
+        <PublishDir>$(ArtifactsPath)/deploy/$(Configuration.ToLowerInvariant())/mods/$(AssemblyName)/</PublishDir>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- What the mod needs of the names: the signatures and scripts, and each name's doc comment (CutCatalog). -->
+        <EmbeddedResource Include="../../data/cut-names.toml" LogicalName="cut-names.toml" />
+        <EmbeddedResource Include="../Ffx.Atel.Game/Cut.cs" LogicalName="Cut.cs" />
+    </ItemGroup>
+</Project>
