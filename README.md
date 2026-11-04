@@ -105,7 +105,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   bytes); a mod switches a named block on with `[assembly:
   EnableCut(nameof(Cut.ZanarkandCrowdFacingReaction))]`, which the linker
   applies as a same-length no-op over the block's `jmp`; see
-  [`docs/research/dead-code.md`](docs/research/dead-code.md).
+  [`docs/research/dead-code.md`](docs/research/dead-code.md). In game, the separate mod
+  `yuta.atel.cuts` switches each name on and off from a menu (F8) in the loaded scripts
+  ([`src/Ffx.Atel.Cuts/README.md`](src/Ffx.Atel.Cuts/README.md)).
 - Not done: `Debug.*` text and runtime packages (Phase 10).
 
 ## Projects
@@ -119,6 +121,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Analyzers` | which C# is Atel: subset errors, warnings, code fixes |
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
+| `Ffx.Atel.Cuts` | the Fahrenheit mod (`yuta.atel.cuts`) that switches the named dead blocks (`Cut.*`) on and off in the loaded scripts, from a menu |
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |

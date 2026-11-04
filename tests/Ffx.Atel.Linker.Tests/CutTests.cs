@@ -123,6 +123,24 @@ public sealed class CutTests {
         Assert.Equal(Opcodes.Nop76, linked.Decode(linked.Workers[0])[2].Code);
     }
 
+    /// <summary>
+    ///     The finder with <c>switchedOn</c> (the in-game switch, which reads files a mod may have linked): a block the
+    ///     linker switched on is found at the same jmp, as on; without it, not at all. The live jmp stays unfound.
+    /// </summary>
+    [Fact]
+    public void TheFinderFindsSwitchedOnBlocksWhenAsked() {
+        byte[] vanilla = VanillaFile();
+        LinkResult r = Link(vanilla, Package(new CutSwitch("Plain", [Plain(vanilla)], 1), new CutSwitch("WithElse", [WithElse(vanilla)], 1)));
+        ScriptBlock linked = ScriptFile.Parse(r.File).Script;
+        HashSet<string> both = [Plain(vanilla), WithElse(vanilla)];
+        Assert.Empty(DeadJumps.Find(linked, both));
+        List<DeadJump> found = DeadJumps.Find(linked, both, switchedOn: true);
+        List<DeadJump> before = DeadJumps.Find(ScriptFile.Parse(vanilla).Script, both, switchedOn: true);
+        Assert.Equal(before.Select(j => j with { On = true }), found);
+        Assert.All(before, j => Assert.False(j.On));
+        Assert.Equal([0, 1], found.Select(j => (int)j.Label));
+    }
+
     [Fact]
     public void ABlockWithAnElseRunsAndSkipsTheElse() {
         byte[] vanilla = VanillaFile();

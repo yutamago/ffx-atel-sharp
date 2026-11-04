@@ -370,7 +370,9 @@ Decompiling a linked file is not supported: the structurer fails on the
 crowd's switched-on blocks (their loop is live then); nothing needs it, as
 mods are compiled against the vanilla source.
 
-**At run time (design, not built).** For a switch that a config or a debug UI flips while the
+**At run time through the linker (design, not built).** Superseded by the in-game switch below,
+which flips the same byte in the loaded script instead (decided 2026-11-04: the switch is its own
+mod). For a switch that a config or a debug UI flips while the
 game runs, the linker would point the `jmp` at a stub after the code region
 (as mod packages already move code there):
 
@@ -394,3 +396,84 @@ save), and blocks can jump out of themselves (the crowd's loop ends in `goto
 l6`, back into live code), which is fine as long as the code itself is not
 changed. Next steps are in game: run the three named blocks with the
 link-time switch and record what they do.
+
+## Switching a block on in game
+
+Built 2026-11-04 as its own Fahrenheit mod, `yuta.atel.cuts` (`src/Ffx.Atel.Cuts`, separate from
+the loader; "Decisions (user)", 2026-11-04): a menu (F8) with a checkbox per name, which flips the
+block's `jmp` byte in the script the game has loaded. How to install and use it:
+[`src/Ffx.Atel.Cuts/README.md`](../../src/Ffx.Atel.Cuts/README.md). Not run in game yet; the
+test plan is in the PR that added it.
+
+What the mod uses of Fahrenheit (alpha12, read for names and facts only):
+
+- the menu: `FhModule.render_imgui`, which Fahrenheit's ImGui module calls every frame on the
+  render thread, with Hexa.NET.ImGui (Fahrenheit's dependency, not shipped with the mod); the key
+  is `ImGui.IsKeyPressed(ImGuiKey.F8)`, as Fahrenheit's own mod settings screen takes F7. While
+  the mouse or keyboard is on an ImGui window, Fahrenheit keeps the input from the game.
+- the saved switches: the module's global state file, which Fahrenheit opens read-write and
+  passes to `init` (`state/global/<mod id>/<module type>`). Its settings system
+  (`FhSettingProvider`, `FhSettingToggle`, shown in the F7 screen) was not used: it needs
+  localization files for every label, its settings are fixed in the constructor, and it has no
+  room for what is loaded and what was found.
+- the game thread: `FhApi.Events.Common.GameLoop.PreUpdate`, before each frame's update, so no
+  script runs while bytes change.
+- the ctrl works: `Globals.Atel.controllers` (ffx-rust's `g_AtelCtrlWorks`, `0x01325ba0`: 7 works
+  of `0x238` bytes), `AtelWorkerController.worker(i)` for the `+0x0c` workers, and each worker's
+  block, `AtelBasicWorker.script_chunk` (`+0x4`). A ctrl work is in use when bit 0 of its first
+  byte is set, as the loader reads ctrl work 0.
+
+How it works (`CutTracker`, every frame on the game thread):
+
+1. It collects the blocks the workers of every ctrl work in use point at: the event's, the
+   battle's (`system_01` runs in every battle) and each monster's.
+2. A block is told by its name string (header `+0x0c`, the script's name in all 1,621 scripts;
+   only the 4 copies of five blitzball scripts and five other pairs share one). Only the scripts
+   `data/cut-names.toml` lists (`znkd1300`, `system_01`) are read; every other block costs a
+   header compare per frame.
+3. The first time a listed block shows up (a new address, or another header or name at the same
+   address), the mod copies it and finds its named blocks by signature with `DeadJumps.Find` (the
+   linker's finder, so it works on any copy with the same code) and records each block's `jmp`
+   position. With `switchedOn`, the finder also takes a `nop_76` with the jmp's operand, so a file
+   a linked mod switched a block on in is read as on, not as a block that is gone. The result is
+   kept by a SHA-256 of the script's code, so the next battle costs a hash, not a scan. The first
+   scan takes 55 ms (`znkd1300`) to 90 ms (`system_01`) in the Debug corpus test: one frame's hitch,
+   once per script and session.
+4. Every frame it checks each named block's three bytes (`b0` or `f6`, then the label) and writes
+   the opcode byte where it differs from the switch: so a script the game reads again gets the
+   switches before it reaches the blocks. If one block's bytes are not what was found, nothing of
+   that name is written in that script, and the menu and the log say why.
+5. A name the player did not set stays as loaded. "As loaded" means the file's byte, also when a
+   block the mod had changed is registered again without being read again (the mod keeps what it
+   overwrote).
+
+The mod embeds what it needs: `data/cut-names.toml` (signatures, scripts) and
+`src/Ffx.Atel.Game/Cut.cs`, whose doc comments are the menu's descriptions. It references only
+`Ffx.Atel.Bytecode`, not the decompiler or the linker.
+
+With the loader (`yuta.atel`): the loader chooses the file (vanilla, linked, rebuilt), Fahrenheit
+serves it, and the game reads it; the switch changes the copy in memory afterwards, so it always
+comes after the loader, in any load order, and does not touch the loader's files. A block a
+linked mod switched on (`EnableCut`) shows as on as loaded; unticking switches it off in memory
+only. In a linked file the vanilla code is still there (the linker adds code after it, and may move the
+code region as a whole), so the blocks are found there; a rebuilt `.asm` or a mod that replaced the entry may not have them, and the
+menu shows that. Each Fahrenheit mod loads in its own `AssemblyLoadContext`, so the two may carry
+different builds of `Ffx.Atel.Bytecode`.
+
+Limits:
+
+- A block in code that runs on the frame its script loads, before the next `PreUpdate` (an init
+  entry), would run unswitched once. None of the three named blocks does: the crowd's run while
+  the player walks near, the battle lines when the battle picks one. A hook on the game's set-up
+  functions (`AtelEventSetUp`, `0x00872ef0`, has a Fahrenheit handle; `AtelBattleSetUp`,
+  `0x008756d0`, has none) would close that, untested and left out for now.
+- The mod does not know how many blocks a name has per script (the names file has no counts; the
+  linker's packages do). It switches the ones it finds and logs the count: 29 in `znkd1300`, one
+  each in `system_01`.
+
+Checked on the corpus (`CutCorpusTests` in `tests/Ffx.Atel.Cuts.Tests`): for each name and
+script, switching on in the vanilla block gives exactly the block the linker writes for
+`EnableCut`, and off gives vanilla; the linked block reads as on as loaded, and off there is
+vanilla too; the same through the tracker, with the script read again in between. Unit tests on a
+made-up script cover the finder, the switch, bytes that are not the jmp, and the tracker's loads,
+reloads, moves and unloads.

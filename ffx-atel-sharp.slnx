@@ -8,6 +8,7 @@
     <Project Path="src/Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" />
     <Project Path="src/Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
     <Project Path="src/Ffx.Atel.Loader/Ffx.Atel.Loader.csproj" />
+    <Project Path="src/Ffx.Atel.Cuts/Ffx.Atel.Cuts.csproj" />
     <Project Path="src/Ffx.Atel.Cli/Ffx.Atel.Cli.csproj" />
     <Project Path="src/Ffx.Atel.Sdk/Ffx.Atel.Sdk.csproj" />
   </Folder>
@@ -16,6 +17,7 @@
     <Project Path="tests/Ffx.Atel.Bytecode.Tests/Ffx.Atel.Bytecode.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Cli.Tests/Ffx.Atel.Cli.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Compiler.Tests/Ffx.Atel.Compiler.Tests.csproj" />
+    <Project Path="tests/Ffx.Atel.Cuts.Tests/Ffx.Atel.Cuts.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Linker.Tests/Ffx.Atel.Linker.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Loader.Tests/Ffx.Atel.Loader.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Sdk.Tests/Ffx.Atel.Sdk.Tests.csproj" />

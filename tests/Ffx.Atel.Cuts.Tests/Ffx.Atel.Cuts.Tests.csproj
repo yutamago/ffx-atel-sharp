@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The in-game switch's portable part. The mod itself builds against Fahrenheit for win-x86,
+         so its sources are compiled in here directly (as the loader's tests do). -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../src/Ffx.Atel.Cuts/CutCatalog.cs" Link="CutCatalog.cs" />
+        <Compile Include="../../src/Ffx.Atel.Cuts/CutScan.cs" Link="CutScan.cs" />
+        <Compile Include="../../src/Ffx.Atel.Cuts/CutStates.cs" Link="CutStates.cs" />
+        <Compile Include="../../src/Ffx.Atel.Cuts/CutTracker.cs" Link="CutTracker.cs" />
+        <!-- As the mod embeds them, so CutCatalog.Embedded() reads the same files here. -->
+        <EmbeddedResource Include="../../data/cut-names.toml" LogicalName="cut-names.toml" />
+        <EmbeddedResource Include="../../src/Ffx.Atel.Game/Cut.cs" LogicalName="Cut.cs" />
+        <ProjectReference Include="../../src/Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
+        <ProjectReference Include="../../src/Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
+        <!-- The decompiler's reader of the names file, to check the mod's against it. -->
+        <ProjectReference Include="../../src/Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
+    </ItemGroup>
+</Project>

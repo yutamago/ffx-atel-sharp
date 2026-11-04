@@ -11,7 +11,11 @@ namespace Ffx.Atel.Bytecode.Script;
 /// <param name="Label">The <c>jmp</c>'s operand, the label it jumps to.</param>
 /// <param name="Target">That label's code offset: where the dead code ends (for <c>if (false) … else</c>, where the else starts).</param>
 /// <param name="Signature">The <see cref="DeadSignature"/> of the dead code.</param>
-public sealed record DeadJump(int Worker, uint Offset, ushort Label, uint Target, string Signature);
+/// <param name="On">
+///     Whether the block is switched on: its <c>jmp</c> is already the <c>nop_76</c> with the same operand (found only
+///     with <c>switchedOn</c>; a file a mod's <c>EnableCut</c> was linked into).
+/// </param>
+public sealed record DeadJump(int Worker, uint Offset, ushort Label, uint Target, string Signature, bool On = false);
 
 /// <summary>
 ///     Finds dead blocks by the signature of their code in the bytecode alone, without the decompiler: what the
@@ -31,7 +35,12 @@ public static class DeadJumps {
     public const byte NopByte = Opcodes.Nop76 | 0x80;
 
     /// <summary>The dead blocks of <paramref name="block"/> whose code has one of <paramref name="signatures"/>, in worker and code order.</summary>
-    public static List<DeadJump> Find(ScriptBlock block, IReadOnlySet<string> signatures) {
+    /// <param name="switchedOn">
+    ///     Also find blocks that are switched on, whose <c>jmp L</c> is a <c>nop_76 L</c> (<see cref="DeadJump.On"/>):
+    ///     the same code behind the same operand. The in-game switch reads a loaded script with it, which a linked
+    ///     mod may have switched blocks on in (<c>yuta.atel.cuts</c>, docs/research/dead-code.md).
+    /// </param>
+    public static List<DeadJump> Find(ScriptBlock block, IReadOnlySet<string> signatures, bool switchedOn = false) {
         List<DeadJump> found = [];
         if (signatures.Count == 0) return found;
         for (int w = 0; w < block.Workers.Count; w++) {
@@ -40,14 +49,17 @@ public static class DeadJumps {
             Dictionary<uint, int> indexOf = new(code.Count);
             for (int i = 0; i < code.Count; i++) indexOf[code[i].Offset] = i;
             for (int i = 0; i < code.Count; i++) {
-                if (Target(worker, code[i]) is not uint target || target <= code[i].Offset || !indexOf.TryGetValue(target, out int end)) continue;
-                if (code[i].Code != Opcodes.Jmp) continue;
+                bool on = switchedOn && code[i].Code == Opcodes.Nop76;
+                if (code[i].Code != Opcodes.Jmp && !on) continue;
+                // nop_76's operand is raw: read it as the label the jmp had.
+                uint? to = on ? (code[i].Operand is ushort l && l < worker.Labels.Length ? worker.Labels[l] : null) : Target(worker, code[i]);
+                if (to is not uint target || target <= code[i].Offset || !indexOf.TryGetValue(target, out int end)) continue;
                 string? signature = Match(i + 1, end);
                 if (signature is null && end - 1 > i && Target(worker, code[end - 1]) is uint t && code[end - 1].Code == Opcodes.Jmp && t > code[end - 1].Offset) {
                     signature = Match(i + 1, end - 1);
                 }
                 if (signature is null || !Unreached(worker, code, i + 1, end)) continue;
-                found.Add(new DeadJump(w, code[i].Offset, code[i].Operand!.Value, target, signature));
+                found.Add(new DeadJump(w, code[i].Offset, code[i].Operand!.Value, target, signature, on));
             }
 
             string? Match(int from, int to) {
