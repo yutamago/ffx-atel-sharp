@@ -248,13 +248,37 @@ public sealed partial class Wakk
 - An argument is substituted where its parameter is used and evaluated there, as often as the
   parameter is used. So it is a constant, a variable, `Text[n]`, `Text.New("…")` or an expression of
   them (`V104[V191 + 1] + 20`); a call, `x++`, `?:` or `&&` in an argument is an error
-  ([ATL3004](analyzers.md#atl3004)). Compute such a value into a variable first.
+  ([ATL3004](analyzers.md#atl3004)). Compute such a value into a variable first. The exception is an
+  `[Eager]` parameter (below).
 - Arguments go by position or by name; a parameter with a default may be left out.
-- Your own: `[Inline]` on a method of a worker or of the script class. It returns `void`, declares no
-  locals and assigns nothing, uses only its parameters and constants, and calls natives and other
-  inline methods with `if`, loops and `switch` around them; mark it `[Inline(Waits = true)]` when it
-  calls a native that waits (the compiler checks). It cannot call itself, directly or through others
-  ([ATL3003](analyzers.md#atl3003)). A call is no `call`: it adds no level to the 3 that `call` allows.
+- Your own: `[Inline]` on a method of a worker or of the script class. It returns `void`, calls
+  natives and other inline methods with `if`, loops and `switch` around them, and may read and assign
+  the script's variables (`V145 = 1;`, `Table[i] += 2;`); one of a worker also that worker's
+  `[Register]` fields. Mark it `[Inline(Waits = true)]` when it calls a native that waits (the
+  compiler checks). It cannot call itself, directly or through others
+  ([ATL3003](analyzers.md#atl3003)), request entries or jump. A call is no `call`: it adds no level to
+  the 3 that `call` allows.
+- **A local in a register.** An inline method's local lives in a register of the calling worker that
+  the method names, as the game's code keeps it there: `[InlineLocal("kind", 3)]` and
+  `int kind = Turn.GetKind();` lower to `I3 = Common.GetTurnKind();`. The call overwrites that register
+  (the compiler then keeps the worker's own locals out of it). Any other local in an inline method is
+  an error.
+- **`[Eager]` parameters.** A parameter used once, in the method's first statement, with no other
+  native called there before it, may be marked `[Eager]`: substituted, its argument is evaluated once,
+  first, as in an ordinary call, so it may be a native's call:
+
+  ```csharp
+  [Inline(Waits = true)]
+  [InlineLocal("kind", 3)]
+  public void To([Eager] float yaw, int small = 15, int large = 30) {
+      Common.TurnSetYaw(yaw);
+      int kind = Common.GetTurnKind();
+      …
+  }
+  Turn.To(Common.AngleToPoint(Tidus.Pos.X, Tidus.Pos.Z));   // the call runs once, where TurnSetYaw takes it
+  ```
+
+  The compiler checks the claim.
 - In the vanilla source, lines inside dead `if (false)` blocks stay written out, as the original
   compiler left them.
 

@@ -339,7 +339,9 @@ Reported at each call on the cycle.
 **Argument of an inline method with an effect** (error). An inline method's argument is substituted
 where its parameter is used and evaluated there, perhaps several times or not at all. An argument that
 calls something (but `Text[n]`, `Text.New`, `AsBool`, `AsInt`), assigns, increments, or holds `?:`,
-`&&`, `||` or `await` would run as often as the parameter is used.
+`&&`, `||` or `await` would run as often as the parameter is used. An `[Eager]` parameter is used
+once, in the method's first statement, so its argument may call a native (`Turn.To(Common.AngleToPoint(…))`);
+it still may not assign or increment.
 
 ```csharp
 Dialogue.Say(Text[12], window: I0);                    // fine: a variable

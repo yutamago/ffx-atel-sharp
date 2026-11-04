@@ -178,7 +178,10 @@ public static partial class ScriptCompiler {
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         // Helper methods (of the workers and the script class) become function workers after the others.
-        HelperTable helpers = new(mainClass.Identifier.ValueText) { Inlines = InlineMethods.With(trees) };
+        InlineMethods inlines = InlineMethods.With(trees);
+        inlines.Script = new InlineMethods.ScriptContext(variables, workerIndex,
+            cls => workerIndex.ContainsKey(cls) ? Registers(WorkerParts([.. byName[cls]], library).Parts) : new Dictionary<string, RegExpr>());
+        HelperTable helpers = new(mainClass.Identifier.ValueText) { Inlines = inlines };
         AddHelpers(helpers, mainClass.Identifier.ValueText, mainParts, functionWorker: false, registers: false);
         foreach (string workerName in workerIndex.Keys) {
             (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts([.. byName[workerName]], library);

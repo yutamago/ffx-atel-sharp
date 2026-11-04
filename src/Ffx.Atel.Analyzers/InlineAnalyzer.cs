@@ -28,7 +28,9 @@ public sealed class InlineAnalyzer : DiagnosticAnalyzer {
                 IInvocationOperation i = (IInvocationOperation)c.Operation;
                 if (!model.IsInline(i.TargetMethod)) return;
                 foreach (IArgumentOperation a in i.Arguments) {
-                    if (a.ArgumentKind == ArgumentKind.Explicit && HasEffect(a.Value)) {
+                    // An [Eager] parameter's argument is evaluated once, first: it may call.
+                    bool eager = a.Parameter?.GetAttributes().Any(x => x.AttributeClass?.Name == "EagerAttribute") == true;
+                    if (a.ArgumentKind == ArgumentKind.Explicit && HasEffect(a.Value, eager)) {
                         c.ReportDiagnostic(Diagnostic.Create(Rules.InlineArgument, a.Value.Syntax.GetLocation(), $"{i.TargetMethod.ContainingType.Name}.{i.TargetMethod.Name}"));
                     }
                 }
@@ -47,9 +49,12 @@ public sealed class InlineAnalyzer : DiagnosticAnalyzer {
         });
     }
 
-    /// <summary>Whether an argument does something besides giving a value: a call (but <c>Text[n]</c>, <c>Text.New</c>, the no-code conversions), an assignment, an increment.</summary>
-    private static bool HasEffect(IOperation value) => value.DescendantsAndSelf().Any(o => o switch {
-        IInvocationOperation call => call.TargetMethod.Name is not ("New" or "AsBool" or "AsInt") || call.TargetMethod.ContainingType.Name is not ("TextTable" or "Worker"),
+    /// <summary>
+    ///     Whether an argument does something besides giving a value: a call (but <c>Text[n]</c>, <c>Text.New</c>,
+    ///     the no-code conversions; and any call for an <c>[Eager]</c> parameter), an assignment, an increment.
+    /// </summary>
+    private static bool HasEffect(IOperation value, bool eager) => value.DescendantsAndSelf().Any(o => o switch {
+        IInvocationOperation call => !eager && (call.TargetMethod.Name is not ("New" or "AsBool" or "AsInt") || call.TargetMethod.ContainingType.Name is not ("TextTable" or "Worker")),
         IAssignmentOperation or IIncrementOrDecrementOperation or IConditionalOperation or IAwaitOperation => true,
         IBinaryOperation { OperatorKind: BinaryOperatorKind.ConditionalAnd or BinaryOperatorKind.ConditionalOr } => true,
         _ => false,
