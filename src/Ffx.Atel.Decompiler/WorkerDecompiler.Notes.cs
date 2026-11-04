@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 using Ffx.Atel.Bytecode.Code;
+using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Decompiler.Naming;
 
 namespace Ffx.Atel.Decompiler;
@@ -80,6 +81,45 @@ internal sealed partial class WorkerDecompiler {
             }
         }
     }
+
+    /// <summary>The worker type (worker header <c>+0x00</c>).</summary>
+    public int Type => _block.Workers[_worker].Type;
+
+    /// <summary>The natives the worker's code calls (the <c>func</c> operands), dead code included.</summary>
+    public HashSet<ushort> NativeIds() {
+        HashSet<ushort> ids = [];
+        foreach (Instr i in _code) {
+            if (i.Code is Opcodes.Func or Opcodes.FuncFacc && i.Operand is ushort id) ids.Add(id);
+        }
+        return ids;
+    }
+
+    /// <summary>
+    ///     The first argument of each call statement of a native in <paramref name="natives"/>: its value
+    ///     when it is a constant, else null. Read off the structured code (<see cref="Structure"/> first).
+    /// </summary>
+    public List<int?> FirstArguments(IReadOnlySet<ushort> natives) {
+        List<int?> found = [];
+        foreach (Method m in _methods) {
+            Visit(m.Body, s => {
+                if (s is not CallStmt c || !natives.Contains(c.Native)) return;
+                found.Add(c.Args.Count == 0 ? null : c.Args[0] switch {
+                    IntLit l => l.Value,
+                    PoolExpr { Code: Opcodes.PushC } p => (int)p.Value,
+                    _ => null,
+                });
+            });
+        }
+        return found;
+    }
+
+    /// <summary>
+    ///     Whether the worker's <c>Main</c> (entry 1) has a <c>switch (StoryProgress)</c> whose cases request
+    ///     entries of other workers: the story index's switches (<see cref="FlowNotes.StoryIndex"/>).
+    /// </summary>
+    public bool DirectsStory() =>
+        StorySwitches().Any(x => _methods[x.Method].Entries is [1]
+                                 && x.Switch.Sections.Any(s => RequestsIn(s.Body).Any(r => r.Worker != _worker)));
 
     /// <summary>The constant requests a block makes, nested ones included: (worker, entry), in code order.</summary>
     public static List<(int Worker, int Entry)> RequestsIn(IReadOnlyList<Stmt> body) {

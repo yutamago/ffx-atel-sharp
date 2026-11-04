@@ -141,6 +141,18 @@ and moved here when work began.
 - **The in-game switch for `Cut.*` blocks is its own mod**, separate from
   the loader: a debug mod with a menu, which patches the loaded scripts.
 
+2026-11-05:
+
+- **Worker types and roles get names.** The base classes are named after
+  what FFX.exe does with each type (`Actor`, `LineTrigger`, `BoxTrigger`,
+  `LogicWorker`, `LineSensor`, `BoxSensor`, `FunctionWorker`; `BattleWorker`
+  for type 2 outside events); `Worker0` … `Worker6` still compile. Workers
+  without a model are named after a role their code mechanically shows
+  (`Director`, `ExitTo<Map>`, `CameraLine`, `DialogueBox`, `Lighting`, …),
+  by fixed rules in the decompiler ([source-repo.md](source-repo.md#names)):
+  a rule read off the code counts as verified, a guess from patterns still
+  does not.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
@@ -765,7 +777,11 @@ replaces and the round trip stays byte for byte.
   read like default names; names the reference assembly or the script
   already uses are skipped. Every other worker keeps `W03`. Base classes stay
   `Worker0`-`Worker6`: what the types are (`Npc`, trigger, …) is measured
-  from the natives they call but not certain enough to name.
+  from the natives they call but not certain enough to name. Changed
+  2026-11-05: the types are named after what FFX.exe does with each (`Actor`,
+  `LineTrigger`, …, language.md "Workers"), and workers without a model are
+  named after their role where their code says it (`Director`, `ExitTo…`;
+  source-repo.md "Names").
 - **Hand names** (decided 2026-11-02, moved 2026-11-03): the overlay in this
   repo's `data/names/<category>/<script>.toml` names workers by number,
   entries by worker and entry number and variables by storage and offset;

@@ -191,23 +191,88 @@ public abstract partial class Worker {
     protected static void Entry(int number) => throw Runtime.NotRunnable();
 }
 
-/// <summary>Worker type 0: a function worker, the target of <c>call</c>; <c>return;</c> is <c>ret</c>.</summary>
+// The worker types by number (worker header +0x00). The decompiler writes the names below, which
+// derive from these; both compile to the same type. What FFX.exe does per type is in
+// docs/language.md, "Workers" (Atel_WorkerFrame_008666e0's dispatch on the type byte, the trigger
+// tables by type, AtelGetPosWorkAdrs).
+
+/// <summary>Worker type 0: a function worker, the target of <c>call</c>; <c>return;</c> is <c>ret</c>. Also <see cref="FunctionWorker"/>.</summary>
 public abstract class Worker0 : Worker;
 
-/// <summary>Worker type 1.</summary>
+/// <summary>Worker type 1: an actor. Also <see cref="Actor"/>.</summary>
 public abstract class Worker1 : Worker;
 
-/// <summary>Worker type 2 (every monster worker).</summary>
+/// <summary>Worker type 2: a line trigger in events, and every monster and battle worker. Also <see cref="LineTrigger"/>, <see cref="BattleWorker"/>.</summary>
 public abstract class Worker2 : Worker;
 
-/// <summary>Worker type 3.</summary>
+/// <summary>Worker type 3: a box trigger. Also <see cref="BoxTrigger"/>.</summary>
 public abstract class Worker3 : Worker;
 
-/// <summary>Worker type 4: no position block.</summary>
+/// <summary>Worker type 4: no position block. Also <see cref="LogicWorker"/>.</summary>
 public abstract class Worker4 : Worker;
 
-/// <summary>Worker type 5: position block and walk-line table (characters).</summary>
+/// <summary>Worker type 5: a line that watches another worker crossing it. Also <see cref="LineSensor"/>.</summary>
 public abstract class Worker5 : Worker;
 
-/// <summary>Worker type 6: as type 5.</summary>
+/// <summary>Worker type 6: a box that watches another worker touching it. Also <see cref="BoxSensor"/>.</summary>
 public abstract class Worker6 : Worker;
+
+/// <summary>
+///     Worker type 0, a function worker: the target of <c>call</c> (<c>W63.Run()</c>), which runs on the
+///     caller's worker; <c>return;</c> is <c>ret</c>. Not counted in the block header's workers at
+///     <c>+0x36</c>.
+/// </summary>
+public abstract class FunctionWorker : Worker0;
+
+/// <summary>
+///     Worker type 1, an actor: the type FFX.exe steps each frame as a character (move, turn, its
+///     direction and rotation synced to the model it is bound to, then the talk and touch checks against
+///     the player, <c>Atel_CheckTouchTalk_00866980</c>), the only type that places a character model
+///     (<c>Atel_WorkerPlaceChr_00866800</c>) and binds effects (<c>AtelBindFp</c>). By default talking
+///     runs entry 2 (level 7) and touching entry 5 (level 5). Party members, NPCs, and also workers that
+///     only drive the camera or the scene.
+/// </summary>
+public abstract class Actor : Worker1;
+
+/// <summary>
+///     Worker type 2 in an event, a line trigger: a line between two points (<c>TriggerSetLine</c>) that
+///     FFX.exe checks each frame against the player (<c>Atel_CheckLineTouch_008684b0</c>). By default
+///     talking to it runs entry 2, crossing it entry 4, touching it entry 5 (each frame), a touch that
+///     begins entry 6 and one that ends entry 7 (<c>SetTriggerEntry</c> changes them).
+/// </summary>
+public abstract class LineTrigger : Worker2;
+
+/// <summary>
+///     Worker type 2 in a monster or battle script, where every worker has that type: the battle system
+///     runs it through requests; the trigger requests of <see cref="LineTrigger"/> go to the event's
+///     workers (ctrl work 0, <c>AtelRequestTrigger_008764f0</c>).
+/// </summary>
+public abstract class BattleWorker : Worker2;
+
+/// <summary>
+///     Worker type 3, a box trigger: a box around its position (half width, depth and height, turned by
+///     its yaw) that FFX.exe checks each frame against the player (<c>Atel_CheckBoxTrigger_00866cc0</c>),
+///     with the entries of <see cref="LineTrigger"/>: talk 2, crossing 4, touch 5, touch begins 6, ends 7.
+/// </summary>
+public abstract class BoxTrigger : Worker3;
+
+/// <summary>
+///     Worker type 4: a worker without a position block (<c>AtelGetPosWorkAdrs</c> gives none), which
+///     FFX.exe does not step or trigger; it only runs its entries. Directors, the map's screen parts
+///     (minimap, lights, pad input).
+/// </summary>
+public abstract class LogicWorker : Worker4;
+
+/// <summary>
+///     Worker type 5, a line sensor: a line that FFX.exe checks each frame against another worker's
+///     movement (its target, and up to eight tracked workers, <c>Atel_CheckLineCrosses_00868020</c>),
+///     not the player's talk or touch; crossing runs entry 2, at level 1. It has two levels, not nine.
+/// </summary>
+public abstract class LineSensor : Worker5;
+
+/// <summary>
+///     Worker type 6, a box sensor: a box that FFX.exe checks each frame against its target worker, or the
+///     player (<c>Atel_CheckBoxTouch_00867c10</c>): a touch that begins runs entry 2, one that ends entry 3,
+///     crossing it both, at level 1. It has two levels, not nine.
+/// </summary>
+public abstract class BoxSensor : Worker6;

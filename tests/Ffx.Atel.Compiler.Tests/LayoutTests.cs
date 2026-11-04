@@ -65,7 +65,7 @@ public sealed class LayoutTests {
         Assert.Equal(
             ["Monsters/M997/M997.cs", "Monsters/M997/M997.Data.cs", "Monsters/M997/M997.Layout.cs", "Monsters/M997/W00.cs", "Monsters/M997/W00.2.cs", "Monsters/M997/W00.3.cs", "Monsters/M997/W00.4.cs"],
             files.Select(f => f.RelativePath));
-        Assert.Contains("public sealed partial class W00 : Worker2", files[3].Text, StringComparison.Ordinal);
+        Assert.Contains("public sealed partial class W00 : BattleWorker", files[3].Text, StringComparison.Ordinal);
         Assert.Contains("[Register(0)] public static int I0;", files[3].Text, StringComparison.Ordinal);
         Assert.Contains("public sealed partial class W00\n", files[6].Text, StringComparison.Ordinal);
 
@@ -205,13 +205,13 @@ public sealed class LayoutTests {
         DecompiledScript a = ScriptDecompiler.Decompile(Monster("m997"), file), b = ScriptDecompiler.Decompile(Monster("m996"), file);
         SharedLibrary shared = SharedWorkers.Build([a.Parts, b.Parts]);
         SharedWorker c = Assert.Single(shared.Classes);
-        Assert.Equal(("Shared0001", "Worker2"), (c.Name, c.Base));
+        Assert.Equal(("Shared0001", "BattleWorker"), (c.Name, c.Base));
         Assert.Equal(["Monsters.M996.W00", "Monsters.M997.W00"], c.Users);
         Assert.Equal(2, shared.SharedWorkers);
 
         List<SourceFile> libraryFiles = shared.Files();
         Assert.Equal("Library/Shared0001.cs", Assert.Single(libraryFiles).RelativePath);
-        Assert.Contains("public abstract class Shared0001 : Worker2", libraryFiles[0].Text, StringComparison.Ordinal);
+        Assert.Contains("public abstract class Shared0001 : BattleWorker", libraryFiles[0].Text, StringComparison.Ordinal);
         ScriptLibrary library = ScriptLibrary.FromTrees(Parse(libraryFiles));
         Assert.Empty(library.Check());
         foreach (ScriptSource script in shared.Scripts) {
@@ -234,8 +234,8 @@ public sealed class LayoutTests {
         DecompiledScript a = ScriptDecompiler.Decompile(Monster("m997"), file), b = ScriptDecompiler.Decompile(Monster("m996"), file);
         SharedLibrary shared = SharedWorkers.Build([a.Parts, b.Parts]);
         // W00 (`return;`) is shared; W01 assigns V0 and calls W00, both declared by its script.
-        Assert.Equal("Worker0", Assert.Single(shared.Classes).Base);
-        Assert.All(shared.Scripts, s => Assert.Equal(["Shared0001", "Worker2"], s.Workers.Select(w => w.Base)));
+        Assert.Equal("FunctionWorker", Assert.Single(shared.Classes).Base);
+        Assert.All(shared.Scripts, s => Assert.Equal(["Shared0001", "BattleWorker"], s.Workers.Select(w => w.Base)));
         ScriptLibrary library = ScriptLibrary.FromTrees(Parse(shared.Files()));
         foreach (ScriptSource script in shared.Scripts) {
             Assert.Equal(original, ScriptCompiler.Compile(Parse(SourceLayout.Files(script)), library).ApplyTo(file).ToArray());

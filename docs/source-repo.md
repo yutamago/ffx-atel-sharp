@@ -106,6 +106,25 @@ change), build, then `atel export` the source repo. Check it first with
 `--names <dir>` to use another folder laid out the same way instead (to try
 names without rebuilding).
 
+Without an overlay name, the decompiler names a worker after the model it loads
+(`Tidus`, `TreasureChest_14`; `data/actor-names.json` gives the English names), else after
+its role where its code says it, read off the structured code by fixed rules
+(`WorkerNaming.AssignRoles`), in this order:
+
+| Name | Rule |
+|---|---|
+| `ExitTo<Map>` | an event trigger (`LineTrigger`, `BoxTrigger`, `LineSensor`, `BoxSensor`) whose map changes (`MapChange`, `MapJump`, `MapChangeDefault`, `ChangeMap`, `JumpToMap`) all go to one constant map: `ExitToKami0100` |
+| `Director` | an event worker whose `Main` switches on `StoryProgress` and requests other workers' entries from its cases (the story index on the script class) |
+| `CameraLine`, `CameraBox` | an event trigger that only sets the camera (`Cam.*`, `AttachCamera`) besides its own setup (`TriggerSet*`, `Line*`, its target and yaw); line for types 2 and 5, box for 3 and 6 |
+| `DialogueLine`, `DialogueBox` | the same, only message windows and voices (`Msg*`, `Voice*`, the player's control around them) |
+| `CameraWorker`, `DialogueWorker`, `Lighting` | any other worker that only drives the camera, only opens messages, or only sets the lights (`Screen.LightSet` and the skeleton refresh after it) |
+
+Waiting (`Common.Wait*`) counts for none. A role several workers of a script share takes their
+numbers (`CameraLine_21`, `CameraLine_25`), as model names do, so names stay unique and stable;
+a name the script or the reference assembly already has is not taken. In the shipped scripts
+(2026-11-05) this names 2,763 of the 11,326 workers that were `Wnn`; 8,563 keep their number.
+The bases are the worker types' names (`Actor`, `LineTrigger`, …, [language.md](language.md#workers)).
+
 Story progress values are not in the overlay: they are constants of the
 reference assembly (`Story.S01340_Kami0400`), and their hand names go into
 `data/story-names.json`, next to `data/names/`.

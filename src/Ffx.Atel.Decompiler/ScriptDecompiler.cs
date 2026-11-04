@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using Ffx.Atel.Bytecode.Analysis;
 using Ffx.Atel.Bytecode.Code;
+using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Decompiler.Layout;
 using Ffx.Atel.Decompiler.Naming;
@@ -173,7 +174,7 @@ public static class ScriptDecompiler {
 
         StringBuilder main = new(), layout = new(), data = new();
         WriteScriptClass(main, layout, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
-        WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w]) with { Signature = WorkerSignature.Of(block, w) })];
+        WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w], names.Category) with { Signature = WorkerSignature.Of(block, w) })];
         // Comments read off the code: who requests each entry, and the story index on the script class.
         workerSources = FlowNotes.Annotate(workers, workerNames, workerSources);
         WriteData(data, names, image);
@@ -306,7 +307,23 @@ public static class ScriptDecompiler {
 
     // ----- Workers ---------------------------------------------------------------------------
 
-    private static WorkerSource WriteWorker(ScriptImage image, WorkerDecompiler worker, int w, string name) {
+    /// <summary>
+    ///     The base class of a worker of <paramref name="type"/>: the reference assembly's name for the type
+    ///     (<c>Actor</c> for 1), <c>BattleWorker</c> for type 2 outside events (every monster and battle
+    ///     worker), else <c>Worker7</c>, which does not compile.
+    /// </summary>
+    public static string TypeClass(int type, ScriptCategory category) => type switch {
+        0 => "FunctionWorker",
+        1 => "Actor",
+        2 => category == ScriptCategory.Event ? "LineTrigger" : "BattleWorker",
+        3 => "BoxTrigger",
+        4 => "LogicWorker",
+        5 => "LineSensor",
+        6 => "BoxSensor",
+        _ => string.Create(CultureInfo.InvariantCulture, $"Worker{type}"),
+    };
+
+    private static WorkerSource WriteWorker(ScriptImage image, WorkerDecompiler worker, int w, string name, ScriptCategory category) {
         WorkerImage wi = image.Workers[w];
         StringBuilder sb = new();
         List<string> words = [];
@@ -324,18 +341,22 @@ public static class ScriptDecompiler {
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
-        return new WorkerSource(name, w, "", $"Worker{wi.Type}", sb.ToString()) { Pins = pins, PrivateData = privateData };
+        return new WorkerSource(name, w, "", TypeClass(wi.Type, category), sb.ToString()) { Pins = pins, PrivateData = privateData };
     }
 
     /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
     private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats) {
         string[] varNames = VariableNames(image.Variables, overlay);
-        string[] workerNames = WorkerNaming.Names(block, image, WorkerNames(image.Workers.Count), [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames], overlay);
+        string[] defaults = WorkerNames(image.Workers.Count);
+        string[] taken = [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames];
+        string[] workerNames = WorkerNaming.Names(block, image, defaults, taken, overlay);
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts) { Script = names.ClassName })];
+        foreach (WorkerDecompiler w in workers) w.Structure();
+        // Role names read the structured code; nothing has printed a name yet.
+        WorkerNaming.AssignRoles(names.Category, workers, workerNames, defaults, taken);
         inline ??= Compiler.InlineMethods.Game.All;
         foreach (WorkerDecompiler w in workers) {
-            w.Structure();
             w.FoldInline(inline);
             w.FoldRepeats(repeats);
         }

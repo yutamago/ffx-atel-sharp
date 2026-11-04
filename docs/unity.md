@@ -36,7 +36,7 @@ write something it cannot run.
 ## A worker
 
 ```csharp
-public sealed partial class Guard : Worker1      // Worker1: an actor (a model on the map)
+public sealed partial class Guard : Actor        // worker type 1: an actor (a model on the map)
 {
     protected override void Init()                // when the map loads
     {

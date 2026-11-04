@@ -73,23 +73,42 @@ natives, attributes and the script's variables need no prefix.
 
 ## Workers
 
-A worker is a class deriving from `Worker0` … `Worker6`, the worker type (worker header `+0x00`):
+A worker is a class deriving from its worker type (worker header `+0x00`). Each type has a name
+after what FFX.exe does with it; the numbered classes `Worker0` … `Worker6` are the same types and
+still compile (the named ones derive from them):
 
-| Base | Type | Where |
-|---|---|---|
-| `Worker0` | function worker, the target of `call` | events |
-| `Worker1` | actors and the director | events |
-| `Worker2` | every monster and battle worker; in events, line triggers and map changes | all |
-| `Worker3` | point triggers | events |
-| `Worker4` | screen and map parts (no position block) | events |
-| `Worker5`, `Worker6` | characters with a walk-line table; triggers with a position | events |
+| Base | Type | What FFX.exe does with it | Where |
+|---|---|---|---|
+| `FunctionWorker` | 0 | the target of `call`, runs on the caller's worker | events |
+| `Actor` | 1 | steps it each frame as a character: move, turn, the model it is bound to, then talk and touch against the player; the only type that places a model and binds effects | events |
+| `LineTrigger` | 2 | checks its line (`TriggerSetLine`) against the player each frame: talk, cross, touch | events |
+| `BattleWorker` | 2 | every monster and battle worker (the same type as `LineTrigger`) | monsters, battles |
+| `BoxTrigger` | 3 | checks a box around its position against the player each frame: talk, cross, touch | events |
+| `LogicWorker` | 4 | no position block, no frame step, no triggers: only its entries | events |
+| `LineSensor` | 5 | checks its line against another worker's movement (its target, tracked workers); two levels | events |
+| `BoxSensor` | 6 | checks its box against its target worker or the player; two levels | events |
 
-The meanings of types 1-6 are measured from the natives each calls
-([corpus.md](corpus.md#workers)); the base classes have no type-specific members yet.
+From FFX.exe: `Atel_WorkerFrame_008666e0` dispatches each frame on the type byte (1: move and turn
+updates, then `Atel_CheckTouchTalk_00866980`; 2: `Atel_CheckLineTouch_008684b0`; 3:
+`Atel_CheckBoxTrigger_00866cc0`; 5: `Atel_CheckLineCrosses_00868020`; 6: `Atel_CheckBoxTouch_00867c10`;
+4 and 0 nothing); `AtelGetPosWorkAdrs` gives type 4 no position block and types 5 and 6 a smaller
+work with two levels (`+0x284`, not `+0x558`); only type 1 places a character
+(`Atel_WorkerPlaceChr_00866800`) and binds effects (`AtelBindFp`). The trigger entries each kind of
+trigger runs by default, by type (ffx-rust `docs/formats/script.md`, "Trigger entries"):
+
+| Type | Talk | Touch (each frame) | Cross | Touch begins | Touch ends | Level |
+|---|---|---|---|---|---|---|
+| `Actor` | 2 | 5 | - | - | - | 7 (talk), 5 (touch) |
+| `LineTrigger`, `BoxTrigger` | 2 | 5 | 4 | 6 | 7 | 7, 3, 5, 4, 2 |
+| `LineSensor` | - | - | 2 | - | - | 1 |
+| `BoxSensor` | - | - | 2, then 3 | 2 | 3 | 1 |
+| the others | - | - | - | - | - | none |
+
+`SetTriggerEntry` changes a worker's entries (an opened treasure chest points talking at another one).
 
 ```csharp
 [Worker(PrivateLength = 0x18)]
-public sealed partial class Larva : Worker2
+public sealed partial class Larva : BattleWorker
 {
     [Register(0)] public static int I0;
 
@@ -101,7 +120,9 @@ public sealed partial class Larva : Worker2
 }
 ```
 
-- The decompiler names a worker after the model it loads (`RikkA`, `Takarabox002_14`), else `W03`.
+- The decompiler names a worker after the model it loads (`RikkA`, `TreasureChest_14`), else after
+  what its code does (`Director`, `ExitToKami0100`, `CameraLine_21`; [source-repo.md](source-repo.md#names)),
+  else `W03`.
 - `[Worker(Word0C = …, PrivateLength = …)]` carries two header words; `[PrivateData(length, hex)]`
   the worker's private data block. **Decompiler only.**
 - A worker holds only entry methods and `[Register]` fields. Other members are compile errors.
@@ -121,7 +142,7 @@ An entry method's attributes or signature say which entries start at it:
 | `[Entry(5)] void E5()` | 5 | an entry nothing in the script requests by name |
 | `[Entry(5)] public static async Task E5Async()` | 5 | an entry other workers request (see "Requests") |
 | `[Entry(2)][Entry(3)] void E2()` | 2 and 3 | entries that start at the same code |
-| `public static void Run()` in a `Worker0` | 0 | a function worker's one entry |
+| `public static void Run()` in a `FunctionWorker` | 0 | a function worker's one entry |
 
 **Available.** Notes:
 
@@ -144,12 +165,12 @@ An entry method's attributes or signature say which entries start at it:
 
 ## Function workers and helpers
 
-A function worker (`Worker0`) runs on its caller's worker, with the caller's registers, as a
+A function worker (`FunctionWorker`, `Worker0`) runs on its caller's worker, with the caller's registers, as a
 subroutine (`call`). Its one entry is `public static void Run()`; the call is `W48.Run();`
 (`Call<W48>();` reads the same). A function worker may use `return;` (`ret`). Calls nest at most 3
 deep and must not recurse ([ATL3001](analyzers.md#atl3001), [ATL3002](analyzers.md#atl3002)).
 
-Function workers stay classes deriving from `Worker0`, not `static class`es as the plan first said:
+Function workers stay classes deriving from `FunctionWorker`, not `static class`es as the plan first said:
 a static class cannot derive, and the type, the `Worker` helpers and library classes all need the
 base class.
 
@@ -900,7 +921,7 @@ partial class Larva
     public static async Task CountAsync() { Turns += 1; }   // a new entry
 }
 
-public sealed partial class Helper : Worker2  // a new worker
+public sealed partial class Helper : BattleWorker  // a new worker
 {
     protected override void Init() { return; }
     protected override void Main() { Common.WaitForever(); }
@@ -915,7 +936,7 @@ public sealed partial class Helper : Worker2  // a new worker
 | `[Replace(nameof(M))]` | runs instead of `M` |
 | an `async` method without attribute | a new entry; its number is given when linking |
 | a plain method without attribute | a helper (above): a new function worker of the mod |
-| a new class deriving from `Worker0` … `Worker6` | a new worker |
+| a new class deriving from a worker type (`Actor`, `BattleWorker`, …, or `Worker0` … `Worker6`) | a new worker |
 | `[Register(n)]` fields | name registers, as in vanilla |
 
 **Available.** A mod does not change attributes or base classes of vanilla classes, and a new

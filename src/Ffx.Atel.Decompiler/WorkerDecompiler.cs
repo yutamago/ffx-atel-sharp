@@ -78,7 +78,7 @@ internal sealed partial class WorkerDecompiler {
         _table = table;
         _printer = new StatementPrinter(vars, natives, workerNames, _functionWorker) { Self = worker };
         _natives = natives;
-        _name = workerNames[worker];
+        _workerNames = workerNames;
 
         for (int i = 0; i < _code.Count; i++) _indexOf[_code[i].Offset] = i;
         List<int>[] labelsAt = new List<int>[_code.Count];

@@ -34,7 +34,10 @@ public sealed record RepeatOptions(int MinSaved = 100, int MinLines = 8, int Max
 // travel with the worker's code (into the library, when the worker is shared).
 internal sealed partial class WorkerDecompiler {
     private readonly NativeSignatures _natives;
-    private readonly string _name;
+    private readonly string[] _workerNames;
+
+    /// <summary>The worker's name, read when used: <see cref="Naming.WorkerNaming.AssignRoles"/> may rename it after <see cref="Structure"/>.</summary>
+    private string _name => _workerNames[_worker];
 
     /// <summary>The script's class name, for the <c>ATEL_DUMP_REPEATS</c> list.</summary>
     public string Script { get; init; } = "";

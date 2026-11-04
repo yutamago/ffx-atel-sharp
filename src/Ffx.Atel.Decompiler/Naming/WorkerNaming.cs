@@ -2,6 +2,7 @@
 
 using System.Globalization;
 using System.Reflection;
+using Ffx.Atel.Bytecode;
 using Ffx.Atel.Bytecode.Script;
 
 namespace Ffx.Atel.Decompiler.Naming;
@@ -12,8 +13,9 @@ namespace Ffx.Atel.Decompiler.Naming;
 ///     <see cref="Ffx.Model"/> (the PS2 headers' <c>chr_</c> names): <c>Takarabox002</c>, or the English name of
 ///     an actor whose character is known (<see cref="ActorNames"/>: <c>Tidu</c> → <c>Tidus</c>). Several
 ///     workers with the same model get their number (<c>Tidus_03</c>, <c>Tidus_07</c>); a model without a
-///     <c>chr_</c> name (only its file code, <c>W101</c>) names nothing; all others keep
-///     <c>W03</c>. Function workers keep theirs too.
+///     <c>chr_</c> name (only its file code, <c>W101</c>) names nothing. A worker without a model name is
+///     named after its role where its structured code says it (<see cref="AssignRoles"/>: <c>Director</c>,
+///     <c>ExitToKami0100</c>, <c>CameraLine</c>); all others keep <c>W03</c>. Function workers keep theirs too.
 /// </summary>
 internal static class WorkerNaming {
     private const ushort SetModel = 0x0001;
@@ -76,6 +78,105 @@ internal static class WorkerNaming {
             }
         }
         return names;
+    }
+
+    /// <summary>The natives that change the map, their first argument the <see cref="Ffx.Map"/>: <c>MapChange</c>, <c>MapJump</c>, <c>MapChangeDefault</c>, <c>MapChange_00ab</c>.</summary>
+    private static readonly HashSet<ushort> MapChanges = [0x0011, 0x010b, 0x010c, 0x00ab];
+
+    /// <summary><c>MapJumpToEntrance</c> (<c>0x8006</c>): a jump within the map, by entrance only.</summary>
+    private const ushort JumpToEntrance = 0x8006;
+
+    /// <summary>What a native is for, as far as the role names go (<see cref="AssignRoles"/>).</summary>
+    private enum Use { Neutral, Camera, Dialogue, Trigger, Light, Bones, Other }
+
+    /// <summary>
+    ///     A native's use by its reference assembly name (FFX.exe's, <c>data/natives.json</c>): the camera
+    ///     (<c>Cam.*</c>, <c>Common.AttachCamera</c>), message windows and voices (<c>Msg*</c>, <c>Voice*</c>,
+    ///     and the player's control around them), the trigger's own setup (<c>Trigger*</c>, <c>Line*</c>,
+    ///     <c>SetTalk*</c>, <c>SetTriggerMode</c>, <c>SetTouchRange</c>, <c>Enable</c>/<c>DisableTrigger</c>,
+    ///     the yaw of a box and the target of a sensor), the lights (<c>Screen.LightSet</c>, FFX.exe's
+    ///     <c>Light_Set</c>) and the skeleton updates after them, or waiting (<c>Common.Wait*</c>).
+    /// </summary>
+    private static Use UseOf(ushort id) {
+        string? name = ScriptDecompiler.Natives[id]?.Name;
+        if (name is null) return Use.Other;
+        string cls = name[..name.IndexOf('.', StringComparison.Ordinal)], method = name[(cls.Length + 1)..];
+        if (cls == "Common" && method.StartsWith("Wait", StringComparison.Ordinal)) return Use.Neutral;
+        if (cls == "Cam" || name == "Common.AttachCamera") return Use.Camera;
+        if (method.StartsWith("Msg", StringComparison.Ordinal) || method.StartsWith("Voice", StringComparison.Ordinal)
+            || name is "Common.ControlDisable" or "Common.ControlEnable") return Use.Dialogue;
+        if (cls == "Common" && (method.StartsWith("Trigger", StringComparison.Ordinal) || method.StartsWith("Line", StringComparison.Ordinal)
+                                || method.StartsWith("SetTalk", StringComparison.Ordinal)
+                                || method is "SetTriggerMode" or "SetTouchRange" or "EnableTrigger" or "DisableTrigger" or "PosSetYaw" or "PosSetField28")) return Use.Trigger;
+        if (name is "Screen.LightSet") return Use.Light;
+        if (name is "Chr.RefreshAllBones" or "Chr.AllBoneUpdate" or "Chr.SetBoneUpdateOf") return Use.Bones;
+        return Use.Other;
+    }
+
+    /// <summary>
+    ///     Role names for the workers that still have their default name (<c>W27</c>), read off what their
+    ///     structured code does (<see cref="WorkerDecompiler.Structure"/> first), in this order:
+    ///     <list type="bullet">
+    ///         <item>a trigger (event worker of type 2, 3, 5 or 6) whose map changes all go to one constant map:
+    ///         <c>ExitTo</c> and the <see cref="Ffx.Map"/> member (<c>ExitToKami0100</c>);</item>
+    ///         <item>a worker whose <c>Main</c> switches on <c>StoryProgress</c> and requests other workers'
+    ///         entries from its cases (the story index): <c>Director</c>;</item>
+    ///         <item>a trigger that only sets the camera, or only opens messages, besides its own setup:
+    ///         <c>CameraLine</c>, <c>CameraBox</c>, <c>DialogueLine</c>, <c>DialogueBox</c> (line: types 2
+    ///         and 5, box: 3 and 6);</item>
+    ///         <item>another worker that only drives the camera, only opens messages or only sets the lights:
+    ///         <c>CameraWorker</c>, <c>DialogueWorker</c>, <c>Lighting</c>.</item>
+    ///     </list>
+    ///     A role several workers share takes their numbers (<c>CameraLine_21</c>, <c>CameraLine_25</c>), as
+    ///     model names do; a name the source already has is not taken. <paramref name="names"/> is changed in
+    ///     place, so the decompilers that hold it print the new names.
+    /// </summary>
+    public static void AssignRoles(ScriptCategory category, WorkerDecompiler[] workers, string[] names, string[] defaults, IEnumerable<string> taken) {
+        Domain maps = GameNames.Enum(typeof(Ffx.Map))!;
+        HashSet<string> reserved = new(taken, StringComparer.Ordinal);
+        reserved.UnionWith(Reserved.Value);
+        reserved.UnionWith(names);
+        string?[] roles = new string?[workers.Length];
+        for (int w = 0; w < workers.Length; w++) {
+            if (names[w] != defaults[w] || workers[w].Type == 0) continue;
+            roles[w] = Role(workers[w], category, maps);
+        }
+        foreach (IGrouping<string, int> g in Enumerable.Range(0, workers.Length).Where(w => roles[w] is not null).GroupBy(w => roles[w]!)) {
+            foreach (int w in g) {
+                string name = g.Count() == 1 ? g.Key : $"{g.Key}_{defaults[w][1..]}";
+                if (!reserved.Contains(name)) names[w] = name;
+            }
+        }
+    }
+
+    private static string? Role(WorkerDecompiler worker, ScriptCategory category, Domain maps) {
+        int type = worker.Type;
+        bool trigger = category == ScriptCategory.Event && type is 2 or 3 or 5 or 6;
+        HashSet<ushort> ids = worker.NativeIds();
+        if (trigger && ids.Overlaps(MapChanges) && !ids.Contains(JumpToEntrance)) {
+            List<int?> to = worker.FirstArguments(MapChanges);
+            if (to.Count > 0 && to.All(m => m is not null) && to.Distinct().Count() == 1 && maps.Member(to[0]!.Value) is string map) {
+                return "ExitTo" + map[(map.IndexOf('.', StringComparison.Ordinal) + 1)..];
+            }
+        }
+        if (category == ScriptCategory.Event && !trigger && worker.DirectsStory()) return "Director";
+        HashSet<Use> uses = [.. ids.Select(UseOf).Where(u => u is not Use.Neutral)];
+        if (trigger) {
+            uses.Remove(Use.Trigger);
+            string shape = type is 2 or 5 ? "Line" : "Box";
+            return uses.Count != 1 ? null : uses.First() switch {
+                Use.Camera => "Camera" + shape,
+                Use.Dialogue => "Dialogue" + shape,
+                _ => null,
+            };
+        }
+        if (uses.Contains(Use.Light)) uses.Remove(Use.Bones);
+        return uses.Count != 1 ? null : uses.First() switch {
+            Use.Camera => "CameraWorker",
+            Use.Dialogue => "DialogueWorker",
+            Use.Light => "Lighting",
+            _ => null,
+        };
     }
 
     /// <summary>

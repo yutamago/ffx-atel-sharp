@@ -236,6 +236,18 @@
     "Chr265goggleoff334": {
       "name": "BrotherGoggleOff",
       "evidence": "Brother's model (chr265 = rikbros265) without goggles; speaker of its workers' messages (macrodic section 6, entry 43)"
+    },
+    "Takarabox002": {
+      "name": "TreasureChest",
+      "evidence": "the field's treasure chest: its workers give the chest's reward (GiveEventRewardResult) when opened, and an opened chest points talking at another entry (SetTriggerEntry)"
+    },
+    "Savesphere001": {
+      "name": "SaveSphere",
+      "evidence": "the save sphere: its workers open the save menu (MenuOpenResult) and store LastSaveSphereMap and LastSaveSphereEntrance"
+    },
+    "Albdbook011": {
+      "name": "AlBhedPrimer",
+      "evidence": "the Al Bhed Primer: its workers show the message that a Primer volume is obtained and the Al Bhed rank"
     }
   }
 }
