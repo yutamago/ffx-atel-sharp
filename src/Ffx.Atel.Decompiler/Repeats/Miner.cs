@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-namespace Ffx.Atel.Cli.Repeats;
+namespace Ffx.Atel.Decompiler.Repeats;
 
 // The repeats (docs/research/repeats.md, "Method"): runs of consecutive statements of one block whose
 // shapes recur, found by splitting the starts of every shape by the shape that follows, a statement at

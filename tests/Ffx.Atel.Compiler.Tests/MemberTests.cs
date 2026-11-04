@@ -137,8 +137,8 @@ public sealed class MemberTests {
         string source = d.Source;
         foreach (string line in new[] {
             "Pos = new Vector3(4.623341f, -19.153864f, 587.17316f);", "Move.Stop();", "Yaw = -0.307183f;", "Neck.Speed = 20;",
-            "Neck.Target = 10;", "Wait.Frames(95);", "Turn.Yaw = 1.572062f;", "I3 = Turn.GetKind();", "Motion = Turn.GetMotion(I3);",
-            "Turn.SetFrames(0f, Turn.GetFrames(I3, 15, 30));", "Turn.Start(0, 4099, 0);", "Turn.Wait();", "Motion.Release();",
+            // The turn (TurnSetYaw … ReleaseMotion) is the reference assembly's inline Turn.To.
+            "Neck.Target = 10;", "Wait.Frames(95);", "Turn.To(1.572062f);",
             "Motion.Play(0x71050, 0, 1, 0, -1);", "Motion.Wait();", ".Pos.X + Pos.Y + Workers[V0].Pos.Z;", ".AutoTalk = true;",
             "Workers[V0].AutoTalk = false;", "AutoTalk = true;", "Hidden = V0 > 2;", "Sprites[3].Show(V0);",
             "Sprites[V0 + 1].SetColor(255, 128, 0);", "Camera.Roll = 5f;", "Model = Model.Rikk;", "Sound.Play((Sfx)0x80000017, 64, 127);",

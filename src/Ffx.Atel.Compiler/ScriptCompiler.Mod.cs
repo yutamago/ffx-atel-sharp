@@ -140,9 +140,9 @@ public static partial class ScriptCompiler {
         // Link.Entry can name a new entry anywhere in the mod.
         // Helper methods (plain methods; an `async` method is a new entry) become function workers after
         // the new workers.
-        InlineMethods inlines = InlineMethods.With([.. vanillaTrees, .. modTrees]);
+        InlineMethods inlines = InlineMethods.With([.. vanillaTrees, .. modTrees, .. library.Trees]);
         inlines.Script = new InlineMethods.ScriptContext(variables, workers, cls =>
-            Registers([.. vanillaParts.GetValueOrDefault(cls) ?? [], .. modParts.GetValueOrDefault(cls) ?? []]));
+            Registers([.. vanillaParts.GetValueOrDefault(cls) ?? [.. library.Classes[cls]], .. modParts.GetValueOrDefault(cls) ?? []]));
         HelperTable helpers = new(mainName) { Inlines = inlines };
         AddHelpers(helpers, mainName, mainModParts, functionWorker: false, registers: false);
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
@@ -220,6 +220,8 @@ public static partial class ScriptCompiler {
         }
 
         Dictionary<string, Dictionary<string, int>> entryMethods = new(StringComparer.Ordinal);
+        // Inline methods read their bodies when first called, by then with every entry known.
+        inlines.Script = inlines.Script! with { EntryMethods = entryMethods, RequestTargets = RequestTargets };
         foreach ((string w, var byMethod) in methods) entryMethods[w] = byMethod.ToDictionary(kv => kv.Key, kv => kv.Value.Entries[0], StringComparer.Ordinal);
         foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
             entryMethods[name] = parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()
@@ -285,6 +287,7 @@ public static partial class ScriptCompiler {
             StatementReader reader = new(variables, Registers([.. vanillaParts[worker], .. modParts[worker]]), NativesByName.Value, workers, function, Links) {
                 EntryMethods = entryMethods, RequestTargets = RequestTargets, DebugCalls = debug, Class = worker, Helpers = helpers.Find, ScriptClass = mainName, Inlines = helpers.Inlines,
                 Signatures = SignatureOf, NewTexts = NewText,
+                InlineClasses = [.. vanillaParts[worker].Select(p => p.Identifier.ValueText).Distinct(StringComparer.Ordinal).Reverse()],
             };
             EntrySignature? signature = patch.Kind == PatchKind.Entry ? SignatureOf(worker, method.Identifier.ValueText) : null;
             reader.Result = signature?.Result;

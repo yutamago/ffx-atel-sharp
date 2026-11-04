@@ -223,6 +223,8 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
                 return Binary(b);
             case CallExpr c:
                 return MemberValue(c) ?? Call(c.Native, c.Args);
+            case ParamExpr p:
+                return Param(p);
             default:
                 throw No($"no C# for {e}");
         }
@@ -262,6 +264,8 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     /// </summary>
     private E Typed(Expr a, Domain d) {
         if (a is IntLit lit) return Lit(lit.Value, d);
+        // A parameter of the domain's type, in an inline method's body: as it is.
+        if (a is ParamExpr p && Params?[p.Index].Type is string t && t == (d.EnumType ?? (ReferenceEquals(d, GameNames.Text) ? "TextId" : null))) return Param(p);
         E x = ToInt(Expr(a));
         if (d.EnumType is null) return x;
         Count(d.Name + "-expr");

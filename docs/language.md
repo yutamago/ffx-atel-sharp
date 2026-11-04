@@ -203,7 +203,8 @@ call, with every parameter replaced by the argument given for it, like a C macro
 statements would give written out at the call site, labels and constants included
 ([encoding.md](encoding.md#inline-methods)), so the game's own code can be written with them and still
 compile to the shipped bytes. The decompiler writes a call wherever the code is exactly an inline
-method of the reference assembly's.
+method of the reference assembly's, and folds the code a worker repeats into inline methods of the
+worker's own ([Repeated code](#repeated-code)).
 
 The reference assembly's are the lines of dialogue, `Ffx.Dialogue` (the message natives, whose meaning
 is known from FFX.exe):
@@ -216,6 +217,7 @@ is known from FFX.exe):
 | `Dialogue.Say(text, …)` | `Open`, `WaitUntilReady`, `MsgWaitEnd` (the player reads and confirms), `MsgClose`, `MsgWaitExEnd` |
 | `Dialogue.SayVoiced(text, …)` | `Open`, `WaitUntilOpen`, `VoiceStartEnd`, a loop that stops the voice on a button press once the window is ready, `SoundWaitPoll`, `MsgClose`, `MsgWaitExEnd` |
 | `Dialogue.SayVoicedToEnd(text, …)` | as `SayVoiced` without the button: the voice plays to its end |
+| `Dialogue.SayWithVoice(voice, text, …)` | `VoiceStandbyEnd(voice)`, `WaitFramesUnlessHddMode(5)`, then `SayVoiced`: a voiced line with its voice prepared |
 
 Each takes `text`, then `window = 0`, `x = 256`, `y = 448`, `anchor = 4`, `style = 1`, `flags` (12290,
 or 8194 for the voiced ones) and `mode = 0`: the values most lines use, so a usual line is one short
@@ -229,6 +231,35 @@ Dialogue.SayVoiced(Text[0]);
 Chr.SetAutoTalkOf(2, 0);
 Dialogue.Say(Text[71]);                 // a line without voice
 Dialogue.Say(Text[19], window: 1, y: 224, style: 0, flags: 0);
+```
+
+The other helpers of the reference assembly are written with the object-oriented members
+([Members](#members)): a component's on the worker's own component (`Turn.To(…)`, never
+`Tidus.Turn.To(…)`), `Worker`'s without a class name. Each name says what its natives do:
+
+| Call | Stands for |
+|---|---|
+| `Turn.To(yaw, small = 15, large = 30, mode = 4099)` | `TurnSetYaw(yaw)`, `I3 = GetTurnKind()`, the turn's motion (`GetTurnMotion(I3)`) and frames (`GetTurnFrames(I3, small, large)`), `TurnStart(0, mode, 0)`, `TurnWait()`, `ReleaseMotion()`; `yaw` is `[Eager]` (`Turn.To(Move.YawToTarget)`), and the call overwrites `I3` |
+| `Turn.InFrames(frames, yaw, mode = 4099)` | `TurnSetFrames(0, frames)`, `TurnSetYaw(yaw)`, `TurnStart(0, mode, 0)`, `TurnWait()` |
+| `Move.To(x, y, z, turnSpeed, turnSpeed2 = 0.17453294f, turnMode = 53250, moveMode = 49153)` | the turn's speeds, `MoveSetTarget(x, y, z)`, `TurnSetYaw(GetYawToMoveTarget())`, `TurnStart`, `MoveStart`, `MoveWait()`, `WorkerStopTurn` of this worker |
+| `Move.StartWithTurnAndWait(turnMode, moveMode)` | `TurnStart`, `MoveStart`, `MoveWait()`, `WorkerStopTurn` of this worker |
+| `Move.InFrames(frames, mode)` | `MoveSetFrames(0, frames)`, `MoveStart(0, mode, 0)`, `MoveWait()` |
+| `ChangeMap(map, entrance, fadeFrames = 15, fadeType = 0)` | `SetMapFadeFrames`, `SetMapFadeType`, `MapChange(map, entrance)` |
+| `JumpToMap(map, entrance, fadeFrames, fadeType = 0)` | the same with `MapJump` |
+| `Party.RestoreAll()` | `CharRestoreHp` and `CharRestoreMp` of characters 0-6 and 8-17, in the save spheres' order |
+
+The user's Besaid example, `bsvr0000`'s `Rikku.E8Async`:
+
+```csharp
+Wait.Frames(95);                                       Wait.Frames(95);
+Turn.Yaw = 1.572062f;                                  Turn.To(1.572062f);
+I3 = Turn.GetKind();                                   Motion.Play(0x71050, 0, 1, 0, -1);
+Motion = Turn.GetMotion(I3);
+Turn.SetFrames(0f, Turn.GetFrames(I3, 15, 30));
+Turn.Start(0, 4099, 0);
+Turn.Wait();
+Motion.Release();
+Motion.Play(0x71050, 0, 1, 0, -1);
 ```
 
 A new line in a mod is a new message and a call (`Text.New` needs a script with message tables, an
@@ -252,12 +283,15 @@ public sealed partial class Wakk
   `[Eager]` parameter (below).
 - Arguments go by position or by name; a parameter with a default may be left out.
 - Your own: `[Inline]` on a method of a worker or of the script class. It returns `void`, calls
-  natives and other inline methods with `if`, loops and `switch` around them, and may read and assign
-  the script's variables (`V145 = 1;`, `Table[i] += 2;`); one of a worker also that worker's
-  `[Register]` fields. Mark it `[Inline(Waits = true)]` when it calls a native that waits (the
-  compiler checks). It cannot call itself, directly or through others
-  ([ATL3003](analyzers.md#atl3003)), request entries or jump. A call is no `call`: it adds no level to
-  the 3 that `call` allows.
+  natives, function workers and other inline methods with `if`, loops and `switch` around them,
+  requests entries, and may read and assign the script's variables (`V145 = 1;`, `Table[i] += 2;`);
+  one of a worker also that worker's `[Register]` fields. One that awaits a request
+  (`await W18.E9Async();`) is `async Task`, and a call of it is `await Name(…);`. Mark it
+  `[Inline(Waits = true)]` when it calls a native that waits, requests, calls a function worker or
+  holds an opcode statement (the compiler checks). It cannot call itself, directly or through others
+  ([ATL3003](analyzers.md#atl3003)), jump or return. A call is no `call`: it adds no level to the 3
+  that `call` allows. A worker's inline methods are found through the library class it derives
+  from, too.
 - **A local in a register.** An inline method's local lives in a register of the calling worker that
   the method names, as the game's code keeps it there: `[InlineLocal("kind", 3)]` and
   `int kind = Turn.GetKind();` lower to `I3 = Common.GetTurnKind();`. The call overwrites that register
@@ -281,6 +315,54 @@ public sealed partial class Wakk
   The compiler checks the claim.
 - In the vanilla source, lines inside dead `if (false)` blocks stay written out, as the original
   compiler left them.
+
+### Repeated code
+
+The decompiler writes code that a worker repeats with only different values once, as an inline
+method of the worker, and a call at every place (docs/plan.md, 2026-11-04;
+[research/repeats.md](research/repeats.md)):
+
+```csharp
+    Repeated01(54528);                                  // Kami0200, TidusH: four places
+    Repeated01(0x1af00);
+    …
+    /// <summary>Code this worker repeats with only different values, written once: 4 calls (…).</summary>
+    [Inline(Waits = true)]
+    private static void Repeated01(int value)
+    {
+        V1 = Motion.Frame;
+        do
+        {
+            Wait.Frames(1);
+            if (V1 >= Motion.Frame)
+            {
+                break;
+            }
+        } while (Motion.Frame < value);
+    }
+```
+
+- **Found per worker**, after the reference assembly's inline methods are folded: the miner of `atel
+  repeats` on the worker's statements (runs of whole statements of one block that recur with the same
+  shape), its greedy cover taking the run that saves the most lines first. A run of at least 8 lines,
+  saving at least 100, with at most 6 parameters becomes a method; a parameter is a constant that
+  differs between the places, everything else stays in the body. A body may call methods taken after
+  it (a small helper found inside a large one).
+- **Checked.** Each method gives its first place back; the worker is lowered again with the calls in
+  place and compared with the original instruction by instruction, and keeps nothing if it differs.
+  Dead `if (false)` blocks and `Cut.*` names stay in the bodies as they were; code inside a dead block is
+  never folded.
+- **Where.** In the worker's class, after its entries. Its code uses the worker's registers and the
+  script's variables by their numbers (`V145` is another variable in another script), so it cannot be
+  a library helper shared between scripts; in the worker's class it is next to the code that calls it,
+  a mod's `partial` class of the worker can call it too, and when the library shares the worker
+  between scripts the methods go with the worker into its library class.
+- **Names.** `RepeatedNN`, numbered in the order the cover takes them, unless
+  `data/inline-names.toml` names the body's signature (its C# with the script's variables left out):
+  `WinPoseCamera`, `ShowStatIcon`, `ScrollListAndAdd`, `HidePlayerPanel`, `WaitForMotionFrame`, ….
+  The names say what the natives do; a parameter is named after the native argument it is first passed
+  to (`motion`, `slot`, `x`), typed as that argument (`TextId`, an enum) when every use is one.
+- `atel decompile` writes them by default; the API's `RepeatOptions.Disabled` turns them off.
 
 ## Requests
 

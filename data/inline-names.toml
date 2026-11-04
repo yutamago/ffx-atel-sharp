@@ -1,0 +1,23 @@
+# Names for the inline methods the decompiler writes for code a worker repeats (docs/language.md,
+# "Repeated code"), by the signature of the method's body: its code as C#, with the script's
+# variables and the parameters' names left out. A method not named here is RepeatedNN. Each name
+# says what the code does, read off the natives it calls, not a guessed role; a parameter list
+# after the name renames the parameters in order. Our own names: no game code or text.
+#
+# To list the signatures: ATEL_DUMP_REPEATS=<file> atel decompile all -o <dir> appends a line per
+# method (signature, worker, places, lines, body as C#) to <file>, which holds game code: keep it local.
+#
+# The comment after each line: how many workers have the method in the decompiled corpus.
+
+[helpers]
+"f38825695a7039b1" = "WinPoseCamera"                      # 505: sets the actor's win sound, then orbits the camera by its win pose (battle scripts)
+"1c4729d271927748" = "WinPoseCamera"                      # 505: the same, the win pose read first
+"3e3c3c49e396e3e0" = "ShowStatIcon"                       # 75: blitzball HUD: a stat's icon and value (V108), its colour (V145) by the buff and debuff arrays
+"75c498372da68af2" = "ShowStatIcon"                       # 65: the same for the player in V166
+"fe7bffe45145aa9d" = "ScrollListAndAdd(entry)"            # 72: blitzball: the ten-entry list V163 scrolled up by two, the entry added, written into message window 6
+"515d9ea8e33562e6" = "LoadAliasAutoMotions"               # 70: ChrLoadAlias, then the automatic motions 16, 18 and 19
+"72734ed0ecadfa38" = "HidePlayerPanel"                    # 68: blitzball HUD: closes message window 4 or 5 and hides a column of sprites
+"98e8350d55c7cff4" = "ShowTwoDigits"                      # 22: blitzball HUD: scales and places a sprite, the digit images of V108 / 10 and V108 % 10
+"5236c8c59149968f" = "ShowTwoDigits"                      # 22: the same at another scale
+"23066a860b1852d9" = "WaitForMotionFrame(frame)"          # 13: waits a frame at a time until the motion reaches frame (or starts over)
+"ff9e64e0f7a8482a" = "PlayStreamWithSubtitle"             # 25: battle: a voice stream started, its subtitle drawn while it plays

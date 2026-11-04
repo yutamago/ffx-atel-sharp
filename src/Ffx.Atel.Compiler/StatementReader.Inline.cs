@@ -13,6 +13,9 @@ internal sealed partial class StatementReader {
     /// <summary>The inline methods calls may name; the reference assembly's when not set.</summary>
     public InlineMethods? Inlines { get; init; }
 
+    /// <summary>The worker's classes, its own first, then the library classes it derives from: their inline methods are its own.</summary>
+    public IReadOnlyList<string> InlineClasses { get; init; } = [];
+
     /// <summary>Reading an inline method's body: its locals that live in a register (<c>[InlineLocal]</c>), by name.</summary>
     public IReadOnlyDictionary<string, int>? RegisterLocals { get; set; }
 
@@ -26,7 +29,8 @@ internal sealed partial class StatementReader {
     private InlineMacro? InlineOf(InvocationExpressionSyntax call) {
         InlineMethods table = Inlines ?? InlineMethods.Game;
         return call.Expression switch {
-            IdentifierNameSyntax id => (Class is null ? null : table.Find(Class, id.Identifier.ValueText))
+            IdentifierNameSyntax id => InlineClasses.Select(c => table.Find(c, id.Identifier.ValueText)).FirstOrDefault(m => m is not null)
+                ?? (Class is null ? null : table.Find(Class, id.Identifier.ValueText))
                 ?? (ScriptClass is null ? null : table.Find(ScriptClass, id.Identifier.ValueText))
                 ?? table.Find(nameof(Worker), id.Identifier.ValueText),
             // A component's (Turn.To): on this worker's component only, never another worker's (Tidus.Turn).

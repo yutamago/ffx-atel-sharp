@@ -49,7 +49,7 @@ internal sealed partial class WorkerDecompiler {
                         found.Add((method, c.Worker, 0, true));
                         break;
                 }
-            });
+            }, inlineBodies: true);
         }
         return found;
     }
@@ -86,7 +86,7 @@ internal sealed partial class WorkerDecompiler {
         List<(int, int)> found = [];
         Visit(body, s => {
             if (s is RequestStmt { Worker: IntLit { Value: int w }, Entry: IntLit { Value: int e } }) found.Add((w, e));
-        });
+        }, inlineBodies: true);
         return found;
     }
 }

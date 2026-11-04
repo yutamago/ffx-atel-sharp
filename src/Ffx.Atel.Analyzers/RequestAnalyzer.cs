@@ -154,7 +154,8 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
             }
             return;
         }
-        if (request is IInvocationOperation i && c.ContainingSymbol is IMethodSymbol caller
+        // An async inline method's call (`await Repeated01();`) is its code in place, no request.
+        if (request is IInvocationOperation i && c.ContainingSymbol is IMethodSymbol caller && !model.IsInline(i.TargetMethod)
             && SymbolEqualityComparer.Default.Equals(i.TargetMethod.ContainingType?.OriginalDefinition, caller.ContainingType?.OriginalDefinition)
             && !model.IsFunctionWorker(caller.ContainingType)) {
             c.ReportDiagnostic(Diagnostic.Create(Rules.SelfRequest, a.Syntax.GetLocation(), i.TargetMethod.Name));
@@ -181,7 +182,7 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
     private static void EntryFields(OperationAnalysisContext c, AtelModel model, ConcurrentBag<FieldRequest> requests) {
         IInvocationOperation i = (IInvocationOperation)c.Operation;
         IMethodSymbol target = i.TargetMethod.OriginalDefinition;
-        if (!AtelModel.IsSource(target) || !HasFields(model, target) || IsBaseCall(i, c.ContainingSymbol)) return;
+        if (!AtelModel.IsSource(target) || model.IsInline(target) || !HasFields(model, target) || IsBaseCall(i, c.ContainingSymbol)) return;
         // `await X()` or `await X().Finished` waits for the end; `_ = X()` and `.Started` do not.
         SyntaxNode? up = i.Syntax.Parent;
         while (up is ParenthesizedExpressionSyntax) up = up.Parent;

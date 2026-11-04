@@ -55,9 +55,10 @@ internal sealed partial class WorkerDecompiler {
     /// <summary>Every request the worker's code makes.</summary>
     public IEnumerable<RequestStmt> RequestsMade() {
         List<RequestStmt> found = [];
+        // Inside the calls of inline methods too: a helper of the worker's own may request (its places' code).
         foreach (Method m in _methods) Visit(m.Body, s => {
             if (s is RequestStmt r) found.Add(r);
-        });
+        }, inlineBodies: true);
         return found;
     }
 
@@ -65,27 +66,31 @@ internal sealed partial class WorkerDecompiler {
         bool awaits = false;
         Visit(m.Body, s => {
             if (s is RequestStmt r && _printer.FormOf(r, out _, out _) is RequestForm.AwaitEnd or RequestForm.AwaitStart) awaits = true;
+            // A call of an async inline method of the worker's own is `await Repeated01();`.
+            if (s is InlineStmt i && _printer.AsyncInlines.Contains(i.Macro)) awaits = true;
         });
         return awaits;
     }
 
     /// <summary>Every statement, nested ones and a <c>for</c>'s initializers and steps included.</summary>
-    private static void Visit(IReadOnlyList<Stmt> list, Action<Stmt> visit) {
+    /// <param name="inlineBodies">Also the code of inline method calls (what they lower to).</param>
+    private static void Visit(IReadOnlyList<Stmt> list, Action<Stmt> visit, bool inlineBodies = false) {
         foreach (Stmt s in list) {
             visit(s);
             switch (s) {
                 case IfStmt i:
-                    Visit(i.Then, visit);
-                    if (i.Else is not null) Visit(i.Else, visit);
+                    Visit(i.Then, visit, inlineBodies);
+                    if (i.Else is not null) Visit(i.Else, visit, inlineBodies);
                     break;
-                case WhileStmt w: Visit(w.Body, visit); break;
+                case WhileStmt w: Visit(w.Body, visit, inlineBodies); break;
                 case ForStmt f:
-                    Visit(f.Init, visit);
-                    Visit(f.Step, visit);
-                    Visit(f.Body, visit);
+                    Visit(f.Init, visit, inlineBodies);
+                    Visit(f.Step, visit, inlineBodies);
+                    Visit(f.Body, visit, inlineBodies);
                     break;
-                case DoStmt d: Visit(d.Body, visit); break;
-                case SwitchStmt sw: foreach (SwitchSection x in sw.Sections) Visit(x.Body, visit); break;
+                case DoStmt d: Visit(d.Body, visit, inlineBodies); break;
+                case SwitchStmt sw: foreach (SwitchSection x in sw.Sections) Visit(x.Body, visit, inlineBodies); break;
+                case InlineStmt x when inlineBodies: Visit(x.Body, visit, inlineBodies); break;
             }
         }
     }

@@ -2,6 +2,7 @@
 
 using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Cli.Repeats;
+using Ffx.Atel.Decompiler.Repeats;
 using Ffx.Atel.Decompiler;
 
 namespace Ffx.Atel.Cli.Tests;
@@ -81,7 +82,7 @@ public sealed class RepeatsTests {
         // The same `if (K) { A } else { B }` folded with K false and with K true.
         Stmt a = Call(0, 1), b = Call(1, 2);
         (Corpus corpus, _) = Mine([new IfStmt(null, [a], [b]), Call(2, 0), a, new IfStmt(null, [b], null)]);
-        DeadTwins.Result r = DeadTwins.Count(corpus);
+        Cli.Repeats.DeadTwins.Result r = Cli.Repeats.DeadTwins.Count(corpus);
         Assert.Equal(1, r.FalseForms);
         Assert.Equal(1, r.TrueForms);
         Assert.Equal(1, r.TrueWithTwin);

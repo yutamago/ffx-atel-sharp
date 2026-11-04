@@ -155,4 +155,24 @@ public static class Dialogue {
 
     // An int used as a condition, as Worker.AsBool: no code.
     private static bool AsBool(int value) => throw Runtime.NotRunnable();
+
+    /// <summary>
+    ///     A voiced line, its voice prepared first, as the game does: <c>VoiceStandbyEnd(voice)</c>,
+    ///     <c>WaitFramesUnlessHddMode(5)</c>, then <see cref="SayVoiced"/>.
+    /// </summary>
+    /// <param name="voice">The voice to prepare and play (<c>VoiceStandbyEnd</c>'s value).</param>
+    /// <param name="text">The message to show.</param>
+    /// <param name="window">The message window, 0 for the usual one.</param>
+    /// <param name="x">Where the window goes on the screen, horizontally.</param>
+    /// <param name="y">Where the window goes, vertically.</param>
+    /// <param name="anchor">Which point of the window <paramref name="x"/> and <paramref name="y"/> place.</param>
+    /// <param name="style">The window's style.</param>
+    /// <param name="flags">The window's flags (8194 for most voiced lines).</param>
+    /// <param name="mode">How the window opens.</param>
+    [Inline(Waits = true)]
+    public static void SayWithVoice(int voice, TextId text, int window = 0, int x = 256, int y = 448, int anchor = 4, int style = 1, int flags = 8194, int mode = 0) {
+        Common.VoiceStandbyEnd(voice);
+        Common.WaitFramesUnlessHddMode(5);
+        SayVoiced(text, window, x, y, anchor, style, flags, mode);
+    }
 }

@@ -62,6 +62,10 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   (`Pos = new Vector3(…)`, `Yaw = …`, `Turn.Start(…)`, `Motion.Play(…)`, `Tidus.Pos.X`) and of
   static classes (`Wait.Frames(…)`, `Camera.Roll = …`), generated from `data/native-members.json`
   and compiled back onto the same natives ([`docs/language.md`](docs/language.md#members)).
+- Repeated code is written once, as `[Inline]` methods: the reference assembly's (`Turn.To(…)`,
+  `Move.To(…)`, `Dialogue.SayWithVoice(…)`, `ChangeMap(…)`, `Party.RestoreAll()`), and each worker's own,
+  which the decompiler mines from its code (W36 of `bltz0000`: 190,402 lines → 15,447), still byte for
+  byte ([`docs/language.md`](docs/language.md#repeated-code)).
 - The analyzers report C# that ATEL cannot run (21 rules), in the IDE and
   in `atel compile --check`; see [`docs/analyzers.md`](docs/analyzers.md).
 - Mods (Phase 9): `atel compile-mod` compiles a mod's C# (`partial`

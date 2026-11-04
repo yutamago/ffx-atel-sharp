@@ -8,6 +8,7 @@ using Ffx.Atel.Bytecode.Code;
 using Ffx.Atel.Bytecode.Script;
 using Ffx.Atel.Bytecode.Vbf;
 using Ffx.Atel.Cli.Repeats;
+using Ffx.Atel.Decompiler.Repeats;
 using Ffx.Atel.Decompiler;
 
 namespace Ffx.Atel.Cli;
@@ -358,7 +359,7 @@ internal static class RepeatsCommand {
             ("blitzball", s => DeadCommand.IsBlitzball(Path.GetFileNameWithoutExtension(corpus.Scripts[s]))),
             ("other", s => !DeadCommand.IsBlitzball(Path.GetFileNameWithoutExtension(corpus.Scripts[s]))),
         }) {
-            DeadTwins.Result r = DeadTwins.Count(corpus, which);
+            Repeats.DeadTwins.Result r = Repeats.DeadTwins.Count(corpus, which);
             sb.Append(CultureInfo.InvariantCulture, $"| {name} | {r.FalseForms} | {r.FalseWithTwin} | {r.TrueForms} | {r.TrueWithTwin} | {r.TwinDeadLines} |\n");
         }
         return sb.ToString();
