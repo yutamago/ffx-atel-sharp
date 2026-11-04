@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: MIT -->
+<Project>
+    <!--
+        `dotnet test ffx-atel-sharp.slnx` runs the test projects one after another. MSBuild's own VSTest target
+        for a solution starts every project at once (BuildInParallel, whatever -m or test.runsettings say),
+        and test.runsettings' MaxCpuCount only counts inside one project. The corpus tests each use every core
+        and several GB, and the SDK test builds the repo while the others run: at once, the machine runs out
+        of memory or a test host misses its 90 s start-up timeout. MSBuild generates a solution target only
+        when none is defined, so this one replaces it.
+    -->
+    <Target Name="VSTest" Outputs="@(_AtelTestOutput)">
+        <MSBuild Projects="@(ProjectReference)" Targets="VSTest" BuildInParallel="false"
+                 Properties="BuildingSolutionFile=true; CurrentSolutionConfigurationContents=$(CurrentSolutionConfigurationContents); SolutionDir=$(SolutionDir); SolutionExt=$(SolutionExt); SolutionFileName=$(SolutionFileName); SolutionName=$(SolutionName); SolutionPath=$(SolutionPath)"
+                 SkipNonexistentProjects="%(ProjectReference.SkipNonexistentProjects)">
+            <Output TaskParameter="TargetOutputs" ItemName="_AtelTestOutput" />
+        </MSBuild>
+    </Target>
+</Project>

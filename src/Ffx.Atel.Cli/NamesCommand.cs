@@ -33,6 +33,8 @@ internal static class NamesCommand {
 
     private static readonly JsonSerializerOptions s_json = new() {
         WriteIndented = true,
+        // \n on every OS, like the "\n" after it: the same file from Windows and Linux.
+        NewLine = "\n",
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };

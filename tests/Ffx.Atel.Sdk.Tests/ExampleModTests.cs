@@ -36,7 +36,10 @@ public sealed class ExampleModTests {
                   </packageSources>
                 </configuration>
                 """);
-            Run(repo, env, ["pack", Path.Combine(repo, "src", "Ffx.Atel.Sdk"), "-c", configuration, "-o", feed, .. BuildFlags]);
+            // The repo's projects build into an artifacts folder of the test's own: their obj/ would otherwise
+            // point at the package folder above, deleted at the end while the other test projects still build.
+            Run(repo, env, ["pack", Path.Combine(repo, "src", "Ffx.Atel.Sdk"), "-c", configuration, "-o", feed,
+                "--artifacts-path", Path.Combine(root, "artifacts"), .. BuildFlags]);
             string nupkg = Assert.Single(Directory.GetFiles(feed, "Ffx.Atel.Sdk.*.nupkg"));
             string version = Path.GetFileNameWithoutExtension(nupkg)["Ffx.Atel.Sdk.".Length..];
             string sdk = Path.Combine(root, "sdk");

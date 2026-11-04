@@ -30,6 +30,8 @@ internal static class TextCommand {
 
     private static readonly JsonSerializerOptions s_json = new() {
         WriteIndented = true,
+        // \n on every OS, like the "\n" after it: the same file from Windows and Linux.
+        NewLine = "\n",
         // The text as it is (Japanese, quotes), not \u escapes: the file is read by people too.
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
