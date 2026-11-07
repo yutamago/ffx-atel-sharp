@@ -57,6 +57,8 @@ public sealed record FrameSettings {
     /// <summary>The frame rate of <see cref="FpsTarget.Fixed"/>, 10 to 1000.</summary>
     public double FixedFps { get; init; } = 120;
     public VsyncMode Vsync { get; init; } = VsyncMode.Game;
+    /// <summary>A small always-on counter in the corner: drawn fps, world ticks a second, vsync, time scale.</summary>
+    public bool ShowOverlay { get; init; } = true;
 
     /// <summary>Game time per real second, 0.05 to 100; 1 is the game's speed.</summary>
     public double TimeScale { get; init; } = 1;

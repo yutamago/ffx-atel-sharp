@@ -27,6 +27,9 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 ## Use
 
 - **F9** shows and hides the settings window.
+- **Alt+F9** switches vsync on and off.
+- A small counter in the top-left corner shows the drawn fps, the world ticks a second (about 30 at
+  ×1), vsync and the time scale; "Show the fps counter" in the window turns it off.
 - **Ctrl+F9** switches between the fast-forward scale (×10 by default) and ×1.
   **Shift+F9** does the same for slow motion (×0.25). **Ctrl+Shift+F9** goes back to ×1.
   **Ctrl+PgUp** and **Ctrl+PgDn** step through ×0.05 … ×100.
