@@ -5,7 +5,8 @@ for `Wait.Seconds`, an uncapped or monitor-rate frame rate, fast-forward, and wa
 frame. Static research only: FFX.exe's code (objdump, ffx-rust's `tools/refs.py` cross-references and
 `symbols/ffx.sym`) and ffx-rust's ports of the functions involved (`crates/ffx-sg/src/m5main_loop.rs`,
 `crates/ffx-sg/src/state.rs` `frame_sync`, `crates/ffx-script/src/vm/bridge/run.rs`). The game was
-not run for this. The engine findings are also in ffx-rust (`docs/formats/frame-timing.md`).
+not run for this. The engine findings are also in ffx-rust (`docs/formats/frame-timing.md`). The mod
+built on this research is described at the end ("What the Frames mod does").
 
 ## Answers
 
@@ -290,3 +291,108 @@ changes. `Wait.Seconds` therefore rounds to whole frames, and less than one is a
 decoupled draw rate (a), a script still sees only ticks. A mod that wanted finer steps would have
 to raise the tick rate itself, and that changes the meaning of every frame count in the game's
 scripts and code (all of them written for 30), so it is not a mod-sized change.
+
+## What the Frames mod does
+
+`src/Ffx.Frames` (Fahrenheit mod `yuta.frames`, [README](../../src/Ffx.Frames/README.md)) is model
+(1) above: a fixed 30 Hz tick with an accumulator that can run 0 ticks a frame, any time scale,
+and the camera interpolated. It is static work: everything below comes from FFX.exe's code and
+ffx-rust's ports. **It has not run in the game yet.** The open questions are at the end of this section.
+
+### The frame, hook by hook
+
+| Where | Hook | What the mod does |
+|---|---|---|
+| `Game_Main` limiter (`0x0062ee50`) | Code patch: the operand of `fild dword [g_FrameVsyncs]` at `0x0062f2fc` and of `fmul qword [0x00b412d8]` (1/59.94) at `0x0062f318` | Both point at the mod's own int and double: 1 and the target interval (1/refresh, 1/fps, or 0 for no wait). With the mod off they hold `g_FrameVsyncs` and 1/59.94 again. The bytes are checked first (`db 05`, `dc 0d` and the original operands) |
+| `updateFFX` (`0x00822840`), once per drawn frame | Hook | Reads the game, asks the accumulator for the frame's ticks (`FrameDirector`), sets the limiter, mute and vsync. A frame without a tick either runs the update as a **Redraw** or, as a **Repeat**, returns without calling the original (what `FFXApplication::animate` does while the Esc menu is up) |
+| `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after |
+| `Sg_FrameSync` (`0x00821e80`) | Hook | **Tick frame**, first update: the original runs (so `Sg_SyncCutScene` and the sync clock work as before), then, unless `g_SyncOn`, its carries are cleared, `g_VoiceHold` = the plan's updates and the exec frames (`0x00c496d4`) = this update's ticks. Later updates set their own exec frames. In a voice-synced scene the game's sync-paced hold stays. **Redraw**: the original does not run at all, so the pad scan (`TkScanControler`), the v-blank counters (+2), the sync clock and the effect read poll stay put; exec frames = 0 |
+| `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks, return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
+| `MsEffectProcess` (`0x00787e00`) | Hook | On a Redraw the update half (`0`) is held. The draw half (`1`) and `op_loop_ffx_after` (`0x007ff680`) run unless "hold the effects' draw half" is on. They may step effect state per draw (the RNG draw in `op_loop_ffx_after`). Holding them may make effects vanish on those frames. Which is true is an open question |
+| `MsCameraProcess` (`0x007be110`), `Sg_CameraSetPlayer` (`0x0083f2e0`) | Hooks | Held on a Redraw: with exec frames 0, `Sg_MainLoop` still runs both when the camera is idle (`0x012fbbb0`) |
+| `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events) |
+| `yiAnimMain` (`0x00908320`) | Hook (switch, on) | The field's animation, held on a Redraw |
+| `graphicVideoUpdate` (`0x00645df0`) | Hook | Held on a Redraw. During a movie the mod repeats instead of redrawing anyway: the picture steps per update, and for some movies per draw |
+| `Sg_DrawFilter` (`0x0082c0c0`) | Hook (switch, on) | On a Redraw the fade state (`0x01300700`..`0x0130075f`: a flag word and the 5 slots at `0x01300708`) is saved, the fades drawn, and the state put back, so the counters step once per tick |
+| `Sg_MainCalcRate` (`0x008206c0`) | Hook (counts) | `Sg_MainLoop` calls it only on the way to the world update. A frame whose updates never called it (menu, pause, save screen, load) makes the next frames without a tick Repeats: their logic runs once per update, and a second update would speed it up |
+| `TkUpdateEventJump` (`0x0088d3d0`) | Hook (counts) | The world ticks that ran, for the window's "ticks/s" |
+| `graphicCameraSetWorldMatrix` (`0x00639860`) | Hook | See "The camera" below |
+| `Renderer_PresentFlip` (`0x00593760`, thiscall, render thread) | Hook | Counts presents (the drawn fps). For vsync on or off it sets the renderer's byte `+0x131c` around the call (the present's sync interval is 1 when it is not 0) and puts it back |
+
+The main menu runs at 60 fps in the game (`g_FrameVsyncs` 1), one update per frame. There the
+accumulator ticks at 60 a second (60 / `g_FrameVsyncs`), so the menus keep their speed at any
+frame rate, and frames between those updates are Repeats.
+
+The time scale multiplies the frame's time before the accumulator, and so does the booster's
+factor (`g_SpdCtrlScales[level]` while `g_SpdCtrl_b8` says it scaled). It stays ×1 where
+`g_SyncOn`, `g_WaitFramesByTime`, `g_MovieFading` or `Sg_CanSpeedUp() == 0`. With "keep the
+booster's limits" it also stays ×1 where `SpdCtrl_ScaleElapsedTime` refuses: `SpdCtrl_IsMapExcluded(g_CurrentMapNo)`,
+`SpdCtrl_IsMagicExcluded` in battle, `graphicGetAbmap()` (sphere grid), `g_SaveMachineBusy`. Up to 4 ticks a frame
+(configurable) are whole updates, as the booster runs them. Past that, the ticks are spread over
+4 updates through exec frames (up to 99 each), so ×100 at 144 fps is about 21 ticks per frame in
+4 updates. Above ×1 the mod calls `Sg_SetMuteSound(1)` (and 0 again unless the booster is on).
+
+### Findings used
+
+- **The limiter** starts a frame when `over` = now − last − interval ≥ 0, sets last = now −
+  min(over, interval) (catch-up by at most one interval), and otherwise sleeps
+  `(int)(over × −1000)` ms (`0x00b41328` is −1000.0, truncated). A remaining time under 1 ms
+  sleeps 0 and loops.
+- **`Sg_GetCurExecFrames`** (`0x0082d7e0`) returns (byte `0x013007b1` ? byte `0x013007b2` : byte
+  `0x00c496d4`) | byte `0x013007b3`, all signed bytes. The mod writes `0x00c496d4` and puts the
+  value back at the end of the frame. `Sg_MainCalcRate` forces the motion rate to 0x100 when it is
+  not 1.
+- **The camera.** `MsScreenProcess` (`0x007bc110`), which the draw calls once per screen, computes
+  `g_ScreenMatrix` (`MsScreenMatrix`) and `g_CameraMatrix` (`MsCameraMatrix`) and ends with
+  `Cam_Apply`, which hands `g_CameraMatrix` to the renderer through `graphicCameraSetWorldMatrix`.
+  So the renderer's view is set during each update's draw, not in the tick. A point is drawn at
+  `p × camera × screen` (`l6_map.rs`): the screen matrix is view to screen, separate from the
+  camera. `MsCopyCameraMatrix`/`MsCopyScreenMatrix` copy the two globals and have 13 and 10 callers
+  (effects, the sound's camera position, `UpdatePhyreViewProjectionMatrix`).
+- **The pad.** `TkUpdateScanControler` (each `Sg_MainLoop`, before `Sg_FrameSync`) scans the ports.
+  `TkScanControler` (in `Sg_FrameSync`) runs `Pad_UpdateFrame`, and `Sg_ControlMain` reads the
+  history.
+
+### The camera
+
+After each update that ticked, `graphicCameraSetWorldMatrix(&g_CameraMatrix)` (from `Cam_Apply`) is
+the tick's camera. The mod records it with `g_ScreenMatrix`. Then, and on every Redraw, it writes the
+camera between the last two ticks into both globals before the call goes on, so the renderer, the
+effects' fill matrices and the rest of the draw use it. `Sg_MainLoop`'s hook puts the true matrices
+back before the next update. A Repeat frame has no draw, so the mod sets the globals and calls
+`graphicCameraSetWorldMatrix` itself. The camera matrix is taken apart into a scale on the view's
+axes (or the world's), a rotation and the eye. The rotation is slerped, the eye and scale lerped.
+The screen matrix is lerped element by element. A move over 100 units or a turn over 45° in one tick
+(both configurable), or a screen matrix that changed by a quarter, is a cut and is drawn as it is.
+The mod does not interpolate during a movie, with the part matrix on (`0x012fb8f9`), or for a
+second screen's camera (one that is not the recorded one).
+
+### Characters: the plan
+
+Not built yet. `Ch_DrawMain` (`0x0082ed50`) draws each character from its world matrix at work
+`+0x1d0`, handed to the renderer with `SetWorldMatrix` on its instances (`+0x830`, `+0x838`). The
+bones come from `Ch_CalcMiddle`'s batches. The plan:
+
+1. After each tick (`Ch_CalcMiddle`'s return), record every running character's `+0x1d0`, keyed by
+   its work.
+2. Hook `Ch_DrawMain`. Before it, write each character's interpolated world matrix (the same
+   decomposition as the camera, with a cut test for warps) into `+0x1d0`. After it, put the true
+   one back.
+3. The bones stay at 30 Hz. The character's place and facing move smoothly, which is what stops a
+   followed character from shaking against the interpolated camera. Interpolating the bones as
+   well would mean recording their matrix palette.
+
+What to find first: the character works' array and count (the walk `Ch_DrawMain` does), and
+whether `+0x1d0` is read anywhere between `Ch_CalcMiddle` and the draw (shadows, `Ch_DrawShadow`,
+the effects' attachment points).
+
+### Open questions for the in-game test
+
+- Whether a Redraw frame looks like the tick frame before it: characters (with `Ch_CalcMiddle`
+  held), effects (draw half run or held), the field, message windows, battle UI.
+- Whether a Repeat frame (no update) shows the last picture or a broken one, and whether the
+  camera can move there (`graphicCameraSetWorldMatrix` alone, with the rest of the frame left).
+- The cloth: `Ch_DrawMain` submits the cloth each update, and `docs/host.md` "The cloth race"
+  expects one stage per submit.
+- The cut thresholds in world units.
+- How many ticks a second one core manages at ×100.
