@@ -297,17 +297,18 @@ scripts and code (all of them written for 30), so it is not a mod-sized change.
 `src/Ffx.Frames` (Fahrenheit mod `yuta.frames`, [README](../../src/Ffx.Frames/README.md)) is model
 (1) above: a fixed 30 Hz tick with an accumulator that can run 0 ticks a frame, any time scale,
 and the camera interpolated. It is static work: everything below comes from FFX.exe's code and
-ffx-rust's ports. **It has not run in the game yet.** The open questions are at the end of this section.
+ffx-rust's ports. Its first in-game run (2026-11-07) crashed on the first frame; "Hooking: why the
+first run crashed" below has the cause. The open questions are at the end of this section.
 
 ### The frame, hook by hook
 
 | Where | Hook | What the mod does |
 |---|---|---|
 | `Game_Main` limiter (`0x0062ee50`) | Code patch: the operand of `fild dword [g_FrameVsyncs]` at `0x0062f2fc` and of `fmul qword [0x00b412d8]` (1/59.94) at `0x0062f318` | Both point at the mod's own int and double: 1 and the target interval (1/refresh, 1/fps, or 0 for no wait). With the mod off they hold `g_FrameVsyncs` and 1/59.94 again. The bytes are checked first (`db 05`, `dc 0d` and the original operands) |
-| `updateFFX` (`0x00822840`), once per drawn frame | Hook | Reads the game, asks the accumulator for the frame's ticks (`FrameDirector`), sets the limiter, mute and vsync. A frame without a tick either runs the update as a **Redraw** or, as a **Repeat**, returns without calling the original (what `FFXApplication::animate` does while the Esc menu is up) |
+| `updateFFX` (`0x00822840`), once per drawn frame | Call-site hook: its one caller, `call` at `0x0042f5b6` | Reads the game, asks the accumulator for the frame's ticks (`FrameDirector`), sets the limiter, mute and vsync. A frame without a tick either runs the update as a **Redraw** or, as a **Repeat**, returns without calling the original (what `FFXApplication::animate` does while the Esc menu is up) |
 | `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after |
 | `Sg_FrameSync` (`0x00821e80`) | Hook | **Tick frame**, first update: the original runs (so `Sg_SyncCutScene` and the sync clock work as before), then, unless `g_SyncOn`, its carries are cleared, `g_VoiceHold` = the plan's updates and the exec frames (`0x00c496d4`) = this update's ticks. Later updates set their own exec frames. In a voice-synced scene the game's sync-paced hold stays. **Redraw**: the original does not run at all, so the pad scan (`TkScanControler`), the v-blank counters (+2), the sync clock and the effect read poll stay put; exec frames = 0 |
-| `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks, return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
+| `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks (the first at its two calls, `0x00820b84` in `Sg_MainLoop` and `0x0089ae60` in `TOControlBtlWindow`), return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
 | `MsEffectProcess` (`0x00787e00`) | Hook | On a Redraw the update half (`0`) is held. The draw half (`1`) and `op_loop_ffx_after` (`0x007ff680`) run unless "hold the effects' draw half" is on. They may step effect state per draw (the RNG draw in `op_loop_ffx_after`). Holding them may make effects vanish on those frames. Which is true is an open question |
 | `MsCameraProcess` (`0x007be110`), `Sg_CameraSetPlayer` (`0x0083f2e0`) | Hooks | Held on a Redraw: with exec frames 0, `Sg_MainLoop` still runs both when the camera is idle (`0x012fbbb0`) |
 | `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events) |
@@ -352,6 +353,49 @@ booster's limits" it also stays ×1 where `SpdCtrl_ScaleElapsedTime` refuses: `S
 - **The pad.** `TkUpdateScanControler` (each `Sg_MainLoop`, before `Sg_FrameSync`) scans the ports.
   `TkScanControler` (in `Sg_FrameSync`) runs `Pad_UpdateFrame`, and `Sg_ControlMain` reads the
   history.
+
+### Hooking: why the first run crashed
+
+Fahrenheit (alpha12) hooks with MinHook. `MH_CreateHook` overwrites a function's first 5 bytes with
+`jmp detour`, copies the whole instructions it overwrote into a trampoline, and ends the trampoline
+with a `jmp` back to the first byte after them. Fahrenheit chains several hooks on one function by
+hooking the previous trampoline, and a hook's `chain_from(hook).fnptr` is that trampoline. MinHook
+does not check whether the function itself branches into bytes 1 to 4. Such a branch lands inside
+the `jmp`'s address and runs it as code.
+
+Two of the functions the mod hooked do branch there, both with a loop whose head is the third byte:
+
+- `TkUpdateScanControler`: `push esi; xor esi, esi`, then the pad loop from `0x00889a83`
+  (`push 0` …, `inc esi; cmp esi, 2; jl 0x00889a83`). The first pad runs through the trampoline;
+  the second jumps to `+3`.
+- `updateFFX`: `push ebp; mov ebp, esp`, then the update loop from `0x00822843`
+  (`cmp [0x0133c930], 0` … `jne 0x00822843` at `0x00822876`) while `g_VoiceHold` is not 0.
+
+Both minidumps of the run match this. In one, the fault is at `TkUpdateScanControler+3` (`07`, `pop
+es`, from the `jmp`'s address bytes: a general-protection fault, reported as a read of
+`0xffffffff`) with `esi` = 1, the loop counter after the first pad, and the stack as it is after
+the first call. In the other, the fault is at `updateFFX+8`: from `+3` the `jmp`'s bytes ran as
+`stosd; add al, 0x30; leave`, then the game's own `pop ebp`, then `add [eax], eax` with `eax` = 0x30.
+Which one crashes first depends on whether the first frame ran more than one update. In both dumps
+the crashed function starts with MinHook's `jmp` followed by the game's own bytes, and every other
+thread is waiting in the system (so no hook was being installed at the time).
+
+No other function the mod hooks has a branch into its first 5 bytes. A scan of `.text` for `jmp`,
+`jcc` and `call` to bytes 1 to 4 of every hooked function finds only the two above, and no
+absolute address points there. The fix:
+
+- **Call-site hooks.** `updateFFX` has one caller (`0x0042f5b6`) and `TkUpdateScanControler` two.
+  The mod checks that each is `e8 rel32` to the function and points the `rel32` at its own entry,
+  which calls the function. The prologues stay untouched.
+- **Checked before install.** For every function hooked through Fahrenheit the mod knows its length
+  (to the next function in `ffx.sym`) and scans it for `jmp`/`jcc` (rel8 or rel32) into bytes 1
+  to 4, at every offset, without decoding (`CodeScan`). One hit and nothing is installed. `loop`
+  and `jcxz` are left out: MSVC does not emit them, and a stray `e0` in `MsCameraProcess` would be
+  a false hit.
+- **Checked after install.** The first time a hook runs, its next link must exist, must not be the
+  function itself, the function must start with `e9`, and the link must start with the function's
+  first byte (a trampoline) or `e9` (another hook over it, as on `Sg_MainLoop`, which Fahrenheit's
+  game-loop events hook too). Otherwise the mod passes through from then on and logs why.
 
 ### The camera
 

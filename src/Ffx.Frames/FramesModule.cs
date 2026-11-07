@@ -49,7 +49,7 @@ public sealed class FramesModule : FhModule {
         Game game = new(baseAddr);
         FrameHooks hooks = new(game, _logger, () => Settings);
         if (!hooks.CheckGame()) {
-            _logger.Error("Frames: this FFX.exe is not the one the mod was written for; it does nothing.");
+            _logger.Error("Frames: a hook cannot go in safely (see above); the mod installs nothing and the game runs as without it.");
             return true;
         }
         _hooks = hooks;
