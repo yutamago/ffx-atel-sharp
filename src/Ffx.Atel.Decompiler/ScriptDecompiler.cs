@@ -144,8 +144,10 @@ public static class ScriptDecompiler {
         ScriptImage image = ScriptImage.FromBlock(block);
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
 
-        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions());
+        HandlerTable? handlers = HandlerTable.Of(file);
+        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions(), handlers);
         EntryNaming.Apply(workers, workerNames, overlay);
+        HandlerNaming.AssignEntries(names.Category, handlers, workers, workerNames, WorkerNaming.ReservedWith(varNames));
         RequestNaming.Assign(workers, workerNames);
 
         // The pools follow the rules unless the original differs, or assembly names them by index.
@@ -345,11 +347,13 @@ public static class ScriptDecompiler {
     }
 
     /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
-    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats) {
+    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats, HandlerTable? handlers) {
         string[] varNames = VariableNames(image.Variables, overlay);
         string[] defaults = WorkerNames(image.Workers.Count);
         string[] taken = [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames];
         string[] workerNames = WorkerNaming.Names(block, image, defaults, taken, overlay);
+        // The battle's handlers name the workers it runs (Ai, Cameras), before the roles read off their code.
+        HandlerNaming.AssignWorkers(names.Category, handlers, workerNames, defaults, WorkerNaming.ReservedWith(taken));
         VarInfo[] vars = [.. image.Variables.Select((v, i) => VarInfoOf(v, varNames[i]))];
         WorkerDecompiler[] workers = [.. Enumerable.Range(0, image.Workers.Count).Select(w => new WorkerDecompiler(block, w, vars, image.Variables, Natives, workerNames, cuts) { Script = names.ClassName })];
         foreach (WorkerDecompiler w in workers) w.Structure();
@@ -375,7 +379,7 @@ public static class ScriptDecompiler {
     public static StructuredScript Structured(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, RepeatOptions? repeats = null) {
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
-        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null, repeats ?? RepeatOptions.Disabled);
+        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null, repeats ?? RepeatOptions.Disabled, HandlerTable.Of(file));
         return new StructuredScript(names, [.. workers.Select((w, i) => new StructuredWorker(i, workerNames[i], w.Bodies, w.Print))]);
     }
 

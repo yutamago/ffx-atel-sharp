@@ -120,8 +120,10 @@ public sealed partial class Larva : BattleWorker
 }
 ```
 
-- The decompiler names a worker after the model it loads (`RikkA`, `TreasureChest_14`), else after
-  what its code does (`Director`, `ExitToKami0100`, `CameraLine_21`; [source-repo.md](source-repo.md#names)),
+- The decompiler names a worker after the model it loads (`RikkA`, `TreasureChest_14`), in monster
+  and battle scripts after the battle's handler it serves (`Ai`, `Cameras`, `TidusActions`, with
+  entries `OnTurn`, `OnHit`, `OnDeath`; [research/handlers.md](research/handlers.md)), else after what
+  its code does (`Director`, `ExitToKami0100`, `CameraLine_21`; [source-repo.md](source-repo.md#names)),
   else `W03`.
 - `[Worker(Word0C = …, PrivateLength = …)]` carries two header words; `[PrivateData(length, hex)]`
   the worker's private data block. **Decompiler only.**

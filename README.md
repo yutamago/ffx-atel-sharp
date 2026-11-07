@@ -30,6 +30,7 @@ How it works:
 - [`docs/research/loader.md`](docs/research/loader.md): the loader in the game, and the in-game checks.
 - [`docs/research/dead-code.md`](docs/research/dead-code.md): the dead `if (false)` blocks, what they are, and names for them.
 - [`docs/research/repeats.md`](docs/research/repeats.md): the code that repeats with only different values, as candidate inline helpers.
+- [`docs/research/handlers.md`](docs/research/handlers.md): which worker and entry the battle runs for which event (turn, hit, death, cameras, motions), from FFX.exe.
 - [`docs/research/frame-timing.md`](docs/research/frame-timing.md): what a script frame is (30 a second), seconds, frame-rate and fast-forward mods.
 - [`docs/research/oo-surface.md`](docs/research/oo-surface.md): the object-oriented members over the natives, how they were chosen and measured.
 - [`docs/source-repo.md`](docs/source-repo.md): the private repo of decompiled source.
@@ -58,7 +59,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   Fahrenheit's save fields (`Save`), enums for battle natives
   (`Btl.SetActorsProperty(Target.Own, ActorProperty.Hp, 0)`), messages as
   `Text[12]`, workers named after the model they load, and `Init`/`Main`
-  overrides for the engine's entries 0 and 1.
+  overrides for the engine's entries 0 and 1; monster and battle workers and
+  entries after the event the battle runs them for (`Ai.OnTurn`, `Ai.OnHit`,
+  `Cameras.OnCamera24`; [`docs/research/handlers.md`](docs/research/handlers.md)).
 - The source reads object-oriented: the natives most scripts call are members of the worker
   (`Pos = new Vector3(…)`, `Yaw = …`, `Turn.Start(…)`, `Motion.Play(…)`, `Tidus.Pos.X`) and of
   static classes (`Wait.Frames(…)`, `Camera.Roll = …`), generated from `data/native-members.json`
@@ -123,7 +126,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
 | `Ffx.Atel.Cuts` | the Fahrenheit mod (`yuta.atel.cuts`) that switches the named dead blocks (`Cut.*`) on and off in the loaded scripts, from a menu |
 | `Ffx.Frames` | a separate Fahrenheit mod (`yuta.frames`): monitor-rate or uncapped frames at the game's speed, the camera interpolated between ticks, a time scale ([README](src/Ffx.Frames/README.md)) |
-| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
+| `Ffx.Atel.Cli` | `atel`: list, disasm, asm, handlers, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |
 | `editors/rider` | the Rider plugin that shows message text and names (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |

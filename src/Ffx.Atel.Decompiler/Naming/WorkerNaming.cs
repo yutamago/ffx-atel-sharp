@@ -192,6 +192,13 @@ internal static class WorkerNaming {
         return names;
     });
 
+    /// <summary>The names a worker or an entry method must not take: <see cref="Reserved"/> and <paramref name="taken"/>.</summary>
+    public static HashSet<string> ReservedWith(IEnumerable<string> taken) {
+        HashSet<string> names = new(Reserved.Value, StringComparer.Ordinal);
+        names.UnionWith(taken);
+        return names;
+    }
+
     /// <summary>Names a worker class must not take: the reference assembly's types and the members of <c>Worker</c>.</summary>
     private static readonly Lazy<HashSet<string>> Reserved = new(() => {
         System.Reflection.Assembly game = typeof(NativeAttribute).Assembly;

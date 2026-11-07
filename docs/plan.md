@@ -153,6 +153,14 @@ and moved here when work began.
   a rule read off the code counts as verified, a guess from patterns still
   does not.
 
+2026-11-07:
+
+- **Monster and battle workers are named after the battle's handlers.** The file's handler table
+  (section 1, FFX.exe's `Mon_FindHandler`) says which worker and entry the battle runs for which
+  event; the decompiler names them after it (`Ai.OnTurn`, `Ai.OnHit`, `Cameras.OnCamera24`,
+  `TidusActions`, [research/handlers.md](research/handlers.md)). Only events whose caller in
+  FFX.exe is read get a name; the others keep their numbers.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
