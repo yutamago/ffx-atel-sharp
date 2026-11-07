@@ -49,7 +49,7 @@ public sealed class FramesModule : FhModule {
         Game game = new(baseAddr);
         FrameHooks hooks = new(game, _logger, () => Settings);
         if (!hooks.CheckGame()) {
-            _logger.Error("Frames: this FFX.exe is not the one the mod was written for; it does nothing.");
+            _logger.Error("Frames: a hook cannot go in safely (see above); the mod installs nothing and the game runs as without it.");
             return true;
         }
         _hooks = hooks;
@@ -104,6 +104,7 @@ public sealed class FramesModule : FhModule {
         Hotkeys();
         SaveWhenDue();
         _hooks?.Stats.Sample(_clock.Elapsed.TotalSeconds);
+        Overlay(Settings);
         if (!_open) return;
         FrameSettings s = Settings;
         ImGui.SetNextWindowSize(new Vector2(520, 0), ImGuiCond.FirstUseEver);
@@ -120,10 +121,29 @@ public sealed class FramesModule : FhModule {
             if (io.KeyCtrl && io.KeyShift) Set(s with { TimeScale = 1 });
             else if (io.KeyCtrl) Set(s with { TimeScale = TimeScaleSteps.Toggle(s.TimeScale, s.FastScale) });
             else if (io.KeyShift) Set(s with { TimeScale = TimeScaleSteps.Toggle(s.TimeScale, s.SlowScale) });
+            else if (io.KeyAlt) Set(s with { Vsync = s.Vsync == VsyncMode.On ? VsyncMode.Off : VsyncMode.On });
             else _open = !_open;
         }
         if (io.KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.PageUp, true)) Set(Settings with { TimeScale = TimeScaleSteps.Up(Settings.TimeScale) });
         if (io.KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.PageDown, true)) Set(Settings with { TimeScale = TimeScaleSteps.Down(Settings.TimeScale) });
+    }
+
+    /// <summary>The corner counter: what to look at while trying settings, without opening the window.</summary>
+    private void Overlay(FrameSettings s) {
+        FrameHooks? h = _hooks;
+        if (!s.ShowOverlay || h is null) return;
+        FrameStats st = h.Stats;
+        ImGui.SetNextWindowPos(new Vector2(ImGui.GetIO().DisplaySize.X - 10, 10), ImGuiCond.Always, new Vector2(1, 0));
+        ImGui.SetNextWindowBgAlpha(0.55f);
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+            | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoInputs;
+        if (ImGui.Begin("###yuta.frames.overlay", flags)) {
+            string vsync = s.Vsync switch { VsyncMode.On => "on", VsyncMode.Off => "off", _ => "game" };
+            ImGui.Text($"{st.Rate(Counter.Presents):0} fps   {st.Rate(Counter.WorldTicks):0.0} ticks/s");
+            ImGui.TextColored(Grey, $"vsync {vsync} (Alt+F9)   ×{h.LastScale:0.##}{(s.Enabled ? "" : "   mod off")}");
+            ImGui.TextColored(Grey, "F9 settings");
+        }
+        ImGui.End();
     }
 
     private void Window(FrameSettings s) {
@@ -150,6 +170,8 @@ public sealed class FramesModule : FhModule {
             }
             int vsync = (int)s.Vsync;
             if (ImGui.Combo("Vsync", ref vsync, Vsyncs, Vsyncs.Length)) Set(s with { Vsync = (VsyncMode)vsync });
+            bool overlay = s.ShowOverlay;
+            if (ImGui.Checkbox("Show the fps counter", ref overlay)) Set(s with { ShowOverlay = overlay });
             int drawOnly = (int)s.DrawOnly;
             if (ImGui.Combo("Frames between ticks", ref drawOnly, DrawOnlys, DrawOnlys.Length)) Set(s with { DrawOnly = (DrawOnlyMode)drawOnly });
             bool interp = s.Interpolate;
@@ -175,7 +197,7 @@ public sealed class FramesModule : FhModule {
             ImGui.SameLine();
             bool booster = s.RespectBoosterLimits;
             if (ImGui.Checkbox("Keep the booster's limits", ref booster)) Set(s with { RespectBoosterLimits = booster });
-            ImGui.TextColored(Grey, $"Ctrl+F9 ×{s.FastScale:0.##} / ×1, Shift+F9 ×{s.SlowScale:0.##} / ×1, Ctrl+Shift+F9 ×1, Ctrl+PgUp/PgDn step.");
+            ImGui.TextColored(Grey, $"Ctrl+F9 ×{s.FastScale:0.##} / ×1, Shift+F9 ×{s.SlowScale:0.##} / ×1, Ctrl+Shift+F9 ×1, Ctrl+PgUp/PgDn step, Alt+F9 vsync on/off.");
         }
 
         if (ImGui.CollapsingHeader("Live")) {

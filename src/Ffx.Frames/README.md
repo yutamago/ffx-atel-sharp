@@ -10,8 +10,9 @@ It is a separate mod from Atel and works with or without it. The research behind
 [`docs/research/frame-timing.md`](../../docs/research/frame-timing.md) ("What the Frames mod
 does" lists every hook).
 
-**Status: not yet tested in the game.** The test plan is in the pull request that added the
-mod. Treat the defaults as a starting point until that test is done.
+**Status: in testing.** The first in-game run crashed on its first frame; that is fixed (see
+"Limits"). The test plan is in the pull request that added the mod. Treat the defaults as a
+starting point until that test is done.
 
 ## Install
 
@@ -27,6 +28,9 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 ## Use
 
 - **F9** shows and hides the settings window.
+- **Alt+F9** switches vsync on and off.
+- A small counter in the top-right corner shows the drawn fps, the world ticks a second (about 30 at
+  ×1), vsync and the time scale; "Show the fps counter" in the window turns it off.
 - **Ctrl+F9** switches between the fast-forward scale (×10 by default) and ×1.
   **Shift+F9** does the same for slow motion (×0.25). **Ctrl+Shift+F9** goes back to ×1.
   **Ctrl+PgUp** and **Ctrl+PgDn** step through ×0.05 … ×100.
@@ -88,3 +92,11 @@ drawing faster ran the game faster. The mod changes that:
 - **Uncapped with vsync off** keeps one CPU core busy.
 - Sound and subtitles: only the sound is muted when fast. The booster also mutes the battle
   subtitles; this mod does not.
+- **Some functions cannot be hooked the usual way.** Fahrenheit's hooks overwrite a function's first
+  5 bytes. `updateFFX` and `TkUpdateScanControler` each have a loop that jumps back to their third
+  byte, and hooking them that way crashed the game on its first frame. The mod hooks these two at
+  their calls instead. Before installing anything it checks every other hooked function for such a
+  jump, and each call site for the expected `call`. If a check fails it installs nothing and logs
+  why. Once Fahrenheit has applied the hooks, the first call through each one checks its chain. A
+  bad chain switches the mod to pass-through. The details are in frame-timing.md ("Hooking: why
+  the first run crashed").

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+using System;
 using System.Numerics;
 
 namespace Ffx.Frames;
@@ -112,5 +113,6 @@ internal sealed unsafe class Game(nint moduleBase) {
     public const uint FrameVsyncsVa = 0x00c30e88, PerVsyncVa = 0x00b412d8;
 
     public byte CodeByte(uint va) => *At<byte>(va);
+    public ReadOnlySpan<byte> Code(uint va, int length) => new(At<byte>(va), length);
     public uint CodeU32(uint va) => *At<uint>(va);
 }
