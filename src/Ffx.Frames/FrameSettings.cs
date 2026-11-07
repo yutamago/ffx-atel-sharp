@@ -102,8 +102,11 @@ public sealed record FrameSettings {
     /// <summary>A camera that turned more than this in one tick cut (degrees).</summary>
     public double CutDegrees { get; init; } = 45;
 
-    /// <summary>Draw each character's place and facing between its last two ticks.</summary>
-    public bool InterpolateCharacters { get; init; } = true;
+    /// <summary>
+    ///     Draw each character's place and facing between its last two ticks. Experimental and off by default until an
+    ///     in-game check: its first version raced the game's bone jobs (half a character could stand still).
+    /// </summary>
+    public bool InterpolateCharacters { get; init; }
     /// <summary>Also draw the characters' bones between their last two ticks (their animation), not only their place.</summary>
     public bool InterpolateBones { get; init; } = true;
     /// <summary>A character that moved further than this in one tick warped: it is drawn as it is (world units).</summary>

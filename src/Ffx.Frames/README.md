@@ -3,7 +3,7 @@
 A [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) mod for the Steam HD Remaster of
 Final Fantasy X that removes the fixed 30 fps limit without speeding the game up. The game
 draws at your monitor's refresh rate, at a rate you choose, or uncapped, with vsync on or off.
-The world keeps its 30 ticks a second, and the camera and the characters are drawn between ticks. A time scale
+The world keeps its 30 ticks a second, and the camera is drawn between ticks (the characters too, as an experimental option). A time scale
 gives slow motion and fast-forward (×0.05 to ×100) without drawing more frames.
 
 It is a separate mod from Atel and works with or without it. The research behind it is in
@@ -49,7 +49,7 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 | Vsync | As the game has it | **On** or **Off** overrides the game's setting for each present. Off with a G-Sync/FreeSync display and a Fixed or Unlimited target gives a variable frame rate |
 | Frames between ticks | Redraw | What a frame without a tick does: **Redraw** runs the game's draw again with the world held still, so the camera can move. **Repeat** skips the game's update, as the Esc menu does |
 | Interpolate the camera | on | Draws the camera between its last two ticks. The picture is one tick (33 ms) behind |
-| … the characters | on | Draws each character's place, facing and bones (its animation) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
+| … the characters | off | **Experimental, off until checked in the game.** Draws each character's place, facing and bones (its animation) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
 | Effects between ticks | Replay | **Replay**: the effects' programs run only on ticks, and on the frames between, what they drew at the last tick is drawn again: right speed, drawn every frame. **Run**: they run on every drawn frame (too fast at a high frame rate). **Hold**: they run only on ticks and are missing between them (they flicker) |
 | Time scale | ×1 | Game time per real second. Voice-synced scenes, movies and the scenes the game won't speed up stay at ×1 |
 | Mute above ×1 | on | Sound off while faster than ×1, as the booster does |
@@ -97,6 +97,10 @@ drawing faster ran the game faster. The mod changes that:
   particles cast (`pppFpPointLightProc`), for example, are not set again. With exec frames (above ×4 per frame) a tick frame draws the effects once
   per tick, as the game does, but a frame between ticks draws them once. If an effect still
   flickers or vanishes between ticks, set **Effects between ticks** to Run and report which one.
+- **Character interpolation is experimental and off by default.** In its first in-game test
+  (2026-11-07) characters were choppier with it and half a character could stand still for a
+  second; turning it off fixed that. The cause (it raced the game's bone jobs) is fixed in code
+  but not yet checked in the game. Without it, characters move at 30 Hz against the smooth camera.
 - **Characters drawn by other paths** (a magic file's situation pass, the effects' character
   draws) stay at 30 Hz.
 - **Fast-forward costs CPU.** Every tick is simulated. ×100 is 3,000 ticks a second, which may

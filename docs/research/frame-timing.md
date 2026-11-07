@@ -479,6 +479,8 @@ segments, so effects may be missing on Repeat frames (as before).
 
 ### Characters between ticks
 
+Off by default ("Interpolate the characters", experimental) until the fix below is checked in the game.
+
 **Why slow motions were choppy.** Only the camera was interpolated; with `Ch_CalcMiddle` held, a
 character's pose changed 30 times a second against a 200 fps camera.
 

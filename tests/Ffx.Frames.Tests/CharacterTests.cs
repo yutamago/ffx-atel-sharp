@@ -67,6 +67,16 @@ public class TransformInterpolatorTests {
     }
 }
 
+public class CharacterDefaultsTests {
+    [Fact]
+    public void Character_interpolation_is_off_until_checked_in_the_game() {
+        FrameSettings s = new();
+        Assert.False(s.InterpolateCharacters);
+        Assert.True(s.InterpolateBones);
+        Assert.False(FrameSettings.FromJson("{ \"interpolate\": true }").InterpolateCharacters);
+    }
+}
+
 public class CharacterHistoryTests {
     private const double Dist = 50, Deg = 120;
     private static readonly ulong Tidus = CharacterHistory.Identity(1, 0x1000);
