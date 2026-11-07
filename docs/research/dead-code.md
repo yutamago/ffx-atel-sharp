@@ -402,8 +402,16 @@ link-time switch and record what they do.
 Built 2026-11-04 as its own Fahrenheit mod, `yuta.atel.cuts` (`src/Ffx.Atel.Cuts`, separate from
 the loader; "Decisions (user)", 2026-11-04): a menu (F8) with a checkbox per name, which flips the
 block's `jmp` byte in the script the game has loaded. How to install and use it:
-[`src/Ffx.Atel.Cuts/README.md`](../../src/Ffx.Atel.Cuts/README.md). Not run in game yet; the
-test plan is in the PR that added it.
+[`src/Ffx.Atel.Cuts/README.md`](../../src/Ffx.Atel.Cuts/README.md).
+
+Run in game on 2026-11-07 (Fahrenheit alpha12, `yuta.atel.cuts` alone, a new game): when the
+opening reached `znkd1300`, the mod found `Cut.ZanarkandCrowdFacingReaction`'s 29 blocks and
+switched all 29 on, then all 29 off 13 s later, as its log shows; the game kept running and
+closed normally. The crowd showed no difference the player could see. Not checked why: the
+blocks sit in the crowd workers' entries 8 and 7 and only run while the player is within 65
+units, so those entries may not run during the opening walk, or the reaction is too brief to
+notice. The Highroad lines were not tried (no save between `S00772_Mihn0200` and
+`S00777_Mihn0600`).
 
 What the mod uses of Fahrenheit (alpha12, read for names and facts only):
 
