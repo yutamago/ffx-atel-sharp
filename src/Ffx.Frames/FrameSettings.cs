@@ -109,6 +109,12 @@ public sealed record FrameSettings {
     public bool InterpolateCharacters { get; init; }
     /// <summary>Also draw the characters' bones between their last two ticks (their animation), not only their place.</summary>
     public bool InterpolateBones { get; init; } = true;
+    /// <summary>
+    ///     Also draw the characters' cloth (hair, Tidus's shorts, Auron's coat) between their last two ticks: its vertices
+    ///     blended and carried with the character. Needs <see cref="HoldCloth"/>; without it the cloth keeps its last tick's
+    ///     shape and place while the body moves on.
+    /// </summary>
+    public bool InterpolateCloth { get; init; } = true;
     /// <summary>A character that moved further than this in one tick warped: it is drawn as it is (world units).</summary>
     public double CharacterCutDistance { get; init; } = 50;
     /// <summary>A character that turned more than this in one tick warped (degrees).</summary>

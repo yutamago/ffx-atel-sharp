@@ -26,6 +26,8 @@ public enum Counter {
     EffectsGone,
     /// <summary>Characters drawn between ticks (one per character per game update that drew it).</summary>
     CharactersInterpolated,
+    /// <summary>Cloth meshes drawn between ticks (one per mesh per drawn frame).</summary>
+    ClothInterpolated,
 }
 
 /// <summary>

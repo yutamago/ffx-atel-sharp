@@ -49,7 +49,7 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 | Vsync | As the game has it | **On** or **Off** overrides the game's setting for each present. Off with a G-Sync/FreeSync display and a Fixed or Unlimited target gives a variable frame rate |
 | Frames between ticks | Redraw | What a frame without a tick does: **Redraw** runs the game's draw again with the world held still, so the camera can move. **Repeat** skips the game's update, as the Esc menu does |
 | Interpolate the camera | on | Draws the camera between its last two ticks. The picture is one tick (33 ms) behind |
-| … the characters | off | **Experimental, off until checked in the game.** Draws each character's place, facing and bones (its animation) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
+| … the characters | off | **Experimental, off until checked in the game.** Draws each character's place, facing, bones (its animation) and cloth (hair, Tidus's shorts, Auron's coat) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
 | Effects between ticks | Replay | **Replay**: the effects' programs run only on ticks, and on the frames between, what they drew at the last tick is drawn again: right speed, drawn every frame. **Run**: they run on every drawn frame (too fast at a high frame rate). **Hold**: they run only on ticks and are missing between them (they flicker) |
 | Time scale | ×1 | Game time per real second. Voice-synced scenes, movies and the scenes the game won't speed up stay at ×1 |
 | Mute above ×1 | on | Sound off while faster than ×1, as the booster does |
@@ -58,7 +58,7 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 Advanced: the most real time one frame counts (0.3 s, as the game), the most ticks one frame
 runs (100), how many whole game updates a frame runs before it uses exec frames (4), for
 Redraw frames which parts are held still (the cloth among them), whether the characters' bones
-are interpolated or only their place, and the characters' warp thresholds. The window's **Live** section shows the drawn
+and cloth are interpolated or only their place (the cloth needs to be held), and the characters' warp thresholds. The window's **Live** section shows the drawn
 frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate), why the scale
 is held at ×1, and the camera's last move (to tune the cut thresholds).
 
@@ -72,25 +72,25 @@ drawing faster ran the game faster. The mod changes that:
    many whole ticks as fit, 0 included, and carries the rest, like Unity's `FixedUpdate`.
 3. **Frames without a tick.** Redraw runs the game's update with 0 ticks and holds what would
    still move: pad scan, controls, the v-blank count, the camera, the effects, the characters'
-   bones and motion events, the cloth, field animation, fade counters, video. The effects'
+   bones and motion events, the cloth (the hair is cloth too), field animation, fade counters, video. The effects'
    programs step and draw in one pass, so on these frames the mod draws again what they drew at
    the last tick instead of running them. Menus, pauses, loads and movies always use Repeat,
    because their logic runs once per update.
-4. **Interpolation.** After each tick the mod records the camera and screen matrices, and each
-   character's matrix and bone matrices. For each draw it gives the renderer the camera and the
-   characters between the last two ticks: rotations slerped, positions lerped. A jump bigger than
-   the cut or warp thresholds is drawn as it is.
+4. **Interpolation.** After each tick the mod records the camera and screen matrices, each
+   character's matrix and bone matrices, and its cloth's vertices. For each draw it gives the
+   renderer the camera and the characters between the last two ticks: rotations slerped,
+   positions lerped, the cloth's vertices blended and placed with the character as drawn. A jump
+   bigger than the cut or warp thresholds is drawn as it is.
 5. **Time scale.** Above ×4 per frame, ticks go through the game's exec frames (up to 99 ticks
    per update) instead of whole updates, so ×100 costs 3,000 ticks a second but no extra draws.
 
 ## Limits
 
-- **Effects, the 2D layers, blob shadows and the cloth move at 30 Hz.** Effects keep their
+- **Effects, the 2D layers and blob shadows move at 30 Hz.** Effects keep their
   game speed and are drawn on every frame, but each shows its last tick's shape between ticks.
   Particles the game builds facing the camera were built for the tick's camera; with the
-  camera interpolated they can trail it by up to one tick. The cloth keeps its last tick's
-  shape while the body under it is interpolated, and a character's round shadow stays at its
-  last tick's place.
+  camera interpolated they can trail it by up to one tick. A character's round shadow stays at
+  its last tick's place. Without character interpolation the cloth and hair move at 30 Hz too.
 - **What the effects replay cannot cover.** The replay re-sends the effects' geometry, the order
   of their draw paths and their draw events (screen fades, buffer copies). Something an effect
   sets only while it runs keeps its last value between ticks: the point lights the map's
@@ -99,8 +99,10 @@ drawing faster ran the game faster. The mod changes that:
   flickers or vanishes between ticks, set **Effects between ticks** to Run and report which one.
 - **Character interpolation is experimental and off by default.** In its first in-game test
   (2026-11-07) characters were choppier with it and half a character could stand still for a
-  second; turning it off fixed that. The cause (it raced the game's bone jobs) is fixed in code
-  but not yet checked in the game. Without it, characters move at 30 Hz against the smooth camera.
+  second; turning it off fixed that. The cause (it raced the game's bone jobs) is fixed, and the
+  second test (2026-11-07, ×0.1) had smooth bones, but the hair trailed and moved only on
+  ticks: hair is cloth, which was not interpolated. The cloth now is, not yet checked in the
+  game. Without it, characters move at 30 Hz against the smooth camera.
 - **Characters drawn by other paths** (a magic file's situation pass, the effects' character
   draws) stay at 30 Hz.
 - **Fast-forward costs CPU.** Every tick is simulated. ×100 is 3,000 ticks a second, which may

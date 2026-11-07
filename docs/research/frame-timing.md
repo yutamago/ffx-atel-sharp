@@ -318,6 +318,7 @@ are at the end of this section.
 | `VfxGeometry_Register` (`0x006a52f0`, `VFXDynamicGeometry` vtable `+8`, thiscall), `graphicVFXSyncPath` (`0x00645840`), `PhyreScene_addVFXDrawEvent` (`0x00656940`, thiscall) | Hooks | Record what the effect calls above hand the renderer on a tick (game thread only) |
 | `JobSchedule_Ch_Cloth_PerCharacter` (`0x00a44b40`), `Ch_DrawClothClear` (`0x00830b90`) | Hooks (switch, on) | Held on a Redraw: `Ch_DrawMain` steps the cloth once per game update |
 | `Ch_DrawMain` (`0x0082ed50`), `graphicCharacterInstanceSetWorldMatrix` (`0x0063c3e0`), `…ByMdlID` (`0x0063c430`) | Hooks | Draw the characters between ticks ("Characters between ticks") |
+| `graphicCharacterInstanceSetClothVertexBuffers` (`0x0063b740`, from `FFXApplication_render` `0x0042f95e`) | Hook (switch, on) | Draws the cloth between ticks: blended vertices and the drawn character's matrix written into each cloth mesh before the upload ("The cloth" below) |
 | `MsCameraProcess` (`0x007be110`), `Sg_CameraSetPlayer` (`0x0083f2e0`) | Hooks | Held on a Redraw: with exec frames 0, `Sg_MainLoop` still runs both when the camera is idle (`0x012fbbb0`) |
 | `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events). After a tick, where the characters are recorded |
 | `yiAnimMain` (`0x00908320`) | Hook (switch, on) | The field's animation, held on a Redraw |
@@ -523,8 +524,44 @@ changed since the tick (magic `0x275`'s matrix swap) is drawn as it is.
 `Sg_ClothPlaceAnchors`) for every cloth character once per game update, after
 `Ch_DrawClothClear`, so on Redraw frames the cloth simulated once per drawn frame. The mod skips
 both on a Redraw (setting, on). `FFXApplication_render` uploads the cloth's vertex records on every
-drawn frame (`graphicCharacterInstanceSetClothVertexBuffers`), so the cloth keeps its last tick's
-shape, as on a Repeat frame. It is not interpolated.
+drawn frame (`graphicCharacterInstanceSetClothVertexBuffers`), so without more the cloth keeps its
+last tick's shape and place, as on a Repeat frame.
+
+That is what the hair did in the 2026-11-07 test (main `fa093ad`, characters on, ×0.1): the bones
+were smooth, the hair trailed and moved only on ticks. **The hair is cloth**, not bones: the
+simulated pieces of a model's cloth table are the hair strands and crests as well as the shorts
+and coats (Wakka's crest is piece (0, 3), 255 pinned and 50 moving vertices; ffx-demaster
+`docs/models.md`, "Cloth"). How the cloth is drawn (ffx-rust `docs/formats/scene-chars.md`,
+"Cloth"; `docs/formats/main.md`, "Cloth anchors"; `crates/ffx-chara/src/cloth.rs`):
+
+- A character's render cloth `chr + 0x834` is the record the renderer lists (`0x00ccb250` count,
+  `0x00ccb254` slots): `+8` hidden, `+0xc` state (2 once set up), `+0x14` lists from `+0x30`,
+  each a `u32` count and mesh pointers. A mesh: 16 floats of matrix at `+0` (the shader's
+  `ClothWorld`), model `u16 +0x40`, piece `+0x42`, vertex count `+0x44`, vertices `[+0x4c]` (16
+  bytes each, vertex stream 5).
+- **The vertices** are relative to the model's base element: `Apply_Envelope` (`0x00832110`) skins
+  the PS2 model with base⁻¹ × element, `Sg_ClothStep` (`0x00822de0`) moves the free points, and
+  `Sg_ClothPlaceAnchors` (`0x0082dbc0`) puts each drawn vertex on its simulated triangle
+  (barycentric weights). Once per game update, on the job workers; `Sg_MainLoop` waits for them at
+  its end.
+- **The matrix** is written by `Ch_UpdateClothMatrix` (`0x008314c0`, first thing in `Ch_DrawMain`'s
+  walk for each shown character, every draw): the base element's global matrix (`chr + 0x328`
+  elements `+0x88`, translation × 1000) × the character's `+0x1d0` × diag(−1, −1, 1, 1)
+  (`g_ChrClothFlip` `0x00b92340`), in row-vector order (`mul4x4(a, b)` is `b × a`).
+
+So the cloth reads the true `+0x1d0` and the tick's skeleton, never the renderer bones the mod
+writes. **What the mod does** (`ClothHistory`, setting "Interpolate the characters' cloth", on;
+needs the cloth held): at the end of a game update that recorded the characters, each mesh's
+vertices and its local matrix L = `ClothWorld × flip × +0x1d0⁻¹` (the base element's matrix) go
+into a two-tick history (keyed by the mesh, identity = the vertex buffer and count). In the hook
+on `graphicCharacterInstanceSetClothVertexBuffers` (main thread, before the upload), for a
+character `Ch_DrawMain` drew between ticks: the vertices are the lerp of their two ticks (a vertex
+that did not move is left exactly as it is), the matrix is lerp(L) × the drawn `+0x1d0` × flip.
+With one sample, or with the bones not interpolated, the tick's cloth is carried along with the
+character (L × drawn `+0x1d0` × flip). As with the bones, a mesh that still holds what the mod
+wrote when the next tick is recorded was not written by the game, and gets its last true sample
+back. `Ch_UpdateClothMatrix` writes the true matrix again on every draw, and the cloth job
+overwrites every bound vertex on every tick, so nothing the mod writes reaches the simulation.
 
 ### Other things that advance per drawn frame
 
@@ -533,7 +570,7 @@ What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with 
 | What | Where | On a Redraw |
 |---|---|---|
 | The effects | the effect loop, above | held, replayed |
-| The cloth | `Ch_DrawMain` → `Ch_Cloth_PerCharacter` | held (new) |
+| The cloth | `Ch_DrawMain` → `Ch_Cloth_PerCharacter` | held; drawn blended between ticks |
 | Bones, motion events, mouths, texture animations of the characters | `Ch_CalcMiddle` | held; bones interpolated |
 | Field animation (the map's texture animation frames, moving parts) | `yiAnimMain` | held. `yiRender_draw` only applies the frame |
 | Fades | `Sg_DrawFilter` | drawn, counters put back |
@@ -549,7 +586,10 @@ What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with 
   effect still flickers or vanishes between ticks ("gone" in the window's Live section counts
   geometries destroyed since the tick).
 - Whether interpolated bones look right on every model (skinned and not, the shadow instance
-  `+0x838`, Tidus's and Yuna's cloth over an interpolated body).
+  `+0x838`). The bones were smooth in the 2026-11-07 test (×0.1); the hair was not (cloth, above).
+- Whether the blended cloth sits on the body: hair roots, Tidus's shorts, Auron's coat, Wakka's
+  crest, in slow motion and while turning. A cloth reset (a scene cut that keeps the character in
+  place) is blended over one tick.
 - The character warp thresholds in world units.
 - Whether a Redraw frame looks like the tick frame before it: the field, message windows, battle UI.
 - Whether a Repeat frame (no update) shows the last picture or a broken one, and whether the
