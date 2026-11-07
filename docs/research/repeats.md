@@ -410,3 +410,35 @@ decompiled C# with its texts (`--text-comments`, the Japanese text where the Eng
 | helpers named | 1,367 of 3,617 | 3,339 (278 `RepeatedNN` left) |
 | their places (the miner's count) | | 38,543 of 41,508 |
 | `W36` of `bltz0000` | 2 of 42 named | 41 of 42 (`Repeated42`, a sequence of requests, left) |
+
+2026-11-07, third pass: the 278 left, in 177 families (209 signatures), most-used first, each read with
+the entries it requests (what each requested entry does), its texts at the calls and the save fields.
+
+- Names from requests: `Repeated42` of `bltz0000` W36 is `AimWithPadMarkers`: it hides W07, moves the
+  camera (W01's entries 51 and 52) and W18's model, lets the pad steer sprite 127 (W27's entry 7, by
+  `PadGetBindFlag`) while sprite 126 moves at random (W28's entry 6), then sends W18 to the aimed point
+  and sets `V273` by how close the two sprites are. `PlacePlayersAndSlideInPanel0` awaits entry 8 of the
+  ten player workers (each places itself from the formation table); `PlayMotionAndWaitForDog` waits for
+  `Dog009`'s entry 7.
+- Names from texts and save fields: `ReleaseAsFreeAgent`, `ShowChocoboTrainingResult`,
+  `SayFiendsRemaining`, `PowerUpCelestialFully` (`CelestialsFullPowered`), `RollTournamentPrize` and
+  `RollLeaguePrize` (`BlitzballTournamentPrizeIndex`, `BlitzballLeaguePrizeIndex`), `ResetTeamRosters`.
+  Where a text is missing or only the code says it, the name stays mechanical: `ChooseTech1To14` and
+  `ChooseTech1To13` (not "shot", which only the tech numbers suggest), `RollSidesAndAdvanceClock` (not
+  "match"), `ShowEntryTimes`; unnamed save fields stay numbers (`ToggleSave016aBit`, `SetChoiceTextBySave`
+  on `Save_0153`).
+- The same code as a helper named before gets that name (`DrawPlayerPanelOf`, `ScoreGoal`, `ShowTwoDigits`,
+  `PlayStreamWithSubtitle`, `SayForFrames`, …).
+- Left as `RepeatedNN` (9 helpers, 8 signatures): two request chains of `bltz0001` and `bltz0004` W31
+  (2,600 and 8,900 lines; about fifteen W18 entries and others, with log texts the PC files lack), three
+  request sequences of the Cloisters of Trials (two in `djyt0600` W43, one in `mcyt0500` W30) driven by
+  the puzzle's state variables, `mcfr0100` W38's switch over party members' entries, and the
+  battle camera tables of `bsil05_04`/`bsil07_03` W02 and `ssbt01_00` W04 (by `V2`, or by the actor and
+  monster 0's `Far`).
+
+| | before | after |
+|---|---|---|
+| signatures named | 458 | 659 (221 names) |
+| helpers named | 3,339 of 3,617 | 3,608 (9 `RepeatedNN` left) |
+| their places (the miner's count) | | 41,242 of 41,293 |
+| `W36` of `bltz0000` | 41 of 42 named | 42 of 42 |
