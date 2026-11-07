@@ -133,14 +133,15 @@ public sealed class FramesModule : FhModule {
         FrameHooks? h = _hooks;
         if (!s.ShowOverlay || h is null) return;
         FrameStats st = h.Stats;
-        ImGui.SetNextWindowPos(new Vector2(10, 10), ImGuiCond.Always);
+        ImGui.SetNextWindowPos(new Vector2(ImGui.GetIO().DisplaySize.X - 10, 10), ImGuiCond.Always, new Vector2(1, 0));
         ImGui.SetNextWindowBgAlpha(0.55f);
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoInputs;
         if (ImGui.Begin("###yuta.frames.overlay", flags)) {
             string vsync = s.Vsync switch { VsyncMode.On => "on", VsyncMode.Off => "off", _ => "game" };
             ImGui.Text($"{st.Rate(Counter.Presents):0} fps   {st.Rate(Counter.WorldTicks):0.0} ticks/s");
-            ImGui.TextColored(Grey, $"vsync {vsync}   ×{h.LastScale:0.##}{(s.Enabled ? "" : "   mod off")}");
+            ImGui.TextColored(Grey, $"vsync {vsync} (Alt+F9)   ×{h.LastScale:0.##}{(s.Enabled ? "" : "   mod off")}");
+            ImGui.TextColored(Grey, "F9 settings");
         }
         ImGui.End();
     }
