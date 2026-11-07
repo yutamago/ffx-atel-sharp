@@ -59,17 +59,19 @@ atel decompile m209 -o vanilla --sdk ~/atel-feed
 ```
 
 `vanilla/Monsters/M209/` now holds the script: `M209.cs` (the script class: its workers
-`W00`-`W02` and its variables), one file per worker, `M209.Layout.cs` (what keeps the bytes the
+`Motions`, `Ai` and `Cameras`, and its variables), one file per worker, `M209.Layout.cs` (what keeps the bytes the
 game's: the header, the pools) and `M209.Data.cs` (its data areas). The
 projects use the SDK (`--sdk` copies the package into `vanilla/.atel/packages/` and pins its version
 in `vanilla/global.json`), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
 analyzers, and any C# IDE opens it.
 
-Open `vanilla/Monsters/M209/W01.cs`. Worker 1 is the Larva's battle worker (a `BattleWorker`, worker type 2, as every
-monster worker), and its `Init` is entry 0, which the engine runs when the monster is set up:
+Open `vanilla/Monsters/M209/Ai.cs`. Worker 1 is the Larva's action worker, which the battle asks what to do on its
+turn (`OnTurn`), when it is hit (`OnHit`) or dies (`OnDeath`) ([research/handlers.md](research/handlers.md)). It is a
+`BattleWorker` (worker type 2, as every monster worker), and its `Init` is entry 0, which the engine runs when the
+monster is set up:
 
 ```csharp
-public sealed partial class W01 : BattleWorker
+public sealed partial class Ai : BattleWorker
 {
     protected override void Init()
     {
@@ -115,7 +117,7 @@ property):
 - `AtelModId` is the Fahrenheit mod id: the name of the mod's folder and of its manifest.
 - `AtelModName`, `Description`, `Authors` and `Version` go into the manifest.
 - `AtelVanillaSource` is the folder `atel decompile -o` wrote. The build adds the vanilla source of
-  every script the mod's namespaces name to the C# compilation, so `W01`, its `Init` and the
+  every script the mod's namespaces name to the C# compilation, so `Ai`, its `Init` and the
   script's variables resolve, in the build and in the IDE.
 
 The same mod is in this repository as [`examples/LarvaHp`](../examples/LarvaHp) (with the id
@@ -130,7 +132,7 @@ using static Monsters.M209.M209;
 
 namespace Monsters.M209;
 
-partial class W01
+partial class Ai
 {
     /// <summary>After the vanilla Init: set the Larva's HP (actor property 0).</summary>
     [Postfix(nameof(Init))]
@@ -141,7 +143,7 @@ partial class W01
 }
 ```
 
-- `partial class W01` adds to the vanilla worker `W01`. A mod does not repeat its attributes or base
+- `partial class Ai` adds to the vanilla worker `Ai`. A mod does not repeat its attributes or base
   class.
 - `[Postfix(nameof(Init))]` runs the method after the vanilla `Init`, wherever `Init` ends the
   entry. `[Prefix(…)]` runs before it, `[Replace(…)]` instead of it; an `async` method without an
@@ -283,9 +285,9 @@ If something is wrong, the log says what:
 
 ## 8. Next steps
 
-- Change something else: another vanilla method (`[Prefix(nameof(E2))]` on the turn logic), a new
+- Change something else: another vanilla method (`[Prefix(nameof(OnTurn))]` on the turn logic), a new
   variable in `partial class M209 { public static int Turns; }`, a new entry another method
-  requests (`_ = W01.CountAsync();`). [language.md](language.md) lists what compiles today.
+  requests (`_ = Ai.CountAsync();`). [language.md](language.md) lists what compiles today.
 - Add a line of dialogue to an event: `Dialogue.Say(Text.New("Nice throw!"));` opens the usual
   window with a new message, waits for the player and closes it, exactly as the game's own lines
   ([language.md](language.md#inline-methods)).

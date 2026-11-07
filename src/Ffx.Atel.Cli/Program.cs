@@ -14,6 +14,7 @@ internal static class Program {
           list [filter]                    scripts in the game (events, monsters, battle)
           disasm <script> [-o <file>]      disassemble (m001, bjyt0400 or an archive path)
           asm <script> <file.asm> -o <out> assemble onto the original, write the whole file
+          handlers [filter] [-o <file>]    the battle's handler tables (section 1) of monster and battle scripts
           survey [-o <file>] [--natives <natives.json>] [--story <file.json>]
                                            measure the corpus (docs/corpus.md)
         """ + "\n" + SourceCommands.Usage + "\n" + CompileAllCommand.Usage + "\n" + ExportCommand.Usage + "\n" + ModCommands.Usage + "\n" + TextCommand.Usage + "\n" + NamesCommand.Usage + "\n" + DeadCommand.Usage + "\n" + RepeatsCommand.Usage + "\n" + """
@@ -106,6 +107,8 @@ internal static class Program {
                 return ModCommands.CompileMod(archive, args, output, TakeOption(args, "--vanilla"), TakeOption(args, "--id"), TakeFlag(args, "--check"), Options(args));
             case "link":
                 return ModCommands.Link(archive, args, output);
+            case "handlers":
+                return HandlersCommand.Run(archive, args, output);
             case "survey":
                 return SurveyCommand.Run(archive, args, output);
             case "dead":

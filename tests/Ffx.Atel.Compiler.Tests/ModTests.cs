@@ -202,12 +202,12 @@ public sealed class ModTests {
 
             namespace Monsters.M209;
 
-            public sealed partial class W01
+            public sealed partial class Ai
             {
                 [Postfix(nameof(Init))]
                 void AskForHp()
                 {
-                    _ = W01.SetHpAsync();
+                    _ = Ai.SetHpAsync();
                 }
 
                 public static async Task SetHpAsync()

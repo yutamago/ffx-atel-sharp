@@ -42,7 +42,7 @@ each vanilla part, so a package never contains game code.
   "file": "ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin",
   "script": "m209",
   "vanilla": {
-    "workers":   [ { "index": 1, "name": "W01", "hash": "…" } ],
+    "workers":   [ { "index": 1, "name": "Ai", "hash": "…" } ],
     "entries":   [ { "worker": 1, "name": "Init", "entries": [0], "start": 0, "end": 147, "hash": "…" } ],
     "variables": [ { "index": 2, "name": "V2", "hash": "…" } ]
   },
