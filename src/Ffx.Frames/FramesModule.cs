@@ -142,9 +142,18 @@ public sealed class FramesModule : FhModule {
             string vsync = s.Vsync switch { VsyncMode.On => "on", VsyncMode.Off => "off", _ => "game" };
             ImGui.Text($"{st.Rate(Counter.Presents):0} fps   {st.Rate(Counter.WorldTicks):0.0} ticks/s");
             ImGui.TextColored(Grey, $"vsync {vsync} (Alt+F9)   ×{h.LastScale:0.##}{(s.Enabled ? "" : "   mod off")}");
+            if (s.Enabled && Reached(h) is double reached) ImGui.TextColored(Yellow, $"reached ×{reached:0.#} of ×{h.LastScale:0.##} (CPU)");
             ImGui.TextColored(Grey, "F9 settings");
         }
         ImGui.End();
+    }
+
+    /// <summary>The scale the game reached over the last second, when ticks were dropped and it is short of the asked one; else null.</summary>
+    private static double? Reached(FrameHooks h) {
+        FrameStats st = h.Stats;
+        double asked = h.LastScale;
+        double reached = ReachedSpeed.Of(asked, st.Rate(Counter.PlannedTicks), st.Rate(Counter.DroppedTicks));
+        return ReachedSpeed.Short(asked, reached) ? reached : null;
     }
 
     private void Window(FrameSettings s) {
@@ -212,6 +221,10 @@ public sealed class FramesModule : FhModule {
             ImGui.Text($"World ticks: {st.Rate(Counter.WorldTicks):0.0}/s (planned {st.Rate(Counter.PlannedTicks):0.0}/s; ×1 reads about 30)");
             ImGui.Text($"Game updates: {st.Rate(Counter.Updates):0.0}/s; frames with ticks {st.Rate(Counter.TickFrames):0.0}/s, redrawn {st.Rate(Counter.RedrawFrames):0.0}/s, repeated {st.Rate(Counter.RepeatFrames):0.0}/s");
             ImGui.Text($"Scale now: ×{h.LastScale:0.##}, ticks last frame {h.LastTicks}, between ticks {h.LastAlpha:0.00}");
+            ImGui.Text($"Tick cost {h.TickMs:0.00} ms: the frame's budget fits {h.BudgetTicks} ticks; dropped {st.Rate(Counter.DroppedTicks):0}/s");
+            if (Reached(h) is double reached) {
+                ImGui.TextColored(Yellow, $"Reached ×{reached:0.#} of ×{h.LastScale:0.##}: the CPU cannot run more ticks within the budget (Advanced).");
+            }
             string? why = h.ExcludedReason;
             if (why is not null) ImGui.TextColored(Yellow, $"Time scale held at ×1: {why}");
             CameraHistory cam = h.Camera;
@@ -227,6 +240,10 @@ public sealed class FramesModule : FhModule {
             if (ImGui.SliderFloat("Most real time per frame (s)", ref cap, 0.05f, 2f, "%.2f")) Set(s with { CapSeconds = cap });
             int maxTicks = s.MaxTicksPerFrame;
             if (ImGui.SliderInt("Most ticks per frame", ref maxTicks, 1, FrameSettings.MaxTicks)) Set(s with { MaxTicksPerFrame = maxTicks });
+            float budgetMs = (float)(s.FrameBudgetSeconds * 1000);
+            if (ImGui.SliderFloat("Most update time per frame (ms)", ref budgetMs, (float)(FrameSettings.MinBudget * 1000), (float)(FrameSettings.MaxBudget * 1000), "%.0f", ImGuiSliderFlags.Logarithmic)) {
+                Set(s with { FrameBudgetSeconds = budgetMs / 1000.0 });
+            }
             int maxUpdates = s.MaxUpdatesPerFrame;
             if (ImGui.SliderInt("Whole updates per frame", ref maxUpdates, 1, 10)) Set(s with { MaxUpdatesPerFrame = maxUpdates });
             float fast = (float)s.FastScale, slow = (float)s.SlowScale;

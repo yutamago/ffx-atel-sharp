@@ -337,9 +337,11 @@ factor (`g_SpdCtrlScales[level]` while `g_SpdCtrl_b8` says it scaled). It stays 
 `g_SyncOn`, `g_WaitFramesByTime`, `g_MovieFading` or `Sg_CanSpeedUp() == 0`. With "keep the
 booster's limits" it also stays ×1 where `SpdCtrl_ScaleElapsedTime` refuses: `SpdCtrl_IsMapExcluded(g_CurrentMapNo)`,
 `SpdCtrl_IsMagicExcluded` in battle, `graphicGetAbmap()` (sphere grid), `g_SaveMachineBusy`. Up to 4 ticks a frame
-(configurable) are whole updates, as the booster runs them. Past that, the ticks are spread over
-4 updates through exec frames (up to 99 each), so ×100 at 144 fps is about 21 ticks per frame in
-4 updates. Above ×1 the mod calls `Sg_SetMuteSound(1)` (and 0 again unless the booster is on).
+(configurable) are whole updates, as the booster runs them. Past that, the last update (the one
+that draws) runs one tick and the rest are spread over the others through exec frames (up to 99
+each), so ×100 at 144 fps is about 21 ticks per frame: 7, 7, 6 and 1. Each frame runs only as many
+ticks as fit into its time budget (40 ms of update time by default), at the measured cost of a
+tick ("Fast-forward: why ×18 crashed" below). Above ×1 the mod calls `Sg_SetMuteSound(1)` (and 0 again unless the booster is on).
 
 ### Findings used
 
@@ -404,6 +406,54 @@ absolute address points there. The fix:
   function itself, the function must start with `e9`, and the link must start with the function's
   first byte (a trampoline) or `e9` (another hook over it, as on `Sg_MainLoop`, which Fahrenheit's
   game-loop events hook too). Otherwise the mod passes through from then on and logs why.
+
+### Fast-forward: why ×18 crashed
+
+Reported on main (`fa093ad`), target Unlimited, vsync off: above about ×18 the game froze, then
+crashed, with no crash dump and nothing in the log; ×100 crashed too. Two things together:
+
+1. **A spiral.** A frame's update time is about `d + w × n` for `n` ticks. When the scale asks for
+   more ticks a second than `1 / w`, each frame takes longer than the last, owes more ticks for it,
+   and so on up to the 0.3 s cap: ⌊0.3 × 30 × 18⌋ = 162 ticks, cut to "most ticks per frame" (100).
+   At 2 to 3 ms a tick, 100 ticks are a quarter of a second a frame: the freeze. ×18 is where
+   heavy scenes cross `1 / w` (540 ticks a second needs `w` under 1.85 ms).
+2. **The VFX path table.** The old plan spread 100 ticks evenly over 4 updates: 25 exec frames
+   each, the last update included. `Sg_MainLoop`'s effect loop runs one pass per exec frame
+   (`n = exec ? exec : 1`), and each pass ends in `op_ot_draw`, which calls
+   `graphicVFXSyncPath` → `PhyreScene_VFXSyncPath` (`0x00654cc0`). That writes the current list
+   lengths (`+0xf8cc`, `+0xf8d0`) into two arrays of 16 at `+0xf8d4` and `+0xf914`, indexed by the
+   path count at `+0xf954`, and adds one, with no bound check. The 17th path writes `+0xf954`
+   itself with the second list's length (up to `0xc00`), and the next paths write that far past
+   the scene object: heap corruption, which ends the process later without an exception the crash
+   handler sees. `PhyreScene_addChrDrawSituation` (`0x006564a0`) and the scene's draw
+   (`0x00654650`) add paths too, also unchecked. The counter is reset once per drawn frame (after
+   the scene's draw at `0x00654650`, and in its clear at `0x00654b70`).
+
+   All path writers sit behind `g_GraphicSkipFrame == 0` (`graphicVFXSyncPath`,
+   `graphicCharacterInsertDrawSituation`, and the other `graphicVFXAdd*Event` functions).
+   `Sg_MainLoop` sets it to 1 while `g_VoiceHold` is 2 or more, so of a frame's updates only the
+   last adds paths (the booster's extra updates skip their VFX submissions the same way). The
+   game itself never runs exec frames above 1 on PC (the debug fast-forward is the PS2's), so a
+   drawing update has one pass.
+
+The fix:
+
+- **One tick in the drawing update** (`TickPlan`): with exec frames, the last update runs 1 and
+  the others share the rest (99 each at most, so 298 a frame with 4 updates). The drawing update
+  now has one effect pass, as in the game. The effects are drawn once a frame, from its last tick.
+- **A time budget** (`TickBudget`): the cost of a tick is the update time over its ticks,
+  averaged (one quarter of each new frame; a measurement counts as at most the budget, so a load
+  does not hold the speed down). A frame runs at most ⌊budget / cost⌋ ticks, at least 1. Because
+  the cost counts the frame's fixed part, the limit settles where the update takes the budget:
+  `n = (budget − d) / w`. The ticks owed beyond it are dropped, not carried, and counted: the
+  overlay shows `scale × run / (run + dropped)` when it is more than 2 % short.
+
+The heap overwrite is read from the code, not seen in a dump (there was none); the in-game check
+is that ×18 to ×100 no longer crash.
+
+Modelled in `FastForwardTests` (`d` = 4 ms, `w` = 2.5 ms, unlimited fps): without the budget ×18
+settles at 100 ticks and 255 ms a frame; with it, ×18 to ×100 settle at 14 ticks and 40 ms a frame,
+about ×11.7 reached; ×4 drops nothing.
 
 ### The camera
 

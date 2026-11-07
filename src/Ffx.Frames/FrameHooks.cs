@@ -136,6 +136,13 @@ internal sealed unsafe class FrameHooks {
     public volatile float LastAlpha;
     public volatile float LastScale = 1;
     public volatile int LastTicks;
+    /// <summary>The tick rate of the last frame (30 in the world, 60 in the main menu).</summary>
+    public volatile float LastRate = 30;
+    /// <summary>The most ticks the frame's time budget allows now (<see cref="TickBudget"/>).</summary>
+    public volatile int BudgetTicks;
+    /// <summary>The measured cost of one tick, milliseconds.</summary>
+    public volatile float TickMs;
+    private double _droppedCarry;
     public volatile string Status = "starting";
     public bool Failed => Volatile.Read(ref _failed) != 0;
     public CameraHistory Camera => _camera;
@@ -450,6 +457,7 @@ internal sealed unsafe class FrameHooks {
         _syncFrame = false;
         _worldSeen = false;
         _inFrame = true;
+        long start = Stopwatch.GetTimestamp();
         try {
             return next(dt);
         }
@@ -458,6 +466,10 @@ internal sealed unsafe class FrameHooks {
             if (_frame.Kind != FrameKind.Vanilla) {
                 _game.ExecFrames = _execSaved;
                 _worldActive = _worldSeen;
+            }
+            // The time budget learns a tick's cost from the world's frames (a menu, a pause or a load runs no world tick).
+            if (_frame.Kind == FrameKind.Tick && _worldSeen && !_syncFrame && !Failed) {
+                _director.Observe(Stopwatch.GetElapsedTime(start).TotalSeconds, _frame.Plan.Ticks, s);
             }
         }
     }
@@ -491,7 +503,16 @@ internal sealed unsafe class FrameHooks {
         LastAlpha = (float)_frame.Alpha;
         LastScale = (float)_frame.Scale;
         LastTicks = _frame.Plan.Ticks;
+        LastRate = (float)_director.Accumulator.Rate;
+        BudgetTicks = _director.MaxTicks(s);
+        TickMs = (float)(_director.Budget.SecondsPerTick * 1000);
         Stats.Add(Counter.PlannedTicks, _frame.Plan.Ticks);
+        _droppedCarry += _frame.Dropped;
+        if (_droppedCarry >= 1) {
+            long whole = (long)Math.Floor(_droppedCarry);
+            Stats.Add(Counter.DroppedTicks, whole);
+            _droppedCarry -= whole;
+        }
         if (_frame.Kind == FrameKind.Vanilla && _applied) RestoreCamera();
         if (_frame.Kind == FrameKind.Vanilla) {
             _camera.Clear();

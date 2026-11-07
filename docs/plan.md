@@ -1548,6 +1548,16 @@ count, names placed.
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–11 follow and partly run alongside.
 
+Separate from the phases: **the Frames mod** (`yuta.frames`,
+[src/Ffx.Frames/README.md](../src/Ffx.Frames/README.md),
+[research/frame-timing.md](research/frame-timing.md)), in testing. Fixed
+2026-11-08: fast-forward above about ×18 froze and crashed (a spiral of ever
+longer frames, and 25 effect passes in the drawing update overrunning the
+game's 16-entry VFX path table). The drawing update now runs one tick, and a
+time budget per frame (40 ms of update time) limits the ticks; the overlay
+shows the speed reached. Open: the in-game check of that fix, the effects'
+replay, the character interpolation and the cloth hold.
+
 ## Out of scope for now
 
 - Running something other than the ATEL VM (running the C# on .NET).

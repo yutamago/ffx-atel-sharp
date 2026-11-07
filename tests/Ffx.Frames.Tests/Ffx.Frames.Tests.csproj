@@ -14,6 +14,7 @@
     <ItemGroup>
         <Compile Include="../../src/Ffx.Frames/TickAccumulator.cs" Link="TickAccumulator.cs" />
         <Compile Include="../../src/Ffx.Frames/TickPlan.cs" Link="TickPlan.cs" />
+        <Compile Include="../../src/Ffx.Frames/TickBudget.cs" Link="TickBudget.cs" />
         <Compile Include="../../src/Ffx.Frames/FrameSettings.cs" Link="FrameSettings.cs" />
         <Compile Include="../../src/Ffx.Frames/FramePacing.cs" Link="FramePacing.cs" />
         <Compile Include="../../src/Ffx.Frames/FrameDirector.cs" Link="FrameDirector.cs" />

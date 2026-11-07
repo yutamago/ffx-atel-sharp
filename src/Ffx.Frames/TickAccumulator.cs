@@ -36,6 +36,9 @@ public sealed class TickAccumulator {
     /// <summary>How far the world is between its last tick and the next one, 0 to 1: the interpolation factor.</summary>
     public double Fraction => Math.Clamp(Carry * Rate, 0, 1);
 
+    /// <summary>Ticks the last <see cref="Advance"/> owed but did not run: past the real-time cap or past the most ticks a frame.</summary>
+    public double Dropped { get; private set; }
+
     /// <summary>Forgets the carry (the mod switched on or off, a state the accumulator does not cover).</summary>
     public void Reset() => Carry = 0;
 
@@ -51,7 +54,11 @@ public sealed class TickAccumulator {
         if (!(rate > 0)) throw new ArgumentOutOfRangeException(nameof(rate), rate, "the tick rate must be above 0");
         if (!(dt > 0)) dt = 0;
         if (!(scale > 0)) scale = 0;
-        if (cap > 0 && dt > cap) dt = cap;
+        Dropped = 0;
+        if (cap > 0 && dt > cap) {
+            Dropped = (dt - cap) * scale * rate;
+            dt = cap;
+        }
         maxTicks = Math.Max(1, maxTicks);
         Rate = rate;
         double due = (Carry + dt * scale) * rate;
@@ -59,6 +66,7 @@ public sealed class TickAccumulator {
         double whole = Math.Floor(due + Slack);
         if (whole >= maxTicks) {
             // Too much for one frame: run the most allowed and keep only the part of a tick.
+            Dropped += Math.Max(0, Math.Floor(due) - maxTicks);
             Carry = Math.Max(0, due - Math.Floor(due)) / rate;
             if (Carry * rate >= 1 - Slack) Carry = 0;
             return maxTicks;

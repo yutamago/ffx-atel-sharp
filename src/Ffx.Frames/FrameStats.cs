@@ -13,6 +13,8 @@ public enum Counter {
     Frames,
     /// <summary>Ticks the mod handed the game.</summary>
     PlannedTicks,
+    /// <summary>Ticks owed but not run (the frame's time budget, the most ticks a frame, the real-time cap): fast-forward slower than asked.</summary>
+    DroppedTicks,
     /// <summary>World ticks that ran (<c>TkUpdateEventJump</c>, the scripts' tick).</summary>
     WorldTicks,
     /// <summary>Game updates (<c>Sg_MainLoop</c>).</summary>

@@ -13,7 +13,8 @@ public class TickPlanTests {
     [InlineData(4, 4, 4)]
     [InlineData(10, 4, 4)]
     [InlineData(100, 4, 4)]
-    [InlineData(5, 1, 1)]
+    [InlineData(5, 1, 2)]
+    [InlineData(2, 1, 2)]
     public void Ticks_become_whole_updates_up_to_the_limit(int ticks, int maxLoops, int loops) {
         TickPlan plan = TickPlan.For(ticks, maxLoops);
         Assert.Equal(loops, plan.Loops);
@@ -21,17 +22,43 @@ public class TickPlanTests {
     }
 
     [Fact]
-    public void Exec_frames_are_spread_evenly() {
+    public void Exec_frames_are_spread_evenly_over_the_updates_that_do_not_draw() {
         TickPlan plan = TickPlan.For(10, 4);
-        Assert.Equal([3, 3, 2, 2], Enumerable.Range(0, 4).Select(plan.ExecFor));
+        Assert.Equal([3, 3, 3, 1], Enumerable.Range(0, 4).Select(plan.ExecFor));
         Assert.Equal(0, plan.ExecFor(4));
+        Assert.Equal([2, 1, 1, 1], Enumerable.Range(0, 4).Select(TickPlan.For(5, 4).ExecFor));
+        Assert.Equal([12, 11, 11, 1], Enumerable.Range(0, 4).Select(TickPlan.For(35, 4).ExecFor));
     }
 
     [Fact]
-    public void At_most_99_ticks_per_update() {
+    public void At_most_99_ticks_per_update_and_1_in_the_drawing_one() {
         TickPlan plan = TickPlan.For(1000, 4);
-        Assert.Equal(396, plan.Ticks);
-        Assert.All(Enumerable.Range(0, plan.Loops), i => Assert.Equal(99, plan.ExecFor(i)));
+        Assert.Equal(298, plan.Ticks);
+        Assert.Equal(298, TickPlan.MaxTicks(4));
+        Assert.Equal([99, 99, 99, 1], Enumerable.Range(0, plan.Loops).Select(plan.ExecFor));
+        Assert.Equal(FrameSettings.MaxTicks, TickPlan.MaxTicks(10));
+    }
+
+    /// <summary>
+    ///     The scene's VFX path table has 16 entries and no bound (<c>PhyreScene_VFXSyncPath</c>): the drawing update
+    ///     adds one path per effect pass, and it runs a pass per exec frame. Before the fix, 100 ticks in 4 updates gave
+    ///     the drawing update 25 passes: 26 paths and the heap overwritten.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 4)]
+    [InlineData(5, 4)]
+    [InlineData(64, 4)]
+    [InlineData(100, 4)]
+    [InlineData(298, 4)]
+    [InlineData(2, 1)]
+    [InlineData(892, 10)]
+    public void The_drawing_update_runs_one_pass(int ticks, int maxLoops) {
+        TickPlan plan = TickPlan.For(ticks, maxLoops);
+        Assert.True(plan.Draws(plan.Loops - 1));
+        Assert.Equal(1, plan.ExecFor(plan.Loops - 1));
+        Assert.All(Enumerable.Range(0, plan.Loops), i => Assert.InRange(plan.ExecFor(i), 1, TickPlan.MaxExec));
+        Assert.Equal(plan.Ticks, Enumerable.Range(0, plan.Loops).Sum(plan.ExecFor));
+        Assert.Equal(System.Math.Min(ticks, TickPlan.MaxTicks(maxLoops)), plan.Ticks);
     }
 
     [Fact]
