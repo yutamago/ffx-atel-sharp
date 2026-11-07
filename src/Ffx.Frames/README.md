@@ -3,7 +3,7 @@
 A [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) mod for the Steam HD Remaster of
 Final Fantasy X that removes the fixed 30 fps limit without speeding the game up. The game
 draws at your monitor's refresh rate, at a rate you choose, or uncapped, with vsync on or off.
-The world keeps its 30 ticks a second, and the camera is drawn between ticks. A time scale
+The world keeps its 30 ticks a second, and the camera is drawn between ticks (the characters too, as an experimental option). A time scale
 gives slow motion and fast-forward (×0.05 to ×100) without drawing more frames.
 
 It is a separate mod from Atel and works with or without it. The research behind it is in
@@ -11,8 +11,10 @@ It is a separate mod from Atel and works with or without it. The research behind
 does" lists every hook).
 
 **Status: in testing.** The first in-game run crashed on its first frame; that is fixed (see
-"Limits"). The test plan is in the pull request that added the mod. Treat the defaults as a
-starting point until that test is done.
+"Limits"). The second (2026-11-07, about 200 fps) kept the game's speed, but the effects ran too
+fast and slow character motions looked choppy; the effects' replay, the character
+interpolation and the cloth hold answer that and wait for their own test. Treat the defaults as
+a starting point until then.
 
 ## Install
 
@@ -47,13 +49,16 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 | Vsync | As the game has it | **On** or **Off** overrides the game's setting for each present. Off with a G-Sync/FreeSync display and a Fixed or Unlimited target gives a variable frame rate |
 | Frames between ticks | Redraw | What a frame without a tick does: **Redraw** runs the game's draw again with the world held still, so the camera can move. **Repeat** skips the game's update, as the Esc menu does |
 | Interpolate the camera | on | Draws the camera between its last two ticks. The picture is one tick (33 ms) behind |
+| … the characters | off | **Experimental, off until checked in the game.** Draws each character's place, facing and bones (its animation) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
+| Effects between ticks | Replay | **Replay**: the effects' programs run only on ticks, and on the frames between, what they drew at the last tick is drawn again: right speed, drawn every frame. **Run**: they run on every drawn frame (too fast at a high frame rate). **Hold**: they run only on ticks and are missing between them (they flicker) |
 | Time scale | ×1 | Game time per real second. Voice-synced scenes, movies and the scenes the game won't speed up stay at ×1 |
 | Mute above ×1 | on | Sound off while faster than ×1, as the booster does |
 | Keep the booster's limits | on | Also ×1 where the PC booster won't speed up (its maps and spells, the sphere grid, a load) |
 
 Advanced: the most real time one frame counts (0.3 s, as the game), the most ticks one frame
-runs (100), how many whole game updates a frame runs before it uses exec frames (4), and, for
-Redraw frames, which parts are held still. The window's **Live** section shows the drawn
+runs (100), how many whole game updates a frame runs before it uses exec frames (4), for
+Redraw frames which parts are held still (the cloth among them), whether the characters' bones
+are interpolated or only their place, and the characters' warp thresholds. The window's **Live** section shows the drawn
 frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate), why the scale
 is held at ×1, and the camera's last move (to tune the cut thresholds).
 
@@ -66,22 +71,38 @@ drawing faster ran the game faster. The mod changes that:
 2. **The tick accumulator.** Each drawn frame adds its real time × the time scale. It runs as
    many whole ticks as fit, 0 included, and carries the rest, like Unity's `FixedUpdate`.
 3. **Frames without a tick.** Redraw runs the game's update with 0 ticks and holds what would
-   still move: pad scan, controls, the v-blank count, the camera, the effects' update,
-   characters' bones and motion events, field animation, fade counters, video. Menus, pauses,
-   loads and movies always use Repeat, because their logic runs once per update.
-4. **Interpolation.** After each tick the mod records the camera and screen matrices. For each
-   draw it gives the renderer the camera between the last two ticks: the rotation slerped, the
-   position lerped. A jump bigger than the cut thresholds is a cut and is drawn as it is.
+   still move: pad scan, controls, the v-blank count, the camera, the effects, the characters'
+   bones and motion events, the cloth, field animation, fade counters, video. The effects'
+   programs step and draw in one pass, so on these frames the mod draws again what they drew at
+   the last tick instead of running them. Menus, pauses, loads and movies always use Repeat,
+   because their logic runs once per update.
+4. **Interpolation.** After each tick the mod records the camera and screen matrices, and each
+   character's matrix and bone matrices. For each draw it gives the renderer the camera and the
+   characters between the last two ticks: rotations slerped, positions lerped. A jump bigger than
+   the cut or warp thresholds is drawn as it is.
 5. **Time scale.** Above ×4 per frame, ticks go through the game's exec frames (up to 99 ticks
    per update) instead of whole updates, so ×100 costs 3,000 ticks a second but no extra draws.
 
 ## Limits
 
-- **Characters, effects and the 2D layers are not interpolated.** They move at 30 Hz, as
-  before. With the camera interpolated, a character the camera follows can look like it shakes
-  slightly against the smooth background. If that bothers you, turn interpolation off: you
-  keep the high frame rate and the correct speed. Character interpolation is planned
-  (frame-timing.md).
+- **Effects, the 2D layers, blob shadows and the cloth move at 30 Hz.** Effects keep their
+  game speed and are drawn on every frame, but each shows its last tick's shape between ticks.
+  Particles the game builds facing the camera were built for the tick's camera; with the
+  camera interpolated they can trail it by up to one tick. The cloth keeps its last tick's
+  shape while the body under it is interpolated, and a character's round shadow stays at its
+  last tick's place.
+- **What the effects replay cannot cover.** The replay re-sends the effects' geometry, the order
+  of their draw paths and their draw events (screen fades, buffer copies). Something an effect
+  sets only while it runs keeps its last value between ticks: the point lights the map's
+  particles cast (`pppFpPointLightProc`), for example, are not set again. With exec frames (above ×4 per frame) a tick frame draws the effects once
+  per tick, as the game does, but a frame between ticks draws them once. If an effect still
+  flickers or vanishes between ticks, set **Effects between ticks** to Run and report which one.
+- **Character interpolation is experimental and off by default.** In its first in-game test
+  (2026-11-07) characters were choppier with it and half a character could stand still for a
+  second; turning it off fixed that. The cause (it raced the game's bone jobs) is fixed in code
+  but not yet checked in the game. Without it, characters move at 30 Hz against the smooth camera.
+- **Characters drawn by other paths** (a magic file's situation pass, the effects' character
+  draws) stay at 30 Hz.
 - **Fast-forward costs CPU.** Every tick is simulated. ×100 is 3,000 ticks a second, which may
   be more than one core can do in heavy scenes. The game then runs slower than asked but stays
   responsive ("most ticks per frame").

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -22,8 +23,10 @@ namespace Ffx.Frames;
 ///         <item><c>updateFFX</c> (<c>0x00822840</c>, once per drawn frame; hooked at its call, <see cref="CallHooked"/>): decides the frame; a Repeat frame skips it.</item>
 ///         <item><c>Sg_MainLoop</c> (<c>0x00820ae0</c>, once per game update): puts the true camera back.</item>
 ///         <item><c>Sg_FrameSync</c> (<c>0x00821e80</c>): sets the updates (<c>g_VoiceHold</c>) and each update's ticks (exec frames); not run at all on a Redraw frame.</item>
-///         <item>The holds (Redraw frames): <c>TkUpdateScanControler</c> (at its two calls), <c>Sg_ControlMain</c>, <c>MsEffectProcess</c>, <c>MsCameraProcess</c>, <c>Sg_CameraSetPlayer</c>, <c>Ch_CalcMiddle</c>, <c>yiAnimMain</c>, <c>graphicVideoUpdate</c>, <c>op_loop_ffx_after</c>, <c>Sg_DrawFilter</c>.</item>
+///         <item>The holds (Redraw frames): <c>TkUpdateScanControler</c> (at its two calls), <c>Sg_ControlMain</c>, <c>MsCameraProcess</c>, <c>Sg_CameraSetPlayer</c>, <c>Ch_CalcMiddle</c>, <c>yiAnimMain</c>, <c>graphicVideoUpdate</c>, <c>Sg_DrawFilter</c>, the cloth (<c>Ch_DrawClothClear</c>, <c>JobSchedule_Ch_Cloth_PerCharacter</c>).</item>
+///         <item>The effects (<see cref="EffectRecorder"/>): <c>MsEffectProcess</c>, <c>op_loop_ffx_after</c> and, at their calls in <c>Sg_MainLoop</c>, <c>op_gs1_transfer</c>, <c>yiCallFieldParticle</c>, <c>pppPartLoop</c>, <c>op_ot_draw</c>. On a tick their draws (<c>VfxGeometry_Register</c>, <c>graphicVFXSyncPath</c>, <c>PhyreScene_addVFXDrawEvent</c>) are recorded; on a Redraw frame the calls are held and the draws replayed.</item>
 ///         <item><c>graphicCameraSetWorldMatrix</c> (<c>0x00639860</c>, from <c>Cam_Apply</c> in the draw's <c>MsScreenProcess</c>): records the tick's camera and swaps in the interpolated one.</item>
+///         <item>The characters (<see cref="CharacterHistory"/>): recorded after <c>Ch_CalcMiddle</c>; <c>Ch_DrawMain</c> draws them between ticks (bones written into the renderer instances, the world matrices corrected in <c>graphicCharacterInstanceSetWorldMatrix(ByMdlID)</c>).</item>
 ///         <item><c>Renderer_PresentFlip</c> (<c>0x00593760</c>, render thread): vsync on or off.</item>
 ///     </list>
 ///     <para>
@@ -44,11 +47,19 @@ internal sealed unsafe class FrameHooks {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate byte ByteFn();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate byte ByteIntFn(int a);
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate byte ThisFn(nint self);
+    [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisIntFn(nint self, int a);
+    [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisPtrFn(nint self, nint p);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrIntFn(nint p, int a);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrFn(nint p, nint q);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrIntFn(nint p, nint q, int a);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int SegmentBufferFn(nint renderData, int segment, int vertices, int indices);
 
     private static FhCallHandle<T> At<T>(uint va) where T : Delegate => new(new FhCallLocation("FFX.exe", Game.Offset(va)));
 
     // Hooked at their call sites (CallHooked): a loop in each branches back into its first 5 bytes.
     private const uint UpdateFfxVa = 0x00822840, UpdateScanVa = 0x00889a80;
+    // Hooked at their one call in Sg_MainLoop's effect loop (CallHooked): other callers keep the game's function.
+    private const uint Gs1TransferVa = 0x007eb580, FieldParticleVa = 0x009083e0, PartLoopVa = 0x00762240, OtDrawVa = 0x007ec470;
     // Hooked (Fahrenheit, MinHook).
     private static FhCallHandle<MainLoopFn> MainLoop => At<MainLoopFn>(0x00820ae0);
     private static FhCallHandle<FloatFn> FrameSync => At<FloatFn>(0x00821e80);
@@ -65,6 +76,14 @@ internal sealed unsafe class FrameHooks {
     private static FhCallHandle<VoidFn> EventJump => At<VoidFn>(0x0088d3d0);
     private static FhCallHandle<PtrFn> SetWorldMatrix => At<PtrFn>(0x00639860);
     private static FhCallHandle<ThisFn> PresentFlip => At<ThisFn>(0x00593760);
+    private static FhCallHandle<ThisIntFn> VfxRegister => At<ThisIntFn>(0x006a52f0);
+    private static FhCallHandle<VoidFn> VfxSyncPath => At<VoidFn>(0x00645840);
+    private static FhCallHandle<ThisPtrFn> VfxDrawEvent => At<ThisPtrFn>(0x00656940);
+    private static FhCallHandle<PtrIntFn> ClothSchedule => At<PtrIntFn>(0x00a44b40);
+    private static FhCallHandle<PtrFn> ClothClear => At<PtrFn>(0x00830b90);
+    private static FhCallHandle<VoidFn> DrawMain => At<VoidFn>(0x0082ed50);
+    private static FhCallHandle<PtrPtrFn> ChrSetWorld => At<PtrPtrFn>(0x0063c3e0);
+    private static FhCallHandle<PtrPtrIntFn> ChrSetWorldByModel => At<PtrPtrIntFn>(0x0063c430);
     // Called.
     private static FhCallHandle<VoidFn> CanSpeedUp => At<VoidFn>(0x0081fd30);
     private static FhCallHandle<IntFn> SetMuteSound => At<IntFn>(0x00821c60);
@@ -72,12 +91,15 @@ internal sealed unsafe class FrameHooks {
     private static FhCallHandle<ByteFn> IsMagicExcluded => At<ByteFn>(0x006f6ff0);
     private static FhCallHandle<VoidFn> BattleStatus => At<VoidFn>(0x007816f0);
     private static FhCallHandle<VoidFn> SphereGrid => At<VoidFn>(0x00641060);
+    private static FhCallHandle<SegmentBufferFn> SegmentBuffer => At<SegmentBufferFn>(0x0063fdb0);
 
     private readonly Game _game;
     private readonly FhLogger _log;
     private readonly Func<FrameSettings> _settings;
     private readonly FrameDirector _director = new();
     private readonly CameraHistory _camera = new();
+    private readonly EffectRecorder _effects = new();
+    private readonly CharacterHistory _chars = new();
     public readonly FrameStats Stats = new();
 
     // The current frame (game thread). Vanilla outside updateFFX, so calls from elsewhere pass through.
@@ -117,13 +139,43 @@ internal sealed unsafe class FrameHooks {
     public volatile string Status = "starting";
     public bool Failed => Volatile.Read(ref _failed) != 0;
     public CameraHistory Camera => _camera;
+    /// <summary>For the window (read on the render thread; approximate).</summary>
+    public int EffectDraws => _effects.Count;
+    public int Characters => _chars.Characters;
+    public int CharacterCuts => _chars.Cuts;
     public bool LimiterPatched => _limiterPatched;
 
     // The call-site hooks' entry points (kept alive: the game calls them) and the functions they call.
     private readonly FloatFn _updateEntry;
-    private readonly VoidFn _updateScanEntry;
+    private readonly VoidFn _updateScanEntry, _gs1Entry, _fieldParticleEntry, _partLoopEntry, _otDrawEntry;
     private FloatFn? _nextUpdate;
-    private VoidFn? _nextUpdateScan;
+    private VoidFn? _nextUpdateScan, _nextGs1, _nextFieldParticle, _nextPartLoop, _nextOtDraw;
+
+    // Effects (EffectRecorder): replaying, the geometries the render data table holds now, those copied this update.
+    private ThisIntFn? _nextRegister;
+    private VoidFn? _nextSyncPath;
+    private ThisPtrFn? _nextDrawEvent;
+    private SegmentBufferFn? _segmentBuffer;
+    private bool _replaying;
+    private int _gameThread = -1;
+    private int _updateSerial, _liveSerial = -1;
+    private readonly HashSet<nint> _live = [], _copied = [];
+    private readonly int* _event;
+
+    // Characters (CharacterHistory): the world-space correction per instance list during Ch_DrawMain, the bone arrays written.
+    private PtrIntFn? _nextClothSchedule;
+    private PtrFn? _nextClothClear;
+    private VoidFn? _nextDrawMain;
+    private PtrPtrFn? _nextChrSetWorld;
+    private PtrPtrIntFn? _nextChrSetWorldByModel;
+    private bool _inDrawMain;
+    private int _charMap = -1;
+    private readonly Dictionary<nint, Matrix4x4> _rootDelta = [];
+    // The bones the mod wrote into each instance between ticks (what the array held when it was last left).
+    private readonly Dictionary<nint, Matrix4x4[]> _bonesWritten = [];
+    private readonly HashSet<nint> _bonesSeen = [];
+    private readonly Matrix4x4* _world;
+    private Matrix4x4[] _boneScratch = new Matrix4x4[256];
 
     private FloatFn? _nextFrameSync;
     private MainLoopFn? _nextMainLoop;
@@ -146,8 +198,14 @@ internal sealed unsafe class FrameHooks {
         *_limiterVsyncs = 2;
         *_limiterPerVsync = FramePacing.GameVsync;
         _fades = (byte*)NativeMemory.AllocZeroed(Game.FadeStateSize);
+        _event = (int*)NativeMemory.AlignedAlloc(16, 16);
+        _world = (Matrix4x4*)NativeMemory.AlignedAlloc((nuint)sizeof(Matrix4x4), 16);
         _updateEntry = h_update_ffx;
         _updateScanEntry = h_update_scan;
+        _gs1Entry = h_gs1_transfer;
+        _fieldParticleEntry = h_field_particle;
+        _partLoopEntry = h_part_loop;
+        _otDrawEntry = h_ot_draw;
     }
 
     /// <summary>
@@ -172,6 +230,14 @@ internal sealed unsafe class FrameHooks {
         (0x0088d3d0, "TkUpdateEventJump", "83 3d ?? ?? ?? ?? 00 74 6d 56 e8", 0x110),
         (0x00639860, "graphicCameraSetWorldMatrix", "55 8b ec 81 ec c0 00 00 00", 0x2d0),
         (0x00593760, "Renderer_PresentFlip", "56 8b f1 8b 56 74 85 d2", 0x30),
+        (0x006a52f0, "VfxGeometry_Register", "55 8b ec 53 56 8b 75 08", 0xf0),
+        (0x00645840, "graphicVFXSyncPath", "83 3d ?? ?? ?? ?? 00 75 0b", 0x20),
+        (0x00656940, "PhyreScene_addVFXDrawEvent", "55 8b ec 56 8b 75 08 57", 0x50),
+        (0x00a44b40, "JobSchedule_Ch_Cloth_PerCharacter", "55 8b ec 8b 0d ?? ?? ?? ?? 6a 00", 0x40),
+        (0x00830b90, "Ch_DrawClothClear", "55 8b ec 83 ec 10 53 56", 0xe0),
+        (0x0082ed50, "Ch_DrawMain", "55 8b ec 81 ec 20 04 00 00", 0x10b0),
+        (0x0063c3e0, "graphicCharacterInstanceSetWorldMatrix", "55 8b ec 57 8b 7d 08", 0x50),
+        (0x0063c430, "graphicCharacterInstanceSetWorldMatrixByMdlID", "55 8b ec 83 ec 0c 53 8b 5d 08", 0xd0),
     ];
 
     /// <summary>
@@ -183,6 +249,10 @@ internal sealed unsafe class FrameHooks {
     private static readonly (uint Va, string Name, string Bytes, uint[] Calls)[] CallHooked = [
         (UpdateFfxVa, "updateFFX", "55 8b ec 83 3d ?? ?? ?? ?? 00 74 05", [0x0042f5b6]),
         (UpdateScanVa, "TkUpdateScanControler", "56 33 f6 6a 00 56 e8", [0x00820b84, 0x0089ae60]),
+        (Gs1TransferVa, "op_gs1_transfer", "53 8b dc 83 ec 08 83 e4 f0", [0x00821477]),
+        (FieldParticleVa, "yiCallFieldParticle", "83 3d ?? ?? ?? ?? 00 74 0d", [0x0082148c]),
+        (PartLoopVa, "pppPartLoop", "55 8b ec 51 83 3d", [0x008214a2]),
+        (OtDrawVa, "op_ot_draw", "6a 00 c7 05", [0x008214ba]),
     ];
 
     private bool Matches(uint va, string name, string bytes) {
@@ -241,6 +311,14 @@ internal sealed unsafe class FrameHooks {
         _nextUpdateScan = Marshal.GetDelegateForFunctionPointer<VoidFn>(_game.Address(UpdateScanVa));
         Hook(PatchCalls(UpdateFfxVa, Marshal.GetFunctionPointerForDelegate(_updateEntry)), "updateFFX");
         Hook(PatchCalls(UpdateScanVa, Marshal.GetFunctionPointerForDelegate(_updateScanEntry)), "TkUpdateScanControler");
+        _nextGs1 = Marshal.GetDelegateForFunctionPointer<VoidFn>(_game.Address(Gs1TransferVa));
+        _nextFieldParticle = Marshal.GetDelegateForFunctionPointer<VoidFn>(_game.Address(FieldParticleVa));
+        _nextPartLoop = Marshal.GetDelegateForFunctionPointer<VoidFn>(_game.Address(PartLoopVa));
+        _nextOtDraw = Marshal.GetDelegateForFunctionPointer<VoidFn>(_game.Address(OtDrawVa));
+        Hook(PatchCalls(Gs1TransferVa, Marshal.GetFunctionPointerForDelegate(_gs1Entry)), "op_gs1_transfer");
+        Hook(PatchCalls(FieldParticleVa, Marshal.GetFunctionPointerForDelegate(_fieldParticleEntry)), "yiCallFieldParticle");
+        Hook(PatchCalls(PartLoopVa, Marshal.GetFunctionPointerForDelegate(_partLoopEntry)), "pppPartLoop");
+        Hook(PatchCalls(OtDrawVa, Marshal.GetFunctionPointerForDelegate(_otDrawEntry)), "op_ot_draw");
         Hook(MainLoop.hook(owner, h_main_loop), "Sg_MainLoop");
         Hook(FrameSync.hook(owner, h_frame_sync), "Sg_FrameSync");
         Hook(ControlMain.hook(owner, h_control_main), "Sg_ControlMain");
@@ -256,6 +334,14 @@ internal sealed unsafe class FrameHooks {
         Hook(EventJump.hook(owner, h_event_jump), "TkUpdateEventJump");
         Hook(SetWorldMatrix.hook(owner, h_set_world_matrix), "graphicCameraSetWorldMatrix");
         Hook(PresentFlip.hook(owner, h_present_flip), "Renderer_PresentFlip");
+        Hook(VfxRegister.hook(owner, h_vfx_register), "VfxGeometry_Register");
+        Hook(VfxSyncPath.hook(owner, h_vfx_sync_path), "graphicVFXSyncPath");
+        Hook(VfxDrawEvent.hook(owner, h_vfx_draw_event), "PhyreScene_addVFXDrawEvent");
+        Hook(ClothSchedule.hook(owner, h_cloth_schedule), "JobSchedule_Ch_Cloth_PerCharacter");
+        Hook(ClothClear.hook(owner, h_cloth_clear), "Ch_DrawClothClear");
+        Hook(DrawMain.hook(owner, h_draw_main), "Ch_DrawMain");
+        Hook(ChrSetWorld.hook(owner, h_chr_set_world), "graphicCharacterInstanceSetWorldMatrix");
+        Hook(ChrSetWorldByModel.hook(owner, h_chr_set_world_by_model), "graphicCharacterInstanceSetWorldMatrixByMdlID");
         return ok;
     }
 
@@ -336,6 +422,7 @@ internal sealed unsafe class FrameHooks {
     private int h_update_ffx(float dt) {
         FloatFn next = _nextUpdate!;
         if (Failed) return next(dt);
+        _gameThread = Environment.CurrentManagedThreadId;
         FrameSettings s = _settings();
         try {
             BeginFrame(dt, s);
@@ -385,6 +472,7 @@ internal sealed unsafe class FrameHooks {
         if (s.Enabled != _wasEnabled) {
             _wasEnabled = s.Enabled;
             _camera.Clear();
+            _effects.Clear();
             _game.ClearCarries();
             _log.Info($"Frames: {(s.Enabled ? "on" : "off")}");
         }
@@ -405,7 +493,10 @@ internal sealed unsafe class FrameHooks {
         LastTicks = _frame.Plan.Ticks;
         Stats.Add(Counter.PlannedTicks, _frame.Plan.Ticks);
         if (_frame.Kind == FrameKind.Vanilla && _applied) RestoreCamera();
-        if (_frame.Kind == FrameKind.Vanilla) _camera.Clear();
+        if (_frame.Kind == FrameKind.Vanilla) {
+            _camera.Clear();
+            _effects.Clear();
+        }
         ApplyMute(_frame.Kind != FrameKind.Vanilla && _frame.Mute);
         Status = _frame.Kind == FrameKind.Vanilla ? "off: the game's own timing" : "running";
     }
@@ -457,7 +548,10 @@ internal sealed unsafe class FrameHooks {
             if (_applied) RestoreCamera();
             _pushedThisLoop = false;
             _loopTicked = false;
+            _updateSerial++;
             if (redraw) calm = _game.CalmFrames;
+            // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
+            else if (_inFrame && _frame.Kind == FrameKind.Tick) _effects.Clear();
         }
         catch (Exception ex) {
             Fail("Sg_MainLoop", ex);
@@ -524,19 +618,231 @@ internal sealed unsafe class FrameHooks {
         return Redraw && !Failed ? 0 : next();
     }
 
+    // ------------------------------------------------------------------ the effects (Redraw frames: held, their draws replayed)
+
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     private int h_effect_process(int half) {
         IntFn? next = _nextEffect ??= Chain(EffectProcess, h_effect_process, 0x00787e00);
         if (next is null) return 0;
-        if (Redraw && !Failed && (half == 0 || _settings().HoldEffectsDraw)) return 0;
-        return next(half);
+        // The update half is held on every Redraw frame, as before; only its draws (if any) are replayed.
+        EffectSlot slot = half == 0 ? EffectSlot.Update : EffectSlot.EffectsAfter;
+        EffectsMode mode = half == 0 && _settings().Effects == EffectsMode.Run ? EffectsMode.Replay : _settings().Effects;
+        switch (EffectNow(mode)) {
+            case EffectAction.Hold:
+                return 0;
+            case EffectAction.Replay:
+                ReplayEffects(slot);
+                return 0;
+        }
+        if (!Recording(mode)) return next(half);
+        _effects.Begin(slot);
+        try {
+            return next(half);
+        }
+        finally {
+            _effects.End();
+        }
     }
 
+    /// <summary>The start of each pass of the draw's effect loop: the effects' per-pass counters, the pads they read, the random latches.</summary>
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     private int h_op_loop_after() {
         VoidFn? next = _nextOpLoopAfter ??= Chain(OpLoopAfter, h_op_loop_after, 0x007ff680);
         if (next is null) return 0;
-        return Redraw && !Failed && _settings().HoldEffectsDraw ? 0 : next();
+        EffectsMode mode = _settings().Effects;
+        if (EffectNow(mode) != EffectAction.Run) return 0;
+        if (Recording(mode)) _effects.BeginDrawPass();
+        return next();
+    }
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_gs1_transfer() => Effect(EffectSlot.Gs1Transfer, _nextGs1!);
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_field_particle() => Effect(EffectSlot.FieldParticles, _nextFieldParticle!);
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_part_loop() => Effect(EffectSlot.PartLoop, _nextPartLoop!);
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_ot_draw() => Effect(EffectSlot.OtDraw, _nextOtDraw!);
+
+    /// <summary>What an effect call does now (<see cref="EffectGate"/>): always Run outside a Tick or Redraw frame of the mod.</summary>
+    private EffectAction EffectNow(EffectsMode mode) {
+        if (Failed || !_inFrame || _frame.Kind is FrameKind.Vanilla or FrameKind.Repeat) return EffectAction.Run;
+        return EffectGate.Decide(mode, _frame.Kind == FrameKind.Redraw);
+    }
+
+    /// <summary>Whether this call's draws are recorded: a frame with ticks, with replay on.</summary>
+    private bool Recording(EffectsMode mode) => mode == EffectsMode.Replay && !Failed && _inFrame && _frame.Kind == FrameKind.Tick;
+
+    /// <summary>Runs, holds or replays one of the draw loop's effect calls (hooked at its call in <c>Sg_MainLoop</c>).</summary>
+    private int Effect(EffectSlot slot, VoidFn next) {
+        EffectsMode mode = _settings().Effects;
+        switch (EffectNow(mode)) {
+            case EffectAction.Hold:
+                return 0;
+            case EffectAction.Replay:
+                ReplayEffects(slot);
+                return 0;
+        }
+        if (!Recording(mode)) return next();
+        _effects.Begin(slot);
+        try {
+            return next();
+        }
+        finally {
+            _effects.End();
+        }
+    }
+
+    /// <summary>Whether a draw handed to the renderer now belongs to the effect call being recorded (game thread only: the job workers draw too).</summary>
+    private bool Records => _effects.Recording is not null && !_replaying && !Failed && Environment.CurrentManagedThreadId == _gameThread;
+
+    /// <summary>
+    ///     <c>VfxGeometry_Register</c> (<c>VFXDynamicGeometry</c> vtable <c>+8</c>, thiscall): updates the geometry's render
+    ///     data for the renderer and puts it on the scene's VFX list for this frame. Every effect draw goes through it.
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvThiscall)])]
+    private int h_vfx_register(nint geometry, int flags) {
+        ThisIntFn? next = _nextRegister ??= Chain(VfxRegister, h_vfx_register, 0x006a52f0);
+        if (next is null) return 0;
+        if (Records) _effects.Add(new EffectDraw(EffectDrawKind.Register, geometry, flags, _game.VfxCurrentType));
+        return next(geometry, flags);
+    }
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_vfx_sync_path() {
+        VoidFn? next = _nextSyncPath ??= Chain(VfxSyncPath, h_vfx_sync_path, 0x00645840);
+        if (next is null) return 0;
+        if (Records) _effects.Add(new EffectDraw(EffectDrawKind.SyncPath));
+        return next();
+    }
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvThiscall)])]
+    private int h_vfx_draw_event(nint scene, nint ev) {
+        ThisPtrFn? next = _nextDrawEvent ??= Chain(VfxDrawEvent, h_vfx_draw_event, 0x00656940);
+        if (next is null) return 0;
+        if (Records && ev != 0) {
+            int* e = (int*)ev;
+            _effects.Add(new EffectDraw(EffectDrawKind.DrawEvent, scene, E0: e[0], E1: e[1], E2: e[2], E3: e[3]));
+        }
+        return next(scene, ev);
+    }
+
+    /// <summary>
+    ///     Hands the renderer again what <paramref name="slot"/>'s call handed it at the last tick: each geometry still in
+    ///     the render data table, its vertex arrays copied into this frame's dynamic-geometry buffer, put on the VFX list
+    ///     with the same flags; the paths and draw events in between, in order.
+    /// </summary>
+    private void ReplayEffects(EffectSlot slot) {
+        IReadOnlyList<EffectDraw> draws = _effects.Entries(slot);
+        if (draws.Count == 0 || _game.GraphicSkipFrame) return;
+        try {
+            if (_liveSerial != _updateSerial) {
+                _liveSerial = _updateSerial;
+                LiveGeometries();
+                _copied.Clear();
+            }
+            _replaying = true;
+            byte type = _game.VfxCurrentType;
+            try {
+                foreach (EffectDraw d in draws) {
+                    switch (d.Kind) {
+                        case EffectDrawKind.Register:
+                            if (_nextRegister is null) break;
+                            if (!_live.Contains(d.Target)) {
+                                Stats.Add(Counter.EffectsGone);
+                                break;
+                            }
+                            if (_copied.Add(d.Target)) CopyVertices(d.Target);
+                            _game.VfxCurrentType = d.VfxType;
+                            _nextRegister(d.Target, d.Flags);
+                            Stats.Add(Counter.EffectReplays);
+                            break;
+                        case EffectDrawKind.SyncPath:
+                            _nextSyncPath?.Invoke();
+                            break;
+                        case EffectDrawKind.DrawEvent:
+                            if (_nextDrawEvent is null || d.Target == 0 || d.Target != _game.PhyreScene) break;
+                            _event[0] = d.E0;
+                            _event[1] = d.E1;
+                            _event[2] = d.E2;
+                            _event[3] = d.E3;
+                            _nextDrawEvent(d.Target, (nint)_event);
+                            break;
+                    }
+                }
+            }
+            finally {
+                _game.VfxCurrentType = type;
+                _replaying = false;
+            }
+        }
+        catch (Exception ex) {
+            Fail("the effects' replay", ex);
+        }
+    }
+
+    /// <summary>The geometries the VFX render data table holds now (its <c>std::map</c> walked in order, as <c>ClearVFXDrawData</c> does).</summary>
+    private void LiveGeometries() {
+        _live.Clear();
+        nint table = _game.VfxRenderDataTable;
+        if (table == 0) return;
+        nint head = *(nint*)table;
+        if (head == 0) return;
+        nint node = *(nint*)head;
+        for (int guard = 0; node != head && node != 0 && guard < 1 << 20; guard++) {
+            if (*(byte*)(node + 0xd) != 0) break;
+            nint geometry = *(nint*)(node + 0x18);
+            if (geometry != 0) _live.Add(geometry);
+            nint right = *(nint*)(node + 8);
+            if (right == 0) break;
+            if (*(byte*)(right + 0xd) == 0) {
+                node = right;
+                for (nint left = *(nint*)node; *(byte*)(left + 0xd) == 0; left = *(nint*)node) node = left;
+            }
+            else {
+                nint parent = *(nint*)(node + 4);
+                while (*(byte*)(parent + 0xd) == 0 && node == *(nint*)(parent + 8)) {
+                    node = parent;
+                    parent = *(nint*)(node + 4);
+                }
+                node = parent;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The geometry's vertex arrays of the frame before, copied into this frame's dynamic-geometry buffer: the buffers
+    ///     flip every drawn frame and the flip clears each segment's entry for the new buffer (<c>ClearVFXDrawData</c>), so a
+    ///     geometry no effect wrote this frame has nothing to draw. Each segment with data in the previous buffer and none
+    ///     in the current one gets a block (<c>graphicDynGeoMemManagerGetBufferForSegment</c>, which also records it as the
+    ///     current one) and its five arrays copied.
+    /// </summary>
+    private void CopyVertices(nint geometry) {
+        nint rd = *(nint*)(geometry + 0x24);
+        if (rd == 0 || !_game.TryDynGeoBuffers(out int cur, out int count)) return;
+        _segmentBuffer ??= SegmentBuffer.fnptr!;
+        int segments = *(int*)(rd + 0x90);
+        nint table = *(nint*)(rd + 0x94);
+        if (segments <= 0 || segments > 4096 || table == 0) return;
+        int prev = DynGeoSegment.Previous(cur, count);
+        int firstArray = DynGeoSegment.Arrays[0].Offset;
+        for (int i = 0; i < segments; i++) {
+            nint seg = table + i * DynGeoSegment.Size;
+            if (*(nint*)(seg + DynGeoSegment.At(firstArray, cur)) != 0 || *(nint*)(seg + DynGeoSegment.At(firstArray, prev)) == 0) continue;
+            int vertices = *(int*)(seg + DynGeoSegment.At(DynGeoSegment.VertexCount, prev));
+            int indices = *(int*)(seg + DynGeoSegment.At(DynGeoSegment.IndexCount, prev));
+            if (vertices is <= 0 or > DynGeoSegment.MaxCount || indices is < 0 or > DynGeoSegment.MaxCount) continue;
+            // Out of buffer memory: the game prints it and draws nothing more this frame; so does the replay.
+            if (_segmentBuffer(rd, i, vertices, indices) == 0) return;
+            foreach ((int Offset, int Bytes, bool PerIndex) array in DynGeoSegment.Arrays) {
+                nint from = *(nint*)(seg + DynGeoSegment.At(array.Offset, prev)), to = *(nint*)(seg + DynGeoSegment.At(array.Offset, cur));
+                long bytes = DynGeoSegment.Bytes(array, vertices, indices);
+                if (from != 0 && to != 0 && bytes > 0) Buffer.MemoryCopy((void*)from, (void*)to, bytes, bytes);
+            }
+        }
     }
 
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
@@ -553,11 +859,260 @@ internal sealed unsafe class FrameHooks {
         return Redraw && !Failed ? 0 : next();
     }
 
+    /// <summary>
+    ///     <c>Ch_CalcMiddle</c>: the characters' bones (<c>Ch_CalcMiddle_Batch</c> on the job workers, which hand them to
+    ///     the renderer instances through <c>graphicCharacterInstanceSetSkeletonMatrices</c>) and their motion events.
+    ///     Held on a Redraw frame. After a tick it is where each character's matrix and bones are final: they go into the
+    ///     history (<see cref="CharacterHistory"/>).
+    /// </summary>
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     private int h_calc_middle() {
         VoidFn? next = _nextCalcMiddle ??= Chain(CalcMiddle, h_calc_middle, 0x00833390);
         if (next is null) return 0;
-        return Redraw && !Failed && _settings().HoldCharacters ? 0 : next();
+        FrameSettings s = _settings();
+        if (Redraw && !Failed && s.HoldCharacters) return 0;
+        // Nothing is written into the bone arrays here: Ch_CalcMain queued the ordinary characters' bone jobs
+        // (Ch_CalcMiddle_Batch pass 0) without waiting, and they may be writing those arrays now; Ch_CalcMiddle
+        // waits for them first thing. After it returns every job is done (RecordCharacters).
+        bool record = !Failed && _inFrame && _frame.Kind == FrameKind.Tick && _loopTicked;
+        int r = next();
+        if (record && !Failed) {
+            try {
+                RecordCharacters(s);
+            }
+            catch (Exception ex) {
+                Fail("the characters' history", ex);
+            }
+        }
+        return r;
+    }
+
+    // ------------------------------------------------------------------ the characters (between ticks)
+
+    /// <summary>Each character's matrix and its instances' bones after a tick, into the history; a new map starts it again.</summary>
+    private void RecordCharacters(FrameSettings s) {
+        int map = _game.Map;
+        if (map != _charMap || !s.InterpolateCharacters) {
+            _charMap = map;
+            _chars.Clear();
+            _bonesWritten.Clear();
+            if (!s.InterpolateCharacters) return;
+        }
+        _chars.BeginTick();
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        if (chars == 0 || n is <= 0 or > 4096) return;
+        for (int i = 0; i < n; i++) {
+            nint c = chars + i * Game.ChrSize;
+            if (*(byte*)(c + Game.ChrActive) == 0) continue;
+            nint list = *(nint*)(c + Game.ChrInstances);
+            _chars.PushRoot(c, ChrIdentity(c, list), *(Matrix4x4*)(c + Game.ChrMatrix), s.CharacterCutDistance, s.CharacterCutDegrees);
+            if (!s.InterpolateBones) continue;
+            PushBones(list);
+            PushBones(*(nint*)(c + Game.ChrShadowInstances));
+        }
+        _chars.Prune();
+    }
+
+    private static ulong ChrIdentity(nint c, nint list) => CharacterHistory.Identity(*(ushort*)(c + Game.ChrId), (uint)list);
+
+    /// <summary>
+    ///     The renderer instances of a character's instance list (<c>+0x830</c> or <c>+0x838</c>: count <c>[list] &amp;
+    ///     0x7fffffff</c>, instances at <c>[list + 4]</c>) and each one's bone matrices: <c>[instance + 0xc]</c>, 64 bytes each,
+    ///     <c>[[instance] + 0x18] &amp; 0x7fffffff</c> of them, as <c>graphicCharacterInstanceSetSkeletonMatrices</c> fills them.
+    /// </summary>
+    private static int Instances(nint list, Span<nint> into) {
+        if (list == 0) return 0;
+        uint n = *(uint*)list & 0x7fffffff;
+        nint arr = *(nint*)(list + 4);
+        if (arr == 0 || n == 0 || n > into.Length) return 0;
+        for (int k = 0; k < n; k++) into[k] = *(nint*)(arr + 4 * k);
+        return (int)n;
+    }
+
+    private static bool Bones(nint inst, out Matrix4x4* bones, out int count) {
+        bones = null;
+        count = 0;
+        if (inst == 0) return false;
+        nint mesh = *(nint*)inst;
+        bones = *(Matrix4x4**)(inst + 0xc);
+        if (mesh == 0 || bones == null) return false;
+        count = *(int*)(mesh + 0x18) & 0x7fffffff;
+        return count is > 0 and <= 1024;
+    }
+
+    /// <summary>
+    ///     Records the instances' bones after a tick. An array that still holds exactly what the mod wrote between
+    ///     ticks was not updated by the game this tick (the character is paused, hidden or still): its last true bones
+    ///     are recorded again, not the interpolated ones.
+    /// </summary>
+    private void PushBones(nint list) {
+        Span<nint> inst = stackalloc nint[64];
+        int n = Instances(list, inst);
+        for (int k = 0; k < n; k++) {
+            if (!Bones(inst[k], out Matrix4x4* bones, out int count)) continue;
+            ulong id = CharacterHistory.Identity((uint)(nint)bones, (uint)count);
+            ReadOnlySpan<Matrix4x4> now = new(bones, count);
+            if (_bonesWritten.Remove(inst[k], out Matrix4x4[]? written) && written.Length == count && now.SequenceEqual(written)) {
+                if (_boneScratch.Length < count) _boneScratch = new Matrix4x4[count];
+                Span<Matrix4x4> latest = _boneScratch.AsSpan(0, count);
+                if (_chars.TryLatestBones(inst[k], id, latest)) {
+                    latest.CopyTo(new Span<Matrix4x4>(bones, count));
+                    _chars.PushBones(inst[k], id, latest);
+                    continue;
+                }
+            }
+            _chars.PushBones(inst[k], id, now);
+        }
+    }
+
+    /// <summary>
+    ///     <c>Ch_DrawMain</c>: draws every character, from its matrix (<c>+0x1d0</c>, through
+    ///     <c>graphicCharacterInstanceSetWorldMatrix</c>) and its instances' bones. Each character the history can draw
+    ///     between ticks gets the correction from its true matrix to the interpolated one (applied to the world matrices
+    ///     the draw hands the renderer, <see cref="h_chr_set_world"/>), and its instances the interpolated bones. The
+    ///     character's own matrix stays true: the cloth, the shadows, the cull and the game's logic read it.
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_draw_main() {
+        VoidFn? next = _nextDrawMain ??= Chain(DrawMain, h_draw_main, 0x0082ed50);
+        if (next is null) return 0;
+        if (Failed) return next();
+        FrameSettings s = _settings();
+        bool on = _inFrame && _frame.Kind is FrameKind.Tick or FrameKind.Redraw && s.InterpolateCharacters;
+        try {
+            _rootDelta.Clear();
+            if (on) Corrections(s, _frame.Alpha);
+            WriteBones(s, _frame.Alpha, interpolate: on && s.InterpolateBones);
+        }
+        catch (Exception ex) {
+            Fail("the characters between ticks", ex);
+            _rootDelta.Clear();
+            return next();
+        }
+        _inDrawMain = _rootDelta.Count > 0;
+        try {
+            return next();
+        }
+        finally {
+            _inDrawMain = false;
+        }
+    }
+
+    /// <summary>For each character drawn between ticks: true matrix⁻¹ × interpolated matrix, for both its instance lists.</summary>
+    private void Corrections(FrameSettings s, double alpha) {
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        if (chars == 0 || n is <= 0 or > 4096) return;
+        for (int i = 0; i < n; i++) {
+            nint c = chars + i * Game.ChrSize;
+            if (*(byte*)(c + Game.ChrActive) == 0) continue;
+            nint list = *(nint*)(c + Game.ChrInstances);
+            ulong id = ChrIdentity(c, list);
+            Matrix4x4 truth = *(Matrix4x4*)(c + Game.ChrMatrix);
+            // Something moved it since the tick (a magic file's swap): draw it as it is.
+            if (!_chars.TryLatestRoot(c, id, out Matrix4x4 latest) || CameraInterpolator.RelativeChange(latest, truth) > 1e-5) continue;
+            if (!_chars.TryRoot(c, id, alpha, out Matrix4x4 drawn) || !Matrix4x4.Invert(truth, out Matrix4x4 inverse)) continue;
+            Matrix4x4 delta = inverse * drawn;
+            if (list != 0) _rootDelta[list] = delta;
+            nint shadow = *(nint*)(c + Game.ChrShadowInstances);
+            if (shadow != 0) _rootDelta[shadow] = delta;
+            Stats.Add(Counter.CharactersInterpolated);
+        }
+    }
+
+    /// <summary>
+    ///     Writes every character instance's bones: interpolated where the history allows (and the character is not a
+    ///     warp), else the tick's own where the mod wrote them before. Only instances a character holds now are touched.
+    /// </summary>
+    private void WriteBones(FrameSettings s, double alpha, bool interpolate) {
+        if (!interpolate && _bonesWritten.Count == 0) return;
+        _bonesSeen.Clear();
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        Span<nint> inst = stackalloc nint[64];
+        if (chars != 0 && n is > 0 and <= 4096) {
+            for (int i = 0; i < n; i++) {
+                nint c = chars + i * Game.ChrSize;
+                if (*(byte*)(c + Game.ChrActive) == 0) continue;
+                nint list = *(nint*)(c + Game.ChrInstances);
+                bool lerp = interpolate && !_chars.RootCut(c) && _chars.TryRoot(c, ChrIdentity(c, list), alpha, out _);
+                for (int l = 0; l < 2; l++) {
+                    int count = Instances(l == 0 ? list : *(nint*)(c + Game.ChrShadowInstances), inst);
+                    for (int k = 0; k < count; k++) {
+                        if (_bonesSeen.Add(inst[k])) WriteInstanceBones(inst[k], alpha, lerp);
+                    }
+                }
+            }
+        }
+        // Instances no character holds any more: forget them (their memory may be gone).
+        if (_bonesWritten.Count > _bonesSeen.Count) {
+            foreach (nint k in new List<nint>(_bonesWritten.Keys)) {
+                if (!_bonesSeen.Contains(k)) _bonesWritten.Remove(k);
+            }
+        }
+    }
+
+    private void WriteInstanceBones(nint inst, double alpha, bool lerp) {
+        if (!Bones(inst, out Matrix4x4* bones, out int count)) return;
+        ulong id = CharacterHistory.Identity((uint)(nint)bones, (uint)count);
+        if (_boneScratch.Length < count) _boneScratch = new Matrix4x4[count];
+        Span<Matrix4x4> scratch = _boneScratch.AsSpan(0, count);
+        if (lerp && _chars.TryBones(inst, id, alpha, scratch)) {
+            scratch.CopyTo(new Span<Matrix4x4>(bones, count));
+            if (!_bonesWritten.TryGetValue(inst, out Matrix4x4[]? written) || written.Length != count) _bonesWritten[inst] = written = new Matrix4x4[count];
+            scratch.CopyTo(written);
+        }
+        else if (_bonesWritten.Remove(inst) && _chars.TryLatestBones(inst, id, scratch)) {
+            // Not interpolated now (a warp, the setting off): the tick's own bones again.
+            scratch.CopyTo(new Span<Matrix4x4>(bones, count));
+        }
+    }
+
+    /// <summary><c>graphicCharacterInstanceSetWorldMatrix(list, matrix)</c>: in <c>Ch_DrawMain</c>, a character drawn between ticks gets its correction.</summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_chr_set_world(nint list, nint matrix) {
+        PtrPtrFn? next = _nextChrSetWorld ??= Chain(ChrSetWorld, h_chr_set_world, 0x0063c3e0);
+        if (next is null) return 0;
+        return next(list, Corrected(list, matrix));
+    }
+
+    /// <summary><c>graphicCharacterInstanceSetWorldMatrixByMdlID(list, matrix, model)</c>: the same for one model of the character.</summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_chr_set_world_by_model(nint list, nint matrix, int model) {
+        PtrPtrIntFn? next = _nextChrSetWorldByModel ??= Chain(ChrSetWorldByModel, h_chr_set_world_by_model, 0x0063c430);
+        if (next is null) return 0;
+        return next(list, Corrected(list, matrix), model);
+    }
+
+    /// <summary>
+    ///     The world matrix to hand the renderer: <c>Ch_DrawMain</c>'s is (base element ×) scale × the character's matrix
+    ///     (<c>FFXVu0MulMatrix(out, a, b)</c> is <c>b × a</c>), so the correction goes on the right. A copy: the draw passes
+    ///     the same matrix on to the next call.
+    /// </summary>
+    private nint Corrected(nint list, nint matrix) {
+        if (!_inDrawMain || matrix == 0 || Failed || Environment.CurrentManagedThreadId != _gameThread
+            || !_rootDelta.TryGetValue(list, out Matrix4x4 delta)) return matrix;
+        *_world = *(Matrix4x4*)matrix * delta;
+        return (nint)_world;
+    }
+
+    // ------------------------------------------------------------------ the cloth (Redraw frames: held)
+
+    /// <summary><c>JobSchedule_Ch_Cloth_PerCharacter</c>: <c>Ch_DrawMain</c> queues each cloth character's step (envelope, <c>Sg_ClothStep</c>, anchors) once per game update.</summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_cloth_schedule(nint entry, int count) {
+        PtrIntFn? next = _nextClothSchedule ??= Chain(ClothSchedule, h_cloth_schedule, 0x00a44b40);
+        if (next is null) return 0;
+        return Redraw && !Failed && _settings().HoldCloth ? 0 : next(entry, count);
+    }
+
+    /// <summary><c>Ch_DrawClothClear</c>: clears a cloth character's vertex records before its step refills them.</summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_cloth_clear(nint chr) {
+        PtrFn? next = _nextClothClear ??= Chain(ClothClear, h_cloth_clear, 0x00830b90);
+        if (next is null) return 0;
+        return Redraw && !Failed && _settings().HoldCloth ? 0 : next(chr);
     }
 
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

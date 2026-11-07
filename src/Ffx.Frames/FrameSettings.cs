@@ -79,8 +79,13 @@ public sealed record FrameSettings {
     public int MaxUpdatesPerFrame { get; init; } = 4;
 
     public DrawOnlyMode DrawOnly { get; init; } = DrawOnlyMode.Redraw;
-    /// <summary>Redraw frames: skip the effects' draw half (no double-speed effects, but they may flicker).</summary>
-    public bool HoldEffectsDraw { get; init; }
+    /// <summary>
+    ///     Redraw frames: what the effects' programs do (<see cref="EffectsMode"/>). Replay holds them and hands the
+    ///     renderer their last tick's draws again, so they keep the game's speed and are drawn every frame.
+    /// </summary>
+    public EffectsMode Effects { get; init; } = EffectsMode.Replay;
+    /// <summary>Redraw frames: skip the cloth step (<c>Ch_DrawClothClear</c> and the cloth jobs <c>Ch_DrawMain</c> queues); the cloth keeps its last tick's shape.</summary>
+    public bool HoldCloth { get; init; } = true;
     /// <summary>Redraw frames: skip <c>Ch_CalcMiddle</c> (the characters' bones and motion events).</summary>
     public bool HoldCharacters { get; init; } = true;
     /// <summary>Redraw frames: skip <c>yiAnimMain</c> (the field's animation).</summary>
@@ -97,11 +102,24 @@ public sealed record FrameSettings {
     /// <summary>A camera that turned more than this in one tick cut (degrees).</summary>
     public double CutDegrees { get; init; } = 45;
 
+    /// <summary>
+    ///     Draw each character's place and facing between its last two ticks. Experimental and off by default until an
+    ///     in-game check: its first version raced the game's bone jobs (half a character could stand still).
+    /// </summary>
+    public bool InterpolateCharacters { get; init; }
+    /// <summary>Also draw the characters' bones between their last two ticks (their animation), not only their place.</summary>
+    public bool InterpolateBones { get; init; } = true;
+    /// <summary>A character that moved further than this in one tick warped: it is drawn as it is (world units).</summary>
+    public double CharacterCutDistance { get; init; } = 50;
+    /// <summary>A character that turned more than this in one tick warped (degrees).</summary>
+    public double CharacterCutDegrees { get; init; } = 120;
+
     /// <summary>The settings with every number in its range.</summary>
     public FrameSettings Clamped() => this with {
         Target = Enum.IsDefined(Target) ? Target : FpsTarget.Monitor,
         Vsync = Enum.IsDefined(Vsync) ? Vsync : VsyncMode.Game,
         DrawOnly = Enum.IsDefined(DrawOnly) ? DrawOnly : DrawOnlyMode.Redraw,
+        Effects = Enum.IsDefined(Effects) ? Effects : EffectsMode.Replay,
         FixedFps = Clamp(FixedFps, MinFps, MaxFps, 120),
         TimeScale = Clamp(TimeScale, MinScale, MaxScale, 1),
         FastScale = Clamp(FastScale, MinScale, MaxScale, 10),
@@ -111,6 +129,8 @@ public sealed record FrameSettings {
         MaxUpdatesPerFrame = Math.Clamp(MaxUpdatesPerFrame, 1, 10),
         CutDistance = Clamp(CutDistance, 1, 100000, 100),
         CutDegrees = Clamp(CutDegrees, 1, 180, 45),
+        CharacterCutDistance = Clamp(CharacterCutDistance, 1, 100000, 50),
+        CharacterCutDegrees = Clamp(CharacterCutDegrees, 1, 180, 120),
     };
 
     public const double MinFps = 10, MaxFps = 1000;

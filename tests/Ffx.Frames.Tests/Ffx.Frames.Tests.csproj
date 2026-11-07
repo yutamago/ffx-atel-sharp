@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- The frame mod's portable part: the tick accumulator, the plan, the director, the camera's interpolation, the
-         settings and the hook checks on machine code. The mod itself builds against Fahrenheit for win-x86, so these
+    <!-- The frame mod's portable part: the tick accumulator, the plan, the director, the camera's and the characters' interpolation,
+         the effects' replay rules, the settings and the hook checks on machine code. The mod itself builds against Fahrenheit for win-x86, so these
          sources are compiled in here directly (as the cuts' and the loader's tests do). -->
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -21,5 +21,7 @@
         <Compile Include="../../src/Ffx.Frames/FrameStats.cs" Link="FrameStats.cs" />
         <Compile Include="../../src/Ffx.Frames/TimeScaleSteps.cs" Link="TimeScaleSteps.cs" />
         <Compile Include="../../src/Ffx.Frames/CodeScan.cs" Link="CodeScan.cs" />
+        <Compile Include="../../src/Ffx.Frames/EffectReplay.cs" Link="EffectReplay.cs" />
+        <Compile Include="../../src/Ffx.Frames/CharacterInterpolator.cs" Link="CharacterInterpolator.cs" />
     </ItemGroup>
 </Project>
