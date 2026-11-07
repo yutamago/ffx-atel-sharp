@@ -171,7 +171,9 @@ internal sealed unsafe class FrameHooks {
     private bool _inDrawMain;
     private int _charMap = -1;
     private readonly Dictionary<nint, Matrix4x4> _rootDelta = [];
-    private HashSet<nint> _bonesWritten = [], _bonesWrittenNext = [];
+    // The bones the mod wrote into each instance between ticks (what the array held when it was last left).
+    private readonly Dictionary<nint, Matrix4x4[]> _bonesWritten = [];
+    private readonly HashSet<nint> _bonesSeen = [];
     private readonly Matrix4x4* _world;
     private Matrix4x4[] _boneScratch = new Matrix4x4[256];
 
@@ -869,16 +871,10 @@ internal sealed unsafe class FrameHooks {
         if (next is null) return 0;
         FrameSettings s = _settings();
         if (Redraw && !Failed && s.HoldCharacters) return 0;
+        // Nothing is written into the bone arrays here: Ch_CalcMain queued the ordinary characters' bone jobs
+        // (Ch_CalcMiddle_Batch pass 0) without waiting, and they may be writing those arrays now; Ch_CalcMiddle
+        // waits for them first thing. After it returns every job is done (RecordCharacters).
         bool record = !Failed && _inFrame && _frame.Kind == FrameKind.Tick && _loopTicked;
-        if (record) {
-            try {
-                // The game writes the bones of the characters it updates; the others must hold their true bones again.
-                WriteBones(s, 0, interpolate: false);
-            }
-            catch (Exception ex) {
-                Fail("the characters' bones", ex);
-            }
-        }
         int r = next();
         if (record && !Failed) {
             try {
@@ -899,6 +895,7 @@ internal sealed unsafe class FrameHooks {
         if (map != _charMap || !s.InterpolateCharacters) {
             _charMap = map;
             _chars.Clear();
+            _bonesWritten.Clear();
             if (!s.InterpolateCharacters) return;
         }
         _chars.BeginTick();
@@ -944,12 +941,28 @@ internal sealed unsafe class FrameHooks {
         return count is > 0 and <= 1024;
     }
 
+    /// <summary>
+    ///     Records the instances' bones after a tick. An array that still holds exactly what the mod wrote between
+    ///     ticks was not updated by the game this tick (the character is paused, hidden or still): its last true bones
+    ///     are recorded again, not the interpolated ones.
+    /// </summary>
     private void PushBones(nint list) {
         Span<nint> inst = stackalloc nint[64];
         int n = Instances(list, inst);
         for (int k = 0; k < n; k++) {
             if (!Bones(inst[k], out Matrix4x4* bones, out int count)) continue;
-            _chars.PushBones(inst[k], CharacterHistory.Identity((uint)(nint)bones, (uint)count), new ReadOnlySpan<Matrix4x4>(bones, count));
+            ulong id = CharacterHistory.Identity((uint)(nint)bones, (uint)count);
+            ReadOnlySpan<Matrix4x4> now = new(bones, count);
+            if (_bonesWritten.Remove(inst[k], out Matrix4x4[]? written) && written.Length == count && now.SequenceEqual(written)) {
+                if (_boneScratch.Length < count) _boneScratch = new Matrix4x4[count];
+                Span<Matrix4x4> latest = _boneScratch.AsSpan(0, count);
+                if (_chars.TryLatestBones(inst[k], id, latest)) {
+                    latest.CopyTo(new Span<Matrix4x4>(bones, count));
+                    _chars.PushBones(inst[k], id, latest);
+                    continue;
+                }
+            }
+            _chars.PushBones(inst[k], id, now);
         }
     }
 
@@ -1014,7 +1027,7 @@ internal sealed unsafe class FrameHooks {
     /// </summary>
     private void WriteBones(FrameSettings s, double alpha, bool interpolate) {
         if (!interpolate && _bonesWritten.Count == 0) return;
-        _bonesWrittenNext.Clear();
+        _bonesSeen.Clear();
         int n = _game.ChrCount;
         nint chars = _game.ChrArray;
         Span<nint> inst = stackalloc nint[64];
@@ -1026,11 +1039,18 @@ internal sealed unsafe class FrameHooks {
                 bool lerp = interpolate && !_chars.RootCut(c) && _chars.TryRoot(c, ChrIdentity(c, list), alpha, out _);
                 for (int l = 0; l < 2; l++) {
                     int count = Instances(l == 0 ? list : *(nint*)(c + Game.ChrShadowInstances), inst);
-                    for (int k = 0; k < count; k++) WriteInstanceBones(inst[k], alpha, lerp);
+                    for (int k = 0; k < count; k++) {
+                        if (_bonesSeen.Add(inst[k])) WriteInstanceBones(inst[k], alpha, lerp);
+                    }
                 }
             }
         }
-        (_bonesWritten, _bonesWrittenNext) = (_bonesWrittenNext, _bonesWritten);
+        // Instances no character holds any more: forget them (their memory may be gone).
+        if (_bonesWritten.Count > _bonesSeen.Count) {
+            foreach (nint k in new List<nint>(_bonesWritten.Keys)) {
+                if (!_bonesSeen.Contains(k)) _bonesWritten.Remove(k);
+            }
+        }
     }
 
     private void WriteInstanceBones(nint inst, double alpha, bool lerp) {
@@ -1040,9 +1060,11 @@ internal sealed unsafe class FrameHooks {
         Span<Matrix4x4> scratch = _boneScratch.AsSpan(0, count);
         if (lerp && _chars.TryBones(inst, id, alpha, scratch)) {
             scratch.CopyTo(new Span<Matrix4x4>(bones, count));
-            _bonesWrittenNext.Add(inst);
+            if (!_bonesWritten.TryGetValue(inst, out Matrix4x4[]? written) || written.Length != count) _bonesWritten[inst] = written = new Matrix4x4[count];
+            scratch.CopyTo(written);
         }
-        else if (_bonesWritten.Contains(inst) && _chars.TryLatestBones(inst, id, scratch)) {
+        else if (_bonesWritten.Remove(inst) && _chars.TryLatestBones(inst, id, scratch)) {
+            // Not interpolated now (a warp, the setting off): the tick's own bones again.
             scratch.CopyTo(new Span<Matrix4x4>(bones, count));
         }
     }

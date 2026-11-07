@@ -495,8 +495,14 @@ instances at `[list + 4]`; per instance `[[instance] + 0x18] & 0x7fffffff` matri
 **What the mod does.** After `Ch_CalcMiddle` returns in a game update with ticks, each active
 character's `+0x1d0` (keyed by its slot, identity = its id and instance list) and each of its
 instances' bone matrices (keyed by the instance, identity = the array and count) go into a two-tick
-history. Before the next tick's `Ch_CalcMiddle` the mod puts the tick's own bones back into the
-instances it changed, so a character the game does not update keeps its true bones. In each
+history. Nothing is written into the bone arrays during the update: `Ch_CalcMain` ends by queueing
+the ordinary characters' bone jobs (`JobSchedule_Ch_CalcMiddle_Batch`, pass 0) without waiting, and
+only `Ch_CalcMiddle`'s first call (`JobScheduleWait_Ch_CalcMiddle_Batch` at `0x008333ad`) waits for
+them. (The first version put the last tick's bones back on `Ch_CalcMiddle`'s entry, raced those
+jobs, and recorded old poses as new: in the 2026-11-07 test, characters were choppy and half a
+character could stand still for a second while its pass-1 parts moved.) Instead, when recording,
+an instance whose array still holds exactly what the mod last wrote was not updated by the game
+this tick, so its last true bones are written back and recorded again. In each
 `Ch_DrawMain` (ticks and Redraws), for a character with two consecutive samples of the same
 identity and no warp:
 
