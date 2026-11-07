@@ -296,9 +296,13 @@ scripts and code (all of them written for 30), so it is not a mod-sized change.
 
 `src/Ffx.Frames` (Fahrenheit mod `yuta.frames`, [README](../../src/Ffx.Frames/README.md)) is model
 (1) above: a fixed 30 Hz tick with an accumulator that can run 0 ticks a frame, any time scale,
-and the camera interpolated. It is static work: everything below comes from FFX.exe's code and
-ffx-rust's ports. Its first in-game run (2026-11-07) crashed on the first frame; "Hooking: why the
-first run crashed" below has the cause. The open questions are at the end of this section.
+and the camera and the characters interpolated. It is static work: everything below comes from
+FFX.exe's code and ffx-rust's ports. Its first in-game run (2026-11-07) crashed on the first frame;
+"Hooking: why the first run crashed" below has the cause. The second (2026-11-07, Unlimited, about
+200 fps) kept the game's speed, but the effects (the pyreflies of the opening scene) ran about
+6.7 times too fast and slow character motions looked choppy: "Effects between ticks" and
+"Characters between ticks" below are the answer, not yet tested in the game. The open questions
+are at the end of this section.
 
 ### The frame, hook by hook
 
@@ -309,9 +313,13 @@ first run crashed" below has the cause. The open questions are at the end of thi
 | `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after |
 | `Sg_FrameSync` (`0x00821e80`) | Hook | **Tick frame**, first update: the original runs (so `Sg_SyncCutScene` and the sync clock work as before), then, unless `g_SyncOn`, its carries are cleared, `g_VoiceHold` = the plan's updates and the exec frames (`0x00c496d4`) = this update's ticks. Later updates set their own exec frames. In a voice-synced scene the game's sync-paced hold stays. **Redraw**: the original does not run at all, so the pad scan (`TkScanControler`), the v-blank counters (+2), the sync clock and the effect read poll stay put; exec frames = 0 |
 | `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks (the first at its two calls, `0x00820b84` in `Sg_MainLoop` and `0x0089ae60` in `TOControlBtlWindow`), return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
-| `MsEffectProcess` (`0x00787e00`) | Hook | On a Redraw the update half (`0`) is held. The draw half (`1`) and `op_loop_ffx_after` (`0x007ff680`) run unless "hold the effects' draw half" is on. They may step effect state per draw (the RNG draw in `op_loop_ffx_after`). Holding them may make effects vanish on those frames. Which is true is an open question |
+| `MsEffectProcess` (`0x00787e00`), `op_loop_ffx_after` (`0x007ff680`) | Hooks | The effects: held on a Redraw, their draws replayed ("Effects between ticks") |
+| `op_gs1_transfer` (`0x007eb580`), `yiCallFieldParticle` (`0x009083e0`), `pppPartLoop` (`0x00762240`), `op_ot_draw` (`0x007ec470`) | Call-site hooks: their one call in `Sg_MainLoop`'s effect loop (`0x00821477`, `0x0082148c`, `0x008214a2`, `0x008214ba`); their other callers keep the function | The same |
+| `VfxGeometry_Register` (`0x006a52f0`, `VFXDynamicGeometry` vtable `+8`, thiscall), `graphicVFXSyncPath` (`0x00645840`), `PhyreScene_addVFXDrawEvent` (`0x00656940`, thiscall) | Hooks | Record what the effect calls above hand the renderer on a tick (game thread only) |
+| `JobSchedule_Ch_Cloth_PerCharacter` (`0x00a44b40`), `Ch_DrawClothClear` (`0x00830b90`) | Hooks (switch, on) | Held on a Redraw: `Ch_DrawMain` steps the cloth once per game update |
+| `Ch_DrawMain` (`0x0082ed50`), `graphicCharacterInstanceSetWorldMatrix` (`0x0063c3e0`), `…ByMdlID` (`0x0063c430`) | Hooks | Draw the characters between ticks ("Characters between ticks") |
 | `MsCameraProcess` (`0x007be110`), `Sg_CameraSetPlayer` (`0x0083f2e0`) | Hooks | Held on a Redraw: with exec frames 0, `Sg_MainLoop` still runs both when the camera is idle (`0x012fbbb0`) |
-| `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events) |
+| `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events). After a tick, where the characters are recorded |
 | `yiAnimMain` (`0x00908320`) | Hook (switch, on) | The field's animation, held on a Redraw |
 | `graphicVideoUpdate` (`0x00645df0`) | Hook | Held on a Redraw. During a movie the mod repeats instead of redrawing anyway: the picture steps per update, and for some movies per draw |
 | `Sg_DrawFilter` (`0x0082c0c0`) | Hook (switch, on) | On a Redraw the fade state (`0x01300700`..`0x0130075f`: a flag word and the 5 slots at `0x01300708`) is saved, the fades drawn, and the state put back, so the counters step once per tick |
@@ -411,32 +419,132 @@ The screen matrix is lerped element by element. A move over 100 units or a turn 
 The mod does not interpolate during a movie, with the part matrix on (`0x012fb8f9`), or for a
 second screen's camera (one that is not the recorded one).
 
-### Characters: the plan
+### Effects between ticks
 
-Not built yet. `Ch_DrawMain` (`0x0082ed50`) draws each character from its world matrix at work
-`+0x1d0`, handed to the renderer with `SetWorldMatrix` on its instances (`+0x830`, `+0x838`). The
-bones come from `Ch_CalcMiddle`'s batches. The plan:
+**Why they ran fast.** The draw's effect loop (`Sg_MainLoop`, `0x0082141d`..`0x008214ca`; port
+`m5main_loop.rs` `draw`) runs once per game update, Redraws included, and per pass calls
+`op_loop_ffx_after`, `op_gs1_transfer`, `yiCallFieldParticle` (`pppFpLoop` `0x00729ab0`, the map's
+particles: the pyreflies), `MsEffectProcess(1)` (`op_effect_run_after`), `pppPartLoop` and
+`op_ot_draw`. None of these only draws. `pppFpLoop` counts each effect's countdown down and runs
+its `ppp` program (`pppRunPartFp`), which moves the particles and writes their vertices in the
+same pass; `pppPartLoop` steps its parts' countdowns; `op_loop_ffx_after` steps `g_OpLoopCount`
+and the effects' pad and random latches. The game itself treats the loop as per tick: with exec
+frames n it runs n passes (`n = exec ? exec : 1`). So on a Redraw frame the effects stepped once
+more, about 200 / 30 = 6.7 times too fast at 200 fps.
 
-1. After each tick (`Ch_CalcMiddle`'s return), record every running character's `+0x1d0`, keyed by
-   its work.
-2. Hook `Ch_DrawMain`. Before it, write each character's interpolated world matrix (the same
-   decomposition as the camera, with a cut test for warps) into `+0x1d0`. After it, put the true
-   one back.
-3. The bones stay at 30 Hz. The character's place and facing move smoothly, which is what stops a
-   followed character from shaking against the interpolated camera. Interpolating the bones as
-   well would mean recording their matrix palette.
+**Why holding them flickered.** The Remaster hands the effects to PhyreEngine as
+`VFXDynamicGeometry` objects, and each one is drawn only in a frame where something registers it:
 
-What to find first: the character works' array and count (the walk `Ch_DrawMain` does), and
-whether `+0x1d0` is read anywhere between `Ch_CalcMiddle` and the draw (shadows, `Ch_DrawShadow`,
-the effects' attachment points).
+- `VfxGeometry_Register` (vtable `+8`; reached from `graphicVFXUpdate`, `graphicVFXUpdateWithType`
+  and the other `graphicVFX*` updates) updates the geometry's render data and puts it on the
+  scene's VFX list (ffx-rust `docs/formats/effects-draw.md`, "The VFX lists of `PhyreScene`").
+- `graphicClearSpecialRenderList` empties those lists at the start of every `Sg_MainLoop`.
+- The vertices live in the dynamic-geometry memory (`g_DynGeoFillBuffer`), two buffers that flip
+  once per drawn frame (`graphicDynGeoMemManagerSwapBuffer` from `FFXApplication::afterGraphicSync`).
+  The flip resets the new buffer and `ClassVFXRenderDataTable_ClearVFXDrawData` clears every
+  segment's entry for it (`+0x34 + 0x1c n`), so a geometry nobody wrote this frame has no vertices.
+- The Esc menu shows a still picture with its effects by stopping both: `animate` skips the update
+  and `afterGraphicSync` stops swapping once the menu is up.
+
+**What the mod does (Replay, the default).** On a tick, while each of the six calls runs (the
+effect loop's five and `MsEffectProcess(0)` in the update), the mod records, in order, every
+`VfxGeometry_Register(geometry, flags)` with `g_VfxCurrentType`, every `graphicVFXSyncPath` (the
+list's draw paths) and every `PhyreScene_addVFXDrawEvent` (16-byte screen fade, buffer copy,
+character and lighting events). A new `Sg_MainLoop` with ticks starts empty, and each pass of the
+effect loop empties the loop's five, so the last pass is what is kept. On a Redraw frame the six
+calls and `op_loop_ffx_after` do not run. In each one's place the mod replays its record:
+
+1. The geometry must still be in `g_VFXRenderDataTable` (its `std::map` walked once per update, as
+   `ClearVFXDrawData` walks it). A geometry destroyed since is left out (counted as "gone").
+2. Each segment of its render data with vertices in the previous buffer and none in the current
+   one gets a block in the current buffer (`graphicDynGeoMemManagerGetBufferForSegment`, which
+   records it as the segment's current arrays) and its five arrays copied: positions (12 bytes a
+   vertex), colours (16), normals (12), uvs (8), indices (2), with the counts the previous buffer
+   recorded.
+3. `VfxGeometry_Register` runs again with the recorded flags and type; sync paths and draw events
+   run again in between, with the event's list position recomputed by the game.
+
+The effects therefore step 30 times a second and are drawn on every frame, each at its last tick's
+shape. Whether they follow the interpolated camera depends on the space of their vertices: the
+field particles' loop sets Phyre's view projection from the camera (`UpdatePhyreViewProjectionMatrix`)
+and keeps the camera's inverse as its fill matrix, which points to world space, but this is not
+checked in the game. If they are in screen space, an effect trails a moving camera by up to one
+tick. Settings: **Run** gives the old
+behaviour (the five run on every frame), **Hold** holds them without a replay (they then flicker).
+
+What it does not cover: state an effect sets only while it runs (the map particles' point lights,
+`pppFpPointLightProc`), particles built facing the tick's camera, and the extra passes of exec
+frames above ×4 per frame. Repeat frames are not replayed: there the flip still clears the
+segments, so effects may be missing on Repeat frames (as before).
+
+### Characters between ticks
+
+**Why slow motions were choppy.** Only the camera was interpolated; with `Ch_CalcMiddle` held, a
+character's pose changed 30 times a second against a 200 fps camera.
+
+**Where the draw gets them.** `Ch_DrawMain` builds each character's world matrix as `scale(1000) ×
++0x1d0` (`FFXVu0MulMatrix(out, a, b)` is `cdc_Mul4x4`, which computes `b × a` in row-vector
+form), a part of a model that is not skinned as `base element × scale × +0x1d0`, and hands them to
+`graphicCharacterInstanceSetWorldMatrix(list, m)` / `…ByMdlID(list, m, model)` for the instance
+lists `+0x830` and `+0x838`. The bones are not in `Ch_DrawMain`: `Ch_CalcElement` (inside
+`Ch_CalcMiddle_Batch`, on the job workers) copies them into every renderer instance with
+`graphicCharacterInstanceSetSkeletonMatrices` (`0x0063be60`): instance list `[list] & 0x7fffffff`
+instances at `[list + 4]`; per instance `[[instance] + 0x18] & 0x7fffffff` matrices of 64 bytes at
+`[instance + 0xc]`, remapped from the character's bone array.
+
+**What the mod does.** After `Ch_CalcMiddle` returns in a game update with ticks, each active
+character's `+0x1d0` (keyed by its slot, identity = its id and instance list) and each of its
+instances' bone matrices (keyed by the instance, identity = the array and count) go into a two-tick
+history. Before the next tick's `Ch_CalcMiddle` the mod puts the tick's own bones back into the
+instances it changed, so a character the game does not update keeps its true bones. In each
+`Ch_DrawMain` (ticks and Redraws), for a character with two consecutive samples of the same
+identity and no warp:
+
+- the correction `+0x1d0⁻¹ × lerp(+0x1d0)` (rotation slerped, translation and scale lerped) is
+  applied on the right of every world matrix `Ch_DrawMain` hands the renderer for its lists
+  (`+0x1d0` itself stays true: the cloth, the cull, the shadows and the game read it);
+- every bone matrix of its instances is written as the slerp/lerp of its two samples (the poses of
+  each tick taken apart once, when recorded); the rest stay the tick's own.
+
+A warp is a move over 50 units or a turn over 120° in one tick (settings), a mirror that flips, or
+a matrix that cannot be taken apart and changed by a quarter. A character missing from the last
+tick, a new identity in the slot or a new map (`g_CurrentMapNo`) starts again. A `+0x1d0` that
+changed since the tick (magic `0x275`'s matrix swap) is drawn as it is.
+
+**The cloth.** `Ch_DrawMain` queues `Ch_Cloth_PerCharacter` (`Apply_Envelope`, `Sg_ClothStep`,
+`Sg_ClothPlaceAnchors`) for every cloth character once per game update, after
+`Ch_DrawClothClear`, so on Redraw frames the cloth simulated once per drawn frame. The mod skips
+both on a Redraw (setting, on). `FFXApplication_render` uploads the cloth's vertex records on every
+drawn frame (`graphicCharacterInstanceSetClothVertexBuffers`), so the cloth keeps its last tick's
+shape, as on a Repeat frame. It is not interpolated.
+
+### Other things that advance per drawn frame
+
+What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with it on a Redraw:
+
+| What | Where | On a Redraw |
+|---|---|---|
+| The effects | the effect loop, above | held, replayed |
+| The cloth | `Ch_DrawMain` → `Ch_Cloth_PerCharacter` | held (new) |
+| Bones, motion events, mouths, texture animations of the characters | `Ch_CalcMiddle` | held; bones interpolated |
+| Field animation (the map's texture animation frames, moving parts) | `yiAnimMain` | held. `yiRender_draw` only applies the frame |
+| Fades | `Sg_DrawFilter` | drawn, counters put back |
+| The Eternal Calm copyright | `Sg_MainLoop` | counter put back |
+| The video | `graphicVideoUpdate` | held; movies Repeat |
+| Pad scan, controls, v-blank counters, sync clock | `TkUpdateScanControler`, `Sg_ControlMain`, `Sg_FrameSync` | held |
+| Sound queue (`TkSndUpdate2`, after `AtelDrawNoTrans`), `graphicMenuUpdate`, `SaveManagerUpdate` | the draw | run: real-time or idempotent as far as read; not checked in the game |
+| Screen effects (`yiDrawScrEffect`), the dream effect (`drawDreamEffect`), the menu water | the draw | run: draws; whether any keeps a counter is not checked |
 
 ### Open questions for the in-game test
 
-- Whether a Redraw frame looks like the tick frame before it: characters (with `Ch_CalcMiddle`
-  held), effects (draw half run or held), the field, message windows, battle UI.
+- Whether a replayed effect looks like its tick (vertices, colour, draw order) and whether any
+  effect still flickers or vanishes between ticks ("gone" in the window's Live section counts
+  geometries destroyed since the tick).
+- Whether interpolated bones look right on every model (skinned and not, the shadow instance
+  `+0x838`, Tidus's and Yuna's cloth over an interpolated body).
+- The character warp thresholds in world units.
+- Whether a Redraw frame looks like the tick frame before it: the field, message windows, battle UI.
 - Whether a Repeat frame (no update) shows the last picture or a broken one, and whether the
   camera can move there (`graphicCameraSetWorldMatrix` alone, with the rest of the frame left).
-- The cloth: `Ch_DrawMain` submits the cloth each update, and `docs/host.md` "The cloth race"
-  expects one stage per submit.
 - The cut thresholds in world units.
 - How many ticks a second one core manages at ×100.
