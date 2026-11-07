@@ -37,6 +37,9 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 - **Ctrl+F9** switches between the fast-forward scale (×10 by default) and ×1.
   **Shift+F9** does the same for slow motion (×0.25). **Ctrl+Shift+F9** goes back to ×1.
   **Ctrl+PgUp** and **Ctrl+PgDn** step through ×0.05 … ×100.
+- A saved fast-forward scale starts at ×1 and ramps up to it over the first seconds in the world
+  (it doubles every second: ×18 after about 4 s). A scale above ×1 is saved only once the game has
+  run at it for 5 s, so one that crashes the game is never saved and cannot crash the next start.
 - The settings are saved half a second after a change, in Fahrenheit's state folder:
   `state/global/yuta.frames/Ffx.Frames.FramesModule` (JSON; delete it to start over).
 - The log is `logs/<start time>/Ffx.Frames.FramesModule.log` in the Fahrenheit folder.
@@ -114,11 +117,13 @@ drawing faster ran the game faster. The mod changes that:
   be more than one core can do (in a heavy scene a tick can take 2 to 3 ms, so about ×12 to ×15).
   The game then runs slower than asked, at about 25 fps, and the overlay shows the speed reached. A
   bigger "most update time per frame" gives more speed and fewer frames.
-- **Fast-forward crashed above about ×18 before 2026-11-08.** The CPU could not keep up, each frame
-  owed more ticks than the last, and at 100 ticks a frame the drawing update ran 25 effect passes:
-  more VFX paths than the game's table holds, which overwrote the heap (no crash dump, nothing in
-  the log). Both are fixed: the time budget, and one tick in the drawing update (frame-timing.md,
-  "Fast-forward: why ×18 crashed").
+- **Fast-forward crashed above about ×18 before 2026-11-08**, and a saved ×18.42 crashed every
+  start-up. A frame with many ticks ran up to 25 of them in its drawing update, and each adds an
+  effect pass and a VFX path: more than the game's table of 16 holds, which overwrote the heap (no
+  crash dump, nothing in the log). In play the CPU falling behind got there (each frame owed more
+  ticks than the last); at start-up the first world frame after the load did (its 0.3 s owe
+  9 × the scale ticks). Fixed by one tick in the drawing update, the time budget and the start-up
+  ramp (frame-timing.md, "Fast-forward: why ×18 crashed").
 - **Above 4 ticks per frame**, exec frames run several ticks per update. What runs once per update
   (field animation, fades, the characters' middle step, the video) then falls behind, as with
   the game's debug fast-forward. The effects are drawn once per frame, from its last tick.

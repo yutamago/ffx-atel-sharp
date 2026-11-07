@@ -410,13 +410,17 @@ absolute address points there. The fix:
 ### Fast-forward: why ×18 crashed
 
 Reported on main (`fa093ad`), target Unlimited, vsync off: above about ×18 the game froze, then
-crashed, with no crash dump and nothing in the log; ×100 crashed too. Two things together:
+crashed, with no crash dump and nothing in the log; ×100 crashed too. Then the saved ×18.42 crashed
+the game at once on every start-up. Two things together; the second one alone is the crash:
 
 1. **A spiral.** A frame's update time is about `d + w × n` for `n` ticks. When the scale asks for
    more ticks a second than `1 / w`, each frame takes longer than the last, owes more ticks for it,
    and so on up to the 0.3 s cap: ⌊0.3 × 30 × 18⌋ = 162 ticks, cut to "most ticks per frame" (100).
    At 2 to 3 ms a tick, 100 ticks are a quarter of a second a frame: the freeze. ×18 is where
-   heavy scenes cross `1 / w` (540 ticks a second needs `w` under 1.85 ms).
+   heavy scenes cross `1 / w` (540 ticks a second needs `w` under 1.85 ms). At start-up no spiral
+   is needed: the first world frame follows the load, its real time is at the 0.3 s cap, and it
+   owes ⌊0.3 × 30 × 18.42⌋ = 165 ticks at once (100 above ×11.1). The title and the menus are not
+   at risk: `Sg_MainCheckMenu` sends `Sg_MainLoop` past the world and the effect loop.
 2. **The VFX path table.** The old plan spread 100 ticks evenly over 4 updates: 25 exec frames
    each, the last update included. `Sg_MainLoop`'s effect loop runs one pass per exec frame
    (`n = exec ? exec : 1`), and each pass ends in `op_ot_draw`, which calls
@@ -441,6 +445,12 @@ The fix:
 - **One tick in the drawing update** (`TickPlan`): with exec frames, the last update runs 1 and
   the others share the rest (99 each at most, so 298 a frame with 4 updates). The drawing update
   now has one effect pass, as in the game. The effects are drawn once a frame, from its last tick.
+- **A start-up ramp** (`ScaleGuard`): a session starts at ×1 and the most scale allowed doubles
+  each second of world frames (a frame counts at most 0.1 s, so a load does not count), so the
+  first world frame runs 9 ticks as the game would and ×18.42 is reached after about 4.2 s. A
+  scale above ×1 is written to the settings file only after 5 s of world frames at it, so a scale
+  that crashes is never saved. Below ×1 nothing is limited. While the scale is ×1 the mod also
+  does not call the game's booster checks (`Sg_CanSpeedUp`, `SpdCtrl_IsMapExcluded`, …).
 - **A time budget** (`TickBudget`): the cost of a tick is the update time over its ticks,
   averaged (one quarter of each new frame; a measurement counts as at most the budget, so a load
   does not hold the speed down). A frame runs at most ⌊budget / cost⌋ ticks, at least 1. Because
@@ -448,8 +458,14 @@ The fix:
   `n = (budget − d) / w`. The ticks owed beyond it are dropped, not carried, and counted: the
   overlay shows `scale × run / (run + dropped)` when it is more than 2 % short.
 
-The heap overwrite is read from the code, not seen in a dump (there was none); the in-game check
-is that ×18 to ×100 no longer crash.
+`StartupTests` takes the settings saved at the crash: a load's frame (0.3 s, 5 s, endless) runs
+100 ticks with 1 in the drawing update (main: 25), the boundary at ×11.1 changes nothing but the
+count, and the ramp starts at 9 ticks.
+
+The heap overwrite is read from the code, not seen in a dump (there was none). It predicts that on
+main a saved scale of about ×7 or more also crashes on the first world frame (100 / 4 ≥ 16 passes
+needs 64 ticks, ⌊9 × 7.1⌋). The in-game check is that start-up with ×18.42 saved and ×18 to ×100
+in play no longer crash.
 
 Modelled in `FastForwardTests` (`d` = 4 ms, `w` = 2.5 ms, unlimited fps): without the budget ×18
 settles at 100 ticks and 255 ms a frame; with it, ×18 to ×100 settle at 14 ticks and 40 ms a frame,

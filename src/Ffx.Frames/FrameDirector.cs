@@ -23,7 +23,8 @@ public enum FrameKind {
 /// <param name="Movie">A movie plays (<c>g_WaitFramesByTime</c> or the movie byte).</param>
 /// <param name="ScaleExcluded">The time scale must stay ×1 here (<see cref="TimeScaleRules"/>).</param>
 /// <param name="Booster">The PC booster's factor this frame (1, 2 or 4).</param>
-public readonly record struct FrameInput(double Dt, int GameVsyncs, bool WorldActive, bool Movie, bool ScaleExcluded, double Booster = 1);
+/// <param name="Scale">The time scale to run, when it is not the setting's (the start-up ramp, <see cref="ScaleGuard"/>).</param>
+public readonly record struct FrameInput(double Dt, int GameVsyncs, bool WorldActive, bool Movie, bool ScaleExcluded, double Booster = 1, double? Scale = null);
 
 /// <param name="Kind">What the frame does.</param>
 /// <param name="Plan">Its ticks (Tick frames).</param>
@@ -63,7 +64,7 @@ public sealed class FrameDirector {
             _budget.Reset();
             return new FrameDecision(FrameKind.Vanilla, TickPlan.None, 1, 1, false);
         }
-        double user = input.ScaleExcluded ? 1 : s.TimeScale;
+        double user = input.ScaleExcluded ? 1 : input.Scale ?? s.TimeScale;
         double scale = user * (input.Booster > 0 ? input.Booster : 1);
         int ticks = _acc.Advance(input.Dt, scale, TickRate(input.GameVsyncs), s.CapSeconds, MaxTicks(s));
         bool mute = s.MuteWhenFast && user > 1;

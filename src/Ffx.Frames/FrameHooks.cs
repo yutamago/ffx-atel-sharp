@@ -97,6 +97,7 @@ internal sealed unsafe class FrameHooks {
     private readonly FhLogger _log;
     private readonly Func<FrameSettings> _settings;
     private readonly FrameDirector _director = new();
+    private readonly ScaleGuard _guard;
     private readonly CameraHistory _camera = new();
     private readonly EffectRecorder _effects = new();
     private readonly CharacterHistory _chars = new();
@@ -151,6 +152,8 @@ internal sealed unsafe class FrameHooks {
     public int Characters => _chars.Characters;
     public int CharacterCuts => _chars.Cuts;
     public bool LimiterPatched => _limiterPatched;
+    /// <summary>The start-up ramp and the scale that may be saved (<see cref="ScaleGuard"/>).</summary>
+    public ScaleGuard Guard => _guard;
 
     // The call-site hooks' entry points (kept alive: the game calls them) and the functions they call.
     private readonly FloatFn _updateEntry;
@@ -200,6 +203,7 @@ internal sealed unsafe class FrameHooks {
         _game = game;
         _log = log;
         _settings = settings;
+        _guard = new ScaleGuard(settings().TimeScale);
         _limiterVsyncs = (int*)NativeMemory.AllocZeroed(16);
         _limiterPerVsync = (double*)NativeMemory.AllocZeroed(16);
         *_limiterVsyncs = 2;
@@ -493,11 +497,15 @@ internal sealed unsafe class FrameHooks {
 
         int vsyncs = _game.FrameVsyncs;
         bool movie = _game.MovieOn || _game.WaitFramesByTime;
+        // At start-up the scale ramps up from ×1 (a saved fast-forward must not hit the first world frame at once); the
+        // game's checks are not called while it runs at ×1.
+        double scale = _guard.Effective(s.TimeScale);
         string? excluded = null;
-        if (s.Enabled && Math.Abs(s.TimeScale - 1) > 1e-9) excluded = Excluded(s);
+        if (s.Enabled && Math.Abs(scale - 1) > 1e-9) excluded = Excluded(s);
         ExcludedReason = excluded;
-        FrameInput input = new(dt, vsyncs, _worldActive, movie, excluded is not null, s.Enabled ? _game.Booster : 1);
+        FrameInput input = new(dt, vsyncs, _worldActive, movie, excluded is not null, s.Enabled ? _game.Booster : 1, scale);
         _frame = _director.Next(input, s);
+        if (_frame.Kind is FrameKind.Tick or FrameKind.Redraw && _worldActive && !movie) _guard.WorldFrame(dt, excluded is null ? scale : 1);
         _execSaved = _game.ExecFrames;
         if (_execSaved < 1) _execSaved = 1;
         LastAlpha = (float)_frame.Alpha;

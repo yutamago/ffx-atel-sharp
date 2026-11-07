@@ -53,6 +53,8 @@ public sealed class TickAccumulator {
     public int Advance(double dt, double scale, double rate, double cap, int maxTicks) {
         if (!(rate > 0)) throw new ArgumentOutOfRangeException(nameof(rate), rate, "the tick rate must be above 0");
         if (!(dt > 0)) dt = 0;
+        // A frame of no end (a clock that jumped) counts as the cap, or as nothing without one.
+        if (double.IsPositiveInfinity(dt)) dt = cap > 0 ? cap : 0;
         if (!(scale > 0)) scale = 0;
         Dropped = 0;
         if (cap > 0 && dt > cap) {
@@ -67,6 +69,7 @@ public sealed class TickAccumulator {
         if (whole >= maxTicks) {
             // Too much for one frame: run the most allowed and keep only the part of a tick.
             Dropped += Math.Max(0, Math.Floor(due) - maxTicks);
+            if (!double.IsFinite(Dropped)) Dropped = 0;
             Carry = Math.Max(0, due - Math.Floor(due)) / rate;
             if (Carry * rate >= 1 - Slack) Carry = 0;
             return maxTicks;

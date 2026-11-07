@@ -1555,7 +1555,9 @@ Separate from the phases: **the Frames mod** (`yuta.frames`,
 longer frames, and 25 effect passes in the drawing update overrunning the
 game's 16-entry VFX path table). The drawing update now runs one tick, and a
 time budget per frame (40 ms of update time) limits the ticks; the overlay
-shows the speed reached. Open: the in-game check of that fix, the effects'
+shows the speed reached. A saved ×18.42 crashed every start-up (the first
+world frame after the load owes 0.3 s of ticks): a session now starts at ×1
+and ramps up, and a scale above ×1 is saved only after 5 s at it. Open: the in-game check of that fix, the effects'
 replay, the character interpolation and the cloth hold.
 
 ## Out of scope for now

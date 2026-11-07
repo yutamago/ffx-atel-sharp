@@ -29,6 +29,8 @@ public sealed class FramesModule : FhModule {
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private string _hookProblem = "";
     private double _saveAt = double.NaN;
+    private double _savedScale;
+    private bool _scaleShort;
 
     private FrameSettings Settings => Volatile.Read(ref _settings);
 
@@ -71,13 +73,24 @@ public sealed class FramesModule : FhModule {
     }
 
     private void SaveWhenDue() {
+        // A scale saved lower than asked (not yet checked) is saved again once the game has run at it.
+        if (double.IsNaN(_saveAt) && _scaleShort && _hooks is not null && _hooks.Guard.Persisted(Settings.TimeScale) > _savedScale) _saveAt = 0;
         if (double.IsNaN(_saveAt) || _clock.Elapsed.TotalSeconds < _saveAt) return;
         _saveAt = double.NaN;
         Save(Settings);
     }
 
+    /// <summary>
+    ///     Writes the settings. A fast-forward scale goes in only once the game has run at it for a few seconds
+    ///     (<see cref="ScaleGuard.Persisted"/>): one that crashes the game is never saved, so it cannot crash the next
+    ///     start-up.
+    /// </summary>
     private void Save(FrameSettings s) {
         if (_stateFile is null) return;
+        double scale = _hooks?.Guard.Persisted(s.TimeScale) ?? s.TimeScale;
+        _savedScale = scale;
+        _scaleShort = scale < s.TimeScale;
+        s = s with { TimeScale = scale };
         try {
             lock (_saveLock) {
                 byte[] json = Encoding.UTF8.GetBytes(s.ToJson());
@@ -142,7 +155,8 @@ public sealed class FramesModule : FhModule {
             string vsync = s.Vsync switch { VsyncMode.On => "on", VsyncMode.Off => "off", _ => "game" };
             ImGui.Text($"{st.Rate(Counter.Presents):0} fps   {st.Rate(Counter.WorldTicks):0.0} ticks/s");
             ImGui.TextColored(Grey, $"vsync {vsync} (Alt+F9)   ×{h.LastScale:0.##}{(s.Enabled ? "" : "   mod off")}");
-            if (s.Enabled && Reached(h) is double reached) ImGui.TextColored(Yellow, $"reached ×{reached:0.#} of ×{h.LastScale:0.##} (CPU)");
+            if (s.Enabled && s.TimeScale > h.Guard.Limit) ImGui.TextColored(Grey, $"starting up: ×{h.Guard.Limit:0.#} of ×{s.TimeScale:0.##}");
+            else if (s.Enabled && Reached(h) is double reached) ImGui.TextColored(Yellow, $"reached ×{reached:0.#} of ×{h.LastScale:0.##} (CPU)");
             ImGui.TextColored(Grey, "F9 settings");
         }
         ImGui.End();
@@ -222,6 +236,8 @@ public sealed class FramesModule : FhModule {
             ImGui.Text($"Game updates: {st.Rate(Counter.Updates):0.0}/s; frames with ticks {st.Rate(Counter.TickFrames):0.0}/s, redrawn {st.Rate(Counter.RedrawFrames):0.0}/s, repeated {st.Rate(Counter.RepeatFrames):0.0}/s");
             ImGui.Text($"Scale now: ×{h.LastScale:0.##}, ticks last frame {h.LastTicks}, between ticks {h.LastAlpha:0.00}");
             ImGui.Text($"Tick cost {h.TickMs:0.00} ms: the frame's budget fits {h.BudgetTicks} ticks; dropped {st.Rate(Counter.DroppedTicks):0}/s");
+            string ramp = h.Guard.Done ? "done" : $"×{h.Guard.Limit:0.#} so far";
+            ImGui.Text($"Start-up ramp {ramp}; the file keeps ×{h.Guard.Persisted(s.TimeScale):0.##} (a faster scale after {ScaleGuard.CheckSeconds:0} s at it)");
             if (Reached(h) is double reached) {
                 ImGui.TextColored(Yellow, $"Reached ×{reached:0.#} of ×{h.LastScale:0.##}: the CPU cannot run more ticks within the budget (Advanced).");
             }
