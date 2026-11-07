@@ -310,7 +310,7 @@ are at the end of this section.
 |---|---|---|
 | `Game_Main` limiter (`0x0062ee50`) | Code patch: the operand of `fild dword [g_FrameVsyncs]` at `0x0062f2fc` and of `fmul qword [0x00b412d8]` (1/59.94) at `0x0062f318` | Both point at the mod's own int and double: 1 and the target interval (1/refresh, 1/fps, or 0 for no wait). With the mod off they hold `g_FrameVsyncs` and 1/59.94 again. The bytes are checked first (`db 05`, `dc 0d` and the original operands) |
 | `updateFFX` (`0x00822840`), once per drawn frame | Call-site hook: its one caller, `call` at `0x0042f5b6` | Reads the game, asks the accumulator for the frame's ticks (`FrameDirector`), sets the limiter, mute and vsync. A frame without a tick either runs the update as a **Redraw** or, as a **Repeat**, returns without calling the original (what `FFXApplication::animate` does while the Esc menu is up) |
-| `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after |
+| `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after, and draws the title's water and the dream noise from the counters they had before the last tick's update, then puts the tick's back (`DrawCounters`) |
 | `Sg_FrameSync` (`0x00821e80`) | Hook | **Tick frame**, first update: the original runs (so `Sg_SyncCutScene` and the sync clock work as before), then, unless `g_SyncOn`, its carries are cleared, `g_VoiceHold` = the plan's updates and the exec frames (`0x00c496d4`) = this update's ticks. Later updates set their own exec frames. In a voice-synced scene the game's sync-paced hold stays. **Redraw**: the original does not run at all, so the pad scan (`TkScanControler`), the v-blank counters (+2), the sync clock and the effect read poll stay put; exec frames = 0 |
 | `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks (the first at its two calls, `0x00820b84` in `Sg_MainLoop` and `0x0089ae60` in `TOControlBtlWindow`), return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
 | `MsEffectProcess` (`0x00787e00`), `op_loop_ffx_after` (`0x007ff680`) | Hooks | The effects: held on a Redraw, their draws replayed ("Effects between ticks") |
@@ -607,7 +607,18 @@ What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with 
 | The video | `graphicVideoUpdate` | held; movies Repeat |
 | Pad scan, controls, v-blank counters, sync clock | `TkUpdateScanControler`, `Sg_ControlMain`, `Sg_FrameSync` | held |
 | Sound queue (`TkSndUpdate2`, after `AtelDrawNoTrans`), `graphicMenuUpdate`, `SaveManagerUpdate` | the draw | run: real-time or idempotent as far as read; not checked in the game |
-| Screen effects (`yiDrawScrEffect`), the dream effect (`drawDreamEffect`), the menu water | the draw | run: draws; whether any keeps a counter is not checked |
+| The title's water: `PhyreScene_drawMainMenuWaveEffect` (`0x0065b5b0`, via `graphicDrawMainMenuWaterEffect` `0x0063e920` while `0x025d5ebc` is set) draws `menu/titl/Water_%02d`, one of 70, then steps the frame byte `0x00ccba09` and a count byte `0x00ccba0a` | the draw | drawn from the last tick's frame, counters put back (new: before, it ran 200 / 30 times too fast at 200 fps) |
+| The dream and recall scenes' noise: `graphicDrawDream` (`0x0063df70`, via `recallSceneEffect` `0x00822580` / `recallSceneEffect2` `0x00822620` in `drawDreamEffect`) steps `0x00ccb46c` (16 bits) 0, 1, 2 and draws its speckles at 0 | the draw | drawn with the last tick's cycle, put back (new). It calls `rand()` for the speckles, so a Redraw still draws them at new places |
+| Screen effects (`yiDrawScrEffect` → `yiScreff_entry` `0x009131d0`), `graphicMenuUpdate` (`MenuManager_UpdateMenu` `0x0067faa0`: swaps the menu's buffer chain or sets up its instances) | the draw | run: no counter of their own found |
+
+The title (New Game, Load) runs at 30 fps on the world path (it reaches `Sg_MainCalcRate`), so its
+frames between ticks are Redraws and step what the draw steps. The other menus do not: the
+in-game main menu runs at 60 fps (Redraw needs 2 vsyncs), and the main menu, the save screen and
+the Sphere Grid (`eiAbmCalc` from the menu controller `TkMenuCtrlAbilityMap2` `0x008e26d0`,
+`eiAbmDraw` behind `g_GraphicSkipFrame`) go through `Sg_MainCheckMenu`, which skips the world
+update and the draw (`LAB_008215f4`). Their frames between ticks are Repeats and run nothing of
+the game. A menu that opens on a Redraw frame runs once on that frame (the mod sees the menu only
+after it): one extra step when it opens.
 
 ### Open questions for the in-game test
 

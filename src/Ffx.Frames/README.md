@@ -78,7 +78,8 @@ drawing faster ran the game faster. The mod changes that:
    many whole ticks as fit, 0 included, and carries the rest, like Unity's `FixedUpdate`.
 3. **Frames without a tick.** Redraw runs the game's update with 0 ticks and holds what would
    still move: pad scan, controls, the v-blank count, the camera, the effects, the characters'
-   bones and motion events, the cloth, field animation, fade counters, video. The effects'
+   bones and motion events, the cloth, field animation, fade counters, video, and the counters the
+   draw steps itself (the title's water, the dream scenes' noise). The effects'
    programs step and draw in one pass, so on these frames the mod draws again what they drew at
    the last tick instead of running them. Menus, pauses, loads and movies always use Repeat,
    because their logic runs once per update.

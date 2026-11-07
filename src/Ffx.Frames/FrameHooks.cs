@@ -101,6 +101,7 @@ internal sealed unsafe class FrameHooks {
     private readonly CameraHistory _camera = new();
     private readonly EffectRecorder _effects = new();
     private readonly CharacterHistory _chars = new();
+    private readonly DrawCounters _drawCounters = new(Game.DrawCountersSize);
     public readonly FrameStats Stats = new();
 
     // The current frame (game thread). Vanilla outside updateFFX, so calls from elsewhere pass through.
@@ -525,6 +526,7 @@ internal sealed unsafe class FrameHooks {
         if (_frame.Kind == FrameKind.Vanilla) {
             _camera.Clear();
             _effects.Clear();
+            _drawCounters.Clear();
         }
         ApplyMute(_frame.Kind != FrameKind.Vanilla && _frame.Mute);
         Status = _frame.Kind == FrameKind.Vanilla ? "off: the game's own timing" : "running";
@@ -573,21 +575,36 @@ internal sealed unsafe class FrameHooks {
         }
         bool redraw = Redraw;
         int calm = 0;
+        Span<byte> counters = stackalloc byte[Game.DrawCountersSize];
         try {
             if (_applied) RestoreCamera();
             _pushedThisLoop = false;
             _loopTicked = false;
             _updateSerial++;
-            if (redraw) calm = _game.CalmFrames;
-            // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
-            else if (_inFrame && _frame.Kind == FrameKind.Tick) _effects.Clear();
+            if (redraw) {
+                calm = _game.CalmFrames;
+                // The draw's own counters (the title's water, the dream noise): drawn as at the last tick, then put back.
+                _game.ReadDrawCounters(counters);
+                _drawCounters.BeginRedraw(counters);
+                _game.WriteDrawCounters(counters);
+            }
+            else if (_inFrame && _frame.Kind == FrameKind.Tick) {
+                // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
+                _effects.Clear();
+                _game.ReadDrawCounters(counters);
+                _drawCounters.BeginTick(counters);
+            }
         }
         catch (Exception ex) {
             Fail("Sg_MainLoop", ex);
         }
         Stats.Add(Counter.Updates);
         next(dt);
-        if (redraw && !Failed) _game.CalmFrames = calm;
+        if (redraw && !Failed) {
+            _game.CalmFrames = calm;
+            _drawCounters.EndRedraw(counters);
+            _game.WriteDrawCounters(counters);
+        }
     }
 
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
