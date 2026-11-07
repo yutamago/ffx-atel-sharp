@@ -98,6 +98,7 @@ public sealed class FramesModule : FhModule {
     private static readonly string[] Targets = ["Game (30 fps)", "Monitor refresh rate", "Fixed", "Unlimited"];
     private static readonly string[] Vsyncs = ["As the game has it", "On", "Off"];
     private static readonly string[] DrawOnlys = ["Redraw (camera moves between ticks)", "Repeat the last frame"];
+    private static readonly string[] EffectModes = ["Replay the last tick's (right speed)", "Run every frame (too fast)", "Hold (missing between ticks)"];
 
     /// <summary>Hotkeys and the window. Render thread: it reads the stats and swaps in new settings.</summary>
     public override void render_imgui() {
@@ -176,6 +177,11 @@ public sealed class FramesModule : FhModule {
             if (ImGui.Combo("Frames between ticks", ref drawOnly, DrawOnlys, DrawOnlys.Length)) Set(s with { DrawOnly = (DrawOnlyMode)drawOnly });
             bool interp = s.Interpolate;
             if (ImGui.Checkbox("Interpolate the camera", ref interp)) Set(s with { Interpolate = interp });
+            ImGui.SameLine();
+            bool chars = s.InterpolateCharacters;
+            if (ImGui.Checkbox("the characters", ref chars)) Set(s with { InterpolateCharacters = chars });
+            int effects = (int)s.Effects;
+            if (ImGui.Combo("Effects between ticks", ref effects, EffectModes, EffectModes.Length)) Set(s with { Effects = (EffectsMode)effects });
         }
 
         if (ImGui.CollapsingHeader("Time scale", ImGuiTreeNodeFlags.DefaultOpen)) {
@@ -211,6 +217,8 @@ public sealed class FramesModule : FhModule {
             CameraHistory cam = h.Camera;
             string step = cam.LastStep is (double d, double deg) ? $"{d:0.0} units, {deg:0.0}°" : "-";
             ImGui.Text($"Camera: last tick moved {step}; cuts {cam.Cuts}{(cam.Cut ? " (cut now)" : "")}");
+            ImGui.Text($"Effects: {h.EffectDraws} draws recorded; replayed {st.Rate(Counter.EffectReplays):0}/s, gone {st.Rate(Counter.EffectsGone):0}/s");
+            ImGui.Text($"Characters: {h.Characters} held, between ticks {st.Rate(Counter.CharactersInterpolated):0}/s; warps {h.CharacterCuts}");
             ImGui.TextColored(Grey, h.Status);
         }
 
@@ -226,11 +234,17 @@ public sealed class FramesModule : FhModule {
             if (ImGui.SliderFloat("Shift+F9 scale", ref slow, (float)FrameSettings.MinScale, 1f, "%.2f", ImGuiSliderFlags.Logarithmic)) Set(s with { SlowScale = slow });
             ImGui.Separator();
             ImGui.TextColored(Grey, "Held on redrawn frames (things that would otherwise run once per drawn frame):");
-            bool chars = s.HoldCharacters, field = s.HoldFieldAnimation, fades = s.HoldFades, fx = s.HoldEffectsDraw;
+            bool chars = s.HoldCharacters, field = s.HoldFieldAnimation, fades = s.HoldFades, cloth = s.HoldCloth;
             if (ImGui.Checkbox("Characters' bones and motion events (Ch_CalcMiddle)", ref chars)) Set(s with { HoldCharacters = chars });
             if (ImGui.Checkbox("Field animation (yiAnimMain)", ref field)) Set(s with { HoldFieldAnimation = field });
             if (ImGui.Checkbox("Fade counters (Sg_DrawFilter)", ref fades)) Set(s with { HoldFades = fades });
-            if (ImGui.Checkbox("Effects' draw half (may flicker when held)", ref fx)) Set(s with { HoldEffectsDraw = fx });
+            if (ImGui.Checkbox("Cloth (Sg_ClothStep)", ref cloth)) Set(s with { HoldCloth = cloth });
+            ImGui.Separator();
+            bool bones = s.InterpolateBones;
+            if (ImGui.Checkbox("Interpolate the characters' bones (their animation), not only their place", ref bones)) Set(s with { InterpolateBones = bones });
+            float cdist = (float)s.CharacterCutDistance, cdeg = (float)s.CharacterCutDegrees;
+            if (ImGui.SliderFloat("Character warp: moved more than", ref cdist, 1f, 2000f, "%.0f units", ImGuiSliderFlags.Logarithmic)) Set(s with { CharacterCutDistance = cdist });
+            if (ImGui.SliderFloat("Character warp: turned more than", ref cdeg, 1f, 180f, "%.0f°")) Set(s with { CharacterCutDegrees = cdeg });
             bool repeats = s.InterpolateRepeats;
             if (ImGui.Checkbox("Move the camera on repeated frames", ref repeats)) Set(s with { InterpolateRepeats = repeats });
             float dist = (float)s.CutDistance, deg = (float)s.CutDegrees;

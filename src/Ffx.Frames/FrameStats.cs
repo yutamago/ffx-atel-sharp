@@ -20,6 +20,12 @@ public enum Counter {
     TickFrames,
     RedrawFrames,
     RepeatFrames,
+    /// <summary>Effect draws handed to the renderer again on Redraw frames (<see cref="EffectRecorder"/>).</summary>
+    EffectReplays,
+    /// <summary>Recorded effect geometries left out of a replay because the render data table no longer holds them.</summary>
+    EffectsGone,
+    /// <summary>Characters drawn between ticks (one per character per game update that drew it).</summary>
+    CharactersInterpolated,
 }
 
 /// <summary>

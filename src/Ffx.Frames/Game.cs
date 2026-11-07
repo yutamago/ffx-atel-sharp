@@ -99,6 +99,50 @@ internal sealed unsafe class Game(nint moduleBase) {
     /// <summary>The Eternal Calm copyright's frame count (<c>0x012fb7c0</c>), stepped once per <c>Sg_MainLoop</c>.</summary>
     public ref int CalmFrames => ref *At<int>(0x012fb7c0);
 
+    // ---- Effects (EffectReplay; docs/research/frame-timing.md, "Effects between ticks"). ----
+
+    /// <summary><c>g_PhyreScene</c> (<c>0x00ccb9d8</c>): the scene whose VFX lists and draw events the effects fill.</summary>
+    public nint PhyreScene => *At<nint>(0x00ccb9d8);
+
+    /// <summary><c>g_VfxCurrentType</c> (<c>0x00c322aa</c>, byte): <c>graphicVFXSetCurrentVFXType</c>'s type, which the draw loop sets around the field particles.</summary>
+    public ref byte VfxCurrentType => ref *At<byte>(0x00c322aa);
+
+    /// <summary>
+    ///     <c>g_VFXRenderDataTable</c> (<c>0x00ccca6c</c>): the <c>ClassVFXRenderDataTable</c>, whose first word is the head
+    ///     of an MSVC <c>std::map</c> from instance key to <c>VFXDynamicGeometry</c> (node: <c>+0</c> left, <c>+4</c> parent,
+    ///     <c>+8</c> right, byte <c>+0xd</c> nil, <c>+0x18</c> the geometry), as <c>ClassVFXRenderDataTable_ClearVFXDrawData</c>
+    ///     walks it.
+    /// </summary>
+    public nint VfxRenderDataTable => *At<nint>(0x00ccca6c);
+
+    /// <summary>
+    ///     The dynamic-geometry memory (<c>g_DynGeoFillBuffer</c>, <c>0x00cdedf0</c>): a manager whose first word is the
+    ///     current pool, which holds <c>+4</c> the current buffer and <c>+8</c> the buffer count (2). The buffer flips once per
+    ///     drawn frame (<c>graphicDynGeoMemManagerSwapBuffer</c> from <c>FFXApplication::afterGraphicSync</c>).
+    /// </summary>
+    public bool TryDynGeoBuffers(out int current, out int count) {
+        current = count = -1;
+        nint manager = *At<nint>(0x00cdedf0);
+        if (manager == 0) return false;
+        nint pool = *(nint*)manager;
+        if (pool == 0) return false;
+        current = *(int*)(pool + 4);
+        count = *(int*)(pool + 8);
+        return current >= 0 && count >= 2 && current < count;
+    }
+
+    /// <summary><c>g_GraphicSkipFrame</c> (<c>0x012fb7d0</c>): the VFX calls do nothing while it is set.</summary>
+    public bool GraphicSkipFrame => *At<int>(0x012fb7d0) != 0;
+
+    // ---- Characters (CharacterInterpolator). ----
+
+    /// <summary><c>g_ChrCount</c> (<c>0x023c44e0</c>) and the character array (<c>0x023c44e4</c>, <see cref="ChrSize"/> bytes each).</summary>
+    public int ChrCount => *At<int>(0x023c44e0);
+    public nint ChrArray => *At<nint>(0x023c44e4);
+    public const int ChrSize = 0x880;
+    /// <summary>A character's fields: <c>u16</c> id, active byte, hide byte, its matrix (local to world), the renderer instance lists.</summary>
+    public const int ChrId = 0x0, ChrActive = 0x2, ChrHide = 0x180, ChrMatrix = 0x1d0, ChrInstances = 0x830, ChrShadowInstances = 0x838;
+
     /// <summary>The window (<c>g_hWnd</c>, <c>0x00cc9ce8</c>; Fahrenheit reads it there too).</summary>
     public nint Window => *At<nint>(0x00cc9ce8);
 

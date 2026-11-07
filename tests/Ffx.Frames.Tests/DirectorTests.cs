@@ -164,7 +164,7 @@ public class PacingTests {
 public class SettingsTests {
     [Fact]
     public void Round_trip() {
-        FrameSettings s = new() { Target = FpsTarget.Fixed, FixedFps = 165, Vsync = VsyncMode.Off, TimeScale = 2.5, DrawOnly = DrawOnlyMode.Repeat, HoldEffectsDraw = true };
+        FrameSettings s = new() { Target = FpsTarget.Fixed, FixedFps = 165, Vsync = VsyncMode.Off, TimeScale = 2.5, DrawOnly = DrawOnlyMode.Repeat, Effects = EffectsMode.Hold, InterpolateBones = false };
         Assert.Equal(s, FrameSettings.FromJson(s.ToJson()));
         Assert.Contains("\"target\": \"fixed\"", s.ToJson());
     }
