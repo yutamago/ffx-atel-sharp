@@ -45,6 +45,9 @@ internal sealed partial class WorkerDecompiler {
     /// <summary>The worker's own inline methods, as written: the method, its body as printed (calls of later ones folded), its calls.</summary>
     private readonly List<(InlineMacro Macro, IReadOnlyList<Stmt> Printed, int Calls)> _own = [];
 
+    /// <summary>The names of the worker's own inline methods (<c>Repeated01</c>, or the table's), which an entry method must not take.</summary>
+    public IEnumerable<string> OwnMethodNames => _own.Select(x => x.Macro.CallName ?? x.Macro.Name);
+
     /// <summary>Folds the worker's repeated code into inline methods of its own (<see cref="RepeatOptions"/>).</summary>
     public void FoldRepeats(RepeatOptions o) {
         if (o.MaxHelpers <= 0) return;

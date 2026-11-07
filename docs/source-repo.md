@@ -107,9 +107,10 @@ change), build, then `atel export` the source repo. Check it first with
 names without rebuilding).
 
 Without an overlay name, the decompiler names a worker after the model it loads
-(`Tidus`, `TreasureChest_14`; `data/actor-names.json` gives the English names), else after
-its role where its code says it, read off the structured code by fixed rules
-(`WorkerNaming.AssignRoles`), in this order:
+(`Tidus`, `TreasureChest_14`; `data/actor-names.json` gives the English names); in monster and
+battle scripts, else after the battle's handler it serves (below); else after its role where
+its code says it, read off the structured code by fixed rules (`WorkerNaming.AssignRoles`), in
+this order:
 
 | Name | Rule |
 |---|---|
@@ -124,6 +125,25 @@ numbers (`CameraLine_21`, `CameraLine_25`), as model names do, so names stay uni
 a name the script or the reference assembly already has is not taken. In the shipped scripts
 (2026-11-05) this names 2,763 of the 11,326 workers that were `Wnn`; 8,563 keep their number.
 The bases are the worker types' names (`Actor`, `LineTrigger`, …, [language.md](language.md#workers)).
+
+**Monster and battle workers** are named after the handler of the file's handler table (section 1)
+they serve: the signal the battle asks for, and each entry after the value `k` the table maps to it
+(`HandlerNaming`; FFX.exe's `Mon_FindHandler` and its callers, [research/handlers.md](research/handlers.md)):
+
+| Worker | Signal | Entries |
+|---|---|---|
+| `Ai` (monsters), `TidusActions`, … (battles, per party member), `YojimboSpecialActions`, … | the action request (`MsActionRequest`) | `OnTurn`, `OnTurnStart`, `OnTargeted`, `OnHit`, `OnDeath`, `OnEnter`, `OnTurnEnd`, `OnActionEnd`, `OnPoison` |
+| `Cameras` | a battle camera | `OnCamera24` |
+| `Motions`, `DefaultMotions` (monsters), `Motions`, `TidusMotions`, … (battles) | an actor's motion | `OnMotion39` |
+| `CommandCameras`, `ItemCameras`, `MonsterCommandCameras`, `BossCommandCameras` | a command's camera | the command: `OnDelayAttack`, `OnPotion` |
+| `SystemRequests`, `SystemRequests2` | a script's `Btl.AtelRequestSystem_7097(k)` | `OnRequest0` |
+| `BattleEvents`, `BattleEvents2` | the battle's start and end | `OnBattleStart`, `OnBattleEnd`, `OnPartyDefeated` |
+| `PartyVoices`, `MonsterVoices`, `TidusVoices`, …; `TidusVoiceCues`, … | a voice line; a voice cue | `OnLine3`; the action names |
+
+An entry the overlay names keeps the overlay's name; a name a worker already has is not given
+twice. In the shipped scripts (2026-11-07) this names 891 of the 891 monster workers and 2,211 of
+the 2,220 battle workers that were `Wnn`, and every entry method of a monster (2,023 that were
+`En`) and all but 95 of a battle's (3,147).
 
 Story progress values are not in the overlay: they are constants of the
 reference assembly (`Story.S01340_Kami0400`), and their hand names go into

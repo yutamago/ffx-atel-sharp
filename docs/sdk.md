@@ -114,7 +114,7 @@ using Ffx.Atel;
 
 namespace Monsters.M209;
 
-public sealed partial class W01
+public sealed partial class Ai
 {
     [Postfix(nameof(Init))]
     void MoreHp()
