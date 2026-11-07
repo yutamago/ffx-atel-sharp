@@ -126,11 +126,28 @@ public sealed class CharacterHistory {
     public int Instances => _bones.Count;
     /// <summary>Warps seen.</summary>
     public int Cuts { get; private set; }
+    /// <summary>Tick updates in which every character was cut (<see cref="CutAll"/>).</summary>
+    public int AllCuts { get; private set; }
+    private int _allCut = -1;
+
+    /// <summary>Whether every character is drawn as it is at this tick update (<see cref="CutAll"/>).</summary>
+    public bool AllCut => _allCut == Serial;
 
     /// <summary>Forgets everything (a scene change, the setting switched off).</summary>
     public void Clear() {
         _roots.Clear();
         _bones.Clear();
+        _allCut = -1;
+    }
+
+    /// <summary>
+    ///     The camera cut at this tick update (a new shot): every character is drawn as the tick left it, like a warp,
+    ///     until the next tick, which blends from this one.
+    /// </summary>
+    public void CutAll() {
+        if (_allCut == Serial) return;
+        _allCut = Serial;
+        AllCuts++;
     }
 
     /// <summary>A new tick update: the samples pushed until the next call are its own.</summary>
@@ -187,10 +204,10 @@ public sealed class CharacterHistory {
     }
 
     /// <summary>Whether the character jumped at the last tick (its bones are then drawn as they are too).</summary>
-    public bool RootCut(nint key) => _roots.TryGetValue(key, out RootSample? s) && s.Cut && s.CurSerial == Serial;
+    public bool RootCut(nint key) => AllCut || _roots.TryGetValue(key, out RootSample? s) && s.Cut && s.CurSerial == Serial;
 
     private bool Interpolates(nint key, ulong identity, out RootSample s) {
-        if (!_roots.TryGetValue(key, out s!)) return false;
+        if (!_roots.TryGetValue(key, out s!) || AllCut) return false;
         return s.Identity == identity && s.CurSerial == Serial && s.PrevSerial == Serial - 1 && !s.Cut;
     }
 
@@ -220,7 +237,7 @@ public sealed class CharacterHistory {
 
     /// <summary>Writes the instance's bones at <paramref name="alpha"/> into <paramref name="dest"/>; false (nothing written) when it has no two consecutive samples of this identity.</summary>
     public bool TryBones(nint key, ulong identity, double alpha, Span<Matrix4x4> dest) {
-        if (!_bones.TryGetValue(key, out BoneSample? s) || s.Identity != identity || s.Count != dest.Length
+        if (AllCut || !_bones.TryGetValue(key, out BoneSample? s) || s.Identity != identity || s.Count != dest.Length
             || s.CurSerial != Serial || s.PrevSerial != Serial - 1) return false;
         float t = (float)Math.Clamp(alpha, 0, 1);
         for (int i = 0; i < s.Count; i++) dest[i] = TransformInterpolator.Interpolate(s.Prev[i], s.PrevPose[i], s.Cur[i], s.CurPose[i], t);

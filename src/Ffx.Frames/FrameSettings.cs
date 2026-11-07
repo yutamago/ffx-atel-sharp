@@ -101,6 +101,11 @@ public sealed record FrameSettings {
     public double CutDistance { get; init; } = 100;
     /// <summary>A camera that turned more than this in one tick cut (degrees).</summary>
     public double CutDegrees { get; init; } = 45;
+    /// <summary>
+    ///     A camera the game sets at once (<c>MsCameraResetMove</c>: the scripts' cut natives, the magic files' camera) is a
+    ///     cut whenever it changed, however little. A cut draws the camera, every character and their cloth as the tick has them.
+    /// </summary>
+    public bool ScriptCameraCuts { get; init; } = true;
 
     /// <summary>
     ///     Draw each character's place and facing between its last two ticks. Experimental and off by default until an

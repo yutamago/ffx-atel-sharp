@@ -327,6 +327,7 @@ are at the end of this section.
 | `Sg_MainCalcRate` (`0x008206c0`) | Hook (counts) | `Sg_MainLoop` calls it only on the way to the world update. A frame whose updates never called it (menu, pause, save screen, load) makes the next frames without a tick Repeats: their logic runs once per update, and a second update would speed it up |
 | `TkUpdateEventJump` (`0x0088d3d0`) | Hook (counts) | The world ticks that ran, for the window's "ticks/s" |
 | `graphicCameraSetWorldMatrix` (`0x00639860`) | Hook | See "The camera" below |
+| `MsCameraResetMove` (`0x007bed60`) | Hook (notes) | The game's instant camera set: noted for the update's camera sample ("Cuts" below) |
 | `Renderer_PresentFlip` (`0x00593760`, thiscall, render thread) | Hook | Counts presents (the drawn fps). For vsync on or off it sets the renderer's byte `+0x131c` around the call (the present's sync interval is 1 when it is not 0) and puts it back |
 
 The main menu runs at 60 fps in the game (`g_FrameVsyncs` 1), one update per frame. There the
@@ -419,6 +420,27 @@ The screen matrix is lerped element by element. A move over 100 units or a turn 
 (both configurable), or a screen matrix that changed by a quarter, is a cut and is drawn as it is.
 The mod does not interpolate during a movie, with the part matrix on (`0x012fb8f9`), or for a
 second screen's camera (one that is not the recorded one).
+
+**Cuts.** In the 2026-11-07 test of PR #66 (characters on), a hard cut from one shot to the next
+drew the camera cut but slid the characters into place from where they stood in the last shot
+(fades hid it). A cut now applies to everything: at the tick where the camera cut, every
+character and every cloth mesh is drawn as the tick has it, as a warp is, and the next tick blends
+from there. Two signals make a cut:
+
+- the thresholds above;
+- the game's own: `MsCameraResetMove(camera, flags)` (`0x007bed60`) with `flags` bit 3 clear
+  stops a camera side's move and puts it at its target now. Its callers are the scripts' cut
+  natives (`Native_CamFocusCut` 0x6034, `Native_CamMoveFinish` 0x6016),
+  `MsAtelResetMoveCameraID` (`0x007ba860`) and the magic files' `opu_camera`; the battle's
+  slot resets pass bit 3. When it ran in the update, any change of the camera or screen matrix
+  (relative change above 1e-4) is a cut, however small. Setting "The game's instant camera sets
+  are cuts", on; the window's Live line counts these apart.
+
+The camera is only known in `MsScreenProcess`, after `Ch_DrawMain` has drawn the characters
+between ticks in the same update. So at a cut the mod also puts that draw back: the world
+matrices it corrected are sent again as the game made them (`graphicCharacterInstanceSetWorldMatrix`
+/ `…ByMdlID`), and the tick's bones are written back. The cloth's upload comes after the update and
+finds nothing to blend.
 
 ### Effects between ticks
 
@@ -517,7 +539,8 @@ identity and no warp:
 
 A warp is a move over 50 units or a turn over 120° in one tick (settings), a mirror that flips, or
 a matrix that cannot be taken apart and changed by a quarter. A character missing from the last
-tick, a new identity in the slot or a new map (`g_CurrentMapNo`) starts again. A `+0x1d0` that
+tick, a new identity in the slot or a new map (`g_CurrentMapNo`) starts again. A camera cut (above,
+"Cuts") draws every character as the tick has it. A `+0x1d0` that
 changed since the tick (magic `0x275`'s matrix swap) is drawn as it is.
 
 **The cloth.** `Ch_DrawMain` queues `Ch_Cloth_PerCharacter` (`Apply_Envelope`, `Sg_ClothStep`,

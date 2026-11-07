@@ -51,6 +51,7 @@ internal sealed unsafe class FrameHooks {
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisIntFn(nint self, int a);
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisPtrFn(nint self, nint p);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrIntFn(nint p, int a);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int IntIntFn(int a, int b);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrFn(nint p, nint q);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrIntFn(nint p, nint q, int a);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int SegmentBufferFn(nint renderData, int segment, int vertices, int indices);
@@ -86,6 +87,7 @@ internal sealed unsafe class FrameHooks {
     private static FhCallHandle<PtrPtrFn> ChrSetWorld => At<PtrPtrFn>(0x0063c3e0);
     private static FhCallHandle<PtrPtrIntFn> ChrSetWorldByModel => At<PtrPtrIntFn>(0x0063c430);
     private static FhCallHandle<VoidFn> ClothUpload => At<VoidFn>(0x0063b740);
+    private static FhCallHandle<IntIntFn> CameraResetMove => At<IntIntFn>(0x007bed60);
     // Called.
     private static FhCallHandle<VoidFn> CanSpeedUp => At<VoidFn>(0x0081fd30);
     private static FhCallHandle<IntFn> SetMuteSound => At<IntFn>(0x00821c60);
@@ -188,6 +190,11 @@ internal sealed unsafe class FrameHooks {
     private readonly HashSet<nint> _clothSeen = [];
     private Vector4[] _clothScratch = new Vector4[1024];
     private bool _clothRecord, _clothArmed, _clothBlend, _clothBones;
+    // A camera cut: the game set its camera at once in this update (MsCameraResetMove); the world matrices Ch_DrawMain
+    // handed the renderer corrected this update (to send the true ones again when the camera turns out to have cut).
+    private IntIntFn? _nextCameraResetMove;
+    private bool _cameraSnapped;
+    private readonly List<(nint List, Matrix4x4 Truth, int Model)> _worldCalls = [];
 
     private FloatFn? _nextFrameSync;
     private MainLoopFn? _nextMainLoop;
@@ -251,6 +258,7 @@ internal sealed unsafe class FrameHooks {
         (0x0063c3e0, "graphicCharacterInstanceSetWorldMatrix", "55 8b ec 57 8b 7d 08", 0x50),
         (0x0063c430, "graphicCharacterInstanceSetWorldMatrixByMdlID", "55 8b ec 83 ec 0c 53 8b 5d 08", 0xd0),
         (0x0063b740, "graphicCharacterInstanceSetClothVertexBuffers", "55 8b ec 83 ec 08 8b 0d ?? ?? ?? ?? 53 56 57", 0x90),
+        (0x007bed60, "MsCameraResetMove", "55 8b ec 56 57 8b 7d 08", 0xf0),
     ];
 
     /// <summary>
@@ -356,6 +364,7 @@ internal sealed unsafe class FrameHooks {
         Hook(ChrSetWorld.hook(owner, h_chr_set_world), "graphicCharacterInstanceSetWorldMatrix");
         Hook(ChrSetWorldByModel.hook(owner, h_chr_set_world_by_model), "graphicCharacterInstanceSetWorldMatrixByMdlID");
         Hook(ClothUpload.hook(owner, h_cloth_upload), "graphicCharacterInstanceSetClothVertexBuffers");
+        Hook(CameraResetMove.hook(owner, h_camera_reset_move), "MsCameraResetMove");
         return ok;
     }
 
@@ -563,6 +572,7 @@ internal sealed unsafe class FrameHooks {
             _pushedThisLoop = false;
             _loopTicked = false;
             _clothRecord = false;
+            _cameraSnapped = false;
             _updateSerial++;
             if (redraw) calm = _game.CalmFrames;
             // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
@@ -1014,6 +1024,7 @@ internal sealed unsafe class FrameHooks {
         try {
             _rootDelta.Clear();
             _drawnRoot.Clear();
+            _worldCalls.Clear();
             if (on) Corrections(s, _frame.Alpha);
             WriteBones(s, _frame.Alpha, interpolate: on && s.InterpolateBones);
             // The cloth is drawn from FFXApplication_render's upload, after this update (h_cloth_upload).
@@ -1112,7 +1123,9 @@ internal sealed unsafe class FrameHooks {
     private int h_chr_set_world(nint list, nint matrix) {
         PtrPtrFn? next = _nextChrSetWorld ??= Chain(ChrSetWorld, h_chr_set_world, 0x0063c3e0);
         if (next is null) return 0;
-        return next(list, Corrected(list, matrix));
+        nint m = Corrected(list, matrix);
+        if (m != matrix) _worldCalls.Add((list, *(Matrix4x4*)matrix, -1));
+        return next(list, m);
     }
 
     /// <summary><c>graphicCharacterInstanceSetWorldMatrixByMdlID(list, matrix, model)</c>: the same for one model of the character.</summary>
@@ -1120,7 +1133,9 @@ internal sealed unsafe class FrameHooks {
     private int h_chr_set_world_by_model(nint list, nint matrix, int model) {
         PtrPtrIntFn? next = _nextChrSetWorldByModel ??= Chain(ChrSetWorldByModel, h_chr_set_world_by_model, 0x0063c430);
         if (next is null) return 0;
-        return next(list, Corrected(list, matrix), model);
+        nint m = Corrected(list, matrix);
+        if (m != matrix) _worldCalls.Add((list, *(Matrix4x4*)matrix, model));
+        return next(list, m, model);
     }
 
     /// <summary>
@@ -1151,6 +1166,47 @@ internal sealed unsafe class FrameHooks {
         PtrFn? next = _nextClothClear ??= Chain(ClothClear, h_cloth_clear, 0x00830b90);
         if (next is null) return 0;
         return Redraw && !Failed && _settings().HoldCloth ? 0 : next(chr);
+    }
+
+    // ------------------------------------------------------------------ camera cuts
+
+    /// <summary>
+    ///     <c>MsCameraResetMove(camera, flags)</c> (<c>0x007bed60</c>): stops a camera side's move and, unless
+    ///     <c>flags</c> bit 3, puts it at its target now. The scripts' cut natives (<c>CamFocusCut</c> 0x6034,
+    ///     <c>CamMoveFinish</c> 0x6016), <c>MsAtelResetMoveCameraID</c> and the magic files' <c>opu_camera</c> call it: the
+    ///     game's own "this is a new shot". Noted for the update's camera sample (<see cref="CameraHistory.Push"/>).
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_camera_reset_move(int camera, int flags) {
+        IntIntFn? next = _nextCameraResetMove ??= Chain(CameraResetMove, h_camera_reset_move, 0x007bed60);
+        if (next is null) return 0;
+        if (_inFrame && !Failed && (flags & 8) == 0) _cameraSnapped = true;
+        return next(camera, flags);
+    }
+
+    /// <summary>
+    ///     The camera cut at this tick (a new shot, by the thresholds or the game's instant set): every character and its
+    ///     cloth is drawn as the tick left it, like a warp, until the next tick. <c>Ch_DrawMain</c> ran before the camera
+    ///     (<c>MsScreenProcess</c>) in this update, so what it handed the renderer between ticks is put back: the true
+    ///     world matrices sent again, the tick's bones written back. The cloth's upload comes after the update and finds
+    ///     no character to blend.
+    /// </summary>
+    private void CutCharacters(FrameSettings s) {
+        _chars.CutAll();
+        _cloth.CutAll(_chars.Serial);
+        _rootDelta.Clear();
+        _drawnRoot.Clear();
+        if (_worldCalls.Count > 0) {
+            PtrPtrFn? set = _nextChrSetWorld;
+            PtrPtrIntFn? byModel = _nextChrSetWorldByModel;
+            foreach ((nint list, Matrix4x4 truth, int model) in _worldCalls) {
+                *_world = truth;
+                if (model < 0) set?.Invoke(list, (nint)_world);
+                else byModel?.Invoke(list, (nint)_world, model);
+            }
+            _worldCalls.Clear();
+        }
+        WriteBones(s, _frame.Alpha, interpolate: false);
     }
 
     // ------------------------------------------------------------------ the cloth (between ticks)
@@ -1378,8 +1434,9 @@ internal sealed unsafe class FrameHooks {
         try {
             FrameSettings s = _settings();
             if (_loopTicked && !_pushedThisLoop) {
-                _camera.Push(_game.CameraMatrix, _game.ScreenMatrix, s.CutDistance, s.CutDegrees);
+                _camera.Push(_game.CameraMatrix, _game.ScreenMatrix, s.CutDistance, s.CutDegrees, _cameraSnapped && s.ScriptCameraCuts);
                 _pushedThisLoop = true;
+                if (_camera.Cut) CutCharacters(s);
             }
             if (s.Interpolate && !_game.MovieOn && !_game.WaitFramesByTime && !_game.PartMatrix
                 && _camera.TryAt(_frame.Alpha, out Matrix4x4 cam, out Matrix4x4 scr)

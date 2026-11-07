@@ -50,8 +50,16 @@ public sealed class ClothHistory {
     /// <summary>Meshes held.</summary>
     public int Meshes => _meshes.Count;
 
+    private int _allCut = int.MinValue;
+
     /// <summary>Forgets everything (a scene change, the setting switched off).</summary>
-    public void Clear() => _meshes.Clear();
+    public void Clear() {
+        _meshes.Clear();
+        _allCut = int.MinValue;
+    }
+
+    /// <summary>The camera cut at tick update <paramref name="serial"/>: no mesh is blended at it (each is drawn as the tick left it).</summary>
+    public void CutAll(int serial) => _allCut = serial;
 
     /// <summary>
     ///     The mesh's matrix without the character's: <c>ClothWorld × Flip × root⁻¹</c> (the base element's matrix);
@@ -96,7 +104,7 @@ public sealed class ClothHistory {
     /// </summary>
     public bool TryBlend(nint key, ulong identity, int serial, double alpha, out Matrix4x4 local, Span<Vector4> vertices) {
         local = default;
-        if (!_meshes.TryGetValue(key, out Sample? s) || s.Identity != identity || s.Count != vertices.Length
+        if (serial == _allCut || !_meshes.TryGetValue(key, out Sample? s) || s.Identity != identity || s.Count != vertices.Length
             || s.CurSerial != serial || s.PrevSerial != serial - 1) return false;
         float t = (float)Math.Clamp(alpha, 0, 1);
         local = TransformInterpolator.Interpolate(s.PrevLocal, s.PrevPose, s.CurLocal, s.CurPose, t);

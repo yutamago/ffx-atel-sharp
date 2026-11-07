@@ -60,7 +60,9 @@ runs (100), how many whole game updates a frame runs before it uses exec frames 
 Redraw frames which parts are held still (the cloth among them), whether the characters' bones
 and cloth are interpolated or only their place (the cloth needs to be held), and the characters' warp thresholds. The window's **Live** section shows the drawn
 frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate), why the scale
-is held at ×1, and the camera's last move (to tune the cut thresholds).
+is held at ×1, and the camera's last move and cuts (to tune the cut thresholds). "The game's
+instant camera sets are cuts" (on) also cuts when a script or magic file sets the camera at once,
+however little it moved.
 
 ## How it works
 
@@ -80,7 +82,9 @@ drawing faster ran the game faster. The mod changes that:
    character's matrix and bone matrices, and its cloth's vertices. For each draw it gives the
    renderer the camera and the characters between the last two ticks: rotations slerped,
    positions lerped, the cloth's vertices blended and placed with the character as drawn. A jump
-   bigger than the cut or warp thresholds is drawn as it is.
+   bigger than the cut or warp thresholds is drawn as it is. When the camera cuts to a new shot
+   (by the thresholds, or the game sets its camera at once), the characters and their cloth are
+   drawn as the tick has them too, so they do not slide in from the last shot.
 5. **Time scale.** Above ×4 per frame, ticks go through the game's exec frames (up to 99 ticks
    per update) instead of whole updates, so ×100 costs 3,000 ticks a second but no extra draws.
 

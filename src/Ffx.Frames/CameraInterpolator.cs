@@ -138,6 +138,9 @@ public sealed class CameraHistory {
     private Matrix4x4 _prevCam, _prevScr, _cam, _scr;
     private int _count;
 
+    /// <summary>How much a snapped camera must change to be a cut (relative, as <see cref="CameraInterpolator.RelativeChange"/>): a set to where it already was is not.</summary>
+    public const double SnapChange = 1e-4;
+
     /// <summary>Samples held (0, 1 or 2).</summary>
     public int Count => _count;
     /// <summary>The last two samples were a cut.</summary>
@@ -146,11 +149,16 @@ public sealed class CameraHistory {
     public (double Distance, double Degrees)? LastStep { get; private set; }
     /// <summary>Cuts seen.</summary>
     public int Cuts { get; private set; }
+    /// <summary>Of <see cref="Cuts"/>, those the game signalled (an instant camera set) that the thresholds would not have called a cut.</summary>
+    public int SnapCuts { get; private set; }
 
     public void Clear() { _count = 0; Cut = false; LastStep = null; }
 
-    /// <summary>Adds the camera after a tick.</summary>
-    public void Push(in Matrix4x4 cam, in Matrix4x4 scr, double cutDistance, double cutDegrees) {
+    /// <summary>
+    ///     Adds the camera after a tick. <paramref name="snapped"/>: the game set its camera at once this tick
+    ///     (<c>MsCameraResetMove</c>); then any change of the camera or the screen is a cut, however small.
+    /// </summary>
+    public void Push(in Matrix4x4 cam, in Matrix4x4 scr, double cutDistance, double cutDegrees, bool snapped = false) {
         if (_count > 0) {
             _prevCam = _cam;
             _prevScr = _scr;
@@ -161,6 +169,11 @@ public sealed class CameraHistory {
         if (_count == 2) {
             LastStep = CameraInterpolator.Step(_prevCam, _cam);
             Cut = CameraInterpolator.IsCut(_prevCam, _prevScr, _cam, _scr, cutDistance, cutDegrees);
+            if (!Cut && snapped && (CameraInterpolator.RelativeChange(_prevCam, _cam) > SnapChange
+                    || CameraInterpolator.RelativeChange(_prevScr, _scr) > SnapChange)) {
+                Cut = true;
+                SnapCuts++;
+            }
             if (Cut) Cuts++;
         }
     }
