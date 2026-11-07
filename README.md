@@ -122,6 +122,7 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
 | `Ffx.Atel.Cuts` | the Fahrenheit mod (`yuta.atel.cuts`) that switches the named dead blocks (`Cut.*`) on and off in the loaded scripts, from a menu |
+| `Ffx.Frames` | a separate Fahrenheit mod (`yuta.frames`): monitor-rate or uncapped frames at the game's speed, the camera interpolated between ticks, a time scale ([README](src/Ffx.Frames/README.md)) |
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |

@@ -1,0 +1,15 @@
+<Project Sdk="Fahrenheit.Sdk/1.0.0-alpha12">
+    <!-- The Fahrenheit mod (yuta.frames) that decouples drawing from the game's 30 Hz tick: monitor-rate or uncapped
+         frames, the camera interpolated between ticks, a time scale; separate from Atel's script tooling
+         (README.md here, docs/research/frame-timing.md). -->
+    <PropertyGroup>
+        <AssemblyName>yuta.frames</AssemblyName>
+        <RootNamespace>Ffx.Frames</RootNamespace>
+        <AssemblyTitle>Frames</AssemblyTitle>
+        <Product>Frames</Product>
+        <Description>Draws at the monitor's refresh rate or uncapped while the game keeps its 30 ticks a second, interpolates the camera, and scales game time: F9 opens the settings.</Description>
+        <FhManifestFlags>NONE</FhManifestFlags>
+        <!-- Fahrenheit loads mods from <Fahrenheit>/mods/<id>/. -->
+        <PublishDir>$(ArtifactsPath)/deploy/$(Configuration.ToLowerInvariant())/mods/$(AssemblyName)/</PublishDir>
+    </PropertyGroup>
+</Project>
