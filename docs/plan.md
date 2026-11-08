@@ -1580,7 +1580,11 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   `[Saved(Mod = "yuta.larvacount", Key = "LarvaCount.Progress.LarvasMet")]`, with that mod in `requires`; the
   linker checks its type and length against the owner's `saved.json`, and the compiler (and ATL4004) refuses a
   write. ATL4003 checks the fields. The decompiler writes a variable in the area as `Save.ModArea + 0x4`.
-  Examples: `examples/LarvaCount`, `examples/LarvaCountReader`. Unit tests only; not checked in game yet.
+  Examples: `examples/LarvaCount`, `examples/LarvaCountReader`. Checked in game 2026-11-08 (both examples
+  with `yuta.atel`, a Larva battle on the Thunder Plains): the counter and the reader printed the same count (1); a
+  manual save left the file's tail all zero and wrote the state (`LarvasMet` = 1) beside the slot; after a restart
+  the load took both fields from the state ("2 from the save's state") and the next Larva printed 2. A mod
+  switched off and on, a save made without the loader and a state of another save are covered by unit tests only.
 - **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
   (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
   entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
@@ -1719,7 +1723,7 @@ count, names placed.
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
    edits and `[Inject]` are done and checked in game (2026-11-08); saved
-   fields for mods are done (2026-11-08, not yet checked in game).
+   fields for mods are done and checked in game (2026-11-08).
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".
