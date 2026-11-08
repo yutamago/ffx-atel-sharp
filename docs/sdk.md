@@ -5,8 +5,9 @@ An Atel mod is a C# project. `dotnet build` checks it against the game's
 decompiled source and writes a Fahrenheit mod folder. That folder holds only
 the mod's own code, as packages the loader links onto the player's scripts
 (plan: "Mods"; format: [formats/mod-package.md](formats/mod-package.md)).
-The examples are [`examples/LarvaHp`](../examples/LarvaHp) (a postfix) and
-[`examples/ToughLarva`](../examples/ToughLarva) (data edits).
+The examples are [`examples/LarvaHp`](../examples/LarvaHp) (a postfix),
+[`examples/ToughLarva`](../examples/ToughLarva) (data edits) and
+[`examples/LarvaInject`](../examples/LarvaInject) (`[Inject]`).
 
 ## What you need
 

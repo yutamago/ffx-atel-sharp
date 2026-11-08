@@ -51,6 +51,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3005](#atl3005) | error | argument of a `[Constant]` parameter (`Wait.Seconds`) is not a constant | a literal or a `const` |
 | [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
 | [ATL4001](#atl4001) | error | a static constructor that is not initial values | |
+| [ATL4002](#atl4002) | error | `[Inject]` names no call of its method | |
 
 "Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
 do not list it.
@@ -401,4 +402,15 @@ static M209()
     Hp = Turns;                 // ATL4001: an initial value is a constant
     Mine = 1;                   // ATL4001: private data, set it in the worker's static constructor
 }
+```
+
+### ATL4002
+
+`[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` runs at the statement with the n-th call to `X` in
+the vanilla method `M` ([language.md](language.md#injecting-code)). Reported when `M` has fewer calls to `X`
+(counted as the compiler counts them: in the source, in order, by the name as written), and when the
+attribute names neither or both of `Before` and `After`, or an `Occurrence` below 1.
+
+```csharp
+[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 4)]   // ATL4002: OnTurn has 3 call(s) to Btl.UseCommand, not 4
 ```

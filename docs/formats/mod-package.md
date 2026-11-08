@@ -84,9 +84,18 @@ each vanilla part, so a package never contains game code.
   | `replace` | `[Replace(nameof(E3))]` | replaces the method's code |
   | `prefix` | `[Prefix(nameof(Init))]` | runs before it; `return;` ends the entry, so the method does not run (as Harmony's `return false`) |
   | `postfix` | `[Postfix(nameof(Init))]` | runs after it, wherever it ends the entry |
+  | `inject` | `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 3)]` | runs at a statement inside it (`at`, below) |
 
   `target` is the vanilla method's name (from the decompiled source); the
   patch applies to every entry that method starts.
+
+  An `inject` has `at`: `{ "position": "after", "start": 102, "end": 115,
+  "anchor": "after the statement with the 3rd call to Btl.UseCommand in
+  OnTurn" }`. `start` and `end` are the code range of the anchor statement,
+  as offsets from the method's start (inside the range its hash covers);
+  the compiler finds them from the vanilla source's statement (each
+  instruction's statement, `CompiledScript.SourceMap`). `anchor` is for the
+  report.
 
 - **Code** (`Fragment`): `bytes` (base64) are the instructions, `labels`
   the fragment's jump labels as offsets into them, and `relocs` the
@@ -163,6 +172,14 @@ loader runs it for every file any enabled mod has a package for.
    which every `end` jumps to the postfixes (exits through `endp`/`end_1`
    or jumps out of the method skip them, with a warning). The method's
    entries point at the chain; the vanilla code stays where it was.
+   Injects go into that copy at their points: at one point first the
+   injects after the statement ending there, then those before the one
+   starting there, each in load order. A jump in the copy to a point runs
+   the injects whose statement it enters from outside (before) or leaves
+   from inside (after), and skips the others; falling into the point runs
+   them all. With injects the body is always copied; a replacement drops
+   them (a conflict). The copy needs a label number for each label in the
+   method, out of the worker's 65,536 (a link error when they run out).
 4. **Lay out.** Every vanilla byte of the block stays at its offset: the
    data areas hold block offsets (the "other" area points into the shared
    data in 1,611 of 1,621 scripts), so moving them would break those. What
@@ -278,7 +295,17 @@ MonsterStats.Hp, both at the monster's stats +0x14; b wins (last in load
 order)`), and the later mod's bytes stay; edits of different bytes
 combine.
 
-Corpus (`CorpusTests.EveryScriptTakesDataEdits`): edits of the shared,
+Corpus for injects (`CorpusTests.EveryScriptTakesInjects`): in the first six
+methods of every worker, code before and after a statement in the middle
+of the method (from an empty stack to the next): 1,598 scripts, 67,851
+methods. Each result parses and lays itself out again byte for byte,
+keeps its data areas, its other workers' code and the file's later
+sections, and each patched method's new code is its vanilla code
+instruction for instruction with the injects at their points. Five
+methods are left out: blitzball's 53,203-label method in the five scripts
+that have it, which cannot be copied.
+
+Corpus for data edits (`CorpusTests.EveryScriptTakesDataEdits`): edits of the shared,
 other and event data and, on all 361 monsters, of the HP and gil link onto
 1,614 of the 1,621 scripts (the other 7 have none of those areas), and
 the linked file is the vanilla file with exactly those bytes changed.

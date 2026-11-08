@@ -10,7 +10,7 @@ namespace Ffx.Atel.Sdk.Tests;
 
 /// <summary>
 ///     The SDK as a modder uses it (docs/sdk.md): packed to a local feed, the vanilla source of m209
-///     decompiled by the packed atel, the example mods (examples/LarvaHp, examples/ToughLarva) built with
+///     decompiled by the packed atel, the example mods (examples/LarvaHp, ToughLarva, LarvaInject) built with
 ///     <c>dotnet build</c>, and their packages compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
 /// </summary>
 public sealed class ExampleModTests {
@@ -62,7 +62,7 @@ public sealed class ExampleModTests {
                 { "msbuild-sdks": { "Ffx.Atel.Sdk": "{{version}}" } }
                 """);
             // Each example mod, copied out of the repo, built, and compared with atel compile-mod's package.
-            foreach ((string example, string id, string shows) in new[] { ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\"") }) {
+            foreach ((string example, string id, string shows) in new[] { ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\""), ("LarvaInject", "yuta.larvainject", "\"inject\"") }) {
                 string mod = Path.Combine(root, "mod", example);
                 Directory.CreateDirectory(mod);
                 foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", example))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));

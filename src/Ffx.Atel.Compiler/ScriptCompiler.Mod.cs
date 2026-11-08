@@ -172,6 +172,7 @@ public static partial class ScriptCompiler {
         for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = vanillaWorkers.Count + newWorkers.Count + k;
 
         List<(string Worker, MethodDeclarationSyntax Method, EntryPatch Patch)> patches = [];
+        Dictionary<EntryPatch, InjectAnchor> anchors = [];
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
@@ -184,11 +185,15 @@ public static partial class ScriptCompiler {
                 if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "an entry has a body");
                 PatchKind kind = PatchKind.Entry;
                 string? target = null;
+                InjectAnchor? anchor = null;
                 foreach (AttributeSyntax a in method.AttributeLists.SelectMany(l => l.Attributes)) {
+                    if (kind != PatchKind.Entry) throw CompileException.At(a, "one patch attribute per method");
+                    if (NameOf(a) == "Inject") anchor = ReadInject(a);
                     (kind, target) = NameOf(a) switch {
                         "Prefix" => (PatchKind.Prefix, Target(a)),
                         "Postfix" => (PatchKind.Postfix, Target(a)),
                         "Replace" => (PatchKind.Replace, Target(a)),
+                        "Inject" => (PatchKind.Inject, anchor!.Method),
                         "Entry" => throw CompileException.At(a, "a new entry gets its number when linking; patch a vanilla entry with [Replace(nameof(…))]"),
                         _ => throw CompileException.At(a, $"unknown attribute [{NameOf(a)}] on a mod's method"),
                     };
@@ -197,7 +202,9 @@ public static partial class ScriptCompiler {
                 if (kind == PatchKind.Entry && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
                     throw CompileException.At(method.Identifier.GetLocation(), $"{worker} has its own {method.Identifier.ValueText}; patch it with [Prefix], [Postfix] or [Replace]");
                 }
-                patches.Add((worker, method, new EntryPatch { Kind = kind, Worker = workers[worker], Name = method.Identifier.ValueText, Target = target }));
+                EntryPatch entryPatch = new() { Kind = kind, Worker = workers[worker], Name = method.Identifier.ValueText, Target = target };
+                if (anchor is not null) anchors[entryPatch] = anchor;
+                patches.Add((worker, method, entryPatch));
             }
         }
 
@@ -377,6 +384,15 @@ public static partial class ScriptCompiler {
             if (stray.Count > 0) throw CompileException.At(method.Identifier.GetLocation(), "Entry(n) inside a mod's method");
             fragments.Workers.Add(number);
             package.Patches.Add(patch);
+        }
+
+        // ----- Injects: the statement each anchors to, in the vanilla method's code ------------------
+        foreach ((string worker, MethodDeclarationSyntax _, EntryPatch patch) in patches) {
+            if (!anchors.TryGetValue(patch, out InjectAnchor? anchor)) continue;
+            int w = workers[worker];
+            MethodDeclarationSyntax vanillaMethod = vanillaParts[worker].SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>().First(m => m.Identifier.ValueText == anchor.Method);
+            (_, uint start, uint end) = methods[worker][anchor.Method];
+            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], start, end);
         }
 
         // ----- Initial values -------------------------------------------------------------------

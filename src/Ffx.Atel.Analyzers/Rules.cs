@@ -191,4 +191,10 @@ public static class Rules {
         "{0}",
         ModCategory, DiagnosticSeverity.Error,
         "A mod's static constructor sets initial values, compiled into data edits the linker writes in place: each statement assigns a constant to a variable of the script (shared or event data in the script class's, private data in a worker's, events only), an element of one, a field of MonsterStats or MonsterRewards (monster scripts), or Data.At<T>(area, offset).");
+
+    public static readonly DiagnosticDescriptor InjectAnchor = Rule(
+        "ATL4002", "[Inject] names no call of its method",
+        "{0}",
+        ModCategory, DiagnosticSeverity.Error,
+        "[Inject(nameof(M), Before = nameof(X), Occurrence = n)] runs at the statement holding the n-th call to X in the vanilla method M, counted in the order the calls stand in the decompiled source and named as written there (Btl.UseCommand, Motion.Play, Dialogue.Say). M must have that many calls to X, and the attribute names Before or After, one of them.");
 }

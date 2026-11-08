@@ -306,6 +306,10 @@ If something is wrong, the log says what:
 
   The log then says `info: my.tough-larva: m209: sets MonsterStats.Hp (the monster's stats +0x14, 4
   byte(s))`; two mods that set the same field are a `conflict`, and the later one in the load order wins.
+- Put code inside a vanilla method instead of around it: `[Inject(nameof(OnTurn), After =
+  nameof(Btl.UseCommand), Occurrence = 3)]` runs after the statement with `OnTurn`'s third
+  `Btl.UseCommand` call ([language.md](language.md#injecting-code); the example is
+  [`examples/LarvaInject`](../examples/LarvaInject)).
 - Add a line of dialogue to an event: `Dialogue.Say(Text.New("Nice throw!"));` opens the usual
   window with a new message, waits for the player and closes it, exactly as the game's own lines
   ([language.md](language.md#inline-methods)).

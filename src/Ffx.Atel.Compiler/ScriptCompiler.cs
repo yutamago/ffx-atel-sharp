@@ -37,6 +37,12 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
     /// <summary>Warnings: <c>Debug.*</c> calls left out (<see cref="DebugMode.Drop"/>).</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
+    /// <summary>
+    ///     Per worker (helpers' function workers too), each instruction's offset in the worker's code, its length and
+    ///     the statement it came from: what <c>[Inject]</c> resolves a statement of the source to.
+    /// </summary>
+    internal IReadOnlyList<IReadOnlyList<SourceSpan>> SourceMap { get; init; } = [];
+
     /// <summary>The script block's bytes.</summary>
     public byte[] Block() => Image.Write();
 
@@ -44,6 +50,9 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
     /// <exception cref="ScriptFormatException">The block does not parse (a worker without entries, …).</exception>
     public ScriptFile ApplyTo(ScriptFile vanilla) => vanilla.ReplaceScript(ScriptBlock.Parse(Block()));
 }
+
+/// <summary>An instruction's place in its worker's code and the statement it was compiled from (null when none is known).</summary>
+internal readonly record struct SourceSpan(uint Offset, uint Length, Location? Where);
 
 /// <summary>
 ///     Atel source to a script block, for the source shape of Phase 2 (see
@@ -255,11 +264,12 @@ public static partial class ScriptCompiler {
         Dictionary<uint, int> intIndex = [], floatIndex = [];
         for (int k = 0; k < image.IntConstants.Count; k++) intIndex.TryAdd(image.IntConstants[k], k);
         for (int k = 0; k < image.FloatConstants.Count; k++) floatIndex.TryAdd(image.FloatConstants[k], k);
+        List<IReadOnlyList<SourceSpan>> sourceMap = [];
         foreach ((WorkerImage wi, List<WorkerItem> items, string label, Location where) in workers) {
-            Assemble(wi, items, label, where, intIndex, floatIndex);
+            sourceMap.Add(Assemble(wi, items, label, where, intIndex, floatIndex));
         }
         hidden.Lay();
-        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings] };
+        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings], SourceMap = sourceMap };
     }
 
     /// <summary>Compiles one script from source text.</summary>
@@ -585,8 +595,11 @@ public static partial class ScriptCompiler {
     }
 
     /// <summary>Lays a worker's items out as code, entry and label tables, with the pools' indices.</summary>
-    private static void Assemble(WorkerImage wi, List<WorkerItem> items, string name, Location where, Dictionary<uint, int> ints, Dictionary<uint, int> floats) {
+    /// <returns>Each instruction's offset, length and statement (<see cref="CompiledScript.SourceMap"/>).</returns>
+    private static List<SourceSpan> Assemble(WorkerImage wi, List<WorkerItem> items, string name, Location where, Dictionary<uint, int> ints, Dictionary<uint, int> floats) {
         WorkerAssembler asm = new() { Name = name };
+        List<SourceSpan> map = [];
+        uint pc = 0;
         foreach (WorkerItem item in items) {
             try {
                 switch (item.Kind) {
@@ -600,7 +613,10 @@ public static partial class ScriptCompiler {
                             index = pool.TryGetValue(op.Value, out int k) ? (ushort)k
                                 : throw CompileException.At(item.Where ?? where, $"the pinned {(op.Code == Opcodes.PushC ? "integer" : "float")} pool has no {(op.Code == Opcodes.PushC ? ((int)op.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : BitConverter.UInt32BitsToSingle(op.Value).ToString("R", System.Globalization.CultureInfo.InvariantCulture))}");
                         }
-                        asm.Emit(op.ToInstr(index));
+                        Instr instr = op.ToInstr(index);
+                        asm.Emit(instr);
+                        map.Add(new SourceSpan(pc, instr.Length, item.Where));
+                        pc += instr.Length;
                         break;
                 }
             }
@@ -622,6 +638,7 @@ public static partial class ScriptCompiler {
         wi.Code = done.Code;
         wi.Entries = done.Entries;
         wi.Labels = done.Labels;
+        return pc == done.Code.Length ? map : [];
     }
 
     /// <summary>The natives of the reference assembly.</summary>

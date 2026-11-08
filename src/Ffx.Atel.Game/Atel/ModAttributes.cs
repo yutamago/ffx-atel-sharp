@@ -6,7 +6,8 @@ namespace Ffx.Atel;
 
 // What a mod writes on top of the decompiled vanilla source (docs/plan.md, "Mods";
 // docs/formats/mod-package.md). A mod extends a vanilla worker with `partial class W01 { … }`:
-// a method without an attribute is a new entry, these attributes patch a vanilla one.
+// a method without an attribute is a new entry, these attributes patch a vanilla one. A static
+// constructor sets initial values (Data, and Ffx.MonsterStats / Ffx.MonsterRewards).
 
 /// <summary>
 ///     Runs this method before the vanilla entry method <paramref name="method"/>

@@ -16,7 +16,7 @@ namespace Ffx.Atel.Analyzers;
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ModAnalyzer : DiagnosticAnalyzer {
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [Rules.InitialValue];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [Rules.InitialValue, Rules.InjectAnchor];
 
     public override void Initialize(AnalysisContext context) {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -24,8 +24,63 @@ public sealed class ModAnalyzer : DiagnosticAnalyzer {
         context.RegisterCompilationStartAction(start => {
             if (AtelModel.Create(start.Compilation) is not AtelModel model) return;
             start.RegisterSyntaxNodeAction(c => StaticConstructor(c, model), SyntaxKind.ConstructorDeclaration);
+            start.RegisterSyntaxNodeAction(Inject, SyntaxKind.Attribute);
         });
     }
+
+    // ----- ATL4002: [Inject] -------------------------------------------------------------------
+
+    /// <summary>
+    ///     An <c>[Inject(nameof(M), Before = …, Occurrence = n)]</c> whose method has fewer than n calls of that name, counted
+    ///     as the compiler counts them (ScriptCompiler.ResolveInject): in the method's source, in order, by the call's dotted
+    ///     name as written.
+    /// </summary>
+    private static void Inject(SyntaxNodeAnalysisContext c) {
+        AttributeSyntax a = (AttributeSyntax)c.Node;
+        if (c.SemanticModel.GetSymbolInfo(a, c.CancellationToken).Symbol is not IMethodSymbol { ContainingType: { Name: "InjectAttribute", ContainingNamespace.Name: "Atel" } }) return;
+        if (a.Parent?.Parent is not MethodDeclarationSyntax patch || c.SemanticModel.GetDeclaredSymbol(patch, c.CancellationToken) is not IMethodSymbol self) return;
+        SeparatedSyntaxList<AttributeArgumentSyntax> args = a.ArgumentList?.Arguments ?? default;
+        string? Constant(ExpressionSyntax e) => c.SemanticModel.GetConstantValue(e, c.CancellationToken) is { HasValue: true, Value: string v } ? v : null;
+        string? method = args.FirstOrDefault(x => x.NameEquals is null && x.NameColon is null) is { } m ? Constant(m.Expression) : null;
+        AttributeArgumentSyntax? before = args.FirstOrDefault(x => x.NameEquals?.Name.Identifier.ValueText == "Before");
+        AttributeArgumentSyntax? after = args.FirstOrDefault(x => x.NameEquals?.Name.Identifier.ValueText == "After");
+        AttributeArgumentSyntax? occurrence = args.FirstOrDefault(x => x.NameEquals?.Name.Identifier.ValueText == "Occurrence");
+        if ((before is null) == (after is null)) {
+            c.ReportDiagnostic(Diagnostic.Create(Rules.InjectAnchor, a.GetLocation(), "[Inject] runs Before = … or After = … a call, one of them"));
+            return;
+        }
+        int n = occurrence is null ? 1 : c.SemanticModel.GetConstantValue(occurrence.Expression, c.CancellationToken) is { HasValue: true, Value: int k } ? k : 0;
+        if (n < 1) {
+            c.ReportDiagnostic(Diagnostic.Create(Rules.InjectAnchor, occurrence!.GetLocation(), "Occurrence counts from 1"));
+            return;
+        }
+        ExpressionSyntax callArg = (before ?? after)!.Expression;
+        string? call = callArg is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" }, ArgumentList.Arguments.Count: 1 } nameOf
+            ? Dotted(nameOf.ArgumentList.Arguments[0].Expression)
+            : Constant(callArg);
+        if (method is null || call is null) return;
+        IMethodSymbol? target = self.ContainingType.GetMembers(method).OfType<IMethodSymbol>().FirstOrDefault(x => x.MethodKind == MethodKind.Ordinary);
+        if (target is null) return;    // C# or the compiler says so
+        int count = target.DeclaringSyntaxReferences.Select(r => r.GetSyntax(c.CancellationToken)).OfType<MethodDeclarationSyntax>()
+            .SelectMany(d => d.DescendantNodes().OfType<InvocationExpressionSyntax>()).Count(i => IsCallTo(i, call));
+        if (count < n) {
+            c.ReportDiagnostic(Diagnostic.Create(Rules.InjectAnchor, callArg.GetLocation(),
+                count == 0 ? $"{method} has no call to {call}" : $"{method} has {count} call(s) to {call}, not {n}"));
+        }
+    }
+
+    /// <summary>The call's name as written (ScriptCompiler.Dotted).</summary>
+    private static string? Dotted(ExpressionSyntax e) => e switch {
+        IdentifierNameSyntax id => id.Identifier.ValueText,
+        GenericNameSyntax g => g.Identifier.ValueText,
+        MemberAccessExpressionSyntax m => Dotted(m.Expression) is string left ? $"{left}.{m.Name.Identifier.ValueText}" : m.Name.Identifier.ValueText,
+        MemberBindingExpressionSyntax b => b.Name.Identifier.ValueText,
+        ThisExpressionSyntax => "this",
+        _ => null,
+    };
+
+    private static bool IsCallTo(InvocationExpressionSyntax call, string name) =>
+        Dotted(call.Expression) is string text && (text == name || text.EndsWith("." + name, System.StringComparison.Ordinal) || name.EndsWith("." + text, System.StringComparison.Ordinal) && !text.Contains('.'));
 
     // ----- ATL4001: initial values -------------------------------------------------------------
 

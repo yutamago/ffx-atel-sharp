@@ -77,4 +77,33 @@ public sealed class ModTests {
             protected override void Init() { return; }
         }
         """, "using static Zz00;\n");
+
+    [Fact]
+    public void AnInjectNamesACallOfItsMethod() => Verify(Monster + """
+
+        public sealed partial class Larva
+        {
+            protected override void Main()
+            {
+                Btl.SetActorProperty(ActorProperty.Hp, 1);
+                if (Hp > Common.Random16()) { Btl.SetActorProperty(ActorProperty.Mp, 2); }
+                return;
+            }
+
+            [Inject(nameof(Main), Before = nameof(Btl.SetActorProperty), Occurrence = 2)]
+            void A() { Hp = 1; }
+
+            [Inject(nameof(Main), After = "Common.Random16")]
+            void B() { Hp = 2; }
+
+            [Inject(nameof(Main), Before = {|ATL4002:nameof(Btl.SetActorProperty)|}, Occurrence = 3)]
+            void C() { Hp = 3; }
+
+            [Inject(nameof(Main), After = {|ATL4002:nameof(Btl.UseCommand)|})]
+            void D() { Hp = 4; }
+
+            [{|ATL4002:Inject(nameof(Main))|}]
+            void E() { Hp = 5; }
+        }
+        """, "using static M997;\n");
 }
