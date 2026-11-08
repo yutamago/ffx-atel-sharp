@@ -238,9 +238,9 @@ is known from FFX.exe):
 | `Dialogue.WaitUntilOpen(window)` | `while (MsgGetState(window) != 2) WaitFrames(1);` |
 | `Dialogue.WaitUntilReady(window)` | `while (true) { if (MsgIsReady(window) == 1) break; else WaitFrames(1); }` |
 | `Dialogue.Say(text, …)` | `Open`, `WaitUntilReady`, `MsgWaitEnd` (the player reads and confirms), `MsgClose`, `MsgWaitExEnd` |
-| `Dialogue.SayVoiced(text, …)` | `Open`, `WaitUntilOpen`, `VoiceStartEnd`, a loop that stops the voice on a button press once the window is ready, `SoundWaitPoll`, `MsgClose`, `MsgWaitExEnd` |
+| `Dialogue.SayVoiced(text, …)` | `Open`, `WaitUntilOpen`, `Voice.Play`, a loop that stops the voice on a button press once the window is ready, `SoundWaitPoll`, `MsgClose`, `MsgWaitExEnd` |
 | `Dialogue.SayVoicedToEnd(text, …)` | as `SayVoiced` without the button: the voice plays to its end |
-| `Dialogue.SayWithVoice(voice, text, …)` | `VoiceStandbyEnd(voice)`, `WaitFramesUnlessHddMode(5)`, then `SayVoiced`: a voiced line with its voice prepared |
+| `Dialogue.SayWithVoice(voice, text, …)` | `Voice.Prepare(voice)`, `WaitFramesUnlessHddMode(5)`, then `SayVoiced`: a voiced line with its voice prepared |
 
 Each takes `text`, then `window = 0`, `x = 256`, `y = 448`, `anchor = 4`, `style = 1`, `flags` (12290,
 or 8194 for the voiced ones) and `mode = 0`: the values most lines use, so a usual line is one short
@@ -248,7 +248,7 @@ call. A voiced line is prepared first, as the game does:
 
 ```csharp
 Chr.SetAutoTalkOf(2, 1);                // the speaker's mouth moves (worker 2)
-Common.VoiceStandbyEnd(0x85355cb);      // prepare the voice
+Voice.Prepare(0x85355cb);               // prepare the voice
 Common.WaitFramesUnlessHddMode(5);
 Dialogue.SayVoiced(Text[0]);
 Chr.SetAutoTalkOf(2, 0);
@@ -650,6 +650,7 @@ Chr.WaitMotion();                                       Motion.Wait();
 | `Motion = id` | the component takes an assignment: `Chr.SetMotion(id)` | `Motion = Turn.GetMotion(I3);` |
 | an indexed group | the native's first argument is the index | `Sprites[3].Show(V12);` |
 | a static class | an engine-wide native | `Wait.Frames(30);`, `Camera.Roll = 5f;`, `Sound.Play(sfx);` |
+| a nested static class | a static class inside another, for natives that belong to one part of it | `Camera.Eye.AimAt(…);`, `Camera.Focus.Position = new Vector3(…);` |
 | another worker | a native whose first argument is a worker: its class, or `Workers[n]` | `Tidus.AutoTalk = true;`, `F0 = Tidus.Pos.X;`, `Workers[V3].Turn.Stop();` |
 
 - **This worker, another worker.** A native that takes the worker it acts on is reached three ways:
@@ -682,8 +683,19 @@ Chr.WaitMotion();                                       Motion.Wait();
   whether the first argument is a worker, whether the value is a `Vector3` or a `bool`);
   `dotnet run tools/gen-members.cs` writes `src/Ffx.Atel.Game/Members.g.cs` from it and `data/natives.json`.
   The compiler and the decompiler read the members from the reference assembly
-  (`Ffx.Atel.Compiler.NativeMembers`). 88 natives are members today, 65 % of the native calls in the shipped
+  (`Ffx.Atel.Compiler.NativeMembers`). 168 natives are members today, 74.5 % of the native calls in the shipped
   scripts; [research/oo-surface.md](research/oo-surface.md) has the numbers and what comes next.
+- **Nested groups.** A static group may hold static groups (`"Camera.Eye"` in `data/native-members.json`, a
+  static class inside `Camera`): the camera's natives act on its eye (side 1 of its channel, FFX.exe's `cam`),
+  on the point it looks at (side 0, `ref`) or on a screen, and each side has the same set (`Move`, `MoveEased`,
+  `Wait`, `FinishMove`, `ClearAreas`, `FollowSpline`, the shakes), so `Camera.Eye.MoveEased(…)` and
+  `Camera.Focus.MoveEased(…)` say which side moves where the flat names said it four ways (`MoveEased`,
+  `FocusTimeEase`, `MoveFinish`, `FocusCut`). The member's name is the native's without the side
+  (`EyeAimAt` is `Camera.Eye.AimAt`, `RefAddLineArea` `Camera.Focus.AddLineArea`); 19 natives with calls stay
+  `Cam.…` calls (1,514 calls): those that store into variables (`GetPos`, `RefGetPos`, `GetEyeVars`), those
+  that are not the camera's (`BtlRandom`), and those whose meaning or side the docs do not say yet
+  (`GetRollResultF`, `SetScreenVector`, `ScreenSetLink0`/`1`, `SetPriority`, `EyeMoveFrame`, …). The
+  natives no script calls are left out.
 - **Inline helpers** may be written with members: an `[Inline]` method of a worker (or, in the reference
   assembly, of `Worker`, called without a class name) that says `Turn.Yaw = yaw; Turn.Start(0, 4099, 0);
   Turn.Wait();` expands to the natives' calls as any inline method does.
@@ -699,7 +711,11 @@ The groups and their members:
 | `Neck` | `Enabled`, `Target` (a worker's number), `TargetPos` (`Vector3`), `TargetCamera`, `Speed`, `SetRot` |
 | `Sprites[slot]` | `Show`, `Hide`, `SetPos`, `SetScale`, `SetColor` |
 | `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever`; `Seconds` (below) |
-| `Camera` | `Pos`, `LookAt` (`Vector3`), `Roll`, `ScreenDepth`, `SetPolar`, `MoveEased`, `FocusTimeEase`, `Wait`, `FocusWait`, `MoveFinish`, `FocusCut` |
+| `Camera` | `Roll`, `ScreenDepth` (read and write), `Blur`, `DepthMaskMode`, `SetDepthMask`, `Suspend`, `Resume`; the groups `Eye`, `Focus`, `Screen` |
+| `Camera.Eye` | `Position` (`Vector3`, `SetPos`), `SetPolar`, `AddPolar`, `SetYaw`, `AimAtXZ`, `AimAt`, `AimShortOf`, `SetFocusList`, `SetFocusList1`, `SetTargetPolar`, `SetTargetPolar1`, `Orbit`, `OrbitScaled`, `OrbitPolar`, `Move`, `MoveCosine`, `MoveEased`, `MoveMode1`, `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove`, `Wait`, `ResetDir`, `Reset`, `LineFilter`, `ClearAreas`, `FollowSpline`, `OnSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`7`/`8`, `ResetShake`, `WaitShake` |
+| `Camera.Focus` | `Position` (`Vector3`, `RefSetPos`), `SetTarget`, `OnActors`, `Orbit`, `OrbitScaled`, `Move` (`FocusTimeLinear`), `MoveCosine`, `MoveEased` (`FocusTimeEase`), `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove` (`FocusCut`), `Wait`, `Reset`, `LineFilter`, `AddLineArea`, `AddCircleArea`, `ClearAreas`, `AddPathArea`, `AddPathAreaScaled`, `FollowSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`3`/`4`/`7`/`8`, `ResetShake`, `WaitShake` |
+| `Camera.Screen` | `ShakeKind1`/`3`/`4`/`5`/`6`, `ResetShake`, `WaitShake`, `WaitMove` (each takes the screen) |
+| `Voice` | `Prepare` (`VoiceStandbyEnd`), `Play` (`VoiceStartEnd`), `Stop`, `IsPlaying` |
 | `Sound` | `Play(sfx)`, `Play(sfx, pan, volume)` |
 
 ### Waiting in seconds
