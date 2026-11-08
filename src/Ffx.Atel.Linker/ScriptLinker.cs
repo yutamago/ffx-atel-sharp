@@ -76,6 +76,7 @@ public static class ScriptLinker {
         Dictionary<uint, DeadJump> cutJumps = [];
         foreach (ModScript mod in mods) {
             List<string> problems = Validate(mod.Package, vanilla);
+            if (problems.Count == 0) problems.AddRange(ValidateData(mod.Package, file, vanilla));
             if (firstMessage is null && NewMessages(mod.Package).Any()) problems.Add("the script has no message table for Text.New (a monster's messages are the battle's)");
             List<(CutSwitch Cut, List<DeadJump> Jumps)> cuts = problems.Count == 0 ? FindCuts(mod.Package, file, problems) : [];
             if (problems.Count > 0) {
@@ -93,24 +94,26 @@ public static class ScriptLinker {
         }
         if (accepted.Count == 0) return result;
 
-        if (cutJumps.Count > 0) {
-            // The switched-on blocks: each `jmp L` becomes `nop_76 L`, the same length, so nothing moves and the
-            // rest of the file stays byte for byte. Done on the vanilla file before any code is laid out, so
-            // the mods' copies of vanilla code (postfix bodies) carry it too.
-            byte[] switched = file.ToArray();
+        if (cutJumps.Count > 0 || accepted.Any(m => m.Package.Data is { Count: > 0 })) {
+            // Changes in place, done on the vanilla file before any code is laid out, so the mods' copies of
+            // vanilla code (postfix bodies) and of vanilla private data carry them too. A switched-on block: each
+            // `jmp L` becomes `nop_76 L`, the same length, so nothing moves. A data edit: its bytes, where the data
+            // areas stay (they hold block offsets) or in the monster's sections, which move only as a whole.
+            byte[] patched = file.ToArray();
             try {
-                foreach (DeadJump j in cutJumps.Values.OrderBy(j => j.Offset)) SwitchOn(switched, file, j);
+                foreach (DeadJump j in cutJumps.Values.OrderBy(j => j.Offset)) SwitchOn(patched, file, j);
             }
             catch (LinkException ex) {
                 result.Messages.Add(new(LinkSeverity.Error, "", $"{accepted[0].Package.Script}: {ex.Message}; no mod applied to this script"));
                 return result;
             }
-            if (accepted.All(m => OnlyCuts(m.Package))) {
-                result.File = switched;
+            ApplyData(patched, file, vanilla, accepted, result.Messages);
+            if (accepted.All(m => InPlaceOnly(m.Package))) {
+                result.File = patched;
                 result.Applied.AddRange(accepted.Select(m => m.Mod));
                 return result;
             }
-            file = ScriptFile.Parse(switched);
+            file = ScriptFile.Parse(patched);
             vanilla = ScriptImage.FromBlock(file.Script);
         }
 
@@ -172,8 +175,62 @@ public static class ScriptLinker {
         bytes[at] = DeadJumps.NopByte;
     }
 
-    /// <summary>Whether a package does nothing but switch blocks on: then the linked file is the vanilla file with those jumps changed.</summary>
-    private static bool OnlyCuts(ScriptPackage p) =>
+    // ----- Data edits ---------------------------------------------------------------------------
+
+    /// <summary>What keeps a package's data edits from applying: an area it does not list, a hash mismatch, an edit outside its area.</summary>
+    private static List<string> ValidateData(ScriptPackage p, ScriptFile file, ScriptImage vanilla) {
+        List<string> errors = [];
+        HashSet<(DataEditArea, int?)> listed = [];
+        foreach (DataRef d in p.Vanilla.Data ?? []) {
+            string what = DataAreas.Describe(d.Area, d.Worker);
+            if (DataAreas.Find(file, vanilla, p.File, d.Area, d.Worker) is not DataAreas.Area a) errors.Add($"the script has no {what}");
+            else if (VanillaHash.Data(file.Bytes.Slice(a.At, a.Length)) != d.Hash) errors.Add($"{what} differs from the one the mod was built against (hash mismatch)");
+            else listed.Add((d.Area, d.Worker));
+        }
+        if (errors.Count > 0) return errors;
+        foreach (DataEdit e in p.Data ?? []) {
+            if (!listed.Contains((e.Area, e.Worker))) errors.Add($"{e.Field}: {DataAreas.Describe(e.Area, e.Worker)} is not in the package's vanilla data");
+        }
+        if (errors.Count == 0) errors.AddRange(DataAreas.Check(p, file, vanilla));
+        foreach (NewVariable v in p.Variables) {
+            if (v.Initial is not { } init) continue;
+            if (v.Offset is not null || v.Storage is not (4 or 6)) errors.Add($"variable {v.Name}: an initial value only for a variable the linker places in the shared or event data");
+            else if (init.Length > v.ElementSize * v.Length) errors.Add($"variable {v.Name}: its initial value is longer than the variable");
+        }
+        return errors;
+    }
+
+    /// <summary>
+    ///     Writes the accepted packages' data edits into <paramref name="bytes"/> (a copy of <paramref name="file"/>), in
+    ///     load order: a byte two mods both set is a conflict, and the later mod's value stays.
+    /// </summary>
+    private static void ApplyData(byte[] bytes, ScriptFile file, ScriptImage vanilla, List<ModScript> mods, List<LinkMessage> messages) {
+        Dictionary<(DataEditArea, int?, int), (string Mod, string Field)> owners = [];
+        foreach (ModScript m in mods) {
+            foreach (DataEdit e in m.Package.Data ?? []) {
+                DataAreas.Area a = DataAreas.Find(file, vanilla, m.Package.File, e.Area, e.Worker)!.Value;
+                List<(string Mod, string Field)> earlier = [];
+                for (int i = 0; i < e.Bytes.Length; i++) {
+                    (DataEditArea, int?, int) key = (e.Area, e.Worker, e.Offset + i);
+                    if (owners.TryGetValue(key, out var prev) && prev.Mod != m.Mod && !earlier.Contains(prev)) earlier.Add(prev);
+                    owners[key] = (m.Mod, e.Field);
+                }
+                e.Bytes.CopyTo(bytes, a.At + e.Offset);
+                if (e.Area == DataEditArea.MonsterStats) e.Bytes.CopyTo(bytes, DataAreas.StatsCopy(file)!.Value.At + e.Offset);
+                string where = string.Create(CultureInfo.InvariantCulture, $"{DataAreas.Describe(e.Area, e.Worker)} +0x{e.Offset:x}");
+                messages.Add(new(LinkSeverity.Info, m.Mod, string.Create(CultureInfo.InvariantCulture, $"{m.Package.Script}: sets {e.Field} ({where}, {e.Bytes.Length} byte(s))")));
+                foreach ((string mod, string field) in earlier) {
+                    messages.Add(new(LinkSeverity.Conflict, m.Mod, $"{m.Package.Script}: {mod} sets {field} and {m.Mod} sets {e.Field}, both at {where}; {m.Mod} wins (last in load order)"));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Whether a package only changes bytes in place (switches blocks on, edits data): then the linked file is the vanilla
+    ///     file with those bytes changed.
+    /// </summary>
+    private static bool InPlaceOnly(ScriptPackage p) =>
         p.Variables.Count == 0 && p.Workers.Count == 0 && p.Patches.Count == 0 && p.Messages is not { Count: > 0 } && p.DebugStrings is not { Count: > 0 };
 
     // ----- Checks -----------------------------------------------------------------------------
@@ -227,6 +284,8 @@ public static class ScriptLinker {
             if (w.Type > 6) errors.Add($"worker {w.Name}: no type {w.Type}");
             if (w.Entries.Length == 0) errors.Add($"worker {w.Name} has no entries");
             if (w.Entries.Any(e => e >= w.Code.Bytes.Length)) errors.Add($"worker {w.Name}: an entry past its code");
+            if (w.PrivateLength is > 0xff_ffff || (w.Private?.Length ?? 0) > (w.PrivateLength ?? 0)) errors.Add($"worker {w.Name}: its private data does not fit its length");
+            if (w.PrivateLength is > 0 && w.Type == 0) errors.Add($"worker {w.Name}: a function worker has no private data (it uses its caller's)");
             CheckFragment(w.Code, $"worker {w.Name}", false);
         }
         for (int i = 0; i < p.Patches.Count; i++) {
@@ -235,7 +294,12 @@ public static class ScriptLinker {
             if (e.Kind == PatchKind.Entry ? e.Target is not null : !p.Vanilla.Entries.Any(r => r.Worker == e.Worker && r.Name == e.Target)) {
                 errors.Add($"{e.Name}: {(e.Kind == PatchKind.Entry ? "a new entry has no target" : $"no vanilla entry {e.Target} on worker {e.Worker}")}");
             }
-            CheckFragment(e.Code, e.Name, e.Kind is PatchKind.Prefix or PatchKind.Postfix);
+            if (e.Kind == PatchKind.Inject) {
+                EntryRef? target = p.Vanilla.Entries.FirstOrDefault(r => r.Worker == e.Worker && r.Name == e.Target);
+                if (e.At is not InjectPoint at) errors.Add($"{e.Name}: an inject without its point");
+                else if (target is not null && (at.Start >= at.End || at.End > target.End - target.Start)) errors.Add($"{e.Name}: its statement is not inside {e.Target}");
+            }
+            CheckFragment(e.Code, e.Name, e.Kind is PatchKind.Prefix or PatchKind.Postfix or PatchKind.Inject);
         }
         return errors;
 
@@ -277,6 +341,9 @@ public static class ScriptLinker {
         public List<uint> Labels = [];
         public bool CodeChanged;
         public string Name = "";
+
+        /// <summary>A new worker's private data's initial bytes.</summary>
+        public byte[]? NewPrivate;
     }
 
     /// <summary>
@@ -341,7 +408,9 @@ public static class ScriptLinker {
                 else {
                     while (_data.Count % Math.Max(v.ElementSize, 4) != 0) _data.Add(0);
                     data = _data.Count;
-                    _data.AddRange(new byte[(v.ElementSize * v.Length + 3) & ~3]);
+                    byte[] bytes = new byte[(v.ElementSize * v.Length + 3) & ~3];
+                    v.Initial?.CopyTo(bytes, 0);
+                    _data.AddRange(bytes);
                 }
                 n.Vars[i] = _vars.Count;
                 _vars.Add(new VarSlot(new VarEntry(location, (ushort)v.Length, (ushort)v.RowLength), data));
@@ -350,7 +419,7 @@ public static class ScriptLinker {
             n.Workers = new WorkerState[p.Workers.Count];
             for (int i = 0; i < p.Workers.Count; i++) {
                 NewWorker nw = p.Workers[i];
-                WorkerState w = new() { Type = nw.Type, Word0C = nw.Word0C, CodeChanged = true, Name = nw.Name };
+                WorkerState w = new() { Type = nw.Type, Word0C = nw.Word0C, CodeChanged = true, Name = nw.Name, PrivateLength = nw.PrivateLength ?? 0, NewPrivate = nw.Private };
                 // Function workers come last in every shipped script that has them; a new worker
                 // that is not one goes before them.
                 int at = _workers.Count;
@@ -448,7 +517,21 @@ public static class ScriptLinker {
             List<Patch> prefixes = [.. patches.Where(p => p.Entry.Kind == PatchKind.Prefix)];
             List<Patch> postfixes = [.. patches.Where(p => p.Entry.Kind == PatchKind.Postfix)];
             List<Patch> replaces = [.. patches.Where(p => p.Entry.Kind == PatchKind.Replace)];
+            List<Patch> injects = [.. patches.Where(p => p.Entry.Kind == PatchKind.Inject)];
             Patch? replace = replaces.LastOrDefault();
+            if (replace is not null && injects.Count > 0) {
+                // An inject points into the vanilla code, which the replacement takes the place of.
+                foreach (Patch i in injects) {
+                    messages.Add(new(LinkSeverity.Conflict, i.Mod.Mod.Mod,
+                        $"{where}: {i.Mod.Mod.Mod}'s inject {i.Entry.Name} ({i.Entry.At!.Anchor}) is not applied: {replace.Mod.Mod.Mod} replaces the method"));
+                }
+                patches = [.. patches.Where(p => p.Entry.Kind != PatchKind.Inject)];
+                injects = [];
+            }
+            foreach (var same in injects.GroupBy(i => (i.Entry.At!.Position, Point: i.Entry.At.Position == InjectPosition.Before ? i.Entry.At.Start : i.Entry.At.End)).Where(g => g.Select(i => i.Mod).Distinct().Count() > 1)) {
+                messages.Add(new(LinkSeverity.Info, same.Last().Mod.Mod.Mod,
+                    $"{where}: injects at one point run in load order: {string.Join(", ", same.Select(i => $"{i.Mod.Mod.Mod}'s {i.Entry.Name}"))}"));
+            }
             if (replaces.Count > 1) {
                 messages.Add(new(LinkSeverity.Conflict, replace!.Mod.Mod.Mod,
                     $"{where} is replaced by {string.Join(", ", replaces.Select(r => r.Mod.Mod.Mod))}; {replace.Mod.Mod.Mod} wins (last in load order)"));
@@ -460,7 +543,7 @@ public static class ScriptLinker {
             byte exit = w.Type == 0 ? Opcodes.Ret : Opcodes.End;
             uint start = (uint)w.Code.Count;
             foreach (Patch p in prefixes) Place(p.Mod, w, p.Entry.Code);
-            if (postfixes.Count == 0) {
+            if (postfixes.Count == 0 && injects.Count == 0) {
                 if (replace is not null) Place(replace.Mod, w, replace.Entry.Code);
                 else EmitOp(w, Opcodes.Jmp, NewLabel(w, target.Start));
             }
@@ -468,10 +551,11 @@ public static class ScriptLinker {
                 int post = NewLabel(w, uint.MaxValue);    // placed after the body
                 if (replace is not null) {
                     uint s = Place(replace.Mod, w, replace.Entry.Code);
-                    CopyBody(w, s, (uint)w.Code.Count, post, exit, fallThrough: null, where, replace.Mod.Mod.Mod);
+                    CopyBody(w, s, (uint)w.Code.Count, post, exit, fallThrough: null, where, replace.Mod.Mod.Mod, [], postfixes.Count > 0);
                 }
                 else {
-                    CopyBody(w, target.Start, target.End, post, exit, target.End < w.VanillaCodeLength ? target.End : null, where, postfixes[0].Mod.Mod.Mod);
+                    CopyBody(w, target.Start, target.End, post, exit, target.End < w.VanillaCodeLength ? target.End : null, where,
+                        (postfixes.Count > 0 ? postfixes[0] : injects[0]).Mod.Mod.Mod, injects, postfixes.Count > 0);
                 }
                 w.Labels[post] = (uint)w.Code.Count;
                 foreach (Patch p in postfixes) Place(p.Mod, w, p.Entry.Code);
@@ -481,7 +565,8 @@ public static class ScriptLinker {
             w.CodeChanged = true;
             foreach (Patch p in patches) {
                 string kind = p.Entry.Kind.ToString().ToLowerInvariant();
-                messages.Add(new(LinkSeverity.Info, p.Mod.Mod.Mod, $"{where}: {kind} {p.Entry.Name}"));
+                string at = p.Entry.At is InjectPoint point ? $", {point.Anchor}" : "";
+                messages.Add(new(LinkSeverity.Info, p.Mod.Mod.Mod, $"{where}: {kind} {p.Entry.Name}{at}"));
             }
         }
 
@@ -489,35 +574,88 @@ public static class ScriptLinker {
         ///     Copies the code <paramref name="start"/> to <paramref name="end"/> of the worker to its end,
         ///     with every <paramref name="exit"/> (<c>end</c>, <c>ret</c>) a jump to label
         ///     <paramref name="post"/>, and the jumps within the range to the copy. Code that runs off the
-        ///     end goes on at <paramref name="fallThrough"/> (or to the postfixes, when null).
+        ///     end goes on at <paramref name="fallThrough"/> (or to the postfixes, when null). The
+        ///     <paramref name="injects"/> go in at their points (<see cref="InjectPoint"/>, offsets from
+        ///     <paramref name="start"/>).
         /// </summary>
-        private void CopyBody(WorkerState w, uint start, uint end, int post, byte exit, uint? fallThrough, string where, string mod) {
+        /// <remarks>
+        ///     At one point, the injects after the statement that ends there run first, then those before the statement that
+        ///     starts there, each in load order. Falling into the point runs them all. A jump to the point runs those it
+        ///     enters the statement of from outside, or leaves the statement of from inside: an after-inject's when the jump is
+        ///     inside its statement (a loop's exit, an <c>if</c>'s end), a before-inject's when the jump is not (a loop's back
+        ///     edge to its head stays inside the statement, so the code before it runs once).
+        /// </remarks>
+        private void CopyBody(WorkerState w, uint start, uint end, int post, byte exit, uint? fallThrough, string where, string mod, List<Patch> injects, bool hasPostfixes) {
             List<Instr> code = Decode(w.Code, start, end);
-            uint at = (uint)w.Code.Count;
+            // The injects at each point, in the order they run there; and where each one and each instruction goes.
+            Dictionary<uint, List<Patch>> at = [];
+            foreach (Patch p in injects.Where(p => p.Entry.At!.Position == InjectPosition.After).Concat(injects.Where(p => p.Entry.At!.Position == InjectPosition.Before))) {
+                InjectPoint i = p.Entry.At!;
+                uint point = start + (i.Position == InjectPosition.Before ? i.Start : i.End);
+                if (point != end && code.All(x => x.Offset != point)) throw new LinkException($"{where}: {p.Entry.Name}'s point is not between two instructions", p.Mod.Mod.Mod);
+                if (!at.TryGetValue(point, out List<Patch>? list)) at[point] = list = [];
+                list.Add(p);
+            }
+            uint pos = (uint)w.Code.Count;
             Dictionary<uint, uint> moved = [];
+            Dictionary<Patch, uint> placed = [];
+            void Points(uint offset) {
+                foreach (Patch p in at.GetValueOrDefault(offset) ?? []) {
+                    placed[p] = pos;
+                    pos += (uint)p.Entry.Code.Bytes.Length;
+                }
+            }
             foreach (Instr i in code) {
-                moved[i.Offset] = at;
-                at += i.Code == exit ? 3u : i.Length;
+                Points(i.Offset);
+                moved[i.Offset] = pos;
+                pos += i.Code == exit ? 3u : i.Length;
             }
-            Dictionary<int, int> labels = [];
-            for (int l = 0; l < w.Labels.Count; l++) {
-                if (w.Labels[l] >= start && w.Labels[l] < end && moved.TryGetValue(w.Labels[l], out uint to)) labels[l] = NewLabel(w, to);
+            Points(end);
+
+            // A jump to a point inside the range: past the injects it does not run.
+            Dictionary<uint, int> labelAt = [];
+            // Null for a jump to the range's end that runs none of the injects there: it leaves the copy.
+            int? LabelTo(uint target, uint from) {
+                uint? to = moved.TryGetValue(target, out uint t) ? t : null;
+                foreach (Patch p in at.GetValueOrDefault(target) ?? []) {
+                    InjectPoint i = p.Entry.At!;
+                    bool inside = from >= start + i.Start && from < start + i.End;
+                    if (i.Position == InjectPosition.After ? inside : !inside) {
+                        to = placed[p];
+                        break;
+                    }
+                }
+                if (to is not uint u) return null;
+                if (!labelAt.TryGetValue(u, out int l)) labelAt[u] = l = NewLabel(w, u);
+                return l;
             }
+
             int otherExits = 0, outside = 0;
             foreach (Instr i in code) {
+                PlaceInjects(i.Offset);
                 if (i.Code == exit) { EmitOp(w, Opcodes.Jmp, post); continue; }
                 if (i.Code is Opcodes.EndP or Opcodes.End1 or Opcodes.EndP1 || (i.Code is Opcodes.End or Opcodes.Ret && i.Code != exit)) otherExits++;
                 if (Opcodes.All[i.Code].Operand == OperandKind.Label && i.Operand is ushort l) {
-                    if (labels.TryGetValue(l, out int copy)) { EmitOp(w, i.Code, copy); continue; }
+                    if (l < w.Labels.Count && w.Labels[l] >= start && w.Labels[l] <= end && LabelTo(w.Labels[l], i.Offset) is int copy) {
+                        EmitOp(w, i.Code, copy);
+                        continue;
+                    }
                     outside++;
                 }
                 EmitOp(w, i.Code, i.Operand);
             }
-            if (code.Count == 0 || !Unconditional(code[^1].Code)) {
-                EmitOp(w, Opcodes.Jmp, fallThrough is uint ft ? NewLabel(w, ft) : post);
-            }
-            if (otherExits > 0 || outside > 0) {
+            PlaceInjects(end);
+            bool runsOn = code.Count == 0 || !Unconditional(code[^1].Code) || at.ContainsKey(end);
+            if (runsOn) EmitOp(w, Opcodes.Jmp, fallThrough is uint ft ? NewLabel(w, ft) : post);
+            if (hasPostfixes && (otherExits > 0 || outside > 0)) {
                 messages.Add(new(LinkSeverity.Warning, mod, $"{where}: the postfixes do not run where it ends with endp or end_1 ({otherExits}) or jumps out of its code ({outside})"));
+            }
+
+            void PlaceInjects(uint offset) {
+                foreach (Patch p in at.GetValueOrDefault(offset) ?? []) {
+                    if (w.Code.Count != placed[p]) throw new LinkException($"{where}: {p.Entry.Name} is not where it was laid out", p.Mod.Mod.Mod);
+                    Place(p.Mod, w, p.Entry.Code);
+                }
             }
         }
 
@@ -625,7 +763,7 @@ public static class ScriptLinker {
             (HashSet<WorkerState> grown, int start) = PrivateLayout();
             return BlockWriter.Write(block, vanilla, new BlockWriter.Linked(
                 [.. _workers.Select(w => new BlockWriter.LinkedWorker(w.VanillaIndex, w.Type, w.Word0C, w.PrivateLength, [.. w.Code], [.. w.Entries], [.. w.Labels], w.CodeChanged || _callsRewritten,
-                    grown.Contains(w) ? (uint)(start + _private) : null))],
+                    grown.Contains(w) ? (uint)(start + _private) : null, w.NewPrivate))],
                 [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data], start));
         }
 

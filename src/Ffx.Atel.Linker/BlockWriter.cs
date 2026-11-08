@@ -18,7 +18,8 @@ namespace Ffx.Atel.Linker;
 /// </remarks>
 internal static class BlockWriter {
     /// <param name="GrownPrivate">The worker's new private data length (<c>+0x10</c>), when its private data grew.</param>
-    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged, uint? GrownPrivate = null);
+    /// <param name="NewPrivate">A new worker's private data's initial bytes (its block is <paramref name="PrivateLength"/> long).</param>
+    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged, uint? GrownPrivate = null, byte[]? NewPrivate = null);
 
     /// <summary>
     ///     The linked parts: workers in their final order, variables (with their offset in <see cref="Data"/>
@@ -97,7 +98,9 @@ internal static class BlockWriter {
         // Private data that grew: a new block (storage 3 is the block plus +0x2c), with the vanilla bytes.
         int[] privateAt = new int[n];
         for (int i = 0; i < n; i++) {
-            if (l.Workers[i].GrownPrivate is uint grown) privateAt[i] = Alloc(ScriptImage.PrivateSize(grown), 16);
+            LinkedWorker w = l.Workers[i];
+            if (w.GrownPrivate is uint grown) privateAt[i] = Alloc(ScriptImage.PrivateSize(grown), 16);
+            else if (w.VanillaIndex < 0 && w.PrivateLength > 0) privateAt[i] = Alloc(ScriptImage.PrivateSize(w.PrivateLength), 16);
         }
 
         int codeAt = block.CodeStart, codeLength = block.CodeLength;
@@ -162,10 +165,11 @@ internal static class BlockWriter {
                 if (from != h) Bytes(h, raw.Slice(from, ScriptBlock.WorkerHeaderLength).ToArray());
             }
             else {
-                // A new worker: no private data, no storage 2, the script's shared data.
+                // A new worker: no storage 2, the script's shared data, and its own private block when it has private data.
                 U32(h + 0x28, 0);
-                U32(h + 0x2c, 0);
+                U32(h + 0x2c, (uint)privateAt[i]);
                 U32(h + 0x30, (uint)sharedAt);
+                if (privateAt[i] != 0 && w.NewPrivate is { } initial) Bytes(privateAt[i], initial);
             }
             U16(h + 0x00, w.Type);
             U16(h + 0x02, l.Vars.Count);

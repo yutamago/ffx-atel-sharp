@@ -92,6 +92,21 @@ public sealed class ScriptFile {
         return new ScriptFile(kind, bytes, words, start, end - start, script);
     }
 
+    /// <summary>
+    ///     Section <paramref name="index"/> (a monster file's section 2 is its stat record): where it starts in the file and
+    ///     how long it is, up to the next section or the end of the file; null when the file has no such section, or it is
+    ///     absent (offset 0) or past the end.
+    /// </summary>
+    public (int Start, int Length)? Section(int index) {
+        if (index < 0 || index >= _offsetWords.Length) return null;
+        uint v = BinaryPrimitives.ReadUInt32LittleEndian(_bytes.AsSpan(_offsetWords[index]));
+        if (v == 0 || v == 0xffff_ffff || v >= _bytes.Length) return null;
+        int start = (int)v;
+        int end = _offsetWords.Select(w => BinaryPrimitives.ReadUInt32LittleEndian(_bytes.AsSpan(w)))
+            .Where(o => o > start && o != 0xffff_ffff).Select(o => (int)Math.Min(o, (uint)_bytes.Length)).DefaultIfEmpty(_bytes.Length).Min();
+        return (start, end - start);
+    }
+
     /// <summary>The file's bytes (a copy).</summary>
     public byte[] ToArray() => (byte[])_bytes.Clone();
 

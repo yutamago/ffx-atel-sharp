@@ -1272,10 +1272,13 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   all constructors, and serves them. The loader owns `efl/x` and empties it
   on each start. Checked in game with an event and a monster script.
 - Patches on entries, after Harmony and Mixins: `[Prefix(nameof(OnTalk))]`,
-  `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry, `[Replace(…)]`;
-  ordering with `[Before("mod")]` / `[After("mod")]`.
+  `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry (a statement named
+  by a call it holds), `[Replace(…)]`; ordering with `[Before("mod")]` /
+  `[After("mod")]` (not yet).
 - Data edits per field (kernel tables, messages), after RimWorld and the
-  Bethesda merge tools.
+  Bethesda merge tools. Done for the script's own data and the monster
+  file's stats and rewards (static constructors, Phase 9); the kernel
+  tables are not yet.
 - `mod.toml`: `source_language`, `after`, `requires`, `incompatible`.
 - The loader reports conflicts (log, and in game where Fahrenheit allows): what two
   mods both touch and who wins. Additions and prefix/postfix chains combine
@@ -1402,8 +1405,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place; per-field data edits and `[Inject]`;
-  private data for new workers.
+  out unchanged workers in place. (Per-field data edits, `[Inject]` and
+  private data for new workers: done 2026-11-08, below.)
 - **Hidden locals in private data** (2026-11-02). Hidden locals used to be
   4-byte variables of the shared data (storage 4). FFX.exe
   ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
@@ -1484,6 +1487,48 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   left out; two mods enabling the same name is fine. Corpus: the three names'
   31 blocks (`znkd1300` 29, `system_01` 2) are at the offsets the decompiler
   names, and only their opcode bytes change. Not run in game yet.
+
+- **Per-field data edits** (2026-11-08; [language.md](language.md#initial-values-and-data-edits),
+  [formats/mod-package.md](formats/mod-package.md#data-edits)). A mod sets single values in a C#
+  static constructor: `static M209() { MonsterStats.Hp = 4321; V7 = 2; Table[3] = 7; }`, private data
+  in a worker's (`static Boy() { Steps = 12; }`, events only: in battle the game clears it at set-up),
+  bytes no variable covers with `Data.At<T>(DataArea.Other, 0x20) = 7`; a new variable takes its
+  initializer (`public static int Turns = 5;`). `MonsterStats` and `MonsterRewards` (reference
+  assembly) are the monster file's stat record (section 2, and its copy in section 6) and rewards
+  (section 4), which the battle reads rather than the kernel's (ffx-decomp, `docs/formats/monster.md`).
+  Each assignment is an edit in the package's `data` (format 3) with a hash of its area's vanilla bytes;
+  the linker writes the bytes in place before any layout, so nothing moves. Two mods setting the same
+  bytes are a conflict (the later wins), different fields combine. ATL4001 marks a static constructor
+  that does anything else. Corpus: 1,614 scripts take edits of their shared, other and event data (all
+  361 monsters also of HP and gil), and exactly those bytes change. Example: `examples/ToughLarva`.
+  Not checked in game yet.
+- **`[Inject]`** (2026-11-08; [language.md](language.md#injecting-code),
+  [formats/mod-package.md](formats/mod-package.md#linking)). Anchor model: a statement of the
+  decompiled source named by a call it holds, `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand),
+  Occurrence = 3)]`, before or after it. Chosen over a label (few statements have one) and a statement
+  index (unreadable, and it shifts when the decompiler folds code): a call is what a reader sees, and the
+  compiler resolves it against the vanilla source at each build, through each instruction's statement
+  (`CompiledScript.SourceMap`). The package holds the statement's code range in the method, under the
+  method's hash, so a changed method is a hash mismatch and a changed source a build error, never code in
+  the wrong place. The linker weaves injects into the copy of the method it already makes for postfixes;
+  jumps from inside the statement stay inside (a loop's back edge does not repeat the code before it),
+  jumps from outside run it. Injects of several mods at one point run in load order; a replacement drops
+  them (a conflict). ATL4002 checks the anchor in the IDE. Corpus: injects before and after a statement in
+  67,851 methods of 1,598 scripts link, lay out again byte for byte and keep everything else; each patched
+  method is its vanilla code with the injects at their points. Limit: a copy needs a label number per label
+  of the method, so blitzball's 1.6 MB method of worker 36 (53,203 labels) cannot take one. Example:
+  `examples/LarvaInject`. Not checked in game yet.
+- **Private data for new workers** (2026-11-08). A mod's new worker takes `[Worker(PrivateLength = …)]`
+  and `[PrivateData]`, and its static constructor sets initial values in it (the mod's own
+  `[Var(Storage.Private, …)]` variables and vanilla private ones; events only, as above). The package's
+  new worker carries `privateLength` and `private`; the linker gives it a block of its own after the
+  block's end (grown further when it runs hidden locals). Unit tests only; no corpus run.
+- **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
+  (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
+  entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
+  and `ScriptImage` (Bytecode, shared with the decompiler's round trip) must take worker ranges that are
+  not in order, and what the game does with the code length at `+0x00` must be checked in game. Left
+  for a change of its own.
 
 ### Phase 10: debug text and runtime packages
 
@@ -1615,7 +1660,7 @@ count, names placed.
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
-   edits and `[Inject]` are open.
+   edits and `[Inject]` are done (2026-11-08, not yet checked in game).
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".

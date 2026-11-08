@@ -1,0 +1,14 @@
+<Project Sdk="Ffx.Atel.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod: the Larva (m209) gets 4321 HP, more strength and 999 gil, by data edits. docs/sdk.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id: the build writes bin/<configuration>/net10.0/mods/yuta.toughlarva/. -->
+        <AtelModId>yuta.toughlarva</AtelModId>
+        <AtelModName>Tough Larva</AtelModName>
+        <Description>The Larva (m209) has 4321 HP, strength 30 and drops 999 gil. An example Atel mod with data edits.</Description>
+        <Authors>Yutamago</Authors>
+        <Version>0.1.0</Version>
+        <!-- The vanilla source this mod changes: the folder `atel decompile m209 -o <dir>` wrote. Never inside this project. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>

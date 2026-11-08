@@ -104,4 +104,231 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         Assert.Equal(paths.Count, linked + skipped);
     }
 
+    /// <summary>
+    ///     Data edits on every shipped script: a byte of the shared data, of the "other" area and of the event data, and on a
+    ///     monster its HP (in sections 2 and 6) and gil. The linked file is the vanilla file with exactly those bytes changed.
+    /// </summary>
+    [Fact]
+    public void EveryScriptTakesDataEdits() {
+        string? dir = GameData.GameDir();
+        if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
+        using VbfArchive archive = GameData.OpenArchiveExclusive(dir!);
+        List<string> paths = GameData.AllScriptPaths(archive);
+        ConcurrentBag<string> failures = [];
+        int linked = 0, edits = 0, monsters = 0;
+        foreach (string path in paths) {
+            byte[] bytes = archive.Read(path);
+            try {
+                ScriptFile file = ScriptFile.Parse(bytes);
+                ScriptImage image = ScriptImage.FromBlock(file.Script);
+                ScriptPackage p = new() { File = path, Script = path, Data = [] };
+                HashSet<int> expected = [];
+                void Edit(DataEditArea area, int offset, byte[] value) {
+                    if (DataAreas.Find(file, image, path, area, null) is not DataAreas.Area a) return;
+                    // A value that differs from the vanilla byte, so the change shows.
+                    byte[] v = [.. value.Select((b, i) => (byte)(bytes[a.At + offset + i] == b ? b ^ 0x5a : b))];
+                    p.Data.Add(new DataEdit { Area = area, Offset = offset, Bytes = v, Field = area.ToString() });
+                    for (int i = 0; i < v.Length; i++) expected.Add(a.At + offset + i);
+                    if (area == DataEditArea.MonsterStats) {
+                        int copy = file.Section(DataAreas.StatsCopySection)!.Value.Start;
+                        for (int i = 0; i < v.Length; i++) expected.Add(copy + offset + i);
+                    }
+                }
+                Edit(DataEditArea.Shared, 0, [0x11]);
+                Edit(DataEditArea.Other, 0x3f, [0x22]);
+                Edit(DataEditArea.Event, 0, [0x33]);
+                Edit(DataEditArea.MonsterStats, 0x14, [0x39, 0x30, 0, 0]);
+                Edit(DataEditArea.MonsterRewards, 0, [0xe7, 0x03]);
+                if (p.Data.Count == 0) continue;
+                if (p.Data.Any(e => e.Area == DataEditArea.MonsterStats)) monsters++;
+                DataAreas.Attach(p, bytes);
+                LinkResult r = ScriptLinker.Link(bytes, [new ModScript("test", ScriptPackage.FromJson(p.ToJson()))]);
+                if (!r.Changed) {
+                    failures.Add($"{path}: {string.Join("; ", r.Messages.Where(m => m.Severity == LinkSeverity.Error))}");
+                    continue;
+                }
+                if (r.File.Length != bytes.Length) failures.Add($"{path}: the file changed its size");
+                List<int> changed = [.. Enumerable.Range(0, Math.Min(bytes.Length, r.File.Length)).Where(i => bytes[i] != r.File[i])];
+                if (!changed.SequenceEqual(expected.Order())) failures.Add($"{path}: {changed.Count} bytes changed, {expected.Count} expected");
+                linked++;
+                edits += p.Data.Count;
+            }
+            catch (Exception ex) when (ex is ScriptFormatException or ArgumentException) {
+                failures.Add($"{path}: {ex.Message}");
+            }
+        }
+        output.WriteLine($"{linked} scripts took {edits} data edits ({monsters} monsters their stats); only those bytes changed");
+        foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
+        Assert.Empty(failures);
+        Assert.True(monsters >= 361, $"only {monsters} monsters");
+    }
+
+    /// <summary>
+    ///     <c>[Inject]</c> on every shipped script: in the first methods of every worker, code before a statement in the
+    ///     middle of the method and code after it (a statement: from an empty stack to the next). Each result parses and
+    ///     lays itself out again byte for byte, keeps its data areas, its unpatched workers' code and the file's later
+    ///     sections, and each patched method's new code is its vanilla code with the injects at their points (its
+    ///     <c>end</c>s jumps to one <c>end</c> after it).
+    /// </summary>
+    [Fact]
+    public void EveryScriptTakesInjects() {
+        string? dir = GameData.GameDir();
+        if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
+        using VbfArchive archive = GameData.OpenArchiveExclusive(dir!);
+        Bytecode.Analysis.NativeSignatures natives = Bytecode.Analysis.NativeSignatures.FromAssembly(typeof(Ffx.Atel.Worker).Assembly);
+        List<string> paths = GameData.AllScriptPaths(archive);
+        object read = new();
+        ConcurrentBag<string> failures = [];
+        int linked = 0, skipped = 0, methods = 0, tooLarge = 0;
+        long growth = 0;
+        const int MethodsPerWorker = 6;
+        Parallel.ForEach(paths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, path => {
+            byte[] bytes;
+            lock (read) bytes = archive.Read(path);
+            try {
+                ScriptFile vanilla = ScriptFile.Parse(bytes);
+                ScriptImage image = ScriptImage.FromBlock(vanilla.Script);
+                ScriptPackage p = new() { File = path, Script = path };
+                List<(int Worker, uint Start, uint End, uint Before, uint After)> targets = [];
+                for (int w = 0; w < image.Workers.Count; w++) {
+                    WorkerImage wi = image.Workers[w];
+                    List<uint> starts = [.. wi.Entries.Distinct().Order()];
+                    bool listed = false;
+                    for (int m = 0; m < starts.Count && m < MethodsPerWorker; m++) {
+                        uint start = starts[m], end = m + 1 < starts.Count ? starts[m + 1] : (uint)wi.Code.Length;
+                        // A copy of the method needs a label number for each of its labels; a worker has 65,536
+                        // (one method of blitzball's worker 36 has 53,203 of its 53,229).
+                        if (wi.Labels.Length + wi.Labels.Count(l => l >= start && l < end) > 0xffff) {
+                            Interlocked.Increment(ref tooLarge);
+                            continue;
+                        }
+                        if (Statements(wi.Code, start, end, natives) is not { Count: > 0 } statements) continue;
+                        (uint s, uint e) = statements[statements.Count / 2];
+                        string name = $"M{m}";
+                        if (!listed) p.Vanilla.Workers.Add(new WorkerRef(w, $"W{w}", VanillaHash.Worker(wi)));
+                        listed = true;
+                        int[] entries = [.. Enumerable.Range(0, wi.Entries.Length).Where(k => wi.Entries[k] == start)];
+                        p.Vanilla.Entries.Add(new EntryRef(w, name, entries, start, end, VanillaHash.Range(wi, start, end)));
+                        p.Patches.Add(new EntryPatch { Kind = PatchKind.Inject, Worker = w, Name = $"{name}Before", Target = name, Code = LinkerTests.Frag("nop"), At = new InjectPoint(InjectPosition.Before, s - start, e - start, "test") });
+                        p.Patches.Add(new EntryPatch { Kind = PatchKind.Inject, Worker = w, Name = $"{name}After", Target = name, Code = LinkerTests.Frag("nop\nnop"), At = new InjectPoint(InjectPosition.After, s - start, e - start, "test") });
+                        targets.Add((w, start, end, s, e));
+                    }
+                }
+                if (targets.Count == 0) {
+                    Interlocked.Increment(ref skipped);
+                    return;
+                }
+                LinkResult r = ScriptLinker.Link(bytes, [new ModScript("test", ScriptPackage.FromJson(p.ToJson()))]);
+                if (!r.Changed) {
+                    failures.Add($"{path}: {string.Join("; ", r.Messages.Where(m => m.Severity == LinkSeverity.Error))}");
+                    return;
+                }
+                ScriptFile result = ScriptFile.Parse(r.File);
+                ScriptBlock b = result.Script;
+                ScriptImage again = ScriptImage.FromBlock(b);
+                if (!again.Write().AsSpan().SequenceEqual(b.Bytes[..(int)b.U32(0x10)])) failures.Add($"{path}: does not lay itself out again");
+                ScriptBlock vb = vanilla.Script;
+                foreach ((string name, int at, int linkedAt, byte[]? area) in new[] {
+                    ("other", (int)vb.U32(0x2c), (int)b.U32(0x2c), image.Other),
+                    ("event", (int)vb.U32(0x20), (int)b.U32(0x20), image.Event),
+                    ("area", (int)vb.U32(0x28), (int)b.U32(0x28), image.Area),
+                }) {
+                    if (area is null) continue;
+                    if (at != linkedAt || !b.Bytes.Slice(at, area.Length).SequenceEqual(area)) failures.Add($"{path}: the {name} data changed");
+                }
+                if (image.Shared is { } shared && !b.Bytes.Slice((int)vb.U32(vb.Workers[0].Header + 0x30), shared.Length).SequenceEqual(shared)) failures.Add($"{path}: the shared data changed");
+                HashSet<int> patched = [.. targets.Select(t => t.Worker)];
+                for (int w = 0; w < image.Workers.Count; w++) {
+                    if (!patched.Contains(w) && !image.Workers[w].Code.AsSpan().SequenceEqual(again.Workers[w].Code)) failures.Add($"{path}: worker {w}'s code changed");
+                }
+                foreach ((int w, uint start, uint end, uint before, uint after) in targets) {
+                    WorkerImage vw = image.Workers[w], lw = again.Workers[w];
+                    int entry = Array.IndexOf(vw.Entries, start);
+                    if (Copied(vw, lw, entry, start, end, before, after) is string problem) failures.Add($"{path}: worker {w} @{start:x}: {problem}");
+                }
+                int tail = vanilla.Bytes.Length - (vanilla.SectionStart + vanilla.SectionLength);
+                if (!vanilla.Bytes[^tail..].SequenceEqual(result.Bytes[^tail..])) failures.Add($"{path}: the later sections changed");
+                Interlocked.Increment(ref linked);
+                Interlocked.Add(ref methods, targets.Count);
+                Interlocked.Add(ref growth, r.File.Length - bytes.Length);
+            }
+            catch (Exception ex) when (ex is ScriptFormatException or ArgumentException or InvalidOperationException) {
+                failures.Add($"{path}: {ex.GetType().Name}: {ex.Message}");
+            }
+        });
+        output.WriteLine($"{linked} scripts linked with injects in {methods} methods, {skipped} without a method to inject into, {tooLarge} method(s) with too many labels to copy; files grew by {growth / Math.Max(linked, 1)} bytes on average");
+        foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
+        Assert.Empty(failures);
+        Assert.Equal(paths.Count, linked + skipped);
+    }
+
+    /// <summary>
+    ///     A method's statements (code from an empty stack to the next, as the decompiler cuts them), offsets in the worker;
+    ///     null when its stack cannot be followed (a native without a known argument count).
+    /// </summary>
+    private static List<(uint Start, uint End)>? Statements(byte[] code, uint start, uint end, Bytecode.Analysis.NativeSignatures natives) {
+        List<(uint, uint)> result = [];
+        int depth = 0;
+        uint first = start;
+        for (uint pc = start; pc < end;) {
+            byte b = code[pc];
+            byte op = (byte)(b & 0x7f);
+            ushort operand = (b & 0x80) != 0 && pc + 2 < code.Length ? (ushort)(code[pc + 1] | code[pc + 2] << 8) : (ushort)0;
+            (int pops, int pushes) = op is Opcodes.Func or Opcodes.FuncFacc
+                ? natives[operand] is { } n ? StackEffects.Native(op, n.Argc) : (-1, 0)
+                : StackEffects.Of(op);
+            if (pops < 0 || pops > depth) return null;
+            depth = depth - pops + pushes;
+            pc += (b & 0x80) != 0 ? 3u : 1u;
+            if (depth == 0) {
+                result.Add((first, pc));
+                first = pc;
+            }
+        }
+        return depth == 0 ? result : null;
+    }
+
+    /// <summary>
+    ///     Whether the linked worker's method at entry <paramref name="entry"/> is the vanilla code <paramref name="start"/> to
+    ///     <paramref name="end"/> with one <c>nop</c> before <paramref name="before"/> and two after the statement ending at
+    ///     <paramref name="after"/>, each exit a jump, then the exit; a problem when not.
+    /// </summary>
+    private static string? Copied(WorkerImage vanilla, WorkerImage linked, int entry, uint start, uint end, uint before, uint after) {
+        byte exit = vanilla.Type == 0 ? Opcodes.Ret : Opcodes.End;
+        List<Instr> source = Decode(vanilla.Code, start, end);
+        List<(byte Code, ushort? Operand, uint Length)> expected = [];
+        (byte, ushort?, uint) nop = (Opcodes.Nop, null, 1), jmp = (Opcodes.Jmp, null, 3);
+        foreach (Instr i in source) {
+            if (i.Offset == after) expected.AddRange([nop, nop]);
+            if (i.Offset == before) expected.Add(nop);
+            expected.Add(i.Code == exit ? jmp : (i.Code, Opcodes.All[i.Code].Operand == OperandKind.Label ? null : i.Operand, i.Length));
+        }
+        if (after == end) expected.AddRange([nop, nop]);
+        if (source.Count == 0 || after == end || !(source[^1].Code is Opcodes.Jmp or Opcodes.PopAJmp or Opcodes.End or Opcodes.EndP or Opcodes.End1 or Opcodes.EndP1 or Opcodes.Ret)) {
+            expected.Add(jmp);
+        }
+        expected.Add((exit, null, 1));
+        uint at = linked.Entries[entry];
+        int expectedBytes = (int)expected.Sum(e => e.Length);
+        if (at + expectedBytes > linked.Code.Length) return "the copy runs past the code";
+        List<Instr> copy = Decode(linked.Code, at, at + (uint)expectedBytes);
+        if (copy.Count != expected.Count) return $"{copy.Count} instructions, {expected.Count} expected";
+        for (int k = 0; k < copy.Count; k++) {
+            if (copy[k].Code != expected[k].Code) return $"instruction {k}: {Opcodes.All[copy[k].Code].Name}, {Opcodes.All[expected[k].Code].Name} expected";
+            if (expected[k].Operand is ushort o && copy[k].Operand != o) return $"instruction {k}: operand {copy[k].Operand}, {o} expected";
+        }
+        return null;
+    }
+
+    private static List<Instr> Decode(byte[] code, uint start, uint end) {
+        List<Instr> result = [];
+        for (uint pc = start; pc < end;) {
+            byte b = code[pc];
+            ushort? operand = (b & 0x80) != 0 ? (ushort)(code[pc + 1] | code[pc + 2] << 8) : null;
+            Instr i = new(pc, (byte)(b & 0x7f), operand);
+            result.Add(i);
+            pc += i.Length;
+        }
+        return result;
+    }
 }
