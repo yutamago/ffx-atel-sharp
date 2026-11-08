@@ -68,7 +68,11 @@ each vanilla part, so a package never contains game code.
   places in the shared or event data (the field's initializer,
   `public static int Turns = 5;`); the rest of the variable is zeros.
 - **`workers`**: new workers with their own entry numbers (entry 0 `Init`,
-  1 `Main`, …); the worker's number is given when linking. The mod's helper
+  1 `Main`, …); the worker's number is given when linking. `privateLength`
+  (from `[Worker(PrivateLength = …)]`) gives one a private block of its own
+  after the block's end, `private` (base64) its initial bytes
+  (`[PrivateData]`, its static constructor); both left out when it has
+  none. Format 3. The mod's helper
   methods are new function workers (type 0, entry 0, named
   `<helper>Class.Method`), after its other new workers.
 - New variables named `<local>…` are the hidden storage of the mod's

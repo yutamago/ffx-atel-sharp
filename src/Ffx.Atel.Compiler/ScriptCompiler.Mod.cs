@@ -95,7 +95,7 @@ public static partial class ScriptCompiler {
         // ----- The mod's declarations ------------------------------------------------------------
         ScriptPackage package = new() { Script = vanilla.Name };
         List<string> variableNames = [.. vanillaVarNames];
-        DataEdits edits = new(package, v, vanilla.Category, v.Variables.Count, variableNames);
+        DataEdits edits = new(package, v, vanilla.Category, v.Variables.Count, variableNames, var => variables.Values.First(x => x.Index == var).Entry);
         // Initial values: the static constructors of the script class and of vanilla workers, read once every variable is known.
         List<(ConstructorDeclarationSyntax Ctor, string Class, int? Worker)> ctors = [];
         StatementReader constants = new(variables, new Dictionary<string, RegExpr>(StringComparer.Ordinal), NativesByName.Value, workers, false);
@@ -303,7 +303,7 @@ public static partial class ScriptCompiler {
         List<CompiledWorker> compiledNew = [];
         for (int i = 0; i < newWorkers.Count; i++) {
             (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
-            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets, NewText));
+            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets, NewText, constructors: true));
         }
         List<FlowEmitter> patchCode = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
@@ -358,14 +358,18 @@ public static partial class ScriptCompiler {
             WorkerImage wi = cw.Image;
             PlaceSlots(cw.Emitter, WorkerRegisters(vanillaWorkers.Count + i), Hide, CallWaits, callClobbers: CallClobbers);
             List<WorkerItem> items = ItemsOf(cw.Emitter);
-            if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
+            // Its private data ([Worker(PrivateLength = …)], [PrivateData]); its static constructor's initial values are read below.
+            if (wi.PrivateLength != 0 && wi.Type == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a function worker has no private data: it uses its caller's");
+            if (wi.Private is not null && wi.PrivateLength == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "[PrivateData] needs [Worker(PrivateLength = …)]");
+            if (wi.PrivateLength > 0) edits.NewWorker(vanillaWorkers.Count + i, wi.PrivateLength, wi.Private);
+            foreach (ConstructorDeclarationSyntax ctor in parts.SelectMany(p => p.Members).OfType<ConstructorDeclarationSyntax>()) ctors.Add((ctor, name, vanillaWorkers.Count + i));
             (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
             if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
             uint[] table = new uint[entries.Keys.Max() + 1];
             for (int e = 0; e < table.Length; e++) {
                 table[e] = entries.TryGetValue(e, out uint at) ? at : throw CompileException.At(parts[0].Identifier.GetLocation(), $"{name} has no entry {e}");
             }
-            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table });
+            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table, PrivateLength = wi.PrivateLength > 0 ? wi.PrivateLength : null });
         }
 
         // ----- Helpers ---------------------------------------------------------------------------
@@ -397,6 +401,7 @@ public static partial class ScriptCompiler {
 
         // ----- Initial values -------------------------------------------------------------------
         foreach ((ConstructorDeclarationSyntax ctor, string cls, int? w) in ctors) edits.Read(ctor, cls, w, constants);
+        for (int i = 0; i < newWorkers.Count; i++) package.Workers[i].Private = edits.PrivateOf(vanillaWorkers.Count + i);
 
         // ----- The vanilla parts it attaches to ------------------------------------------------
         foreach (int w in fragments.Workers.Order()) {

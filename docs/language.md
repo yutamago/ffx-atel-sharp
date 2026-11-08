@@ -946,8 +946,10 @@ public sealed partial class Helper : BattleWorker  // a new worker
 | `static Larva() { … }` in a vanilla worker | initial values of that worker's private data (events only) |
 | an initializer on a new field (`public static int Turns = 5;`) | the new variable's initial value |
 
-**Available.** A mod does not change attributes or base classes of vanilla classes, and a new
-worker has no private data yet. Patches apply to every entry the vanilla method starts. Several
+**Available.** A mod does not change attributes or base classes of vanilla classes. A new worker
+has private data of its own with `[Worker(PrivateLength = 0x10)]` (and `[PrivateData(…)]` or its static
+constructor for initial values, events only); the mod's own private variables are
+`[Var(Storage.Private, offset)]` fields of the script class. Patches apply to every entry the vanilla method starts. Several
 mods' prefixes and postfixes on one method chain in load order; two replacements conflict and the
 later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Before]`/`[After]`.
 
@@ -989,7 +991,7 @@ partial class Boy                                // an event's worker
 | `MonsterStats.Hp`, `Mp`, `OverkillThreshold`, `Strength`, `Defense`, `Magic`, `MagicDefense`, `Agility`, `Luck`, `Evasion`, `Accuracy` | the monster file's stat record (section 2) and its copy (section 6) |
 | `MonsterRewards.Gil`, `Ap`, `OverkillAp`, `DropChance1`, `DropChance2`, `StealChance`, `EquipmentDropChance` | the monster file's rewards (section 4) |
 | `Data.At<T>(DataArea.Shared \| Other \| Event \| Area, offset)` | that area, at that offset |
-| a private (storage 3) variable, or `Data.At<T>(DataArea.Private, offset)`, in a worker's static constructor | that worker's private data block |
+| a private (storage 3) variable, or `Data.At<T>(DataArea.Private, offset)`, in a worker's static constructor | that worker's private data block; in a mod's new worker (`[Worker(PrivateLength = …)]`) also the mod's own `[Var(Storage.Private, …)]` variables, carried in the new worker's private data |
 
 - Each statement assigns a constant: a literal, a `const`, a game constant (`Story.*`, `Save.*`) or an
   enum member; arithmetic of them is folded. An integer must fit the field's width, a `float` field takes

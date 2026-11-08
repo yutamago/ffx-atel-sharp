@@ -34,8 +34,22 @@ public static partial class ScriptCompiler {
     ///     A mod's data edits (docs/language.md, "Initial values and data edits"): the assignments of its static
     ///     constructors, which become <see cref="ScriptPackage.Data"/>, and its new variables' initializers.
     /// </summary>
-    private sealed class DataEdits(ScriptPackage package, ScriptImage vanilla, ScriptCategory category, int vanillaVariables, IReadOnlyList<string> variableNames) {
+    /// <param name="entryOf">A variable's table entry by index, the mod's too.</param>
+    private sealed class DataEdits(ScriptPackage package, ScriptImage vanilla, ScriptCategory category, int vanillaVariables, IReadOnlyList<string> variableNames, Func<int, VarEntry> entryOf) {
         private readonly Dictionary<(DataEditArea, int?, int), string> _set = [];
+
+        /// <summary>The mod's new workers' private data (by worker number), which their static constructors write into.</summary>
+        private readonly Dictionary<int, byte[]> _newPrivate = [];
+
+        /// <summary>A new worker with private data: its length and the initial bytes of its <c>[PrivateData]</c>.</summary>
+        public void NewWorker(int number, uint length, byte[]? initial) {
+            byte[] bytes = new byte[length];
+            initial?.AsSpan(0, (int)Math.Min(initial.Length, length)).CopyTo(bytes);
+            _newPrivate[number] = bytes;
+        }
+
+        /// <summary>A new worker's private data's initial bytes; null when it has none or they are zeros.</summary>
+        public byte[]? PrivateOf(int number) => _newPrivate.TryGetValue(number, out byte[]? b) && b.Any(x => x != 0) ? b : null;
 
         /// <summary>
         ///     Reads a static constructor of the script class (<paramref name="worker"/> null) or of vanilla worker
@@ -116,8 +130,12 @@ public static partial class ScriptCompiler {
                 ElemExpr or Elem2Expr => throw CompileException.At(left, "an element by constant indices, inside the array"),
                 _ => throw CompileException.At(left, "a static constructor sets a variable of the script, an element of one, a field of MonsterStats or MonsterRewards, or Data.At<T>(…)"),
             };
-            if (var >= vanillaVariables) throw CompileException.At(left, $"{VariableName(var)} is the mod's own variable: give it its initial value as an initializer (public static int {VariableName(var)} = 5;)");
-            VarEntry entry = vanilla.Variables[var];
+            // A new worker's private data may hold the mod's own private variables ([Var(Storage.Private, …)]).
+            bool newWorker = worker is int nw && nw >= vanilla.Workers.Count;
+            VarEntry entry = var < vanillaVariables ? vanilla.Variables[var] : entryOf(var);
+            if (var >= vanillaVariables && !(newWorker && entry.Storage == (int)Storage.Private)) {
+                throw CompileException.At(left, $"{VariableName(var)} is the mod's own variable: give it its initial value as an initializer (public static int {VariableName(var)} = 5;)");
+            }
             if (index < 0 || index >= entry.Length) throw CompileException.At(left, $"{name}: {VariableName(var)} has {entry.Length} element(s)");
             DataEditArea where = entry.Storage switch {
                 (int)Storage.Shared => DataEditArea.Shared,
@@ -136,6 +154,11 @@ public static partial class ScriptCompiler {
                 if (worker is not int w) throw CompileException.At(at, "private data (storage 3) is each worker's own: set it in the worker's static constructor (static Ai() { … })");
                 if (category != ScriptCategory.Event) {
                     throw CompileException.At(at, "in battle the game clears a worker's private data when it sets the worker up (work +0xb8), so an initial value there has no effect");
+                }
+                if (w >= vanilla.Workers.Count) {
+                    int room = _newPrivate.TryGetValue(w, out byte[]? own) ? own.Length : 0;
+                    if (offset + size > room) throw CompileException.At(at, string.Create(CultureInfo.InvariantCulture, $"the new worker's private data is 0x{room:x} bytes ([Worker(PrivateLength = …)]); this is past it"));
+                    return;
                 }
                 uint length = vanilla.Workers[w].PrivateLength;
                 if (vanilla.Workers[w].Private is null || offset + size > length) {
@@ -157,6 +180,10 @@ public static partial class ScriptCompiler {
                 if (_set.TryGetValue((area, worker, offset + i), out string? earlier)) throw CompileException.At(at, earlier == field ? $"{field} is set twice" : $"{field} overlaps {earlier}, set before");
             }
             for (int i = 0; i < bytes.Length; i++) _set[(area, worker, offset + i)] = field;
+            if (area == DataEditArea.Private && worker is int w && _newPrivate.TryGetValue(w, out byte[]? own)) {
+                bytes.CopyTo(own, offset);    // a new worker's: part of its own private data in the package
+                return;
+            }
             (package.Data ??= []).Add(new DataEdit { Area = area, Worker = worker, Offset = offset, Bytes = bytes, Field = field });
         }
 

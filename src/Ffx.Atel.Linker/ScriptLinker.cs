@@ -284,6 +284,8 @@ public static class ScriptLinker {
             if (w.Type > 6) errors.Add($"worker {w.Name}: no type {w.Type}");
             if (w.Entries.Length == 0) errors.Add($"worker {w.Name} has no entries");
             if (w.Entries.Any(e => e >= w.Code.Bytes.Length)) errors.Add($"worker {w.Name}: an entry past its code");
+            if (w.PrivateLength is > 0xff_ffff || (w.Private?.Length ?? 0) > (w.PrivateLength ?? 0)) errors.Add($"worker {w.Name}: its private data does not fit its length");
+            if (w.PrivateLength is > 0 && w.Type == 0) errors.Add($"worker {w.Name}: a function worker has no private data (it uses its caller's)");
             CheckFragment(w.Code, $"worker {w.Name}", false);
         }
         for (int i = 0; i < p.Patches.Count; i++) {
@@ -339,6 +341,9 @@ public static class ScriptLinker {
         public List<uint> Labels = [];
         public bool CodeChanged;
         public string Name = "";
+
+        /// <summary>A new worker's private data's initial bytes.</summary>
+        public byte[]? NewPrivate;
     }
 
     /// <summary>
@@ -414,7 +419,7 @@ public static class ScriptLinker {
             n.Workers = new WorkerState[p.Workers.Count];
             for (int i = 0; i < p.Workers.Count; i++) {
                 NewWorker nw = p.Workers[i];
-                WorkerState w = new() { Type = nw.Type, Word0C = nw.Word0C, CodeChanged = true, Name = nw.Name };
+                WorkerState w = new() { Type = nw.Type, Word0C = nw.Word0C, CodeChanged = true, Name = nw.Name, PrivateLength = nw.PrivateLength ?? 0, NewPrivate = nw.Private };
                 // Function workers come last in every shipped script that has them; a new worker
                 // that is not one goes before them.
                 int at = _workers.Count;
@@ -758,7 +763,7 @@ public static class ScriptLinker {
             (HashSet<WorkerState> grown, int start) = PrivateLayout();
             return BlockWriter.Write(block, vanilla, new BlockWriter.Linked(
                 [.. _workers.Select(w => new BlockWriter.LinkedWorker(w.VanillaIndex, w.Type, w.Word0C, w.PrivateLength, [.. w.Code], [.. w.Entries], [.. w.Labels], w.CodeChanged || _callsRewritten,
-                    grown.Contains(w) ? (uint)(start + _private) : null))],
+                    grown.Contains(w) ? (uint)(start + _private) : null, w.NewPrivate))],
                 [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data], start));
         }
 

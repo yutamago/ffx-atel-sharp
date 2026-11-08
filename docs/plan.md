@@ -1324,8 +1324,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place; private data for new workers.
-  (Per-field data edits and `[Inject]`: done 2026-11-08, below.)
+  out unchanged workers in place. (Per-field data edits, `[Inject]` and
+  private data for new workers: done 2026-11-08, below.)
 - **Hidden locals in private data** (2026-11-02). Hidden locals used to be
   4-byte variables of the shared data (storage 4). FFX.exe
   ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
@@ -1437,6 +1437,17 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   method is its vanilla code with the injects at their points. Limit: a copy needs a label number per label
   of the method, so blitzball's 1.6 MB method of worker 36 (53,203 labels) cannot take one. Example:
   `examples/LarvaInject`. Not checked in game yet.
+- **Private data for new workers** (2026-11-08). A mod's new worker takes `[Worker(PrivateLength = …)]`
+  and `[PrivateData]`, and its static constructor sets initial values in it (the mod's own
+  `[Var(Storage.Private, …)]` variables and vanilla private ones; events only, as above). The package's
+  new worker carries `privateLength` and `private`; the linker gives it a block of its own after the
+  block's end (grown further when it runs hidden locals). Unit tests only; no corpus run.
+- **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
+  (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
+  entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
+  and `ScriptImage` (Bytecode, shared with the decompiler's round trip) must take worker ranges that are
+  not in order, and what the game does with the code length at `+0x00` must be checked in game. Left
+  for a change of its own.
 
 ### Phase 10: debug text and runtime packages
 

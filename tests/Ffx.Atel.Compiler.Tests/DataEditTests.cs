@@ -283,6 +283,73 @@ public sealed class DataEditTests {
         Assert.Equal(file.Length, r.File.Length);
     }
 
+    /// <summary>
+    ///     A mod's new worker with private data of its own (<c>[Worker(PrivateLength = …)]</c>), its initial values from its
+    ///     static constructor: the mod's own private variable and a vanilla one.
+    /// </summary>
+    [Fact]
+    public void ANewWorkerHasPrivateData() {
+        byte[] file = EventFile();
+        string mod = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Events.Zztest00.Zztest00;
+
+            namespace Events.Zztest00;
+
+            public static partial class Zztest00
+            {
+                [Var(Storage.Private, 0x0008)] public static int Count;
+            }
+
+            [Worker(PrivateLength = 0x0c)]
+            public sealed partial class Helper : LogicWorker
+            {
+                static Helper() { Count = 3; Steps = 9; }
+                protected override void Init() { Count = Count + 1; return; }
+                protected override void Main() { return; }
+            }
+            """;
+        Assert.Empty(ScriptCompiler.Check([ScriptCompiler.Parse(Event, "V.cs"), ScriptCompiler.Parse(mod, "Mod.cs")]));
+        ScriptPackage p = Compile(Event, mod, EventPath, file);
+        NewWorker helper = Assert.Single(p.Workers);
+        Assert.Equal(0x0cu, helper.PrivateLength);
+        Assert.Equal("000000000900000003000000", Convert.ToHexStringLower(helper.Private!));    // Steps at 4, Count at 8
+        Assert.Null(p.Data);
+        Assert.Equal(ScriptPackage.DataFormat, p.Format);
+        LinkResult r = ScriptLinker.Link(file, [new ModScript("m", p)]);
+        Assert.True(r.Changed, string.Join("\n", r.Messages));
+        ScriptFile linked = ScriptFile.Parse(r.File);
+        ScriptImage image = ScriptImage.FromBlock(linked.Script);
+        Assert.Equal(image.Write(), linked.Script.Bytes[..(int)linked.Script.U32(0x10)].ToArray());
+        WorkerImage w = image.Workers[1];
+        Assert.Equal(0x0cu, w.PrivateLength);
+        Assert.Equal("000000000900000003000000", Convert.ToHexStringLower(w.Private!.AsSpan(0, 12)));
+        Assert.Equal("01000000", Convert.ToHexStringLower(image.Workers[0].Private!.AsSpan(0, 4)));    // the vanilla worker's own
+    }
+
+    [Fact]
+    public void AMonstersNewWorkerHasPrivateDataWithoutInitialValues() {
+        string mod = MonsterMod("Hp = 1;") + """
+
+            [Worker(PrivateLength = 0x10)]
+            public sealed partial class Helper : BattleWorker
+            {
+                protected override void Init() { Mine = 2; return; }
+            }
+            """;
+        ScriptPackage p = Compile(Monster, mod, MonsterPath, MonsterFile());
+        Assert.Equal(0x10u, Assert.Single(p.Workers).PrivateLength);
+        Assert.Null(p.Workers[0].Private);
+        LinkResult r = ScriptLinker.Link(MonsterFile(), [new ModScript("m", p)]);
+        Assert.True(r.Changed, string.Join("\n", r.Messages));
+        Assert.Equal(0x10u, ScriptImage.FromBlock(ScriptFile.Parse(r.File).Script).Workers[1].PrivateLength);
+
+        string bad = mod.Replace("protected override void Init()", "static Helper() { Mine = 3; }\n    protected override void Init()", StringComparison.Ordinal);
+        CompileException ex = Assert.Throws<CompileException>(() => Compile(Monster, bad, MonsterPath, MonsterFile()));
+        Assert.Contains("in battle the game clears", ex.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Mine = 3;", "private data (storage 3) is each worker's own")]
     [InlineData("Hp = Hp + 1;", "an initial value is a constant")]

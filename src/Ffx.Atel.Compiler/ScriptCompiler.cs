@@ -427,7 +427,7 @@ public static partial class ScriptCompiler {
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
         string? name = null, int number = -1, HelperTable? helpers = null, Func<string, string, EntrySignature?>? signatures = null,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null, bool constructors = false) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -462,6 +462,8 @@ public static partial class ScriptCompiler {
         try {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
+                // A mod's new worker: its static constructor sets its private data's initial values (read by CompileMod).
+                if (constructors && member is ConstructorDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only (for now)");
                 if (helpers?.Contains(method) == true || InlineMethods.IsInline(method)) continue;
                 where = method.Identifier.GetLocation();

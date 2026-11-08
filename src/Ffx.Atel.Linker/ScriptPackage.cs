@@ -18,8 +18,8 @@ public sealed class ScriptPackage {
     public const int CutsFormat = 2;
 
     /// <summary>
-    ///     The format of a package with <see cref="Data"/>, an <see cref="PatchKind.Inject"/> patch or a new variable's
-    ///     <see cref="NewVariable.Initial"/> value: an older linker would drop them.
+    ///     The format of a package with <see cref="Data"/>, an <see cref="PatchKind.Inject"/> patch, a new variable's
+    ///     <see cref="NewVariable.Initial"/> value or a new worker's private data: an older linker would drop them.
     /// </summary>
     public const int DataFormat = 3;
 
@@ -79,7 +79,7 @@ public sealed class ScriptPackage {
 
     /// <summary>The format this package needs: the lowest that holds everything in it.</summary>
     public int NeededFormat() =>
-        Data is { Count: > 0 } || Patches.Any(p => p.Kind == PatchKind.Inject) || Variables.Any(v => v.Initial is not null) ? DataFormat
+        Data is { Count: > 0 } || Patches.Any(p => p.Kind == PatchKind.Inject) || Variables.Any(v => v.Initial is not null) || Workers.Any(w => w.PrivateLength is > 0) ? DataFormat
         : Cuts is { Count: > 0 } ? CutsFormat
         : BaseFormat;
 
@@ -215,6 +215,15 @@ public sealed class NewWorker {
     public Fragment Code { get; set; } = new();
 
     public uint[] Entries { get; set; } = [];
+
+    /// <summary>
+    ///     Its private data's length (header <c>+0x10</c>; storage 3), from <c>[Worker(PrivateLength = …)]</c>; null for
+    ///     none. The linker gives it a private block of its own.
+    /// </summary>
+    public uint? PrivateLength { get; set; }
+
+    /// <summary>Its private data's initial bytes (<c>[PrivateData]</c>, its static constructor), at most <see cref="PrivateLength"/>; null for zeros.</summary>
+    public byte[]? Private { get; set; }
 }
 
 /// <summary>What an <see cref="EntryPatch"/> does.</summary>
