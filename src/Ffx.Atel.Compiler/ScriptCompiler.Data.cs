@@ -72,7 +72,10 @@ public static partial class ScriptCompiler {
         }
 
         /// <summary>The initial value of a mod's new variable, from its initializer; null when it has none or it is all zeros.</summary>
-        public byte[]? Initial(FieldDeclarationSyntax field, VarEntry entry, StatementReader reader) {
+        public byte[]? Initial(FieldDeclarationSyntax field, VarEntry entry, StatementReader reader) => InitialValue(field, entry, reader);
+
+        /// <summary><see cref="Initial"/>, for a field outside a script too (a mod's <c>[Saved]</c> field).</summary>
+        internal static byte[]? InitialValue(FieldDeclarationSyntax field, VarEntry entry, StatementReader reader) {
             ExpressionSyntax? init = field.Declaration.Variables[0].Initializer?.Value;
             if (init is null) return null;
             List<ExpressionSyntax> values = [];

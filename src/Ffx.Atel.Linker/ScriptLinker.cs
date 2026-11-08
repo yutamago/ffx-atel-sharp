@@ -66,8 +66,9 @@ public static class ScriptLinker {
     ///     language's table of the script (<see cref="MessageLinker.FirstFree"/>); null when the script has
     ///     no message table, which leaves out a package with new messages.
     /// </param>
+    /// <param name="saved">Where the run's saved fields are (<see cref="SavedLayout"/>); null for none, which leaves out a package that uses one.</param>
     /// <exception cref="ScriptFormatException">The vanilla file is not a script file.</exception>
-    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods, int? firstMessage = null) {
+    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods, int? firstMessage = null, SavedLayout? saved = null) {
         ScriptFile file = ScriptFile.Parse(vanillaFile);
         ScriptImage vanilla = ScriptImage.FromBlock(file.Script);
         LinkResult result = new() { File = vanillaFile };
@@ -76,6 +77,7 @@ public static class ScriptLinker {
         Dictionary<uint, DeadJump> cutJumps = [];
         foreach (ModScript mod in mods) {
             List<string> problems = Validate(mod.Package, vanilla);
+            if (problems.Count == 0) problems.AddRange(ValidateSaved(mod, saved));
             if (problems.Count == 0) problems.AddRange(ValidateData(mod.Package, file, vanilla));
             if (firstMessage is null && NewMessages(mod.Package).Any()) problems.Add("the script has no message table for Text.New (a monster's messages are the battle's)");
             List<(CutSwitch Cut, List<DeadJump> Jumps)> cuts = problems.Count == 0 ? FindCuts(mod.Package, file, problems) : [];
@@ -117,7 +119,7 @@ public static class ScriptLinker {
             vanilla = ScriptImage.FromBlock(file.Script);
         }
 
-        State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0);
+        State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0, saved ?? SavedLayout.Empty);
         try {
             state.Apply(accepted);
             byte[] block = state.Write();
@@ -277,6 +279,10 @@ public static class ScriptLinker {
             if (v.Offset is int o && o is < 0 or > 0xff_ffff) errors.Add($"variable {v.Name}: offset out of range");
             if (v.Offset is null && v.Storage == 4 && (vanilla.Shared is null || workerCount == 0)) errors.Add($"variable {v.Name}: the script has no shared data (storage 4)");
             if (v.Offset is null && v.Storage == 6 && vanilla.Event is null) errors.Add($"variable {v.Name}: the script has no event data (storage 6)");
+            if (v.Saved is not null) {
+                if (v.Storage != 0 || v.Offset is not null || v.Initial is not null) errors.Add($"variable {v.Name}: a saved field is storage 0, without an offset or initial value of its own");
+                continue;
+            }
             if (v.Offset is null && v.Storage is not (3 or 4 or 6)) errors.Add($"variable {v.Name}: the linker allocates only in storage 3 (private), 4 (shared) and 6 (event); give an offset");
         }
         if ((p.Workers.Count > 0 || p.Patches.Count > 0) && workerCount == 0) errors.Add("the script has no workers to add code to");
@@ -324,6 +330,15 @@ public static class ScriptLinker {
         }
     }
 
+    /// <summary>The package's saved fields that have no place in <paramref name="saved"/>, as problems.</summary>
+    private static IEnumerable<string> ValidateSaved(ModScript mod, SavedLayout? saved) {
+        foreach (NewVariable v in mod.Package.Variables.Where(v => v.Saved is not null)) {
+            PlacedField? f = saved?.Find(mod.Mod, v.Saved!);
+            if (f is null) yield return $"variable {v.Name}: the saved field {SavedField.Resolve(mod.Mod, v.Saved!)} has no place in the save area (no linked mod declares it)";
+            else if (f.Field.Type != v.Type || f.Field.Length != v.Length) yield return $"variable {v.Name}: the saved field {f.FullKey} has another type or length than its declaration";
+        }
+    }
+
     // ----- Linking ----------------------------------------------------------------------------
 
     internal sealed class LinkException(string message, string? mod = null) : Exception(message) {
@@ -361,7 +376,7 @@ public static class ScriptLinker {
         public Dictionary<int, int> Messages = [];
     }
 
-    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages, int firstMessage) {
+    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages, int firstMessage, SavedLayout saved) {
         public List<LinkedMessage> NewMessages { get; } = [];
         private readonly List<WorkerState> _workers = [];
         private readonly List<VarSlot> _vars = [.. vanilla.Variables.Select(v => new VarSlot(v, null))];
@@ -398,7 +413,11 @@ public static class ScriptLinker {
                 NewVariable v = p.Variables[i];
                 uint location = (uint)v.Type << 28 | (uint)v.Storage << 25 | (v.Array ? VarEntry.ArrayBit : 0);
                 int? data = null;
-                if (v.Offset is int fixedOffset) {
+                if (v.Saved is not null) {
+                    PlacedField f = saved.Find(mod.Mod, v.Saved) ?? throw new LinkException($"the saved field {v.Saved} has no place", mod.Mod);
+                    location |= (uint)f.Offset;
+                }
+                else if (v.Offset is int fixedOffset) {
                     location |= (uint)fixedOffset;
                 }
                 else if (v.Storage == 3) {
@@ -414,7 +433,9 @@ public static class ScriptLinker {
                 }
                 n.Vars[i] = _vars.Count;
                 _vars.Add(new VarSlot(new VarEntry(location, (ushort)v.Length, (ushort)v.RowLength), data));
-                messages.Add(new(LinkSeverity.Info, mod.Mod, $"{p.Script}: variable {v.Name} is variable {n.Vars[i]}"));
+                messages.Add(new(LinkSeverity.Info, mod.Mod, v.Saved is null
+                    ? $"{p.Script}: variable {v.Name} is variable {n.Vars[i]}"
+                    : string.Create(CultureInfo.InvariantCulture, $"{p.Script}: variable {v.Name} is variable {n.Vars[i]}, saved field {SavedField.Resolve(mod.Mod, v.Saved)} at storage 0 0x{location & 0xff_ffff:x4}")));
             }
             n.Workers = new WorkerState[p.Workers.Count];
             for (int i = 0; i < p.Workers.Count; i++) {

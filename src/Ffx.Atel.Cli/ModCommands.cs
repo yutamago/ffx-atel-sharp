@@ -39,17 +39,31 @@ internal static class ModCommands {
         // with only assembly attributes ([assembly: EnableCut(…)]) needs no namespace.
         Dictionary<string, List<SyntaxTree>> byScript = new(StringComparer.Ordinal);
         List<string> cuts = [];
+        List<SyntaxTree> all = [], savedOnly = [];
         foreach (string f in files) {
             SyntaxTree tree = ScriptCompiler.Parse(File.ReadAllText(f), f);
+            all.Add(tree);
             cuts.AddRange(EnabledCuts(tree, f));
             CompilationUnitSyntax root = (CompilationUnitSyntax)tree.GetRoot();
             string? ns = root.DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString();
             if (ns is null && root.Members.Count == 0 && root.AttributeLists.Count > 0) continue;
+            // A file of the mod's [Saved] classes only (plain static classes) changes no script.
+            if (IsSavedOnly(root)) {
+                savedOnly.Add(tree);
+                continue;
+            }
             if (ns is null) throw new ArgumentException($"{f}: no namespace; a mod's file is in the namespace of the script it changes");
             if (!byScript.TryGetValue(ns, out List<SyntaxTree>? list)) byScript[ns] = list = [];
             list.Add(tree);
         }
-        if (byScript.Count == 0 && cuts.Count == 0) throw new ArgumentException($"{modDir}: no script changes and no [assembly: EnableCut(…)]");
+        // Saved fields: the mod's own go to atel/saved.json; another mod's it reads need that mod in mod.toml's requires.
+        SavedDeclarations saved = ScriptCompiler.ReadSaved(all);
+        string toml = Path.Combine(modDir, AtelMod.ManifestFile);
+        ModManifest modToml = File.Exists(toml) ? ModManifest.Parse(File.ReadAllText(toml)) : ModManifest.Empty;    // fails early on a broken one
+        if (saved.ReadMods.FirstOrDefault(m => !modToml.Requires.Contains(m)) is string missing) {
+            throw new ArgumentException($"{modDir}: reads {missing}'s saved fields; add requires = [\"{missing}\"] to its {AtelMod.ManifestFile}");
+        }
+        if (byScript.Count == 0 && cuts.Count == 0 && saved.Fields.Count == 0) throw new ArgumentException($"{modDir}: no script changes, no [Saved] fields and no [assembly: EnableCut(…)]");
         Dictionary<string, ScriptPackage> packages = new(StringComparer.Ordinal);
         foreach ((string ns, List<SyntaxTree> modTrees) in byScript.OrderBy(kv => kv.Key, StringComparer.Ordinal)) {
             string folder = Path.Combine([vanilla, .. ns.Split('.')]);
@@ -57,11 +71,11 @@ internal static class ModCommands {
             List<SyntaxTree> vanillaTrees = ScriptCompiler.ParseFolder(folder);
             ScriptLibrary library = ScriptLibrary.Find(folder);
             if (check) {
-                IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check([.. vanillaTrees, .. modTrees], library);
+                IReadOnlyList<Diagnostic> diagnostics = ScriptCompiler.Check([.. vanillaTrees, .. modTrees, .. savedOnly], library);
                 foreach (Diagnostic d in diagnostics) Console.Error.WriteLine(d.ToString());
                 if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)) return 1;
             }
-            CompiledMod mod = ScriptCompiler.CompileMod(vanillaTrees, modTrees, library, options);
+            CompiledMod mod = ScriptCompiler.CompileMod(vanillaTrees, modTrees, library, options, saved);
             foreach (string w in mod.Warnings) Console.Error.WriteLine($"warning: {w}");
             string path = GameData.Find(archive, mod.Category, mod.Name) ?? throw new ArgumentException($"the game has no {mod.Category} {mod.Name}");
             mod.Package.File = path;
@@ -81,11 +95,14 @@ internal static class ModCommands {
                 $"{p.Script}: {p.Patches.Count} entries and patches, {p.Workers.Count} new workers, {p.Variables.Count} new variables{data}{switched} -> {target}"));
             count++;
         }
-        string toml = Path.Combine(modDir, AtelMod.ManifestFile);
-        if (File.Exists(toml)) {
-            ModManifest.Parse(File.ReadAllText(toml));    // fails early on a broken one
-            File.Copy(toml, Path.Combine(output, AtelMod.ManifestFile), overwrite: true);
+        if (saved.ToFile() is SavedFile savedFile) {
+            string target = Path.Combine(output, AtelMod.PackageDir, SavedFile.FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.WriteAllText(target, savedFile.ToJson());
+            Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"{savedFile.Fields.Count} saved field(s), {savedFile.Fields.Sum(f => f.Size)} of {SaveArea.Length} bytes -> {target}"));
         }
+        if (File.Exists(toml)) File.Copy(toml, Path.Combine(output, AtelMod.ManifestFile), overwrite: true);
         if (id is not null && !Directory.EnumerateFiles(output, "*.manifest.json").Any()) {
             // A file-only Fahrenheit mod: its manifest, depending on the loader.
             var manifest = new Dictionary<string, object> {
@@ -96,6 +113,12 @@ internal static class ModCommands {
         }
         Console.Error.WriteLine($"{count} script package(s) in {output}");
         return 0;
+    }
+
+    /// <summary>Whether a file declares only the mod's classes of <c>[Saved]</c> fields (plain static classes).</summary>
+    internal static bool IsSavedOnly(CompilationUnitSyntax root) {
+        List<BaseTypeDeclarationSyntax> types = [.. root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()];
+        return types.Count > 0 && types.All(t => t is ClassDeclarationSyntax c && SavedDeclarations.IsSavedClass(c));
     }
 
     /// <summary>
@@ -146,7 +169,8 @@ internal static class ModCommands {
         if (args.Count == 0 || output is null) throw new ArgumentException("link <mod dir>... -o <out dir>");
         List<LinkMessage> messages = [];
         List<AtelMod> mods = ModSet.Resolve([.. args.Select(d => AtelMod.Load(Path.GetFileName(Path.TrimEndingDirectorySeparator(d)), d))], messages);
-        List<LinkedFile> files = ModSet.Link(mods, path => archive.Find(path) is { } e ? archive.Read(e) : null);
+        SavedLayout saved = SavedLayout.Build(mods, messages, out mods);
+        List<LinkedFile> files = ModSet.Link(mods, path => archive.Find(path) is { } e ? archive.Read(e) : null, saved);
         bool failed = false;
         foreach (LinkedFile f in files) {
             if (f.Result is null) {

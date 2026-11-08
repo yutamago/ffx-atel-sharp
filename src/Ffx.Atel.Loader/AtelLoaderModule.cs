@@ -25,8 +25,9 @@ namespace Ffx.Atel.Loader;
 ///     hooks <c>CDfileSize_CD</c>, which Fahrenheit leaves alone and which the game uses while an
 ///     Eternal Calm map is loaded, so a script that grew is read whole there too
 ///     (<see cref="CdFileSizeHook"/>, docs/research/loader.md).
-///     It also adds the debug natives (<see cref="DebugNatives"/>) and watches its <c>inject/</c> folder for
-///     runtime injection packages (<see cref="RuntimeInjector"/>, docs/formats/debug.md).
+///     It also adds the debug natives (<see cref="DebugNatives"/>), watches its <c>inject/</c> folder for
+///     runtime injection packages (<see cref="RuntimeInjector"/>, docs/formats/debug.md), and keeps the mods'
+///     <c>[Saved]</c> fields with each save in its Fahrenheit local state (<see cref="SaveHooks"/>, docs/research/mod-saves.md).
 /// </remarks>
 [FhLoad(FhGameId.FFX)]
 public sealed class AtelLoaderModule : FhModule {
@@ -38,6 +39,7 @@ public sealed class AtelLoaderModule : FhModule {
     private readonly HashSet<string>   _taken = [];
     private readonly AtelMod?          _injected;
     private RuntimeInjector?           _injector;
+    private SaveHooks?                 _saves;
 
     public AtelLoaderModule() {
         try {
@@ -62,9 +64,19 @@ public sealed class AtelLoaderModule : FhModule {
         }
     }
 
+    /// <summary>After every save and autosave: the mods' saved fields, by key (<see cref="SaveHooks"/>).</summary>
+    public override void save_local_state(FileStream local_state_file) => _saves?.Save(local_state_file);
+
+    /// <summary>On a load, when the slot has a state: the mods' saved fields back into the save's mod area.</summary>
+    public override void load_local_state(FileStream local_state_file, FhLocalStateInfo local_state_info) => _saves?.Load(local_state_file);
+
     public override bool init(FhModContext mod_context, FileStream global_state_file) {
         // The debug natives do not depend on the link: a script with Debug.Print may come from anywhere.
         if (!DebugNatives.Install(this, _logger)) _logger.Error("Atel loader: cannot hook AtelInitTotal; Debug.* calls would stop their worker.");
+        // The saved fields' hooks do not depend on the link either: without mods they keep the state of absent mods and
+        // still zero the save's tail in the file the game writes.
+        _saves = new SaveHooks(new SavedState(_linked?.Saved ?? SavedLayout.Empty), _logger);
+        _saves.Install(this);
         if (_failure is not null) {
             _logger.Error($"Atel loader: no scripts built: {_failure}");
             return true;
@@ -76,7 +88,7 @@ public sealed class AtelLoaderModule : FhModule {
                 }
             }
             try {
-                _injector = new RuntimeInjector(_modDir, _gameDir, _eflDir, _linked.Linked, new HashSet<string>(_linked.Written, StringComparer.Ordinal), _taken, _logger);
+                _injector = new RuntimeInjector(_modDir, _gameDir, _eflDir, _linked.Linked, new HashSet<string>(_linked.Written, StringComparer.Ordinal), _taken, _logger, _linked.Saved);
                 _injector.Start(_injected ?? Injection.Read(_modDir));
                 FhApi.Events.Common.GameLoop.PreUpdate.subscribe(_ => _injector.Update());
             }

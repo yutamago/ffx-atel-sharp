@@ -20,6 +20,9 @@ public sealed class AtelMod {
     /// <summary>Packages by archive path (lower case).</summary>
     public Dictionary<string, ScriptPackage> Packages { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The <c>[Saved]</c> fields it declares (<c>atel/saved.json</c>), in its order; empty when it has none.</summary>
+    public List<SavedField> Saved { get; } = [];
+
     /// <summary>What could not be read.</summary>
     public List<string> Errors { get; } = [];
 
@@ -42,6 +45,17 @@ public sealed class AtelMod {
         AtelMod mod = new() { Id = id, Manifest = manifest };
         mod.Errors.AddRange(errors);
         mod.AddPackages(Path.Combine(dir, PackageDir));
+        string saved = Path.Combine(dir, PackageDir, SavedFile.FileName);
+        if (File.Exists(saved)) {
+            try {
+                SavedFile file = SavedFile.FromJson(File.ReadAllText(saved));
+                if (file.Format > SavedFile.CurrentFormat) mod.Errors.Add($"{SavedFile.FileName}: format {file.Format} is newer than this loader's ({SavedFile.CurrentFormat})");
+                else mod.Saved.AddRange(file.Fields);
+            }
+            catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException) {
+                mod.Errors.Add($"{SavedFile.FileName}: {ex.Message}");
+            }
+        }
         return mod;
     }
 
@@ -62,6 +76,7 @@ public sealed class AtelMod {
         Array.Sort(files, StringComparer.Ordinal);
         foreach (string f in files) {
             string rel = Path.GetRelativePath(packages, f).Replace('\\', '/');
+            if (rel == SavedFile.FileName) continue;    // the mod's saved fields, not a package
             try {
                 ScriptPackage p = ScriptPackage.FromJson(File.ReadAllText(f));
                 string path = p.File.Replace('\\', '/').ToLowerInvariant();
@@ -119,7 +134,11 @@ public static class ModSet {
     ///     (which reads any archive path). A script whose packages add messages (<c>Text.New</c>) also gives its
     ///     message tables, one file per language, after the script (<see cref="MessageLinker"/>).
     /// </summary>
-    public static List<LinkedFile> Link(IReadOnlyList<AtelMod> mods, Func<string, byte[]?> readVanilla) {
+    /// <param name="saved">
+    ///     Where the mods' saved fields are (<see cref="SavedLayout.Build"/>, over the same mods); null for none, which
+    ///     leaves out a package that uses one.
+    /// </param>
+    public static List<LinkedFile> Link(IReadOnlyList<AtelMod> mods, Func<string, byte[]?> readVanilla, SavedLayout? saved = null) {
         List<LinkedFile> results = [];
         IEnumerable<string> paths = mods.SelectMany(m => m.Packages.Keys).Distinct().Order(StringComparer.Ordinal);
         foreach (string path in paths) {
@@ -139,7 +158,7 @@ public static class ModSet {
             LinkResult result;
             try {
                 int? firstMessage = scripts.Any(s => ScriptLinker.NewMessages(s.Package).Any()) ? MessageLinker.FirstFree(path, ReadQuietly) : null;
-                result = ScriptLinker.Link(vanilla, scripts, firstMessage);
+                result = ScriptLinker.Link(vanilla, scripts, firstMessage, saved);
             }
             catch (Bytecode.Script.ScriptFormatException ex) {
                 results.Add(new(path, null, $"not a script file: {ex.Message}"));

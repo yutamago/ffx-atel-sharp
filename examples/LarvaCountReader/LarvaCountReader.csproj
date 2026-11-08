@@ -1,0 +1,16 @@
+<Project Sdk="Ffx.Atel.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod: reads LarvaCount's saved field from another mod. docs/sdk.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id: the build writes bin/<configuration>/net10.0/mods/yuta.larvacountreader/. -->
+        <AtelModId>yuta.larvacountreader</AtelModId>
+        <AtelModName>Larva Count Reader</AtelModName>
+        <Description>Shows Larva Count's tally when a Larva (m209) appears. An example Atel mod that reads another mod's [Saved] field.</Description>
+        <Authors>Yutamago</Authors>
+        <Version>0.1.0</Version>
+        <!-- Fahrenheit loads it after the mod it reads, and needs both. -->
+        <AtelModDependencies>yuta.atel;yuta.larvacount</AtelModDependencies>
+        <!-- The vanilla source this mod changes: the folder `atel decompile m209 -o <dir>` wrote. Never inside this project. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>

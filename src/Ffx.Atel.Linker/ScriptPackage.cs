@@ -12,7 +12,7 @@ namespace Ffx.Atel.Linker;
 /// <summary>What one mod does to one script: <c>atel/&lt;archive path&gt;.json</c> in the mod's folder.</summary>
 public sealed class ScriptPackage {
     /// <summary>The newest format this linker reads; it refuses a newer one.</summary>
-    public const int CurrentFormat = 3;
+    public const int CurrentFormat = 4;
 
     /// <summary>The format of a package with <see cref="Cuts"/>: a linker that does not know them must refuse it, not drop them.</summary>
     public const int CutsFormat = 2;
@@ -22,6 +22,12 @@ public sealed class ScriptPackage {
     ///     <see cref="NewVariable.Initial"/> value or a new worker's private data: an older linker would drop them.
     /// </summary>
     public const int DataFormat = 3;
+
+    /// <summary>
+    ///     The format of a package with a <see cref="NewVariable.Saved"/> variable: an older linker would give it no offset
+    ///     (docs/formats/mod-package.md, "Saved fields").
+    /// </summary>
+    public const int SavedFormat = 4;
 
     /// <summary>The format of a package without what later formats added.</summary>
     public const int BaseFormat = 1;
@@ -79,7 +85,8 @@ public sealed class ScriptPackage {
 
     /// <summary>The format this package needs: the lowest that holds everything in it.</summary>
     public int NeededFormat() =>
-        Data is { Count: > 0 } || Patches.Any(p => p.Kind == PatchKind.Inject) || Variables.Any(v => v.Initial is not null) || Workers.Any(w => w.PrivateLength is > 0) ? DataFormat
+        Variables.Any(v => v.Saved is not null) ? SavedFormat
+        : Data is { Count: > 0 } || Patches.Any(p => p.Kind == PatchKind.Inject) || Variables.Any(v => v.Initial is not null) || Workers.Any(w => w.PrivateLength is > 0) ? DataFormat
         : Cuts is { Count: > 0 } ? CutsFormat
         : BaseFormat;
 
@@ -176,9 +183,17 @@ public sealed class NewVariable {
 
     /// <summary>
     ///     A fixed offset in the storage area (a save or common variable the mod names); null when
-    ///     the linker allocates it (storage 4, shared, or 6, event).
+    ///     the linker allocates it (storage 4, shared, or 6, event) or it is <see cref="Saved"/>.
     /// </summary>
     public int? Offset { get; set; }
+
+    /// <summary>
+    ///     A <c>[Saved]</c> field: its key, the mod's own (<c>LarvaCount.Progress.LarvasMet</c>, in the mod's
+    ///     <c>saved.json</c>) or another mod's with that mod's id (<c>yuta.larvacount/LarvaCount.Progress.LarvasMet</c>).
+    ///     Storage 0 without an offset: the linker takes it from the run's <see cref="SavedLayout"/>. Null for any other
+    ///     variable.
+    /// </summary>
+    public string? Saved { get; set; }
 
     public int Length { get; set; } = 1;
     public int RowLength { get; set; }

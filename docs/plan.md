@@ -164,6 +164,17 @@ and moved here when work began.
   `TidusActions`, [research/handlers.md](research/handlers.md)). Only events whose caller in
   FFX.exe is read get a name; the others keep their numbers.
 
+2026-11-08, on saved data for mods ([research/mod-saves.md](research/mod-saves.md), its open questions):
+
+- **Save files stay vanilla.** The loader zeroes the save's tail (file bytes `0x64f8`..`0x6900`) in the
+  buffer the game writes; the mods' values live only in the loader's Fahrenheit local state.
+- **A state file that does not match the loaded save is ignored**, with a warning; the fields start from
+  their initial values.
+- **No separate save set**: `yuta.atel` does not set `SEPARATE_SAVES`.
+- **A mod may read another mod's saved fields.** How it names one is ours to design (done the same day: a
+  `[Saved(Mod = …, Key = …)]` declaration and the other mod in `mod.toml`'s `requires`, checked by the
+  linker; below, "Phase 9: mods").
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
@@ -1324,8 +1335,8 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   engine reads and writes it with no hook. The loader keeps the values by
   key (`<mod id>/<type>.<field>`) in `yuta.atel`'s local state, rebuilds the
   tail from names on load (initial values for keys a save lacks), and zeroes
-  the tail in the written file. Not implemented yet; open questions and the
-  in-game checks are on that page.
+  the tail in the written file. Implemented 2026-11-08 as recommended (see
+  "Phase 9: mods"); the in-game checks are on that page.
 - File sizes (answered 2026-11-02, `docs/research/loader.md`): on PC the
   PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
   Fahrenheit hooks so that it reads the replacement's real size from disk.
@@ -1526,7 +1537,10 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   bytes are a conflict (the later wins), different fields combine. ATL4001 marks a static constructor
   that does anything else. Corpus: 1,614 scripts take edits of their shared, other and event data (all
   361 monsters also of HP and gil), and exactly those bytes change. Example: `examples/ToughLarva`.
-  Not checked in game yet.
+  Checked in game (2026-11-08, on main `d68c6e0`): built with `atel compile-mod` against a vanilla `m209` decompile
+  and loaded through `yuta.atel` together with `yuta.larvainject`, both linked with no conflict. In a Larva battle on
+  the Thunder Plains Sensor/Scan showed 4,321 HP, the Larva's physical hits were harder, and the victory paid 999 gil
+  per Larva.
 - **`[Inject]`** (2026-11-08; [language.md](language.md#injecting-code),
   [formats/mod-package.md](formats/mod-package.md#linking)). Anchor model: a statement of the
   decompiled source named by a call it holds, `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand),
@@ -1542,12 +1556,31 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   67,851 methods of 1,598 scripts link, lay out again byte for byte and keep everything else; each patched
   method is its vanilla code with the injects at their points. Limit: a copy needs a label number per label
   of the method, so blitzball's 1.6 MB method of worker 36 (53,203 labels) cannot take one. Example:
-  `examples/LarvaInject`. Not checked in game yet.
+  `examples/LarvaInject`. Checked in game (2026-11-08, on main `d68c6e0`, linked together with `yuta.toughlarva`):
+  after the Larva's first Thundara its HP was 1.
 - **Private data for new workers** (2026-11-08). A mod's new worker takes `[Worker(PrivateLength = …)]`
   and `[PrivateData]`, and its static constructor sets initial values in it (the mod's own
   `[Var(Storage.Private, …)]` variables and vanilla private ones; events only, as above). The package's
   new worker carries `privateLength` and `private`; the linker gives it a block of its own after the
   block's end (grown further when it runs hidden locals). Unit tests only; no corpus run.
+- **Saved fields** (2026-11-08; [language.md](language.md#saved-fields),
+  [formats/mod-package.md](formats/mod-package.md#saved-fields), [research/mod-saves.md](research/mod-saves.md)).
+  `[Saved] public static ushort LarvasMet;` in a mod's plain static class (any namespace) or its part of a script
+  class is a storage 0 variable in the save's mod area (`Save.ModArea`, `0x62cc`, 1,032 bytes). `atel compile-mod`
+  reads the saved fields of all the mod's files, writes the mod's own to `atel/saved.json` (key, type, length,
+  initial value) and lists each one a script uses in its package as a variable with `saved` and no offset (format
+  4); code names it as C# does (`LarvaCount.Progress.LarvasMet`, `Progress.LarvasMet`). The loader builds one
+  table for the load order before linking any file (`SavedLayout`): offsets in load order, aligned to the element
+  size; a mod that does not fit after the earlier ones is left out with an error, and so is every mod that reads
+  its fields. At run time (`SaveHooks`, `SavedState`) values are kept by key, `<mod id>/<key>`, in `yuta.atel`'s
+  local state with the save's fingerprint (CRC, play time): `MsSetSaveStartGame` writes the initial values,
+  `load_local_state` and `PostLoadGame` rebuild the area by key (initial values for keys without a value, a state
+  of another save ignored with a warning, values of mods not linked now kept), `save_local_state` writes the state,
+  and a hook before `SaveDataWriteCrc` zeroes the tail in the file buffer. Another mod's field is read through
+  `[Saved(Mod = "yuta.larvacount", Key = "LarvaCount.Progress.LarvasMet")]`, with that mod in `requires`; the
+  linker checks its type and length against the owner's `saved.json`, and the compiler (and ATL4004) refuses a
+  write. ATL4003 checks the fields. The decompiler writes a variable in the area as `Save.ModArea + 0x4`.
+  Examples: `examples/LarvaCount`, `examples/LarvaCountReader`. Unit tests only; not checked in game yet.
 - **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
   (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
   entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
@@ -1685,7 +1718,8 @@ count, names placed.
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
-   edits and `[Inject]` are done (2026-11-08, not yet checked in game).
+   edits and `[Inject]` are done and checked in game (2026-11-08); saved
+   fields for mods are done (2026-11-08, not yet checked in game).
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".

@@ -240,6 +240,7 @@ public static class ScriptDecompiler {
             string name = overlay.Variables.TryGetValue((v.Storage, v.Offset), out given) ? given
                 : v.Storage != 0 ? string.Create(CultureInfo.InvariantCulture, $"V{i}")
                 : GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? field
+                : InModArea(v.Offset) ? string.Create(CultureInfo.InvariantCulture, $"ModArea_{v.Offset - Ffx.Save.ModArea:x4}")
                 : string.Create(CultureInfo.InvariantCulture, $"Save_{v.Offset:x4}");
             string unique = name;
             for (int k = 2; !taken.Add(unique); k++) unique = string.Create(CultureInfo.InvariantCulture, $"{name}_{k}");
@@ -247,6 +248,9 @@ public static class ScriptDecompiler {
         }
         return names;
     }
+
+    /// <summary>Whether a storage 0 offset is in the mods' area (<see cref="Ffx.Save.ModArea"/>), where only linked mods' saved fields are.</summary>
+    private static bool InModArea(int offset) => offset >= Ffx.Save.ModArea && offset < Ffx.Save.ModArea + Ffx.Save.ModAreaLength;
 
     /// <summary><c>W00</c>, <c>W01</c>, …: as many digits as the highest number needs, at least two.</summary>
     public static string[] WorkerNames(int count) {
@@ -298,7 +302,10 @@ public static class ScriptDecompiler {
         };
         string storage = ((Storage)v.Storage).ToString();
         // A save field is placed by its constant: [Var(Storage.Save, Save.StoryProgress)].
-        string offset = v.Storage == 0 && GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? $"Save.{field}" : Hex((uint)v.Offset, 4);
+        // A mod's saved field (a linked script): an offset into the mods' area, [Var(Storage.Save, Save.ModArea + 0x4)].
+        string offset = v.Storage == 0 && GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? $"Save.{field}"
+            : v.Storage == 0 && InModArea(v.Offset) ? $"Save.{nameof(Ffx.Save.ModArea)} + {Hex((uint)(v.Offset - Ffx.Save.ModArea), 1)}"
+            : Hex((uint)v.Offset, 4);
         string head = $"[Var(Storage.{storage}, {offset})] public static";
         // Location bit 24 is a variable declared as an array, also of length 1; the row length
         // makes it 2-D (it divides the length in every shipped script).
