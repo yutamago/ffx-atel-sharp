@@ -69,6 +69,9 @@ public sealed record DecompileStats {
     /// <summary><c>goto</c> statements left (<c>goto lN;</c>, <c>if (…) goto lN;</c>).</summary>
     public int Gotos { get; init; }
 
+    /// <summary>Those gotos by shape (<see cref="Decompiler.GotoShapes"/>): <c>break-out-of-loop</c>, <c>back</c>, … and <c>shared-label</c>, <c>dead-after</c> across them.</summary>
+    public IReadOnlyDictionary<string, int> GotoShapes { get; init; } = new Dictionary<string, int>();
+
     /// <summary>Methods whose labels are pinned with <c>[Labels(…)]</c>.</summary>
     public int LabelPins { get; init; }
 
@@ -167,6 +170,7 @@ public static class ScriptDecompiler {
             CutSignatures = workers.SelectMany(w => w.Flow.CutSignatures).ToHashSet(StringComparer.Ordinal),
             HelperSignatures = workers.SelectMany(w => w.Flow.HelperSignatures).ToHashSet(StringComparer.Ordinal),
             Gotos = workers.Sum(w => w.Flow.Gotos),
+            GotoShapes = workers.SelectMany(w => w.Flow.GotoShapes).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
             LabelPins = workers.Sum(w => w.Flow.LabelPins),
             Fallbacks = workers.Sum(w => w.Flow.Fallbacks),
             MergedMethods = workers.Sum(w => w.Flow.MergedMethods),
@@ -467,6 +471,7 @@ public sealed class DecompileTotals {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _names = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _inline = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _cuts = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _gotoShapes = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _cutSignatures = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _helperSignatures = new(StringComparer.Ordinal);
 
@@ -491,6 +496,7 @@ public sealed class DecompileTotals {
         foreach ((string k, int n) in s.Names) _names.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Inline) _inline.AddOrUpdate(k, n, (_, v) => v + n);
         foreach ((string k, int n) in s.Cuts) _cuts.AddOrUpdate(k, n, (_, v) => v + n);
+        foreach ((string k, int n) in s.GotoShapes) _gotoShapes.AddOrUpdate(k, n, (_, v) => v + n);
         foreach (string sig in s.CutSignatures) _cutSignatures.TryAdd(sig, 0);
         foreach (string sig in s.HelperSignatures) _helperSignatures.TryAdd(sig, 0);
     }
@@ -511,6 +517,12 @@ public sealed class DecompileTotals {
     public string InlineSummary() => "inline: " + string.Join(", ", _inline.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")));
 
     public long Gotos => _gotos;
+
+    /// <summary>The gotos left over all scripts, by shape (<see cref="DecompileStats.GotoShapes"/>).</summary>
+    public IReadOnlyDictionary<string, long> GotoShapes => _gotoShapes;
+
+    /// <summary>The gotos by shape, most first.</summary>
+    public string GotoSummary() => "gotos: " + string.Join(", ", _gotoShapes.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} {kv.Value}")));
 
     /// <summary>Names placed over all scripts, by kind (<see cref="DecompileStats.Names"/>).</summary>
     public IReadOnlyDictionary<string, long> Names => _names;
