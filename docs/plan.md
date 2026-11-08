@@ -1285,10 +1285,22 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   automatically; replacements and same-field edits are reported conflicts.
   A hash mismatch (another game version, a mod built on edited vanilla) is
   reported too.
-- Open: saved data for mods. The save has no known free space; storage 3
-  can be redirected through the ctrl work's `+0x54` callback, which nothing
-  uses, so the loader might give each mod its own saved variables in a side
-  file. Needs research.
+- Saved data for mods (researched 2026-11-08, design only,
+  [research/mod-saves.md](research/mod-saves.md)). The save file is `0x6900`
+  bytes, but the CRC and every known field end at block `+0x64b8`. The game
+  copies the last `0x408` bytes (`g_SaveData + 0x64b8`, storage 0
+  `0x62cc`..`0x66d3`) in and out with the rest and never reads them. No
+  script declares them, and they are zero in every save checked. Storage 3
+  is not a good place: battle already uses `+0x54`, and private data is
+  per worker. Fahrenheit gives each module a side file per save slot
+  ("local state") and asks mods not to keep data in the save. Recommended:
+  `[Saved] public static ushort Wins;` compiles to a storage 0 variable in
+  that tail, at an offset the loader assigns per run across all mods. The
+  engine reads and writes it with no hook. The loader keeps the values by
+  key (`<mod id>/<type>.<field>`) in `yuta.atel`'s local state, rebuilds the
+  tail from names on load (initial values for keys a save lacks), and zeroes
+  the tail in the written file. Not implemented yet; open questions and the
+  in-game checks are on that page.
 - File sizes (answered 2026-11-02, `docs/research/loader.md`): on PC the
   PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
   Fahrenheit hooks so that it reads the replacement's real size from disk.
