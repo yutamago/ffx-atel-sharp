@@ -1054,3 +1054,92 @@ partial class Ai
 - **Limit**: the linker copies the vanilla method to weave the code in, and a worker has 65,536 label numbers;
   a method with more labels than its worker has left cannot take an inject (in the shipped scripts only the
   1.6 MB method of blitzball's worker 36, 53,203 labels); the link reports it as an error.
+
+### Saved fields
+
+**Available.** A `[Saved]` field keeps its value with the save game. Code reads and writes it as any other
+variable:
+
+```csharp
+// Mod-wide: a plain static class (not partial), in any namespace; every script of the mod can use it.
+namespace LarvaCount;
+
+public static class Progress
+{
+    [Saved] public static ushort LarvasMet;                 // 0 on a new game
+    [Saved] public static byte Tier = 1;                    // the initializer is the value on a new game
+    [Saved] public static byte[] Flags = new byte[8];
+    [Saved(Key = "LarvaCount.Progress.Met")] public static ushort Seen;   // renamed: keeps its old key
+}
+
+// In a script (examples/LarvaCount): by the name C# gives it.
+namespace Monsters.M209;
+
+partial class Ai
+{
+    [Postfix(nameof(Init))]
+    void CountLarva()
+    {
+        LarvaCount.Progress.LarvasMet += 1;
+        if (LarvaCount.Progress.LarvasMet >= 10) LarvaCount.Progress.Flags[0] |= 1;
+    }
+}
+```
+
+A mod's part of a script class may hold saved fields too (`partial class M209 { [Saved] public static short
+Wins; }`), for state only that script uses.
+
+- **What it is.** A storage 0 variable in the save's mod area (`Save.ModArea`, the last 1,032 bytes of the save
+  block, which the game saves and loads but never uses; [research/mod-saves.md](research/mod-saves.md)). The
+  engine reads and writes it with no hook, so it costs what any save variable costs.
+- **Where.** The loader gives every enabled mod's saved fields their offsets when the game starts, in load order,
+  from one table: the same field has the same offset in every script of a run, and another run (another set of
+  mods, another order) may move it. All mods share the 1,032 bytes; a mod whose fields do not fit after the
+  earlier mods' is left out, all of it, with an error in the log.
+- **Kept by key.** The loader keeps the values in its own Fahrenheit file per save (`yuta.atel`'s local state)
+  by key, `<mod id>/<namespace>.<class>.<field>` (`yuta.larvacount/LarvaCount.Progress.LarvasMet`), never by
+  offset. On a load it rebuilds the area from the keys; on a save it writes them again; in the save file the game
+  writes, the area is zeros, so save files stay vanilla. A field the save has no value for takes its initial value:
+  a new game, a vanilla save, a save made before the mod was installed. A value of a mod that is disabled now is
+  kept in the loader's file and comes back when the mod is enabled again. A field whose type changed in an update
+  starts again from its initial value (with a warning); an array that grew keeps its first elements.
+- **Types.** `byte`, `sbyte`, `ushort`, `short`, `uint`, `int`, `float`, and 1-D or 2-D arrays of one, with their
+  size. Static, neither `const` nor `readonly`, without `[Var]` or `[Register]`; not in a worker class. A class of
+  saved fields holds saved fields only.
+- **The key** is the declaring type and the field, or `Key`. Renaming the field or its class changes it, and the
+  old value is then not found; give a renamed field its old key with `Key`.
+- Without the loader no Atel mod is linked, so nothing reads the area. A whole script compiled with `atel
+  compile` can still pin a variable there (`[Var(Storage.Save, Save.ModArea + 4)]`), and the plain game saves it
+  in the file; with the loader running, it zeroes the area in the file, so such a script and the loader do not
+  mix.
+
+**Another mod's field.** A mod may read another mod's saved field. It declares it with that mod's id and the
+field's key, in a static class of its own, and requires that mod in its `mod.toml`
+(`examples/LarvaCountReader`):
+
+```csharp
+namespace LarvaCountReader;
+
+public static class Tally
+{
+    [Saved(Mod = "yuta.larvacount", Key = "LarvaCount.Progress.LarvasMet")] public static ushort LarvasMet;
+}
+```
+
+```toml
+requires = ["yuta.larvacount"]
+```
+
+- The field has the other mod's type and size and no initializer (an array keeps only its size, `= new
+  byte[8]`). The loader checks both against the other mod's `saved.json` and leaves the reading mod out (with an
+  error) when they differ, when the other mod is not linked (not enabled, or itself left out), or when it has no
+  field with that key.
+- Code only reads it: an assignment is a build error ([ATL4004](analyzers.md#atl4004)). The field is the other
+  mod's to write, so its value is what that mod made of it, at the same offset.
+- `atel compile-mod` fails when `mod.toml` does not require the mod. With the SDK, add the mod to
+  `AtelModDependencies` too (`yuta.atel;yuta.larvacount`), so Fahrenheit needs it.
+- The key is the other mod's contract: it stays as long as that mod keeps the field's name or `Key`.
+
+[ATL4003](analyzers.md#atl4003) reports a field that cannot be saved in the IDE, and the compiler the same when
+it builds the mod. A runtime injection package (docs/formats/debug.md) uses saved fields by their full key, as
+another mod's (`[Saved(Mod = …)]`), and declares none of its own.

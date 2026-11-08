@@ -15,6 +15,7 @@ mods/<id>/
                             depends on yuta.atel
   mod.toml                  source_language, after, requires, incompatible
   atel/<archive path>.json  one package per script the mod touches
+  atel/saved.json           the mod's [Saved] fields, when it has any ("Saved fields")
 ```
 
 `atel/ffx_ps2/ffx/master/jppc/battle/mon/_m209/m209.bin.json` is the
@@ -150,8 +151,8 @@ changed one is linked again and served for the script's next load
 
 **Format.** A package says the lowest format that holds what it has: 1, 2
 with `cuts`, 3 with `data`, an `inject` patch or a new variable's
-`initial` value. A linker refuses a newer format than its own instead of
-dropping what it does not know.
+`initial` value, 4 with a `saved` variable. A linker refuses a newer format
+than its own instead of dropping what it does not know.
 
 ## Linking
 
@@ -313,6 +314,71 @@ Corpus for data edits (`CorpusTests.EveryScriptTakesDataEdits`): edits of the sh
 other and event data and, on all 361 monsters, of the HP and gil link onto
 1,614 of the 1,621 scripts (the other 7 have none of those areas), and
 the linked file is the vanilla file with exactly those bytes changed.
+
+## Saved fields
+
+A mod's `[Saved]` fields ([language.md](../language.md#saved-fields),
+[research/mod-saves.md](../research/mod-saves.md)) are storage 0 variables
+in the save's mod area, storage 0 `0x62cc`..`0x66d3` (`g_SaveData +
+0x64b8`..`+0x68c0`, 1,032 bytes). The mod declares them once, in
+`atel/saved.json` (`SavedFile`, format 1); each package that uses one lists
+it as a variable with `saved` and no `offset`:
+
+```json
+{
+  "format": 1,
+  "fields": [
+    { "key": "LarvaCount.Progress.LarvasMet", "type": 2, "length": 1, "rowLength": 0, "array": false },
+    { "key": "LarvaCount.Progress.Tier", "type": 0, "length": 1, "rowLength": 0, "array": false, "initial": "AQ==" }
+  ]
+}
+```
+
+```json
+"variables": [ { "name": "LarvaCount.Progress.LarvasMet", "type": 2, "storage": 0, "length": 1, "rowLength": 0, "array": false,
+                 "saved": "LarvaCount.Progress.LarvasMet" } ]
+```
+
+- **Keys.** A field's key is its declaring type and name, or its `Key`. The
+  full key, the one the loader saves under, is `<mod id>/<key>`, the mod id
+  being its Fahrenheit folder's name. A package's `saved` without a `/` is
+  the mod's own field; with one, another mod's (`yuta.larvacount/LarvaCount.Progress.LarvasMet`),
+  which the mod reads and must `require` in `mod.toml`.
+- **The table** (`SavedLayout.Build`, before any file is linked): every
+  linked mod's fields, in load order, each mod's in its `saved.json` order,
+  from `0x62cc`, each aligned to its element size. Then, in a loop: a mod
+  whose package uses a key that does not resolve (its own not in its
+  `saved.json`, another mod's not declared by a linked mod, of another type
+  or length, or not required) is left out; then the first mod whose fields
+  do not fit after the earlier ones is left out, and the table is built
+  again, so the readers of a mod left out go too and their room goes to the
+  mods after them. Each is an `error` in the report. The mods left are the
+  ones linked.
+- **Linking.** The linker gives a `saved` variable the table's offset, as a
+  fixed-location storage 0 variable; a `saved` variable without a place is
+  an error and leaves the package out. Its `initial` value is the loader's
+  to write at run time, never the linker's.
+- **At run time** the loader keeps the values by full key in its
+  Fahrenheit local state, never the offsets
+  ([research/mod-saves.md](../research/mod-saves.md), "The loader at run
+  time"): on a new game and on a load it rebuilds the area from the keys
+  (initial values for keys without a value), on a save it writes them, and
+  it zeroes file bytes `0x64f8`..`0x6900` in the buffer the game writes.
+  The state file:
+
+  ```json
+  {
+    "format": 1,
+    "save": { "crc": 25058, "playTime": 1234567 },
+    "vars": { "yuta.larvacount": { "LarvaCount.Progress.LarvasMet": { "type": 2, "length": 1, "bytes": "CgA=" } } }
+  }
+  ```
+
+  `save` is the save's fingerprint (the file's CRC at `+0x1a` and the play
+  time at block `+0xbc`); a state whose fingerprint is not the loaded
+  save's was left by a save made without the loader and is ignored, with a
+  warning. The values of mods not linked now are kept and written again.
+- `atel link` builds the same table over the folders it is given.
 
 ## The report
 
