@@ -194,7 +194,8 @@ internal sealed unsafe class FrameHooks {
     // handed the renderer corrected this update (to send the true ones again when the camera turns out to have cut).
     private IntIntFn? _nextCameraResetMove;
     private bool _cameraSnapped;
-    private readonly List<(nint List, Matrix4x4 Truth, int Model)> _worldCalls = [];
+    private readonly WorldMatrixLog _worldCalls = new();
+    private readonly List<WorldMatrixLog.Entry> _worldReplay = [];
 
     private FloatFn? _nextFrameSync;
     private MainLoopFn? _nextMainLoop;
@@ -459,7 +460,7 @@ internal sealed unsafe class FrameHooks {
         if (_frame.Kind == FrameKind.Repeat) {
             Stats.Add(Counter.RepeatFrames);
             try {
-                if (s.Interpolate && s.InterpolateRepeats && !_game.MovieOn && !_game.WaitFramesByTime) MoveCameraWithoutUpdate(_frame.Alpha);
+                if (s.Interpolate && s.InterpolateRepeats && _frame.Alpha < 1 && !_game.MovieOn && !_game.WaitFramesByTime) MoveCameraWithoutUpdate(_frame.Alpha);
             }
             catch (Exception ex) {
                 Fail("the camera on a repeated frame", ex);
@@ -574,6 +575,7 @@ internal sealed unsafe class FrameHooks {
             _clothRecord = false;
             _cameraSnapped = false;
             _updateSerial++;
+            _worldCalls.BeginUpdate(_updateSerial);
             if (redraw) calm = _game.CalmFrames;
             // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
             else if (_inFrame && _frame.Kind == FrameKind.Tick) _effects.Clear();
@@ -1020,11 +1022,11 @@ internal sealed unsafe class FrameHooks {
         if (next is null) return 0;
         if (Failed) return next();
         FrameSettings s = _settings();
-        bool on = _inFrame && _frame.Kind is FrameKind.Tick or FrameKind.Redraw && s.InterpolateCharacters;
+        // Between ticks only: a frame drawn at the tick itself (alpha 1, the game's own 30 fps) passes through.
+        bool on = _inFrame && _frame.Kind is FrameKind.Tick or FrameKind.Redraw && _frame.Alpha < 1 && s.InterpolateCharacters;
         try {
             _rootDelta.Clear();
             _drawnRoot.Clear();
-            _worldCalls.Clear();
             if (on) Corrections(s, _frame.Alpha);
             WriteBones(s, _frame.Alpha, interpolate: on && s.InterpolateBones);
             // The cloth is drawn from FFXApplication_render's upload, after this update (h_cloth_upload).
@@ -1124,7 +1126,7 @@ internal sealed unsafe class FrameHooks {
         PtrPtrFn? next = _nextChrSetWorld ??= Chain(ChrSetWorld, h_chr_set_world, 0x0063c3e0);
         if (next is null) return 0;
         nint m = Corrected(list, matrix);
-        if (m != matrix) _worldCalls.Add((list, *(Matrix4x4*)matrix, -1));
+        if (m != matrix) LogWorld(list, matrix, -1);
         return next(list, m);
     }
 
@@ -1134,7 +1136,7 @@ internal sealed unsafe class FrameHooks {
         PtrPtrIntFn? next = _nextChrSetWorldByModel ??= Chain(ChrSetWorldByModel, h_chr_set_world_by_model, 0x0063c430);
         if (next is null) return 0;
         nint m = Corrected(list, matrix);
-        if (m != matrix) _worldCalls.Add((list, *(Matrix4x4*)matrix, model));
+        if (m != matrix) LogWorld(list, matrix, model);
         return next(list, m, model);
     }
 
@@ -1196,17 +1198,47 @@ internal sealed unsafe class FrameHooks {
         _cloth.CutAll(_chars.Serial);
         _rootDelta.Clear();
         _drawnRoot.Clear();
-        if (_worldCalls.Count > 0) {
+        if (_worldCalls.Count > 0 && Environment.CurrentManagedThreadId == _gameThread
+            && _worldCalls.Take(_updateSerial, ListIntact, _worldReplay) > 0) {
             PtrPtrFn? set = _nextChrSetWorld;
             PtrPtrIntFn? byModel = _nextChrSetWorldByModel;
-            foreach ((nint list, Matrix4x4 truth, int model) in _worldCalls) {
-                *_world = truth;
-                if (model < 0) set?.Invoke(list, (nint)_world);
-                else byModel?.Invoke(list, (nint)_world, model);
+            foreach (WorldMatrixLog.Entry e in _worldReplay) {
+                *_world = e.Truth;
+                if (e.Model < 0) set?.Invoke(e.List, (nint)_world);
+                else byModel?.Invoke(e.List, (nint)_world, e.Model);
             }
-            _worldCalls.Clear();
+            _worldReplay.Clear();
         }
         WriteBones(s, _frame.Alpha, interpolate: false);
+    }
+
+    /// <summary>Logs a world matrix the mod corrected in <c>Ch_DrawMain</c>, with the list as it is now.</summary>
+    private void LogWorld(nint list, nint matrix, int model) {
+        if (list == 0 || matrix == 0) return;
+        _worldCalls.Add(_updateSerial, new WorldMatrixLog.Entry(list, *(Matrix4x4*)matrix, model, *(uint*)list & 0x7fffffff, *(nint*)(list + 4)));
+    }
+
+    /// <summary>
+    ///     Whether a logged list may be written again: still the instance list (<c>+0x830</c> or <c>+0x838</c>) of an active
+    ///     character, with the count and instance array it was logged with and no null instance. Anything else is left as
+    ///     the game has it.
+    /// </summary>
+    private bool ListIntact(WorldMatrixLog.Entry e) {
+        if (!IsCharacterList(e.List)) return false;
+        nint arr = *(nint*)(e.List + 4);
+        return WorldMatrixLog.Intact(e, *(uint*)e.List, arr, i => *(nint*)(arr + 4 * i));
+    }
+
+    private bool IsCharacterList(nint list) {
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        if (list == 0 || chars == 0 || n is <= 0 or > 4096) return false;
+        for (int i = 0; i < n; i++) {
+            nint c = chars + i * Game.ChrSize;
+            if (*(byte*)(c + Game.ChrActive) == 0) continue;
+            if (*(nint*)(c + Game.ChrInstances) == list || *(nint*)(c + Game.ChrShadowInstances) == list) return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ the cloth (between ticks)
@@ -1217,18 +1249,22 @@ internal sealed unsafe class FrameHooks {
     ///     pointers.
     /// </summary>
     private static int ClothMeshes(nint chr, Span<nint> into) {
+        // As Ch_UpdateClothMatrix and Sg_ClothPlaceAnchors: a render cloth and the cloth set up (flags bit 21).
+        if ((*(uint*)(chr + Game.ChrFlags) & Game.ChrClothReady) == 0) return 0;
         nint rc = *(nint*)(chr + Game.ChrCloth);
-        if (rc == 0 || *(int*)(rc + 0xc) != 2) return 0;
+        if (rc == 0 || (rc & 3) != 0 || *(int*)(rc + 0xc) != 2) return 0;
         uint lists = *(uint*)(rc + 0x14);
         if (lists > 128) return 0;
         int n = 0;
         for (int i = 0; i < lists; i++) {
             nint list = *(nint*)(rc + 0x30 + 4 * i);
             if (list == 0) continue;
+            if ((list & 3) != 0) return 0;
             uint count = *(uint*)list;
             if (count > 256) return 0;
             for (int k = 0; k < count && n < into.Length; k++) {
                 nint mesh = *(nint*)(list + 4 + 4 * k);
+                if ((mesh & 3) != 0) return 0;
                 if (mesh != 0) into[n++] = mesh;
             }
         }
@@ -1239,7 +1275,8 @@ internal sealed unsafe class FrameHooks {
     private static bool ClothVertices(nint mesh, out Vector4* vertices, out int count) {
         count = *(int*)(mesh + 0x44);
         vertices = *(Vector4**)(mesh + 0x4c);
-        return vertices != null && count is > 0 and <= 65536;
+        // The vertex buffers come from the cloth heap, 16-aligned (graphicCharacterInstanceGetClothVertexBuffers).
+        return vertices != null && ((nint)vertices & 0xf) == 0 && count is > 0 and <= 65536;
     }
 
     private Span<Vector4> ClothScratch(int count) {
@@ -1438,7 +1475,7 @@ internal sealed unsafe class FrameHooks {
                 _pushedThisLoop = true;
                 if (_camera.Cut) CutCharacters(s);
             }
-            if (s.Interpolate && !_game.MovieOn && !_game.WaitFramesByTime && !_game.PartMatrix
+            if (s.Interpolate && _frame.Alpha < 1 && !_game.MovieOn && !_game.WaitFramesByTime && !_game.PartMatrix
                 && _camera.TryAt(_frame.Alpha, out Matrix4x4 cam, out Matrix4x4 scr)
                 && Same(_camera, _game.CameraMatrix)) {
                 if (!_applied) {

@@ -442,6 +442,27 @@ matrices it corrected are sent again as the game made them (`graphicCharacterIns
 / `…ByMdlID`), and the tick's bones are written back. The cloth's upload comes after the update and
 finds nothing to blend.
 
+**The crash this put back first (2026-11-08).** A build of PR #66 crashed in the opening, right
+after Tidus gets up at the campfire (the flashback starts), at target Game. It faulted reading
+`[0 + 4]` in `PhyreScene_setMeshInstanceWorldMatrix` (`0x0066d810`, `mov ecx, [esi+4]` at
+`0x0066d824`), called from `graphicCharacterInstanceSetWorldMatrix` (`0x0063c3e0`, which passes each
+`[list + 4][i]`); the null instance was slot 0 of the list. The minidump's stack: `Sg_MainLoop` →
+`MsScreenProcess` → `Cam_Apply` → the mod's camera hook → this "put back" replay, on a list
+`Ch_DrawMain` had logged in an earlier update. Two faults:
+
+- At target Game a tick frame's alpha was the accumulator's left-over (the limiter's jitter), so
+  the mod drew the characters a fraction behind and logged corrected world matrices, at 30 fps
+  where there is nothing between ticks. Now at target Game and ×1 or faster every frame's alpha
+  is 1, and the camera, the characters and the cloth all pass through (`FrameDirector.DrawsBetweenTicks`).
+- The log was emptied only when `Ch_DrawMain` ran. An update without it (the scene change) kept
+  the last one's lists, freed since. Now the log belongs to one update (`WorldMatrixLog`), and
+  each list is checked before the write: still an active character's `+0x830`/`+0x838`, the same
+  count and instance array as logged, no null instance. A list that fails is left as the game has it.
+
+The cloth upload also checks what it walks: the character's flags bit 21 (cloth set up, as
+`Ch_UpdateClothMatrix` and `Sg_ClothPlaceAnchors` need), aligned record, list and mesh pointers,
+and 16-aligned vertex buffers.
+
 ### Effects between ticks
 
 **Why they ran fast.** The draw's effect loop (`Sg_MainLoop`, `0x0082141d`..`0x008214ca`; port
