@@ -1501,7 +1501,10 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   bytes are a conflict (the later wins), different fields combine. ATL4001 marks a static constructor
   that does anything else. Corpus: 1,614 scripts take edits of their shared, other and event data (all
   361 monsters also of HP and gil), and exactly those bytes change. Example: `examples/ToughLarva`.
-  Not checked in game yet.
+  Checked in game (2026-11-08, on main `d68c6e0`): built with `atel compile-mod` against a vanilla `m209` decompile
+  and loaded through `yuta.atel` together with `yuta.larvainject`, both linked with no conflict. In a Larva battle on
+  the Thunder Plains Sensor/Scan showed 4,321 HP, the Larva's physical hits were harder, and the victory paid 999 gil
+  per Larva.
 - **`[Inject]`** (2026-11-08; [language.md](language.md#injecting-code),
   [formats/mod-package.md](formats/mod-package.md#linking)). Anchor model: a statement of the
   decompiled source named by a call it holds, `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand),
@@ -1517,7 +1520,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   67,851 methods of 1,598 scripts link, lay out again byte for byte and keep everything else; each patched
   method is its vanilla code with the injects at their points. Limit: a copy needs a label number per label
   of the method, so blitzball's 1.6 MB method of worker 36 (53,203 labels) cannot take one. Example:
-  `examples/LarvaInject`. Not checked in game yet.
+  `examples/LarvaInject`. Checked in game (2026-11-08, on main `d68c6e0`, linked together with `yuta.toughlarva`):
+  after the Larva's first Thundara its HP was 1.
 - **Private data for new workers** (2026-11-08). A mod's new worker takes `[Worker(PrivateLength = …)]`
   and `[PrivateData]`, and its static constructor sets initial values in it (the mod's own
   `[Var(Storage.Private, …)]` variables and vanilla private ones; events only, as above). The package's
@@ -1660,7 +1664,7 @@ count, names placed.
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
-   edits and `[Inject]` are done (2026-11-08, not yet checked in game).
+   edits and `[Inject]` are done and checked in game (2026-11-08).
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".
