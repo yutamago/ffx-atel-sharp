@@ -26,7 +26,8 @@ public enum MemberReceiver {
 /// </summary>
 /// <param name="Path">
 ///     The member as written without a receiver: <c>Pos</c>, <c>Turn.Start</c>, <c>Pos.X</c> (a component of a
-///     <c>Vector3</c>), <c>Sprites.Show</c> (an indexed group's item), <c>Wait.Frames</c> (a static group).
+///     <c>Vector3</c>), <c>Sprites.Show</c> (an indexed group's item), <c>Wait.Frames</c> (a static group),
+///     <c>Camera.Eye.AimAt</c> (a nested static group).
 /// </param>
 /// <param name="Vector">A setter whose value is a <c>Vector3</c>: three arguments.</param>
 /// <param name="Bool">A setter whose value is a <c>bool</c>.</param>
@@ -63,6 +64,12 @@ public sealed class NativeMembers {
 
     /// <summary>Roots that are static classes (<c>Wait</c>, <c>Camera</c>).</summary>
     public HashSet<string> StaticRoots { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The static groups nested in a static group, by path (<c>Camera.Eye</c>, <c>Camera.Focus</c>): a static class
+    ///     inside its parent's, whose members are written <c>Camera.Eye.AimAt(…)</c>.
+    /// </summary>
+    public HashSet<string> NestedGroups { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Roots indexed by the native's first argument (<c>Sprites</c>).</summary>
     public HashSet<string> IndexedRoots { get; } = new(StringComparer.Ordinal);
@@ -108,9 +115,9 @@ public sealed class NativeMembers {
             if (!method.IsSpecialName && m.AddMethod(method, method.Name, MemberReceiver.None, isStatic: false)) m.WorkerRoots.Add(method.Name);
         }
         foreach (Type t in assembly.GetExportedTypes()) {
-            if (!(t.IsAbstract && t.IsSealed) || t.Namespace != "Ffx" || !HasMembers(t, Static)) continue;
+            if (t.IsNested || !IsStaticClass(t) || t.Namespace != "Ffx" || !HasStaticMembers(t)) continue;
             m.StaticRoots.Add(t.Name);
-            m.AddType(t, Static, t.Name, MemberReceiver.None, isStatic: true);
+            m.AddStatic(t, t.Name);
         }
         // A worker native with a native of its own for this worker under the same member and use.
         foreach (List<MemberNative> list in m._byPath.Values) {
@@ -129,6 +136,24 @@ public sealed class NativeMembers {
 
     private static bool HasMembers(Type t, BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly) =>
         t.GetMethods(flags).Any(x => Natives(x).Any());
+
+    private const BindingFlags StaticMembers = BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+    private static bool IsStaticClass(Type t) => t.IsAbstract && t.IsSealed;
+
+    /// <summary>Whether a static class, or a static class nested in it, has a member.</summary>
+    private static bool HasStaticMembers(Type t) =>
+        HasMembers(t, StaticMembers) || t.GetNestedTypes(BindingFlags.Public).Any(n => IsStaticClass(n) && HasStaticMembers(n));
+
+    /// <summary>A static group's members, at <paramref name="path"/>, and its nested groups' (<c>Camera.Eye</c>).</summary>
+    private void AddStatic(Type t, string path) {
+        AddType(t, StaticMembers, path, MemberReceiver.None, isStatic: true);
+        foreach (Type nested in t.GetNestedTypes(BindingFlags.Public)) {
+            if (!IsStaticClass(nested) || !HasStaticMembers(nested)) continue;
+            NestedGroups.Add($"{path}.{nested.Name}");
+            AddStatic(nested, $"{path}.{nested.Name}");
+        }
+    }
 
     private void AddType(Type t, BindingFlags flags, string root, MemberReceiver receiver, bool isStatic) {
         foreach (PropertyInfo p in t.GetProperties(flags)) {

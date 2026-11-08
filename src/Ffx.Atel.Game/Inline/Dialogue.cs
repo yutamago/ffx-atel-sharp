@@ -18,7 +18,7 @@ namespace Ffx;
 ///     <para>
 ///         The defaults are the values most of the game's lines use: the box centred at the bottom of the
 ///         screen (x 256, y 448, anchor 4), style 1, mode 0, and the flags of an unvoiced line (12290) or
-///         a voiced one (8194). For a voiced line, prepare the voice first (<c>Common.VoiceStandbyEnd(id)</c>,
+///         a voiced one (8194). For a voiced line, prepare the voice first (<c>Voice.Prepare(id)</c>,
 ///         as the game does), then call <see cref="SayVoiced"/>.
 ///     </para>
 ///     <para>
@@ -99,8 +99,8 @@ public static class Dialogue {
     /// <summary>
     ///     A voiced line the player can cut short: opens the window with <paramref name="text"/>
     ///     (<see cref="Open"/>), waits until it is open (<see cref="WaitUntilOpen"/>), plays the voice prepared
-    ///     with <c>Common.VoiceStandbyEnd</c> (<c>VoiceStartEnd</c>) and waits while it plays; once the window is
-    ///     ready, a press of button bit 32 (<c>PadPressed() &amp; 32</c>) stops the voice (<c>VoiceStop</c>).
+    ///     with <c>Voice.Prepare</c> (<c>Voice.Play</c>) and waits while it plays; once the window is
+    ///     ready, a press of button bit 32 (<c>PadPressed() &amp; 32</c>) stops the voice (<c>Voice.Stop</c>).
     ///     Then waits for the sound (<c>SoundWaitPoll</c>), closes the window and waits until it is closed.
     /// </summary>
     /// <param name="text">The message to show.</param>
@@ -111,17 +111,17 @@ public static class Dialogue {
     /// <param name="style">The window's style.</param>
     /// <param name="flags">The window's flags.</param>
     /// <param name="mode">How the window opens.</param>
-    /// <example><code>Common.VoiceStandbyEnd(0x85355cb);
+    /// <example><code>Voice.Prepare(0x85355cb);
     /// Common.WaitFramesUnlessHddMode(5);
     /// Dialogue.SayVoiced(Text[0]);</code></example>
     [Inline(Waits = true)]
     public static void SayVoiced(TextId text, int window = 0, int x = 256, int y = 448, int anchor = 4, int style = 1, int flags = 8194, int mode = 0) {
         Open(text, window, x, y, anchor, style, flags, mode);
         WaitUntilOpen(window);
-        Common.VoiceStartEnd();
-        while (Common.VoiceIsPlaying()) {
+        Voice.Play();
+        while (Voice.IsPlaying) {
             if (Common.MsgIsReady(window) == 1 & AsBool(Common.PadPressed() & 32) & Common.AlwaysTrue019c()) {
-                Common.VoiceStop();
+                Voice.Stop();
                 break;
             }
             Common.WaitFrames(1);
@@ -147,7 +147,7 @@ public static class Dialogue {
     public static void SayVoicedToEnd(TextId text, int window = 0, int x = 256, int y = 448, int anchor = 4, int style = 1, int flags = 8194, int mode = 0) {
         Open(text, window, x, y, anchor, style, flags, mode);
         WaitUntilOpen(window);
-        Common.VoiceStartEnd();
+        Voice.Play();
         Common.SoundWaitPoll();
         Common.MsgClose(window);
         Common.MsgWaitExEnd(window, 1);
@@ -157,10 +157,10 @@ public static class Dialogue {
     private static bool AsBool(int value) => throw Runtime.NotRunnable();
 
     /// <summary>
-    ///     A voiced line, its voice prepared first, as the game does: <c>VoiceStandbyEnd(voice)</c>,
+    ///     A voiced line, its voice prepared first, as the game does: <c>Voice.Prepare(voice)</c>,
     ///     <c>WaitFramesUnlessHddMode(5)</c>, then <see cref="SayVoiced"/>.
     /// </summary>
-    /// <param name="voice">The voice to prepare and play (<c>VoiceStandbyEnd</c>'s value).</param>
+    /// <param name="voice">The voice to prepare and play (<c>Voice.Prepare</c>'s value).</param>
     /// <param name="text">The message to show.</param>
     /// <param name="window">The message window, 0 for the usual one.</param>
     /// <param name="x">Where the window goes on the screen, horizontally.</param>
@@ -171,7 +171,7 @@ public static class Dialogue {
     /// <param name="mode">How the window opens.</param>
     [Inline(Waits = true)]
     public static void SayWithVoice(int voice, TextId text, int window = 0, int x = 256, int y = 448, int anchor = 4, int style = 1, int flags = 8194, int mode = 0) {
-        Common.VoiceStandbyEnd(voice);
+        Voice.Prepare(voice);
         Common.WaitFramesUnlessHddMode(5);
         SayVoiced(text, window, x, y, anchor, style, flags, mode);
     }

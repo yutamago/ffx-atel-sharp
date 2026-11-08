@@ -429,71 +429,656 @@ namespace Ffx
         public static void Forever() => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The event camera: its eye, the point it looks at, roll and screen depth, and its moves.</summary>
+    /// <summary>The camera: its eye (<see cref="Camera.Eye"/>), the point it looks at (<see cref="Camera.Focus"/>), the screens it draws to (<see cref="Camera.Screen"/>), roll, screen depth and blur.</summary>
     public static partial class Camera
     {
-
-        /// <summary>Sets the camera's eye position.</summary>
-        /// <remarks>Setting it calls native <c>0x6002</c>, <c>Cam.SetPos</c> (13126 calls in the shipped scripts).</remarks>
-        public static Vector3 Pos { [Atel.NativeMember(0x6002)] set => throw Atel.Runtime.NotRunnable(); }
-
-        /// <summary>Sets the point the camera looks at.</summary>
-        /// <remarks>Setting it calls native <c>0x6020</c>, <c>Cam.RefSetPos</c> (19674 calls in the shipped scripts).</remarks>
-        public static Vector3 LookAt { [Atel.NativeMember(0x6020)] set => throw Atel.Runtime.NotRunnable(); }
 
         /// <summary>Sets the camera's roll, in degrees. Returns the camera.</summary>
         /// <remarks>Setting it calls native <c>0x603a</c>, <c>Cam.SetRoll</c> (135261 calls in the shipped scripts).</remarks>
         public static float Roll { [Atel.NativeMember(0x603a)] set => throw Atel.Runtime.NotRunnable(); }
 
         /// <summary>Sets the camera's screen depth (projection distance): larger is more zoomed in. Returns the camera.</summary>
-        /// <remarks>Setting it calls native <c>0x603b</c>, <c>Cam.SetScreenDepth</c> (136808 calls in the shipped scripts).</remarks>
-        public static float ScreenDepth { [Atel.NativeMember(0x603b)] set => throw Atel.Runtime.NotRunnable(); }
+        /// <remarks>Setting it calls native <c>0x603b</c>, <c>Cam.SetScreenDepth</c> (136808 calls in the shipped scripts). Reading it calls native <c>0x6078</c>, <c>Cam.GetScreenDepth</c> (13 calls in the shipped scripts).</remarks>
+        public static float ScreenDepth { [Atel.NativeMember(0x6078)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x603b)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>Places the camera's eye around the point it looks at: angles in degrees and a distance.</summary>
-        /// <param name="thetaDeg"></param>
-        /// <param name="phiDeg"></param>
-        /// <param name="len"></param>
-        /// <remarks>Calls native <c>0x6004</c>, <c>Cam.SetPolar</c> (18938 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6004)] 
-        public static int SetPolar(float thetaDeg, float phiDeg, float len) => throw Atel.Runtime.NotRunnable();
+        /// <summary>Sets the screen blur to <c>weight</c> while this camera is the one in use.</summary>
+        /// <remarks>Setting it calls native <c>0x607d</c>, <c>Cam.SetBlur</c> (125 calls in the shipped scripts).</remarks>
+        public static int Blur { [Atel.NativeMember(0x607d)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>Eases the camera's eye to its target over <paramref name="accelFrames"/> + <paramref name="holdFrames"/> + <paramref name="decelFrames"/> frames (speeding up, steady, slowing down).</summary>
-        /// <param name="accelFrames"></param>
-        /// <param name="holdFrames"></param>
-        /// <param name="decelFrames"></param>
-        /// <param name="curve"></param>
-        /// <remarks>Calls native <c>0x6014</c>, <c>Cam.MoveEased</c> (70375 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6014)] 
-        public static int MoveEased(int accelFrames, int holdFrames, int decelFrames, int curve) => throw Atel.Runtime.NotRunnable();
+        /// <summary>?0x607e: args (flags; &lt;0 keeps the old value | 2) -&gt; cam; camera +0xcac; Battle cam update passes it to 0x0082cb60 (full-screen Z mask enable)</summary>
+        /// <remarks>Setting it calls native <c>0x607e</c>, <c>Cam.SetDepthMaskMode</c> (608 calls in the shipped scripts).</remarks>
+        public static int DepthMaskMode { [Atel.NativeMember(0x607e)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>Eases the camera's focus point to its target over <paramref name="accel"/> + <paramref name="hold"/> + <paramref name="decelFrames"/> frames.</summary>
-        /// <param name="accel"></param>
-        /// <param name="hold"></param>
-        /// <param name="decelFrames"></param>
-        /// <param name="curve"></param>
-        /// <remarks>Calls native <c>0x6032</c>, <c>Cam.FocusTimeEase</c> (71471 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6032)] 
-        public static int FocusTimeEase(int accel, int hold, int decelFrames, int curve) => throw Atel.Runtime.NotRunnable();
+        /// <summary>?0x607f: args (plane 0/1, z) -&gt; cam; camera +0xcb0/+0xcb4 -&gt; 0x0082ce20 -&gt; full-screen Z rectangle (0x0082bb90, 0x006430f0 z/16.77M) that hides geometry beyond z</summary>
+        /// <param name="plane01"></param>
+        /// <param name="z"></param>
+        /// <remarks>Calls native <c>0x607f</c>, <c>Cam.SetDepthMask</c> (626 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x607f)] 
+        public static int SetDepthMask(int plane01, int z) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>Waits until the camera's eye has stopped moving.</summary>
-        /// <remarks>Calls native <c>0x601a</c>, <c>Cam.Wait</c> (41536 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x601a, Polls = true)] 
-        public static void Wait() => throw Atel.Runtime.NotRunnable();
+        /// <summary>0x6000: args (worker) -&gt; camera handle; marks that worker&apos;s camera channel suspended (Cam_SetChannelSuspended 0x007c0010, flag 1); worker via Script_GetWorker, handle at worker +0x3c (allocated on demand by Cam_GetHandle 0x007ba780)</summary>
+        /// <param name="worker"></param>
+        /// <remarks>Calls native <c>0x6000</c>, <c>Cam.Suspend</c> (863 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x6000)] 
+        public static int Suspend(int worker) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>Waits until the camera's focus point has stopped moving.</summary>
-        /// <remarks>Calls native <c>0x6038</c>, <c>Cam.FocusWait</c> (39331 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6038, Polls = true)] 
-        public static void FocusWait() => throw Atel.Runtime.NotRunnable();
+        /// <summary>0x6001: args (worker) -&gt; camera handle; same as 0x6000 with flag 0 (0x007c0010); scripts push a worker index (e.g. 2)</summary>
+        /// <param name="worker"></param>
+        /// <remarks>Calls native <c>0x6001</c>, <c>Cam.Resume</c> (986 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x6001)] 
+        public static int Resume(int worker) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>Ends the camera eye's move: it jumps to its target now.</summary>
-        /// <remarks>Calls native <c>0x6016</c>, <c>Cam.MoveFinish</c> (6829 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6016)] 
-        public static int MoveFinish() => throw Atel.Runtime.NotRunnable();
+        /// <summary>The camera's eye (side 1 of its channel, FFX.exe's <c>cam</c>): where it is, how it moves there, its limits, path and shakes.</summary>
+        public static partial class Eye
+        {
 
-        /// <summary>Ends the camera focus point's move: it jumps to its target now.</summary>
-        /// <remarks>Calls native <c>0x6034</c>, <c>Cam.FocusCut</c> (6566 calls in the shipped scripts).</remarks>
-        [Atel.NativeMember(0x6034)] 
-        public static int FocusCut() => throw Atel.Runtime.NotRunnable();
+            /// <summary>Sets the camera's eye position.</summary>
+            /// <remarks>Setting it calls native <c>0x6002</c>, <c>Cam.SetPos</c> (13126 calls in the shipped scripts).</remarks>
+            public static Vector3 Position { [Atel.NativeMember(0x6002)] set => throw Atel.Runtime.NotRunnable(); }
+
+            /// <summary>Sets the eye's move-stat byte (<c>MsCameraMoveStat</c>, the value inverted).</summary>
+            /// <remarks>Setting it calls native <c>0x6043</c>, <c>Cam.EyeMoveStat</c> (405 calls in the shipped scripts).</remarks>
+            public static int MoveStat { [Atel.NativeMember(0x6043)] set => throw Atel.Runtime.NotRunnable(); }
+
+            /// <summary>Places the camera's eye around the point it looks at: angles in degrees and a distance.</summary>
+            /// <param name="thetaDeg"></param>
+            /// <param name="phiDeg"></param>
+            /// <param name="len"></param>
+            /// <remarks>Calls native <c>0x6004</c>, <c>Cam.SetPolar</c> (18938 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6004)] 
+            public static int SetPolar(float thetaDeg, float phiDeg, float len) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Adds to the eye's polar placement around the point it looks at (<see cref="Cam.SetPolar"/>): angles in degrees and a distance.</summary>
+            /// <param name="thetaDeg"></param>
+            /// <param name="phiDeg"></param>
+            /// <param name="len"></param>
+            /// <remarks>Calls native <c>0x6005</c>, <c>Cam.AddPolar</c> (21 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6005)] 
+            public static int AddPolar(float thetaDeg, float phiDeg, float len) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Places the eye in polar form (request kind 10): yaw and pitch in degrees, and a length.</summary>
+            /// <param name="yawDeg"></param>
+            /// <param name="pitchDeg"></param>
+            /// <param name="length"></param>
+            /// <param name="unused"></param>
+            /// <remarks>Calls native <c>0x603c</c>, <c>Cam.SetYaw</c> (347 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x603c)] 
+            public static int SetYaw(float yawDeg, float pitchDeg, float length, float unused) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Aims the camera's eye in polar form at a point: yaw towards (x, z) from the side's base, pitch = pitch + distance / pitchDivisor, length = length + distance / lengthDivisor.</summary>
+            /// <param name="x"></param>
+            /// <param name="z"></param>
+            /// <param name="pitchDeg">The pitch, in degrees.</param>
+            /// <param name="pitchDivisor"></param>
+            /// <param name="length"></param>
+            /// <param name="lengthDivisor"></param>
+            /// <remarks>Calls native <c>0x6006</c>, <c>Cam.EyeAimAtXZ</c> (483 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6006)] 
+            public static int AimAtXZ(float x, float z, float pitchDeg, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Aims the camera's eye in polar form at a point: yaw towards (x, y, z), keeping the point's own pitch (plus distance / pitchDivisor), length = length + distance / lengthDivisor.</summary>
+            /// <param name="x"></param>
+            /// <param name="y"></param>
+            /// <param name="z"></param>
+            /// <param name="pitchDivisor"></param>
+            /// <param name="length"></param>
+            /// <param name="lengthDivisor"></param>
+            /// <remarks>Calls native <c>0x6007</c>, <c>Cam.EyeAimAt</c> (111 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6007)] 
+            public static int AimAt(float x, float y, float z, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Aims the camera's eye in polar form at a point: as kind 5, but the length is the distance less (length + distance / lengthDivisor): it stops short of the point.</summary>
+            /// <param name="x"></param>
+            /// <param name="y"></param>
+            /// <param name="z"></param>
+            /// <param name="pitchDivisor"></param>
+            /// <param name="length"></param>
+            /// <param name="lengthDivisor"></param>
+            /// <remarks>Calls native <c>0x6008</c>, <c>Cam.EyeAimShortOf</c> (320 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6008)] 
+            public static int AimShortOf(float x, float y, float z, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x601e: args (var, deg f) -&gt; 0x007bf520(cam, 1, 0, &amp;var, deg * pi / 180); the camera; ported in native_chr (script round 12); name from 0x007bf520 = MsCameraSetFocusList (cam, 1, 0, &amp;var, deg * pi / 180)</summary>
+            /// <param name="var"></param>
+            /// <param name="degF"></param>
+            /// <remarks>Calls native <c>0x601e</c>, <c>Cam.SetFocusList</c> (18 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x601e)] 
+            public static int SetFocusList(int var, float degF) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary><see cref="Cam.SetFocusList"/> with flag 1: the eye follows the focus list in <paramref name="list"/>.</summary>
+            /// <param name="list"></param>
+            /// <param name="degrees"></param>
+            /// <remarks>Calls native <c>0x601c</c>, <c>Cam.SetFocusList1</c> (34 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x601c)] 
+            public static int SetFocusList1(int list, float degrees) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Makes the eye follow <paramref name="target"/> in polar form (request kind 9).</summary>
+            /// <param name="target"></param>
+            /// <param name="degrees"></param>
+            /// <param name="y"></param>
+            /// <param name="x"></param>
+            /// <remarks>Calls native <c>0x601f</c>, <c>Cam.SetTargetPolar</c> (27 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x601f)] 
+            public static int SetTargetPolar(int target, float degrees, float y, float x) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Makes the eye follow <paramref name="target"/> in polar form (request kind 9), with flag 1.</summary>
+            /// <param name="target"></param>
+            /// <param name="degrees"></param>
+            /// <param name="y"></param>
+            /// <param name="x"></param>
+            /// <remarks>Calls native <c>0x601d</c>, <c>Cam.SetTargetPolar1</c> (67 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x601d)] 
+            public static int SetTargetPolar1(int target, float degrees, float y, float x) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6044: same as 0x6040 with mode 2: distance/10 + actor size (absolute); eye half; e.g. (-2, -1, 30, -160, 0, 150)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x6044</c>, <c>Cam.EyeOrbit</c> (103182 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6044)] 
+            public static int Orbit(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6040: args (actor a, actor b, height, yaw deg, pitch deg, distance) -&gt; cam; 0x007badb0(half 1, mode 1): eye = mean of actors + height * actor height + orbit at distance/100 * actor size</summary>
+            /// <param name="actorA"></param>
+            /// <param name="actorB"></param>
+            /// <param name="height"></param>
+            /// <param name="yawDeg"></param>
+            /// <param name="pitchDeg"></param>
+            /// <param name="distance"></param>
+            /// <remarks>Calls native <c>0x6040</c>, <c>Cam.EyeOrbitScaled</c> (1961 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6040)] 
+            public static int OrbitScaled(int actorA, int actorB, float height, float yawDeg, float pitchDeg, float distance) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary><see cref="Cam.EyeOrbit"/> kept in polar form (MsCameraSetBtl mode 4): the eye circles the two actors at a distance.</summary>
+            /// <param name="actorA"></param>
+            /// <param name="actorB"></param>
+            /// <param name="height"></param>
+            /// <param name="yawDeg"></param>
+            /// <param name="pitchDeg"></param>
+            /// <param name="distance"></param>
+            /// <remarks>Calls native <c>0x604d</c>, <c>Cam.EyeOrbitPolar</c> (68 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x604d)] 
+            public static int OrbitPolar(int actorA, int actorB, float height, float yawDeg, float pitchDeg, float distance) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6010: args (frames) -&gt; 0; starts the eye (side 1) moving to its set position over n frames, linear (Cam_StartMove 0x007bde50, mode 0)</summary>
+            /// <param name="frames"></param>
+            /// <remarks>Calls native <c>0x6010</c>, <c>Cam.Move</c> (2776 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6010)] 
+            public static int Move(int frames) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Starts the eye's move to its target over <paramref name="frames"/> frames with a cosine ease (<see cref="Cam.Move"/> is linear).</summary>
+            /// <param name="frames"></param>
+            /// <remarks>Calls native <c>0x6012</c>, <c>Cam.MoveCosine</c> (108 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6012)] 
+            public static int MoveCosine(int frames) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Eases the camera's eye to its target over <paramref name="accelFrames"/> + <paramref name="holdFrames"/> + <paramref name="decelFrames"/> frames (speeding up, steady, slowing down).</summary>
+            /// <param name="accelFrames"></param>
+            /// <param name="holdFrames"></param>
+            /// <param name="decelFrames"></param>
+            /// <param name="curve"></param>
+            /// <remarks>Calls native <c>0x6014</c>, <c>Cam.MoveEased</c> (70375 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6014)] 
+            public static int MoveEased(int accelFrames, int holdFrames, int decelFrames, int curve) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Starts the eye's move to its target over <paramref name="frames"/> frames, linear, with move mode 1 (<see cref="Cam.Move"/> is mode 0).</summary>
+            /// <param name="frames"></param>
+            /// <remarks>Calls native <c>0x6011</c>, <c>Cam.EyeMoveFrameLinear</c> (65 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6011)] 
+            public static int MoveMode1(int frames) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6015: like 0x6014 but mode byte 1 (side +1); ?mode 1 = relative/continuous move</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <remarks>Calls native <c>0x6015</c>, <c>Cam.MoveEased1</c> (1860 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6015)] 
+            public static int MoveEasedMode1(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Sets the four move-divide values of the camera's eye (<c>MsCameraMoveDivide</c>). What they divide is not known yet.</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <remarks>Calls native <c>0x6017</c>, <c>Cam.EyeMoveDivide</c> (22 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6017)] 
+            public static int MoveDivide(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Ends the camera eye's move: it jumps to its target now.</summary>
+            /// <remarks>Calls native <c>0x6016</c>, <c>Cam.MoveFinish</c> (6829 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6016)] 
+            public static int FinishMove() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Waits until the camera's eye has stopped moving.</summary>
+            /// <remarks>Calls native <c>0x601a</c>, <c>Cam.Wait</c> (41536 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x601a, Polls = true)] 
+            public static void Wait() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Turns off the eye's direction vector (set by <see cref="Cam.SetDir"/>).</summary>
+            /// <remarks>Calls native <c>0x6019</c>, <c>Cam.EyeResetDir</c> (206 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6019)] 
+            public static int ResetDir() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Puts the camera's eye back at its channel's start position.</summary>
+            /// <remarks>Calls native <c>0x6088</c>, <c>Cam.EyeReset</c> (132 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6088)] 
+            public static int Reset() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x600a: no args -&gt; 0x007bb2b0(..., 1, 0); 0; ported in native_chr (script round 12); name from 0x007bb2b0 = MsAtelCameraLineFilter (worker, args, stack, 1, 0); 0</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x600a</c>, <c>Cam.LineFilter</c> (2 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x600a)] 
+            public static int LineFilter(float a0, float a1, float a2, float a3, float a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Removes the eye's areas (the line, circle and path limits added by <see cref="Cam.AddLineArea"/> and the like).</summary>
+            /// <remarks>Calls native <c>0x600f</c>, <c>Cam.EyeClearAreas</c> (149 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x600f)] 
+            public static int ClearAreas() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Moves the camera's eye along a spline (request kind 14): path 0 or 1 is the built-in one (<see cref="Cam.PathAddEye"/>), any other value a variable holding one; from <paramref name="t"/> at <paramref name="speed"/>.</summary>
+            /// <param name="spline"></param>
+            /// <param name="t"></param>
+            /// <param name="speed"></param>
+            /// <param name="flags"></param>
+            /// <remarks>Calls native <c>0x6046</c>, <c>Cam.EyeFollowSpline</c> (394 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6046)] 
+            public static int FollowSpline(int spline, float t, float speed, int flags) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Places the eye on spline <paramref name="path"/> (request kind 17).</summary>
+            /// <param name="path"></param>
+            /// <param name="flags"></param>
+            /// <remarks>Calls native <c>0x605b</c>, <c>Cam.EyeOnSpline</c> (594 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605b)] 
+            public static int OnSpline(int path, int flags) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Empties the eye's built-in path (the points <see cref="Cam.PathAddEye"/> appends).</summary>
+            /// <remarks>Calls native <c>0x6048</c>, <c>Cam.PathClearEye</c> (399 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6048)] 
+            public static int ClearPath() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6049: () -&gt; cam; 0x007baac0(cam, 1): appends the eye&apos;s yaw/pitch/distance and roll to path list 1 (0x01136b60, max 32), used by the path move 0x007ba020 (&gt;= 3 points)</summary>
+            /// <remarks>Calls native <c>0x6049</c>, <c>Cam.PathAddEye</c> (3236 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6049)] 
+            public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the camera's eye, shake kind 1 (as <see cref="Cam.EyeShakeKind2"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x605d</c>, <c>Cam.EyeShakeKind1</c> (164 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605d)] 
+            public static int ShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6067: no args -&gt; the shake with (1, 2); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 1, kind 2)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6067</c>, <c>Cam.EyeShakeKind2</c> (7 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6067)] 
+            public static int ShakeKind2(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6082: no args -&gt; the shake with (1, 7); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 1, kind 7)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6082</c>, <c>Cam.EyeShakeKind7</c> (4 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6082)] 
+            public static int ShakeKind7(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the camera's eye, shake kind 8 (as <see cref="Cam.EyeShakeKind2"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6084</c>, <c>Cam.EyeShakeKind8</c> (42 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6084)] 
+            public static int ShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Stops the shakes of the camera's eye.</summary>
+            /// <remarks>Calls native <c>0x6060</c>, <c>Cam.EyeResetShake</c> (353 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6060)] 
+            public static int ResetShake() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Waits until the shakes of the camera's eye have ended.</summary>
+            /// <remarks>Calls native <c>0x6063</c>, <c>Cam.EyeShakeWait</c> (55 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6063, Polls = true)] 
+            public static void WaitShake() => throw Atel.Runtime.NotRunnable();
+        }
+
+        /// <summary>The point the camera looks at (side 0 of its channel, FFX.exe's <c>ref</c>): where it is, how it moves there, its limits, path and shakes.</summary>
+        public static partial class Focus
+        {
+
+            /// <summary>Sets the point the camera looks at.</summary>
+            /// <remarks>Setting it calls native <c>0x6020</c>, <c>Cam.RefSetPos</c> (19674 calls in the shipped scripts).</remarks>
+            public static Vector3 Position { [Atel.NativeMember(0x6020)] set => throw Atel.Runtime.NotRunnable(); }
+
+            /// <summary>0x6042: args (v) -&gt; 0x007bdf90(cam, 0, v ^ 0xffff); the camera; ported in native_chr (script round 12); name from 0x007bdf90 = MsCameraMoveStat (cam, 0, v ^ 0xffff)</summary>
+            /// <remarks>Setting it calls native <c>0x6042</c>, <c>Cam.RefMoveStat</c> (5 calls in the shipped scripts).</remarks>
+            public static int MoveStat { [Atel.NativeMember(0x6042)] set => throw Atel.Runtime.NotRunnable(); }
+
+            /// <summary>0x6027: args (target, bone?, y offset) -&gt; 0; ref (side 0) follow mode 3: +0xc = target, +0xe = bone, offset (0,y,0) (0x007beeb0); scripts push (0, -1, y); ?target/bone meaning</summary>
+            /// <param name="target"></param>
+            /// <param name="bone"></param>
+            /// <param name="yOffset"></param>
+            /// <remarks>Calls native <c>0x6027</c>, <c>Cam.RefSetTarget</c> (4463 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6027)] 
+            public static int SetTarget(int target, int bone, float yOffset) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Points the focus point at the battle actors <paramref name="actorA"/> and <paramref name="actorB"/> (their mean camera position), lowered by <paramref name="lift"/>% of their height.</summary>
+            /// <param name="actorA"></param>
+            /// <param name="actorB"></param>
+            /// <param name="lift"></param>
+            /// <remarks>Calls native <c>0x603f</c>, <c>Cam.FocusOnActors</c> (243 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x603f)] 
+            public static int OnActors(int actorA, int actorB, float lift) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6045: same as 0x6044 for the focus point (half 0, mode 2)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x6045</c>, <c>Cam.FocusOrbit</c> (5485 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6045)] 
+            public static int Orbit(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6041: same as 0x6040 for the focus point (half 0, mode 1); most common shot setup, e.g. (-2, -1, 49, 0, 0, -70)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x6041</c>, <c>Cam.FocusOrbitScaled</c> (108135 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6041)] 
+            public static int OrbitScaled(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x602e: args (frames) -&gt; 0; linear transition time for the battle camera&apos;s focus point (half 0, 0x007bde50 type 1); paired with 0x6010 (eye half)</summary>
+            /// <param name="frames"></param>
+            /// <remarks>Calls native <c>0x602e</c>, <c>Cam.FocusTimeLinear</c> (2495 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x602e)] 
+            public static int Move(int frames) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Starts the focus point's move to its target over <paramref name="frames"/> frames with a cosine ease (<see cref="Cam.FocusTimeLinear"/> is linear).</summary>
+            /// <param name="frames"></param>
+            /// <remarks>Calls native <c>0x6030</c>, <c>Cam.FocusTimeCosine</c> (106 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6030)] 
+            public static int MoveCosine(int frames) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Eases the camera's focus point to its target over <paramref name="accel"/> + <paramref name="hold"/> + <paramref name="decelFrames"/> frames.</summary>
+            /// <param name="accel"></param>
+            /// <param name="hold"></param>
+            /// <param name="decelFrames"></param>
+            /// <param name="curve"></param>
+            /// <remarks>Calls native <c>0x6032</c>, <c>Cam.FocusTimeEase</c> (71471 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6032)] 
+            public static int MoveEased(int accel, int hold, int decelFrames, int curve) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6033: no args -&gt; 0x007ba5b0(worker, args, stack, 0, 1); 0; ported in native_chr (script round 12); name from 0x007ba5b0 = MsAtelCameraMoveAcc (worker, args, stack, 0, 1); 0</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <remarks>Calls native <c>0x6033</c>, <c>Cam.RefMoveAcc</c> (12 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6033)] 
+            public static int MoveEasedMode1(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Sets the four move-divide values of the camera's focus point (<c>MsCameraMoveDivide</c>). What they divide is not known yet.</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <remarks>Calls native <c>0x6035</c>, <c>Cam.RefMoveDivide</c> (346 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6035)] 
+            public static int MoveDivide(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Ends the camera focus point's move: it jumps to its target now.</summary>
+            /// <remarks>Calls native <c>0x6034</c>, <c>Cam.FocusCut</c> (6566 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6034)] 
+            public static int FinishMove() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Waits until the camera's focus point has stopped moving.</summary>
+            /// <remarks>Calls native <c>0x6038</c>, <c>Cam.FocusWait</c> (39331 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6038, Polls = true)] 
+            public static void Wait() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Puts the camera's focus point back at its channel's start position.</summary>
+            /// <remarks>Calls native <c>0x6087</c>, <c>Cam.FocusReset</c> (132 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6087)] 
+            public static int Reset() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Adds a line limit of kind 0 to the focus point: the segment from (<paramref name="x1"/>, <paramref name="z1"/>) to (<paramref name="x2"/>, <paramref name="z2"/>) with width <paramref name="r"/> (<see cref="Cam.LineFilter"/> is the eye's).</summary>
+            /// <param name="x1"></param>
+            /// <param name="z1"></param>
+            /// <param name="x2"></param>
+            /// <param name="z2"></param>
+            /// <param name="r"></param>
+            /// <remarks>Calls native <c>0x6028</c>, <c>Cam.RefLineFilter</c> (115 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6028)] 
+            public static int LineFilter(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6029: args (x1, z1, x2, z2, r) floats -&gt; 0; adds a segment constraint (max 5, count at side +0xc4) to the ref (0x007bf0b0 stores dir, origin, -dot, |dir|^2, r); ?keeps the ref within r of the segment</summary>
+            /// <param name="x1"></param>
+            /// <param name="z1"></param>
+            /// <param name="x2"></param>
+            /// <param name="z2"></param>
+            /// <param name="r"></param>
+            /// <remarks>Calls native <c>0x6029</c>, <c>Cam.RefAddLineArea</c> (3940 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6029)] 
+            public static int AddLineArea(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x602b: args (x, z, r) -&gt; 0; adds a circle constraint (type 3) to the ref&apos;s list (0x007bf1f0); ?keeps the ref inside/around the circle</summary>
+            /// <param name="x"></param>
+            /// <param name="z"></param>
+            /// <param name="r"></param>
+            /// <remarks>Calls native <c>0x602b</c>, <c>Cam.RefAddCircleArea_602b</c> (985 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x602b)] 
+            public static int AddCircleArea(float x, float z, float r) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x602d: no args -&gt; camera handle; clears the ref&apos;s constraint count (byte 0x01137634 + side/channel, 0x007bed10)</summary>
+            /// <remarks>Calls native <c>0x602d</c>, <c>Cam.RefClearAreas</c> (3255 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x602d)] 
+            public static int ClearAreas() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Adds a path limit to the focus point: it keeps near spline <paramref name="path"/> (0 or 1 the built-in ones, else a variable).</summary>
+            /// <param name="path"></param>
+            /// <param name="kind"></param>
+            /// <remarks>Calls native <c>0x6059</c>, <c>Cam.RefAddPathArea</c> (25 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6059)] 
+            public static int AddPathArea(int path, int kind) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary><see cref="Cam.RefAddPathArea"/> with a scale.</summary>
+            /// <param name="path"></param>
+            /// <param name="scale"></param>
+            /// <param name="kind"></param>
+            /// <remarks>Calls native <c>0x605a</c>, <c>Cam.RefAddPathAreaScaled</c> (569 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605a)] 
+            public static int AddPathAreaScaled(int path, float scale, int kind) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Moves the camera's focus point along a spline (request kind 14): path 0 or 1 is the built-in one (<see cref="Cam.PathAddFocus"/>), any other value a variable holding one; from <paramref name="t"/> at <paramref name="speed"/>.</summary>
+            /// <param name="spline"></param>
+            /// <param name="t"></param>
+            /// <param name="speed"></param>
+            /// <param name="flags"></param>
+            /// <remarks>Calls native <c>0x6047</c>, <c>Cam.FocusFollowSpline</c> (388 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6047)] 
+            public static int FollowSpline(int spline, float t, float speed, int flags) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Empties the focus point's built-in path (the points <see cref="Cam.PathAddFocus"/> appends).</summary>
+            /// <remarks>Calls native <c>0x604a</c>, <c>Cam.PathClearFocus</c> (391 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x604a)] 
+            public static int ClearPath() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x604b: () -&gt; cam; 0x007baac0(cam, 0): appends the focus point to path list 0</summary>
+            /// <remarks>Calls native <c>0x604b</c>, <c>Cam.PathAddFocus</c> (3182 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x604b)] 
+            public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the camera's focus point, shake kind 1 (as <see cref="Cam.FocusShakeKind2"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x605c</c>, <c>Cam.FocusShakeKind1</c> (171 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605c)] 
+            public static int ShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6066: no args -&gt; the shake with (0, 2); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 2)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6066</c>, <c>Cam.FocusShakeKind2</c> (3 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6066)] 
+            public static int ShakeKind2(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6069: no args -&gt; MsAtelCameraShake(worker, args, stack, 0, 3) (0x007bb8c0); ported in native_chr (script round 12); name from MsAtelCameraShake(.., side 0, kind 3)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6069</c>, <c>Cam.FocusShakeKind3</c> (10 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6069)] 
+            public static int ShakeKind3(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x606c: no args -&gt; the shake with (0, 4); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 4)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x606c</c>, <c>Cam.FocusShakeKind4</c> (2 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x606c)] 
+            public static int ShakeKind4(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6081: no args -&gt; the shake with (0, 7); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 7)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6081</c>, <c>Cam.FocusShakeKind7</c> (6 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6081)] 
+            public static int ShakeKind7(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the camera's focus point, shake kind 8 (as <see cref="Cam.FocusShakeKind2"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <remarks>Calls native <c>0x6083</c>, <c>Cam.FocusShakeKind8</c> (42 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6083)] 
+            public static int ShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Stops the shakes of the camera's focus point.</summary>
+            /// <remarks>Calls native <c>0x605f</c>, <c>Cam.FocusResetShake</c> (60 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605f)] 
+            public static int ResetShake() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Waits until the shakes of the camera's focus point have ended.</summary>
+            /// <remarks>Calls native <c>0x6062</c>, <c>Cam.FocusShakeWait</c> (49 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6062, Polls = true)] 
+            public static void WaitShake() => throw Atel.Runtime.NotRunnable();
+        }
+
+        /// <summary>The screens the camera draws to, by number (<c>MsScreen…</c>): their shakes and moves.</summary>
+        public static partial class Screen
+        {
+
+            /// <summary>0x605e: no args -&gt; 0x007bb840(..., 1); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 1) -&gt; MsScreenShake kind 1</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x605e</c>, <c>Cam.ScreenShakeKind1</c> (2 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605e)] 
+            public static int ShakeKind1(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the screen, shake kind 3 (as <see cref="Cam.ScreenShakeKind4"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x606b</c>, <c>Cam.ScreenShakeKind3</c> (72 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x606b)] 
+            public static int ShakeKind3(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x606e: no args -&gt; 0x007bb840(..., 4); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 4)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x606e</c>, <c>Cam.ScreenShakeKind4</c> (11 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x606e)] 
+            public static int ShakeKind4(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Shakes the screen, shake kind 5 (as <see cref="Cam.ScreenShakeKind4"/>).</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x6071</c>, <c>Cam.ScreenShakeKind5</c> (73 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6071)] 
+            public static int ShakeKind5(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6074: no args -&gt; 0x007bb840(worker, args, stack, 6); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 6)</summary>
+            /// <param name="a0"></param>
+            /// <param name="a1"></param>
+            /// <param name="a2"></param>
+            /// <param name="a3"></param>
+            /// <param name="a4"></param>
+            /// <param name="a5"></param>
+            /// <remarks>Calls native <c>0x6074</c>, <c>Cam.ScreenShakeKind6</c> (12 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6074)] 
+            public static int ShakeKind6(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x6061: args (v) -&gt; MsScreenResetShake(v) (0x007c56c0); ported in native_chr (script round 12); name from MsScreenResetShake(v)</summary>
+            /// <param name="v"></param>
+            /// <remarks>Calls native <c>0x6061</c>, <c>Cam.ScreenResetShake</c> (17 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6061)] 
+            public static int ResetShake(int v) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Waits until the shakes of screen <paramref name="screen"/> have ended.</summary>
+            /// <param name="screen"></param>
+            /// <remarks>Calls native <c>0x6064</c>, <c>Cam.ScreenShakeWait</c> (83 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x6064, Polls = true)] 
+            public static void WaitShake(int screen) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>0x607b (start): args (screen) -&gt; start: into the args word; EAX it; poll: 5 once MsScreenMoveCheck(screen, 0) (0x007bbfc0) is 0; ported in native_chr (script round 12); name from poll: 5 once MsScreenMoveCheck(screen, 0) is 0</summary>
+            /// <param name="screen"></param>
+            /// <remarks>Calls native <c>0x607b</c>, <c>Cam.ScreenMoveWait</c> (4 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x607b, Polls = true)] 
+            public static void WaitMove(int screen) => throw Atel.Runtime.NotRunnable();
+        }
     }
 
     /// <summary>Sound effects.</summary>
@@ -513,6 +1098,31 @@ namespace Ffx
         /// <remarks>Calls native <c>0x00fd</c>, <c>Common.SfxPlayEx</c> (9236 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x00fd)] 
         public static int Play(Sfx sfx, int pan, int volume) => throw Atel.Runtime.NotRunnable();
+    }
+
+    /// <summary>The voice line: prepare it (<see cref="Voice.Prepare"/>), play it (<see cref="Voice.Play"/>), wait while it plays (<see cref="Voice.IsPlaying"/>), stop it.</summary>
+    public static partial class Voice
+    {
+
+        /// <summary>Returns 1 while a voice line plays, else 0.</summary>
+        /// <remarks>Reading it calls native <c>0x00d8</c>, <c>Common.VoiceIsPlaying</c> (6396 calls in the shipped scripts).</remarks>
+        public static bool IsPlaying { [Atel.NativeMember(0x00d8)] get => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary>0x00d5 int result: &quot;VoiceStandbyResult!&quot;; Voice_Prepare(id) 0x00887570 unless one is already prepared (0x0132ff1c)</summary>
+        /// <param name="a0"></param>
+        /// <remarks>Calls native <c>0x00d5</c>, <c>Common.VoiceStandbyEnd</c> (8674 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x00d5, Polls = true)] 
+        public static int Prepare(int a0) => throw Atel.Runtime.NotRunnable();
+
+        /// <summary>0x00d6 int result: &quot;VoiceStartResult!&quot;; Voice_Play(0x00873b80(), 0x00873b90()) at 0x00887690; resets 0x01325ae4 (Ghidra misses this function); 120 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
+        /// <remarks>Calls native <c>0x00d6</c>, <c>Common.VoiceStartEnd</c> (8579 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x00d6, Polls = true)] 
+        public static int Play() => throw Atel.Runtime.NotRunnable();
+
+        /// <summary>Stops the voice line.</summary>
+        /// <remarks>Calls native <c>0x00d7</c>, <c>Common.VoiceStop</c> (6410 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x00d7)] 
+        public static int Stop() => throw Atel.Runtime.NotRunnable();
     }
 
 /// <summary>Another worker: <c>Workers[n]</c>. Holds the members that act on a given worker.</summary>

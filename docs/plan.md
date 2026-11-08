@@ -125,6 +125,9 @@ and moved here when work began.
   from `data/native-members.json`; the decompiler writes 2,035,998 member uses and the corpus still
   round-trips byte for byte ([language.md](language.md#members),
   [research/oo-surface.md](research/oo-surface.md)).
+  Step 2 (2026-11-08): nested static groups (`Camera.Eye.AimAt(…)`,
+  `Camera.Focus.Position = new Vector3(…)`) and `Voice`: 168 natives,
+  74.5 % of the calls (Phase 5, "Camera natives and the roll").
 - **Repeated code becomes shared `[Inline]` functions.** Sequences that
   recur across scripts with only different values are written once, as an
   inline function the compiler expands in place (as `Dialogue.Say`), so the
@@ -952,9 +955,31 @@ replaces and the round trip stays byte for byte.
   are still generated (from 128): same code under two ids (`SetMotion_501b`,
   `Echo_*`, `AlwaysTrue_*`, …), and pairs whose difference is a flag whose
   meaning is not verified (`ChrSetDirTarget_7006`, `GetTargetDist_7059`).
-  Not done: a nested `Camera.Eye`/`Camera.Focus` group (gen-members and the
-  compiler's `NativeMembers` know only flat static groups), so these stay
-  `Cam.…` calls.
+  Nested groups (2026-11-08): a static group may hold static groups
+  (`"Camera.Eye"` in `data/native-members.json`; gen-members writes a static
+  class inside its parent's, `NativeMembers` reads them as `NestedGroups`, and
+  the compiler resolves `Camera.Eye.AimAt`), so the camera natives are members
+  of `Camera.Eye` (side 1), `Camera.Focus` (side 0) and `Camera.Screen`, named
+  as the native without the side: `Camera.Eye.AimAt(…)`,
+  `Camera.Focus.FollowSpline(…)`, `Camera.Eye.ShakeKind1(…)`,
+  `Camera.Eye.Position = new Vector3(…)` (was `Camera.Pos`),
+  `Camera.Focus.Position` (was `Camera.LookAt`), `Camera.Focus.MoveEased`
+  (was `FocusTimeEase`), `Camera.Eye.FinishMove`/`Camera.Focus.FinishMove`
+  (`MoveFinish`/`FocusCut`), `Camera.Blur = …`, `Camera.ScreenDepth` read
+  and write (`GetScreenDepth`). `MoveEased1` (0x6015) is
+  `Camera.Eye.MoveEasedMode1`: `MsAtelCameraMoveAcc`'s (side, mode) are (0, 0)
+  for `FocusTimeEase` and (0, 1) for `RefMoveAcc`, so 0x6015 is the eye's mode
+  1, as `EyeMoveFrameLinear` (now `MoveMode1`) is `MsCameraMoveFrame`'s. Also
+  `Voice` (`Prepare`, `Play`, `Stop`, `IsPlaying`: `VoiceStandbyEnd`,
+  `VoiceStartEnd`, …). 168 natives are members (74.5 % of the calls, from 91
+  and 65.4 %); 19 camera natives with calls stay `Cam.…` (1,514 calls: the
+  variable readers `GetPos`/`RefGetPos`, `BtlRandom`, and the unverified
+  screen vector and link natives). Not done: the shake kinds as one
+  `Shake(kind, …)` (each kind is its own native, so a kind argument would
+  need the compiler to pick the native by a constant); `Btl`'s actor
+  properties as properties (`Btl.SetActorsProperty(Target.Party,
+  ActorProperty.Hp, 0)`, 33,358 calls, the same: the property is an
+  argument).
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
