@@ -53,12 +53,20 @@ public sealed class FrameDirector {
         double scale = user * (input.Booster > 0 ? input.Booster : 1);
         int ticks = _acc.Advance(input.Dt, scale, TickRate(input.GameVsyncs), s.CapSeconds, s.MaxTicksPerFrame);
         bool mute = s.MuteWhenFast && user > 1;
-        if (ticks > 0) return new FrameDecision(FrameKind.Tick, TickPlan.For(ticks, s.MaxUpdatesPerFrame), _acc.Fraction, scale, mute);
+        double alpha = DrawsBetweenTicks(s, scale) ? _acc.Fraction : 1;
+        if (ticks > 0) return new FrameDecision(FrameKind.Tick, TickPlan.For(ticks, s.MaxUpdatesPerFrame), alpha, scale, mute);
         // Redraw only where there is a world to draw again: not the menus, a pause, a load (their logic runs once per
         // update, so a second update would speed them up) and not a movie (its picture steps per update and per draw).
         bool redraw = s.DrawOnly == DrawOnlyMode.Redraw && input.WorldActive && !input.Movie && input.GameVsyncs >= 2;
-        return new FrameDecision(redraw ? FrameKind.Redraw : FrameKind.Repeat, TickPlan.None, _acc.Fraction, scale, mute);
+        return new FrameDecision(redraw ? FrameKind.Redraw : FrameKind.Repeat, TickPlan.None, alpha, scale, mute);
     }
+
+    /// <summary>
+    ///     Whether frames are drawn between ticks at all. At the game's own 30 fps and ×1 or faster every frame is a tick
+    ///     (the accumulator's left-over is only the limiter's jitter): alpha is then 1, the tick as it is, and the mod's
+    ///     interpolation passes everything through.
+    /// </summary>
+    public static bool DrawsBetweenTicks(FrameSettings s, double scale) => s.Target != FpsTarget.Game || scale < 1;
 }
 
 /// <summary>Where the time scale stays ×1, and why (for the window).</summary>
