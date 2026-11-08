@@ -52,6 +52,7 @@ internal sealed unsafe class FrameHooks {
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisPtrFn(nint self, nint p);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrIntFn(nint p, int a);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int IntIntFn(int a, int b);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Int4Fn(int a, int b, int c, int d);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrFn(nint p, nint q);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrIntFn(nint p, nint q, int a);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int SegmentBufferFn(nint renderData, int segment, int vertices, int indices);
@@ -88,6 +89,7 @@ internal sealed unsafe class FrameHooks {
     private static FhCallHandle<PtrPtrIntFn> ChrSetWorldByModel => At<PtrPtrIntFn>(0x0063c430);
     private static FhCallHandle<VoidFn> ClothUpload => At<VoidFn>(0x0063b740);
     private static FhCallHandle<IntIntFn> CameraResetMove => At<IntIntFn>(0x007bed60);
+    private static FhCallHandle<Int4Fn> CameraCheckChange => At<Int4Fn>(0x007c0790);
     // Called.
     private static FhCallHandle<VoidFn> CanSpeedUp => At<VoidFn>(0x0081fd30);
     private static FhCallHandle<IntFn> SetMuteSound => At<IntFn>(0x00821c60);
@@ -193,7 +195,8 @@ internal sealed unsafe class FrameHooks {
     // A camera cut: the game set its camera at once in this update (MsCameraResetMove); the world matrices Ch_DrawMain
     // handed the renderer corrected this update (to send the true ones again when the camera turns out to have cut).
     private IntIntFn? _nextCameraResetMove;
-    private bool _cameraSnapped;
+    private Int4Fn? _nextCameraCheckChange;
+    private bool _cameraSnapped, _inEventJump;
     private readonly WorldMatrixLog _worldCalls = new();
     private readonly List<WorldMatrixLog.Entry> _worldReplay = [];
 
@@ -260,6 +263,7 @@ internal sealed unsafe class FrameHooks {
         (0x0063c430, "graphicCharacterInstanceSetWorldMatrixByMdlID", "55 8b ec 83 ec 0c 53 8b 5d 08", 0xd0),
         (0x0063b740, "graphicCharacterInstanceSetClothVertexBuffers", "55 8b ec 83 ec 08 8b 0d ?? ?? ?? ?? 53 56 57", 0x90),
         (0x007bed60, "MsCameraResetMove", "55 8b ec 56 57 8b 7d 08", 0xf0),
+        (0x007c0790, "MsSetCheckChange", "55 8b ec 8b 55 08 8b 45 0c", 0x180),
     ];
 
     /// <summary>
@@ -366,6 +370,7 @@ internal sealed unsafe class FrameHooks {
         Hook(ChrSetWorldByModel.hook(owner, h_chr_set_world_by_model), "graphicCharacterInstanceSetWorldMatrixByMdlID");
         Hook(ClothUpload.hook(owner, h_cloth_upload), "graphicCharacterInstanceSetClothVertexBuffers");
         Hook(CameraResetMove.hook(owner, h_camera_reset_move), "MsCameraResetMove");
+        Hook(CameraCheckChange.hook(owner, h_camera_check_change), "MsSetCheckChange");
         return ok;
     }
 
@@ -1187,6 +1192,22 @@ internal sealed unsafe class FrameHooks {
     }
 
     /// <summary>
+    ///     <c>MsSetCheckChange(camera, side, step, mode)</c> (<c>0x007c0790</c>): where every camera request setter
+    ///     (<c>MsCameraSetRect</c>, the polar, focus, aim, spline and battle setters) puts a side, its roll or its depth at
+    ///     its target now when no move runs. Called from the event scripts (<c>TkUpdateEventJump</c>) it is a script
+    ///     setting its shot: the scripts' <c>CamSetPos</c> 0x6002, <c>CamRefSetPos</c> 0x6020, the shot setups
+    ///     (<c>CamFocusOrbitScaled</c> 0x6041, ...). Elsewhere (the field camera's follow, spline moves, the draw's
+    ///     <c>Sg_CameraPutRects</c>) it runs every tick and says nothing.
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_camera_check_change(int camera, int side, int step, int mode) {
+        Int4Fn? next = _nextCameraCheckChange ??= Chain(CameraCheckChange, h_camera_check_change, 0x007c0790);
+        if (next is null) return 0;
+        if (_inEventJump && _inFrame && !Failed) _cameraSnapped = true;
+        return next(camera, side, step, mode);
+    }
+
+    /// <summary>
     ///     The camera cut at this tick (a new shot, by the thresholds or the game's instant set): every character and its
     ///     cloth is drawn as the tick left it, like a warp, until the next tick. <c>Ch_DrawMain</c> ran before the camera
     ///     (<c>MsScreenProcess</c>) in this update, so what it handed the renderer between ticks is put back: the true
@@ -1452,7 +1473,13 @@ internal sealed unsafe class FrameHooks {
         VoidFn? next = _nextEventJump ??= Chain(EventJump, h_event_jump, 0x0088d3d0);
         if (next is null) return 0;
         Stats.Add(Counter.WorldTicks);
-        return next();
+        _inEventJump = true;
+        try {
+            return next();
+        }
+        finally {
+            _inEventJump = false;
+        }
     }
 
     // ------------------------------------------------------------------ the camera

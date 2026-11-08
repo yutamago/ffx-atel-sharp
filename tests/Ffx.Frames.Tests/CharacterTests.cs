@@ -69,11 +69,12 @@ public class TransformInterpolatorTests {
 
 public class CharacterDefaultsTests {
     [Fact]
-    public void Character_interpolation_is_off_until_checked_in_the_game() {
+    public void Character_interpolation_is_on_since_its_check_in_the_game() {
         FrameSettings s = new();
-        Assert.False(s.InterpolateCharacters);
+        Assert.True(s.InterpolateCharacters);
         Assert.True(s.InterpolateBones);
-        Assert.False(FrameSettings.FromJson("{ \"interpolate\": true }").InterpolateCharacters);
+        Assert.True(FrameSettings.FromJson("{ \"interpolate\": true }").InterpolateCharacters);
+        Assert.False(FrameSettings.FromJson("{ \"interpolateCharacters\": false }").InterpolateCharacters);
     }
 }
 

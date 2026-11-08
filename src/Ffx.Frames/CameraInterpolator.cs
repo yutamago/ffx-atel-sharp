@@ -140,6 +140,14 @@ public sealed class CameraHistory {
 
     /// <summary>How much a snapped camera must change to be a cut (relative, as <see cref="CameraInterpolator.RelativeChange"/>): a set to where it already was is not.</summary>
     public const double SnapChange = 1e-4;
+    /// <summary>
+    ///     A snapped step is a cut only when it jumps: more than <see cref="SnapGrowth"/> times the step before it and more
+    ///     than <see cref="SnapMinDistance"/> units or <see cref="SnapMinDegrees"/>° (the screen: <see cref="SnapMinScreen"/>).
+    ///     A script that sets its camera on every tick (a move of its own) steps evenly and stays interpolated.
+    /// </summary>
+    public const double SnapGrowth = 3, SnapMinDistance = 0.5, SnapMinDegrees = 0.5, SnapMinScreen = 1e-3;
+    private (double Distance, double Degrees)? _step;
+    private double _scrStep;
 
     /// <summary>Samples held (0, 1 or 2).</summary>
     public int Count => _count;
@@ -152,11 +160,12 @@ public sealed class CameraHistory {
     /// <summary>Of <see cref="Cuts"/>, those the game signalled (an instant camera set) that the thresholds would not have called a cut.</summary>
     public int SnapCuts { get; private set; }
 
-    public void Clear() { _count = 0; Cut = false; LastStep = null; }
+    public void Clear() { _count = 0; Cut = false; LastStep = null; _step = null; _scrStep = 0; }
 
     /// <summary>
-    ///     Adds the camera after a tick. <paramref name="snapped"/>: the game set its camera at once this tick
-    ///     (<c>MsCameraResetMove</c>); then any change of the camera or the screen is a cut, however small.
+    ///     Adds the camera after a tick. <paramref name="snapped"/>: the game set its camera at once this tick (a script's
+    ///     camera setter, <c>MsCameraResetMove</c>); then a step that jumps (<see cref="SnapJumps"/>) is a cut, however
+    ///     far under the thresholds. A cut holds until the next push: every frame drawn until the next tick shows this tick's camera.
     /// </summary>
     public void Push(in Matrix4x4 cam, in Matrix4x4 scr, double cutDistance, double cutDegrees, bool snapped = false) {
         if (_count > 0) {
@@ -167,15 +176,27 @@ public sealed class CameraHistory {
         _scr = scr;
         _count = Math.Min(2, _count + 1);
         if (_count == 2) {
-            LastStep = CameraInterpolator.Step(_prevCam, _cam);
+            (double Distance, double Degrees)? before = _step;
+            double scrBefore = _scrStep;
+            LastStep = _step = CameraInterpolator.Step(_prevCam, _cam);
+            _scrStep = CameraInterpolator.RelativeChange(_prevScr, _scr);
             Cut = CameraInterpolator.IsCut(_prevCam, _prevScr, _cam, _scr, cutDistance, cutDegrees);
-            if (!Cut && snapped && (CameraInterpolator.RelativeChange(_prevCam, _cam) > SnapChange
-                    || CameraInterpolator.RelativeChange(_prevScr, _scr) > SnapChange)) {
+            if (!Cut && snapped && SnapJumps(_step, before, CameraInterpolator.RelativeChange(_prevCam, _cam), _scrStep, scrBefore)) {
                 Cut = true;
                 SnapCuts++;
             }
             if (Cut) Cuts++;
         }
+    }
+
+    /// <summary>Whether a step the game set at once jumps (see <see cref="SnapGrowth"/>); a camera that cannot be taken apart compares its relative change.</summary>
+    public static bool SnapJumps((double Distance, double Degrees)? now, (double Distance, double Degrees)? before, double camChange, double scrNow, double scrBefore) {
+        bool screen = scrNow > SnapChange && scrNow > SnapMinScreen && scrNow > SnapGrowth * scrBefore;
+        if (now is not (double d, double deg)) return screen || camChange > SnapMinScreen;
+        (double pd, double pdeg) = before ?? (0, 0);
+        bool moved = d > SnapMinDistance && d > SnapGrowth * pd;
+        bool turned = deg > SnapMinDegrees && deg > SnapGrowth * pdeg;
+        return moved || turned || screen;
     }
 
     /// <summary>The latest camera matrix; false when there is none.</summary>
