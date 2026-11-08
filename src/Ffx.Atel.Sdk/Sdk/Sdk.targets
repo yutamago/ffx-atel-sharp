@@ -52,6 +52,10 @@
                Text="AtelVanillaSource is $(_AtelVanillaDir), which does not exist. Set it to the folder `atel decompile -o` wrote (docs/sdk.md)." />
         <ItemGroup>
             <_AtelModSource Include="@(Compile)" Condition="'%(Compile.AtelVanilla)' != 'true'" />
+            <!-- A file of the mod's [Saved] classes only (plain static classes, nothing partial) changes no script. -->
+            <_AtelSavedOnlySource Include="@(_AtelModSource)"
+                                  Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '\[Saved\b')) and !$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('%(FullPath)')), '\bpartial\b'))" />
+            <_AtelModSource Remove="@(_AtelSavedOnlySource)" />
             <!-- The script a file changes is its namespace (atel compile-mod reads it the same way). -->
             <_AtelModNamespace Include="$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('%(_AtelModSource.FullPath)')), '(?m)^[ \t]*namespace[ \t]+([A-Za-z_][A-Za-z0-9_.]*)').Groups[1].Value)" />
             <_AtelModNamespace Remove="@(_AtelModNamespace)" Condition="'%(Identity)' == ''" />

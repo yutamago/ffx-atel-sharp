@@ -313,6 +313,18 @@ public static class Save
         public const int Level3 = 0x04;
     }
 
+    /// <summary>
+    ///     The mods' area, save <c>+0x64b8</c> .. <c>+0x68c0</c> (<see cref="ModAreaLength"/> bytes): the game saves and
+    ///     loads it with the rest, outside the CRC, and neither FFX.exe nor any vanilla script uses it
+    ///     (docs/research/mod-saves.md). The loader puts the mods' <c>[Saved]</c> fields here, each run at the offsets
+    ///     it gives them, and keeps their values by name in its own file per save; it zeroes the area in the file the game
+    ///     writes. The decompiler writes a linked script's saved variables as offsets from here
+    ///     (<c>[Var(Storage.Save, Save.ModArea + 0x4)]</c>).
+    /// </summary>
+    public const int ModArea = 0x62cc;
+    /// <summary>The length of <see cref="ModArea"/> in bytes (a length, not a storage 0 offset).</summary>
+    public const int ModAreaLength = 0x408;
+
     /// <summary>The bits of the dark aeon bytes, <see cref="CompletionFlagsDarkValefor"/> to <see cref="CompletionFlagsDarkMagusSisters"/> (ours).</summary>
     public static class DarkAeonFlag
     {

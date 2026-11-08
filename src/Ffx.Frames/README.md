@@ -3,7 +3,7 @@
 A [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) mod for the Steam HD Remaster of
 Final Fantasy X that removes the fixed 30 fps limit without speeding the game up. The game
 draws at your monitor's refresh rate, at a rate you choose, or uncapped, with vsync on or off.
-The world keeps its 30 ticks a second, and the camera is drawn between ticks (the characters too, as an experimental option). A time scale
+The world keeps its 30 ticks a second, and the camera and the characters (their bones, cloth and hair) are drawn between ticks. A time scale
 gives slow motion and fast-forward (×0.05 to ×100) without drawing more frames.
 
 It is a separate mod from Atel and works with or without it. The research behind it is in
@@ -13,8 +13,10 @@ does" lists every hook).
 **Status: in testing.** The first in-game run crashed on its first frame; that is fixed (see
 "Limits"). The second (2026-11-07, about 200 fps) kept the game's speed, but the effects ran too
 fast and slow character motions looked choppy; the effects' replay, the character
-interpolation and the cloth hold answer that and wait for their own test. Treat the defaults as
-a starting point until then.
+interpolation and the cloth hold answer that. In the test of 2026-11-08 the characters, their
+bones, hair and cloth were smooth and sat right, hard cuts snapped them, and ×100 and the title's
+water were fine, so the characters are interpolated by default now. Treat the other defaults as a
+starting point.
 
 ## Install
 
@@ -53,7 +55,7 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 | Vsync | As the game has it | **On** or **Off** overrides the game's setting for each present. Off with a G-Sync/FreeSync display and a Fixed or Unlimited target gives a variable frame rate |
 | Frames between ticks | Redraw | What a frame without a tick does: **Redraw** runs the game's draw again with the world held still, so the camera can move. **Repeat** skips the game's update, as the Esc menu does |
 | Interpolate the camera | on | Draws the camera between its last two ticks. The picture is one tick (33 ms) behind. At target Game and ×1 or faster there is nothing between ticks: the camera and the characters are drawn as the tick has them |
-| … the characters | off | **Experimental, off until checked in the game.** Draws each character's place, facing, bones (its animation) and cloth (hair, Tidus's shorts, Auron's coat) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
+| … the characters | on | Draws each character's place, facing, bones (its animation) and cloth (hair, Tidus's shorts, Auron's coat) between its last two ticks, like the camera. A character that jumps further than 50 units or turns more than 120° in one tick, a new one, or one whose model changed is drawn as it is |
 | Effects between ticks | Replay | **Replay**: the effects' programs run only on ticks, and on the frames between, what they drew at the last tick is drawn again: right speed, drawn every frame. **Run**: they run on every drawn frame (too fast at a high frame rate). **Hold**: they run only on ticks and are missing between them (they flicker) |
 | Time scale | ×1 | Game time per real second. Voice-synced scenes, movies and the scenes the game won't speed up stay at ×1 |
 | Mute above ×1 | on | Sound off while faster than ×1, as the booster does |
@@ -68,7 +70,7 @@ frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate
 of a tick and how many fit into the budget, the ticks dropped a second, why the scale is held at ×1,
 and the camera's last move and cuts (to tune the cut thresholds). "The game's
 instant camera sets are cuts" (on) also cuts when a script or magic file sets the camera at once,
-however little it moved.
+when it jumps against its last step, however little it moved.
 
 ## How it works
 
@@ -112,12 +114,10 @@ drawing faster ran the game faster. The mod changes that:
   sets only while it runs keeps its last value between ticks: the point lights the map's
   particles cast (`pppFpPointLightProc`), for example, are not set again. If an effect still
   flickers or vanishes between ticks, set **Effects between ticks** to Run and report which one.
-- **Character interpolation is experimental and off by default.** In its first in-game test
-  (2026-11-07) characters were choppier with it and half a character could stand still for a
-  second; turning it off fixed that. The cause (it raced the game's bone jobs) is fixed, and the
-  second test (2026-11-07, ×0.1) had smooth bones, but the hair trailed and moved only on
-  ticks: hair is cloth, which was not interpolated. The cloth now is, not yet checked in the
-  game. Without it, characters move at 30 Hz against the smooth camera.
+- **Hard cuts the game does not mark.** A cut is a camera that moved over 100 units or turned
+  over 45° in one tick, or one a script or magic file set at once and that jumped (more than
+  three times its last step). A cut made some other way, under the thresholds, is drawn as a
+  quick move over one tick; at ×0.1 that is a slow slide. Lower the cut thresholds if you see one.
 - **Characters drawn by other paths** (a magic file's situation pass, the effects' character
   draws) stay at 30 Hz.
 - **Fast-forward costs CPU.** Every tick is simulated. ×100 is 3,000 ticks a second, which may
@@ -142,7 +142,8 @@ drawing faster ran the game faster. The mod changes that:
   5 bytes. `updateFFX` and `TkUpdateScanControler` each have a loop that jumps back to their third
   byte, and hooking them that way crashed the game on its first frame. The mod hooks these two at
   their calls instead. Before installing anything it checks every other hooked function for such a
-  jump, and each call site for the expected `call`. If a check fails it installs nothing and logs
+  jump (skipping the bytes Windows rewrites when it loads the game at another base), and each call
+  site for the expected `call`. If a check fails it installs nothing and logs
   why. Once Fahrenheit has applied the hooks, the first call through each one checks its chain. A
   bad chain switches the mod to pass-through. The details are in frame-timing.md ("Hooking: why
   the first run crashed").

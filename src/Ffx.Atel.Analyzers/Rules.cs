@@ -197,4 +197,16 @@ public static class Rules {
         "{0}",
         ModCategory, DiagnosticSeverity.Error,
         "[Inject(nameof(M), Before = nameof(X), Occurrence = n)] runs at the statement holding the n-th call to X in the vanilla method M, counted in the order the calls stand in the decompiled source and named as written there (Btl.UseCommand, Motion.Play, Dialogue.Say). M must have that many calls to X, and the attribute names Before or After, one of them.");
+
+    public static readonly DiagnosticDescriptor SavedField = Rule(
+        "ATL4003", "[Saved] field that cannot be saved",
+        "{0}",
+        ModCategory, DiagnosticSeverity.Error,
+        "A [Saved] field is a storage 0 variable in the save's mod area, placed by the loader: a static field (not const or readonly, no [Var] or [Register]) of byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one with its size, in a mod's plain static class or its part of a script class. Each key (the declaring type and field, or Key) is used once. Another mod's field ([Saved(Mod = …)]) is named by its Key and has no initializer.");
+
+    public static readonly DiagnosticDescriptor ForeignSavedWrite = Rule(
+        "ATL4004", "Write to another mod's [Saved] field",
+        "{0} is {1}'s saved field: a mod reads another mod's fields, it does not write them",
+        ModCategory, DiagnosticSeverity.Error,
+        "[Saved(Mod = \"…\", Key = \"…\")] names a field another mod declares and owns. A mod reads it (its mod.toml requires that mod); only the owner writes it.");
 }

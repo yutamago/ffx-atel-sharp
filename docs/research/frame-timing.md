@@ -327,7 +327,7 @@ are at the end of this section.
 | `Sg_MainCalcRate` (`0x008206c0`) | Hook (counts) | `Sg_MainLoop` calls it only on the way to the world update. A frame whose updates never called it (menu, pause, save screen, load) makes the next frames without a tick Repeats: their logic runs once per update, and a second update would speed it up |
 | `TkUpdateEventJump` (`0x0088d3d0`) | Hook (counts) | The world ticks that ran, for the window's "ticks/s" |
 | `graphicCameraSetWorldMatrix` (`0x00639860`) | Hook | See "The camera" below |
-| `MsCameraResetMove` (`0x007bed60`) | Hook (notes) | The game's instant camera set: noted for the update's camera sample ("Cuts" below) |
+| `MsCameraResetMove` (`0x007bed60`), `MsSetCheckChange` (`0x007c0790`) | Hooks (notes) | The game's instant camera sets: noted for the update's camera sample ("Cuts" below); `MsSetCheckChange` only while the event scripts run |
 | `Renderer_PresentFlip` (`0x00593760`, thiscall, render thread) | Hook | Counts presents (the drawn fps). For vsync on or off it sets the renderer's byte `+0x131c` around the call (the present's sync interval is 1 when it is not 0) and puts it back |
 
 The main menu runs at 60 fps in the game (`g_FrameVsyncs` 1), one update per frame. There the
@@ -408,6 +408,23 @@ absolute address points there. The fix:
   function itself, the function must start with `e9`, and the link must start with the function's
   first byte (a trampoline) or `e9` (another hook over it, as on `Sg_MainLoop`, which Fahrenheit's
   game-loop events hook too). Otherwise the mod passes through from then on and logs why.
+
+**The check refused a safe function at some load bases (2026-11-08).** A run reported
+"Sg_FrameSync (0x00821e80) cannot be hooked: the code at 0x00821ea0 branches into its first 5
+bytes" and installed nothing; the same build had run before. There is no such branch: at
+`0x00821e9d` is `fld dword [0x00b3eb44]`, and the scan, which has no decoder and tries every
+offset, read the operand's bytes `eb b3` at `0x00821ea0` as a `jmp rel8`. FFX.exe is
+`DYNAMICBASE` (it has 0x8f0e4 bytes of base relocations), and the check reads the live code: at
+another base the loader rewrites that operand, and loaded anywhere from 0x6c0000 to 0x700000 (or
+the same 64 KB steps higher up) its third byte is `df`..`e3`, so the "jmp" lands on bytes 1 to
+4. Five entries are affected this way, at a share of all 64 KB-aligned bases each: `Sg_FrameSync`
+(508 of 32,767), `Sg_ControlMain` (4,096), `MsCameraProcess` (1,020), `MsCameraResetMove` (508) and
+`MsSetCheckChange` (512). Runs at the crash dump's base 0x3d0000 passed; the refusing run's base
+was in one of those ranges. The check now reads the image's relocation table (`PeRelocations`)
+and skips every candidate branch with a byte the loader rewrites: a direct branch is relative and
+never relocated, so a real one is still found, and the result no longer depends on the base. A
+test scans every hooked function over FFX.exe's own bytes relocated to many bases, and checks
+that no fixed byte of a pattern is relocated. The error line now also logs the load base.
 
 ### Fast-forward: why ×18 crashed
 
@@ -494,13 +511,33 @@ character and every cloth mesh is drawn as the tick has it, as a warp is, and th
 from there. Two signals make a cut:
 
 - the thresholds above;
-- the game's own: `MsCameraResetMove(camera, flags)` (`0x007bed60`) with `flags` bit 3 clear
-  stops a camera side's move and puts it at its target now. Its callers are the scripts' cut
-  natives (`Native_CamFocusCut` 0x6034, `Native_CamMoveFinish` 0x6016),
-  `MsAtelResetMoveCameraID` (`0x007ba860`) and the magic files' `opu_camera`; the battle's
-  slot resets pass bit 3. When it ran in the update, any change of the camera or screen matrix
-  (relative change above 1e-4) is a cut, however small. Setting "The game's instant camera sets
-  are cuts", on; the window's Live line counts these apart.
+- the game's own instant sets:
+  - `MsCameraResetMove(camera, flags)` (`0x007bed60`) with `flags` bit 3 clear stops a camera
+    side's move and puts it at its target now. Its callers are the scripts' cut natives
+    (`Native_CamFocusCut` 0x6034, `Native_CamMoveFinish` 0x6016), `MsAtelResetMoveCameraID`
+    (`0x007ba860`) and the magic files' `opu_camera`; the battle's slot resets pass bit 3.
+  - `MsSetCheckChange(camera, side, step, mode)` (`0x007c0790`) while the event scripts run
+    (inside `TkUpdateEventJump`). Every request setter ends there to put a side, its roll or
+    its depth at the target now when no move runs: `MsCameraSetRect` (the scripts'
+    `CamSetPos` 0x6002 and `CamRefSetPos` 0x6020, through `0x007bb6a0`), `Cam_SetPolar`,
+    the focus, aim, spline and battle setters (the shot setups such as `CamFocusOrbitScaled`
+    0x6041). Outside the scripts it says nothing: `MsCameraSetRect` also runs every tick for
+    the field camera's follow (`CameraPath_follow`), the spline moves and the draw's
+    `Sg_CameraPutRects`.
+
+  A snapped tick is a cut when its step jumps: it moved over 0.5 units or turned over 0.5°, and
+  by more than three times the step of the tick before (the screen: relative change over 1e-3
+  and three times the last). A script that sets its camera on every tick (a move of its own)
+  steps evenly and stays interpolated. Setting "The game's instant camera sets are cuts", on;
+  the window's Live line counts these apart.
+
+**Why the camera slid in slow motion** (2026-11-08, ×0.1, Unlimited): the hard cuts there were
+script shot changes under the thresholds (less than 100 units, 45°) that do not go through
+`MsCameraResetMove`; the scripts set the new shot with `CamSetPos`/`CamRefSetPos` or a shot
+setup, which apply at once through `MsSetCheckChange`. Nothing marked them, so the camera was
+blended from the old shot to the new one over the tick, ten frames at ×0.1. A cut that is
+detected holds until the next tick: the frames between are Redraws, which push no camera
+sample, so `CameraHistory.Cut` stays set and each of them draws the tick's camera.
 
 The camera is only known in `MsScreenProcess`, after `Ch_DrawMain` has drawn the characters
 between ticks in the same update. So at a cut the mod also puts that draw back: the world
@@ -589,7 +626,8 @@ segments, so effects may be missing on Repeat frames (as before).
 
 ### Characters between ticks
 
-Off by default ("Interpolate the characters", experimental) until the fix below is checked in the game.
+On by default since its in-game check (2026-11-08: bones, hair and cloth smooth, hard cuts snapped).
+It was off while the bone-job race below was open.
 
 **Why slow motions were choppy.** Only the camera was interpolated; with `Ch_CalcMiddle` held, a
 character's pose changed 30 times a second against a 200 fps camera.

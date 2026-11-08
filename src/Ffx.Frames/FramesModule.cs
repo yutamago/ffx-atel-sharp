@@ -202,7 +202,7 @@ public sealed class FramesModule : FhModule {
             if (ImGui.Checkbox("Interpolate the camera", ref interp)) Set(s with { Interpolate = interp });
             ImGui.SameLine();
             bool chars = s.InterpolateCharacters;
-            if (ImGui.Checkbox("the characters (experimental)", ref chars)) Set(s with { InterpolateCharacters = chars });
+            if (ImGui.Checkbox("the characters", ref chars)) Set(s with { InterpolateCharacters = chars });
             int effects = (int)s.Effects;
             if (ImGui.Combo("Effects between ticks", ref effects, EffectModes, EffectModes.Length)) Set(s with { Effects = (EffectsMode)effects });
         }

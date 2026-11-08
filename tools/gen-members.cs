@@ -8,7 +8,8 @@
 //   - A component (`Turn`, `Move`, `Motion`, `Neck`) is a property of Worker whose class holds the members.
 //   - An indexed group (`Sprites`) is a property of Worker with an indexer; the index is the native's first
 //     argument.
-//   - A static group (`Wait`, `Camera`, `Sound`) is a static class of namespace Ffx.
+//   - A static group (`Wait`, `Camera`, `Sound`) is a static class of namespace Ffx; a nested static group
+//     (`Camera.Eye`, its name the parent's and its own) is a static class inside its parent's: `Camera.Eye.AimAt(…)`.
 //   - A native whose first argument is a worker ("worker": true) is reached unqualified (this worker), through
 //     the worker's class (`Tidus.Turn.Stop()`) or through `Workers[n]` (WorkerHandle mirrors those members).
 //
@@ -58,8 +59,14 @@ List<Spec> specs = [];
 using (JsonDocument doc = JsonDocument.Parse(Data("native-members.json"))) {
     foreach (JsonProperty g in doc.RootElement.GetProperty("groups").EnumerateObject()) {
         JsonElement e = g.Value;
-        groups[g.Name] = new Group(g.Name, e.GetProperty("kind").GetString()!, e.TryGetProperty("type", out JsonElement t) ? t.GetString()! : g.Name,
-            e.TryGetProperty("item", out JsonElement it) ? it.GetString() : null, e.GetProperty("summary").GetString()!);
+        string kind = e.GetProperty("kind").GetString()!;
+        int dot = g.Name.LastIndexOf('.');
+        string? parent = dot < 0 ? null : g.Name[..dot];
+        if (parent is not null && (kind != "static" || !groups.TryGetValue(parent, out Group? p) || p.Kind != "static")) {
+            throw new InvalidOperationException($"group {g.Name}: a nested group is static, in a static group listed before it");
+        }
+        groups[g.Name] = new Group(g.Name, kind, e.TryGetProperty("type", out JsonElement t) ? t.GetString()! : g.Name[(dot + 1)..],
+            e.TryGetProperty("item", out JsonElement it) ? it.GetString() : null, e.GetProperty("summary").GetString()!, parent);
     }
     foreach (JsonProperty m in doc.RootElement.GetProperty("members").EnumerateObject()) {
         JsonElement e = m.Value;
@@ -78,20 +85,22 @@ foreach (Group g in groups.Values) containers[g.Name] = new Container(g.Name);
 HashSet<string> vectorRoots = [];
 foreach (Spec s in specs) {
     string[] path = s.Member.Split('.');
-    if (path.Length > 2) throw new InvalidOperationException($"{s.Member}: at most two parts");
+    // The group the member is in: its path but the last part (Camera.Eye for Camera.Eye.AimAt), when that is one.
+    string? group = path.Length >= 2 && groups.ContainsKey(string.Join('.', path[..^1])) ? string.Join('.', path[..^1]) : null;
+    if (group is null && path.Length > 2) throw new InvalidOperationException($"{s.Member}: no group {string.Join('.', path[..^1])}");
     Native n = natives[s.Id];
-    bool indexed = path.Length == 2 && groups.TryGetValue(path[0], out Group? g0) && g0.Kind == "indexed";
+    bool indexed = group is not null && groups[group].Kind == "indexed";
     int receivers = s.Worker || indexed ? 1 : 0;
     if (s.Worker && indexed) throw new InvalidOperationException($"{s.Member}: a worker and an index");
     if (receivers > 0 && (n.Args.Count == 0 || n.Args[0].Kind != "int")) throw new InvalidOperationException($"0x{s.Id:x4}: the receiver is the first int argument");
     List<Arg> rest = [.. n.Args.Skip(receivers)];
-    if (path.Length == 1 && groups.TryGetValue(path[0], out Group? root0)) {
+    if (groups.TryGetValue(s.Member, out Group? root0)) {
         // The group's own property: a component root that takes an assignment (Motion = 0x71050).
-        if (root0.Kind != "component" || s.As != "set") throw new InvalidOperationException($"{s.Member}: only a component takes a value");
+        if (root0.Kind != "component" || path.Length != 1 || s.As != "set") throw new InvalidOperationException($"{s.Member}: only a component takes a value");
         containers[""].Assign(root0, s, n, rest);
         continue;
     }
-    if (path.Length == 2 && !groups.ContainsKey(path[0])) {
+    if (path.Length == 2 && group is null) {
         // A component of a Vector3 property of the worker: Pos.X.
         if (s.As != "get" || path[1] is not ("X" or "Y" or "Z")) throw new InvalidOperationException($"{s.Member}: a vector component is a getter X, Y or Z");
         if (rest.Count != 0 || n.Result != "float") throw new InvalidOperationException($"0x{s.Id:x4}: a vector component takes no value and returns a float");
@@ -99,7 +108,7 @@ foreach (Spec s in specs) {
         containers[""].Prop(path[0], "Vector3").Add(new Accessor("get", s, n, path[1]));
         continue;
     }
-    Container c = containers[path.Length == 2 ? path[0] : ""];
+    Container c = containers[group ?? ""];
     string name = path[^1];
     switch (s.As) {
         case "method":
@@ -199,13 +208,10 @@ foreach (Group g in groups.Values) {
             cs.Append("    }\n");
             break;
         }
-        case "static": {
-            cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{g.Summary}</summary>\n");
-            cs.Append(CultureInfo.InvariantCulture, $"    public static partial class {g.Name}\n    {{\n");
-            WriteMembers(c, "        ", "public static ", "Atel.");
-            cs.Append("    }\n");
+        case "static":
+            // A nested group is written inside its parent's class.
+            if (g.Parent is null) WriteStatic(g, "    ");
             break;
-        }
         default:
             throw new InvalidOperationException($"group {g.Name}: kind is component, indexed or static");
     }
@@ -251,6 +257,21 @@ Console.WriteLine($"{nativeCount} natives as {memberCount} members; {covered} of
 return 0;
 
 // ----- Writing members -------------------------------------------------------------------------------------
+// A static group's class, its members and then its nested groups' classes.
+void WriteStatic(Group g, string indent) {
+    cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{g.Summary}</summary>\n");
+    cs.Append(CultureInfo.InvariantCulture, $"{indent}public static partial class {g.Type}\n{indent}{{\n");
+    WriteMembers(containers[g.Name], indent + "    ", "public static ", "Atel.");
+    foreach (Group nested in groups.Values.Where(x => x.Parent == g.Name)) {
+        if (containers[g.Name].Props.ContainsKey(nested.Type) || containers[g.Name].Methods.ContainsKey(nested.Type)) {
+            throw new InvalidOperationException($"group {nested.Name}: {g.Name} has a member {nested.Type}");
+        }
+        memberCount++;
+        WriteStatic(nested, indent + "    ");
+    }
+    cs.Append(CultureInfo.InvariantCulture, $"{indent}}}\n");
+}
+
 void WriteMembers(Container c, string indent, string modifiers, string atel, bool count = true) {
     foreach ((string name, Prop p) in c.Props) {
         if (count) memberCount++;
@@ -355,7 +376,10 @@ internal sealed record Arg(string Name, string Kind, string? Type);
 
 internal sealed record Native(ushort Id, string Class, string Method, List<Arg> Args, string Result, string? ResultType, bool Polls, string Doc, long Calls);
 
-internal sealed record Group(string Name, string Kind, string Type, string? Item, string Summary);
+/// <param name="Name">The group's path: <c>Turn</c>, <c>Camera</c>, <c>Camera.Eye</c> (nested in <c>Camera</c>).</param>
+/// <param name="Type">The class's name: the component's (<c>TurnControl</c>), else the path's last part.</param>
+/// <param name="Parent">The static group a nested group is in.</param>
+internal sealed record Group(string Name, string Kind, string Type, string? Item, string Summary, string? Parent);
 
 internal sealed record Spec(ushort Id, string Member, string As, bool Worker, bool Vector, bool Bool);
 

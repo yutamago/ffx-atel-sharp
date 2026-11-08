@@ -24,6 +24,8 @@
         <Compile Include="../../src/Ffx.Frames/FrameStats.cs" Link="FrameStats.cs" />
         <Compile Include="../../src/Ffx.Frames/TimeScaleSteps.cs" Link="TimeScaleSteps.cs" />
         <Compile Include="../../src/Ffx.Frames/CodeScan.cs" Link="CodeScan.cs" />
+        <Compile Include="../../src/Ffx.Frames/PeRelocations.cs" Link="PeRelocations.cs" />
+        <Compile Include="../../src/Ffx.Frames/HookSites.cs" Link="HookSites.cs" />
         <Compile Include="../../src/Ffx.Frames/EffectReplay.cs" Link="EffectReplay.cs" />
         <Compile Include="../../src/Ffx.Frames/CharacterInterpolator.cs" Link="CharacterInterpolator.cs" />
         <Compile Include="../../src/Ffx.Frames/ClothInterpolator.cs" Link="ClothInterpolator.cs" />

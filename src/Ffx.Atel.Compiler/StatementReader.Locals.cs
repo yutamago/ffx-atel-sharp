@@ -90,7 +90,7 @@ internal sealed partial class StatementReader {
     ///     takes.
     /// </summary>
     private bool IsFloat(Expr e) {
-        _varTypes ??= variables.Values.ToDictionary(v => v.Index, v => v.Entry);
+        _varTypes ??= variables.Values.DistinctBy(v => v.Index).ToDictionary(v => v.Index, v => v.Entry);
         _nativesById ??= natives.Values.GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
         return e switch {
             FloatLit => true,

@@ -19,6 +19,23 @@ internal sealed unsafe class Game(nint moduleBase) {
     /// <summary>A virtual address in this process.</summary>
     public nint Address(uint va) => moduleBase + (nint)(va - ImageBase);
 
+    /// <summary>A byte of the loaded image by RVA (headers and sections, as the loader maps them).</summary>
+    public byte ImageByte(uint rva) => *(byte*)(moduleBase + (nint)rva);
+
+    /// <summary>The loaded image's size (<c>SizeOfImage</c> in its optional header), 0 when the headers are not a PE32.</summary>
+    public uint ImageSize {
+        get {
+            if (*(ushort*)moduleBase != 0x5a4d) return 0;
+            uint nt = *(uint*)(moduleBase + 0x3c);
+            if (nt > 0x1000 || *(uint*)(moduleBase + (nint)nt) != 0x00004550) return 0;
+            return *(uint*)(moduleBase + (nint)nt + 24 + 56);
+        }
+    }
+
+    /// <summary>The relocated dwords of the loaded image (<see cref="PeRelocations"/>), read once.</summary>
+    public uint[] Relocations => _relocations ??= ImageSize is var size and > 0 ? PeRelocations.Read(ImageByte, size) : [];
+    private uint[]? _relocations;
+
     /// <summary>An image-relative offset, as Fahrenheit's <c>FhCallLocation("FFX.exe", offset)</c> takes it.</summary>
     public static nint Offset(uint va) => (nint)(va - ImageBase);
 
