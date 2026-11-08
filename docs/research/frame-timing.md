@@ -310,7 +310,7 @@ are at the end of this section.
 |---|---|---|
 | `Game_Main` limiter (`0x0062ee50`) | Code patch: the operand of `fild dword [g_FrameVsyncs]` at `0x0062f2fc` and of `fmul qword [0x00b412d8]` (1/59.94) at `0x0062f318` | Both point at the mod's own int and double: 1 and the target interval (1/refresh, 1/fps, or 0 for no wait). With the mod off they hold `g_FrameVsyncs` and 1/59.94 again. The bytes are checked first (`db 05`, `dc 0d` and the original operands) |
 | `updateFFX` (`0x00822840`), once per drawn frame | Call-site hook: its one caller, `call` at `0x0042f5b6` | Reads the game, asks the accumulator for the frame's ticks (`FrameDirector`), sets the limiter, mute and vsync. A frame without a tick either runs the update as a **Redraw** or, as a **Repeat**, returns without calling the original (what `FFXApplication::animate` does while the Esc menu is up) |
-| `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after |
+| `Sg_MainLoop` (`0x00820ae0`), once per game update | Hook, chained after Fahrenheit's own | Puts the true camera and screen matrices back before the update. On a Redraw it restores the Eternal Calm copyright counter (`0x012fb7c0`) after, and draws the title's water and the dream noise from the counters they had before the last tick's update, then puts the tick's back (`DrawCounters`) |
 | `Sg_FrameSync` (`0x00821e80`) | Hook | **Tick frame**, first update: the original runs (so `Sg_SyncCutScene` and the sync clock work as before), then, unless `g_SyncOn`, its carries are cleared, `g_VoiceHold` = the plan's updates and the exec frames (`0x00c496d4`) = this update's ticks. Later updates set their own exec frames. In a voice-synced scene the game's sync-paced hold stays. **Redraw**: the original does not run at all, so the pad scan (`TkScanControler`), the v-blank counters (+2), the sync clock and the effect read poll stay put; exec frames = 0 |
 | `TkUpdateScanControler` (`0x00889a80`), `Sg_ControlMain` (`0x0082d070`) | Hooks (the first at its two calls, `0x00820b84` in `Sg_MainLoop` and `0x0089ae60` in `TOControlBtlWindow`), return at once on a Redraw | The pad's port scan and the controls (press edges) run only in updates that tick, so a press is never used up by a frame without a tick |
 | `MsEffectProcess` (`0x00787e00`), `op_loop_ffx_after` (`0x007ff680`) | Hooks | The effects: held on a Redraw, their draws replayed ("Effects between ticks") |
@@ -339,9 +339,11 @@ factor (`g_SpdCtrlScales[level]` while `g_SpdCtrl_b8` says it scaled). It stays 
 `g_SyncOn`, `g_WaitFramesByTime`, `g_MovieFading` or `Sg_CanSpeedUp() == 0`. With "keep the
 booster's limits" it also stays ×1 where `SpdCtrl_ScaleElapsedTime` refuses: `SpdCtrl_IsMapExcluded(g_CurrentMapNo)`,
 `SpdCtrl_IsMagicExcluded` in battle, `graphicGetAbmap()` (sphere grid), `g_SaveMachineBusy`. Up to 4 ticks a frame
-(configurable) are whole updates, as the booster runs them. Past that, the ticks are spread over
-4 updates through exec frames (up to 99 each), so ×100 at 144 fps is about 21 ticks per frame in
-4 updates. Above ×1 the mod calls `Sg_SetMuteSound(1)` (and 0 again unless the booster is on).
+(configurable) are whole updates, as the booster runs them. Past that, the last update (the one
+that draws) runs one tick and the rest are spread over the others through exec frames (up to 99
+each), so ×100 at 144 fps is about 21 ticks per frame: 7, 7, 6 and 1. Each frame runs only as many
+ticks as fit into its time budget (40 ms of update time by default), at the measured cost of a
+tick ("Fast-forward: why ×18 crashed" below). Above ×1 the mod calls `Sg_SetMuteSound(1)` (and 0 again unless the booster is on).
 
 ### Findings used
 
@@ -423,6 +425,70 @@ and skips every candidate branch with a byte the loader rewrites: a direct branc
 never relocated, so a real one is still found, and the result no longer depends on the base. A
 test scans every hooked function over FFX.exe's own bytes relocated to many bases, and checks
 that no fixed byte of a pattern is relocated. The error line now also logs the load base.
+
+### Fast-forward: why ×18 crashed
+
+Reported on main (`fa093ad`), target Unlimited, vsync off: above about ×18 the game froze, then
+crashed, with no crash dump and nothing in the log; ×100 crashed too. Then the saved ×18.42 crashed
+the game at once on every start-up. Two things together; the second one alone is the crash:
+
+1. **A spiral.** A frame's update time is about `d + w × n` for `n` ticks. When the scale asks for
+   more ticks a second than `1 / w`, each frame takes longer than the last, owes more ticks for it,
+   and so on up to the 0.3 s cap: ⌊0.3 × 30 × 18⌋ = 162 ticks, cut to "most ticks per frame" (100).
+   At 2 to 3 ms a tick, 100 ticks are a quarter of a second a frame: the freeze. ×18 is where
+   heavy scenes cross `1 / w` (540 ticks a second needs `w` under 1.85 ms). At start-up no spiral
+   is needed: the first world frame follows the load, its real time is at the 0.3 s cap, and it
+   owes ⌊0.3 × 30 × 18.42⌋ = 165 ticks at once (100 above ×11.1). The title and the menus are not
+   at risk: `Sg_MainCheckMenu` sends `Sg_MainLoop` past the world and the effect loop.
+2. **The VFX path table.** The old plan spread 100 ticks evenly over 4 updates: 25 exec frames
+   each, the last update included. `Sg_MainLoop`'s effect loop runs one pass per exec frame
+   (`n = exec ? exec : 1`), and each pass ends in `op_ot_draw`, which calls
+   `graphicVFXSyncPath` → `PhyreScene_VFXSyncPath` (`0x00654cc0`). That writes the current list
+   lengths (`+0xf8cc`, `+0xf8d0`) into two arrays of 16 at `+0xf8d4` and `+0xf914`, indexed by the
+   path count at `+0xf954`, and adds one, with no bound check. The 17th path writes `+0xf954`
+   itself with the second list's length (up to `0xc00`), and the next paths write that far past
+   the scene object: heap corruption, which ends the process later without an exception the crash
+   handler sees. `PhyreScene_addChrDrawSituation` (`0x006564a0`) and the scene's draw
+   (`0x00654650`) add paths too, also unchecked. The counter is reset once per drawn frame (after
+   the scene's draw at `0x00654650`, and in its clear at `0x00654b70`).
+
+   All path writers sit behind `g_GraphicSkipFrame == 0` (`graphicVFXSyncPath`,
+   `graphicCharacterInsertDrawSituation`, and the other `graphicVFXAdd*Event` functions).
+   `Sg_MainLoop` sets it to 1 while `g_VoiceHold` is 2 or more, so of a frame's updates only the
+   last adds paths (the booster's extra updates skip their VFX submissions the same way). The
+   game itself never runs exec frames above 1 on PC (the debug fast-forward is the PS2's), so a
+   drawing update has one pass.
+
+The fix:
+
+- **One tick in the drawing update** (`TickPlan`): with exec frames, the last update runs 1 and
+  the others share the rest (99 each at most, so 298 a frame with 4 updates). The drawing update
+  now has one effect pass, as in the game. The effects are drawn once a frame, from its last tick.
+- **A start-up ramp** (`ScaleGuard`): a session starts at ×1 and the most scale allowed doubles
+  each second of world frames (a frame counts at most 0.1 s, so a load does not count), so the
+  first world frame runs 9 ticks as the game would and ×18.42 is reached after about 4.2 s. A
+  scale above ×1 is written to the settings file only after 5 s of world frames at it, so a scale
+  that crashes is never saved. Below ×1 nothing is limited. While the scale is ×1 the mod also
+  does not call the game's booster checks (`Sg_CanSpeedUp`, `SpdCtrl_IsMapExcluded`, …).
+- **A time budget** (`TickBudget`): the cost of a tick is the update time over its ticks,
+  averaged (one quarter of each new frame; a measurement counts as at most the budget, so a load
+  does not hold the speed down). A frame runs at most ⌊budget / cost⌋ ticks, at least 1. Because
+  the cost counts the frame's fixed part, the limit settles where the update takes the budget:
+  `n = (budget − d) / w`. The ticks owed beyond it are dropped, not carried, and counted: the
+  overlay shows `scale × run / (run + dropped)` when it is more than 2 % short.
+
+`StartupTests` takes the settings saved at the crash: a load's frame (0.3 s, 5 s, endless) runs
+100 ticks with 1 in the drawing update (main: 25), the boundary at ×11.1 changes nothing but the
+count, and the ramp starts at 9 ticks.
+
+The heap overwrite is read from the code, not seen in a dump (there was none). It predicts that on
+main a saved scale of about ×7 or more also crashes on the first world frame (100 / 4 ≥ 16 passes
+needs 64 ticks, ⌊9 × 7.1⌋). The in-game check is that start-up with ×18.42 saved and ×18 to ×100
+in play no longer crash.
+
+Modelled in `FastForwardTests` (`d` = 4 ms, `w` = 2.5 ms, unlimited fps): without the budget ×18
+settles at 100 ticks and 255 ms a frame; with it, ×18 to ×100 settle at 14 ticks and 40 ms a frame,
+about ×11.7 reached; ×4 drops nothing.
 
 ### The camera
 
@@ -660,7 +726,18 @@ What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with 
 | The video | `graphicVideoUpdate` | held; movies Repeat |
 | Pad scan, controls, v-blank counters, sync clock | `TkUpdateScanControler`, `Sg_ControlMain`, `Sg_FrameSync` | held |
 | Sound queue (`TkSndUpdate2`, after `AtelDrawNoTrans`), `graphicMenuUpdate`, `SaveManagerUpdate` | the draw | run: real-time or idempotent as far as read; not checked in the game |
-| Screen effects (`yiDrawScrEffect`), the dream effect (`drawDreamEffect`), the menu water | the draw | run: draws; whether any keeps a counter is not checked |
+| The title's water: `PhyreScene_drawMainMenuWaveEffect` (`0x0065b5b0`, via `graphicDrawMainMenuWaterEffect` `0x0063e920` while `0x025d5ebc` is set) draws `menu/titl/Water_%02d`, one of 70, then steps the frame byte `0x00ccba09` and a count byte `0x00ccba0a` | the draw | drawn from the last tick's frame, counters put back (new: before, it ran 200 / 30 times too fast at 200 fps) |
+| The dream and recall scenes' noise: `graphicDrawDream` (`0x0063df70`, via `recallSceneEffect` `0x00822580` / `recallSceneEffect2` `0x00822620` in `drawDreamEffect`) steps `0x00ccb46c` (16 bits) 0, 1, 2 and draws its speckles at 0 | the draw | drawn with the last tick's cycle, put back (new). It calls `rand()` for the speckles, so a Redraw still draws them at new places |
+| Screen effects (`yiDrawScrEffect` → `yiScreff_entry` `0x009131d0`), `graphicMenuUpdate` (`MenuManager_UpdateMenu` `0x0067faa0`: swaps the menu's buffer chain or sets up its instances) | the draw | run: no counter of their own found |
+
+The title (New Game, Load) runs at 30 fps on the world path (it reaches `Sg_MainCalcRate`), so its
+frames between ticks are Redraws and step what the draw steps. The other menus do not: the
+in-game main menu runs at 60 fps (Redraw needs 2 vsyncs), and the main menu, the save screen and
+the Sphere Grid (`eiAbmCalc` from the menu controller `TkMenuCtrlAbilityMap2` `0x008e26d0`,
+`eiAbmDraw` behind `g_GraphicSkipFrame`) go through `Sg_MainCheckMenu`, which skips the world
+update and the draw (`LAB_008215f4`). Their frames between ticks are Repeats and run nothing of
+the game. A menu that opens on a Redraw frame runs once on that frame (the mod sees the menu only
+after it): one extra step when it opens.
 
 ### Open questions for the in-game test
 

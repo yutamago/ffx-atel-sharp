@@ -116,6 +116,25 @@ internal sealed unsafe class Game(nint moduleBase) {
     /// <summary>The Eternal Calm copyright's frame count (<c>0x012fb7c0</c>), stepped once per <c>Sg_MainLoop</c>.</summary>
     public ref int CalmFrames => ref *At<int>(0x012fb7c0);
 
+    /// <summary>The bytes <see cref="ReadDrawCounters"/> takes.</summary>
+    public const int DrawCountersSize = 4;
+
+    /// <summary>
+    ///     The counters the draw steps per call (<see cref="DrawCounters"/>): the title water's frame and count (bytes
+    ///     <c>0x00ccba09</c>, <c>0x00ccba0a</c>) and <c>graphicDrawDream</c>'s cycle (<c>0x00ccb46c</c>, 16 bits: <c>mov ax, [0x00ccb46c]</c> at <c>0x0063e2bd</c>).
+    /// </summary>
+    public void ReadDrawCounters(Span<byte> into) {
+        into[0] = *At<byte>(0x00ccba09);
+        into[1] = *At<byte>(0x00ccba0a);
+        new ReadOnlySpan<byte>(At<byte>(0x00ccb46c), 2).CopyTo(into[2..]);
+    }
+
+    public void WriteDrawCounters(ReadOnlySpan<byte> from) {
+        *At<byte>(0x00ccba09) = from[0];
+        *At<byte>(0x00ccba0a) = from[1];
+        from[2..DrawCountersSize].CopyTo(new Span<byte>(At<byte>(0x00ccb46c), 2));
+    }
+
     // ---- Effects (EffectReplay; docs/research/frame-timing.md, "Effects between ticks"). ----
 
     /// <summary><c>g_PhyreScene</c> (<c>0x00ccb9d8</c>): the scene whose VFX lists and draw events the effects fill.</summary>

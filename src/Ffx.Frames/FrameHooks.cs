@@ -103,9 +103,11 @@ internal sealed unsafe class FrameHooks {
     private readonly FhLogger _log;
     private readonly Func<FrameSettings> _settings;
     private readonly FrameDirector _director = new();
+    private readonly ScaleGuard _guard;
     private readonly CameraHistory _camera = new();
     private readonly EffectRecorder _effects = new();
     private readonly CharacterHistory _chars = new();
+    private readonly DrawCounters _drawCounters = new(Game.DrawCountersSize);
     private readonly ClothHistory _cloth = new();
     public readonly FrameStats Stats = new();
 
@@ -143,6 +145,13 @@ internal sealed unsafe class FrameHooks {
     public volatile float LastAlpha;
     public volatile float LastScale = 1;
     public volatile int LastTicks;
+    /// <summary>The tick rate of the last frame (30 in the world, 60 in the main menu).</summary>
+    public volatile float LastRate = 30;
+    /// <summary>The most ticks the frame's time budget allows now (<see cref="TickBudget"/>).</summary>
+    public volatile int BudgetTicks;
+    /// <summary>The measured cost of one tick, milliseconds.</summary>
+    public volatile float TickMs;
+    private double _droppedCarry;
     public volatile string Status = "starting";
     public bool Failed => Volatile.Read(ref _failed) != 0;
     public CameraHistory Camera => _camera;
@@ -152,6 +161,8 @@ internal sealed unsafe class FrameHooks {
     public int CharacterCuts => _chars.Cuts;
     public int ClothMeshesHeld => _cloth.Meshes;
     public bool LimiterPatched => _limiterPatched;
+    /// <summary>The start-up ramp and the scale that may be saved (<see cref="ScaleGuard"/>).</summary>
+    public ScaleGuard Guard => _guard;
 
     // The call-site hooks' entry points (kept alive: the game calls them) and the functions they call.
     private readonly FloatFn _updateEntry;
@@ -216,6 +227,7 @@ internal sealed unsafe class FrameHooks {
         _game = game;
         _log = log;
         _settings = settings;
+        _guard = new ScaleGuard(settings().TimeScale);
         _limiterVsyncs = (int*)NativeMemory.AllocZeroed(16);
         _limiterPerVsync = (double*)NativeMemory.AllocZeroed(16);
         *_limiterVsyncs = 2;
@@ -430,6 +442,7 @@ internal sealed unsafe class FrameHooks {
         _syncFrame = false;
         _worldSeen = false;
         _inFrame = true;
+        long start = Stopwatch.GetTimestamp();
         try {
             return next(dt);
         }
@@ -438,6 +451,10 @@ internal sealed unsafe class FrameHooks {
             if (_frame.Kind != FrameKind.Vanilla) {
                 _game.ExecFrames = _execSaved;
                 _worldActive = _worldSeen;
+            }
+            // The time budget learns a tick's cost from the world's frames (a menu, a pause or a load runs no world tick).
+            if (_frame.Kind == FrameKind.Tick && _worldSeen && !_syncFrame && !Failed) {
+                _director.Observe(Stopwatch.GetElapsedTime(start).TotalSeconds, _frame.Plan.Ticks, s);
             }
         }
     }
@@ -461,21 +478,35 @@ internal sealed unsafe class FrameHooks {
 
         int vsyncs = _game.FrameVsyncs;
         bool movie = _game.MovieOn || _game.WaitFramesByTime;
+        // At start-up the scale ramps up from ×1 (a saved fast-forward must not hit the first world frame at once); the
+        // game's checks are not called while it runs at ×1.
+        double scale = _guard.Effective(s.TimeScale);
         string? excluded = null;
-        if (s.Enabled && Math.Abs(s.TimeScale - 1) > 1e-9) excluded = Excluded(s);
+        if (s.Enabled && Math.Abs(scale - 1) > 1e-9) excluded = Excluded(s);
         ExcludedReason = excluded;
-        FrameInput input = new(dt, vsyncs, _worldActive, movie, excluded is not null, s.Enabled ? _game.Booster : 1);
+        FrameInput input = new(dt, vsyncs, _worldActive, movie, excluded is not null, s.Enabled ? _game.Booster : 1, scale);
         _frame = _director.Next(input, s);
+        if (_frame.Kind is FrameKind.Tick or FrameKind.Redraw && _worldActive && !movie) _guard.WorldFrame(dt, excluded is null ? scale : 1);
         _execSaved = _game.ExecFrames;
         if (_execSaved < 1) _execSaved = 1;
         LastAlpha = (float)_frame.Alpha;
         LastScale = (float)_frame.Scale;
         LastTicks = _frame.Plan.Ticks;
+        LastRate = (float)_director.Accumulator.Rate;
+        BudgetTicks = _director.MaxTicks(s);
+        TickMs = (float)(_director.Budget.SecondsPerTick * 1000);
         Stats.Add(Counter.PlannedTicks, _frame.Plan.Ticks);
+        _droppedCarry += _frame.Dropped;
+        if (_droppedCarry >= 1) {
+            long whole = (long)Math.Floor(_droppedCarry);
+            Stats.Add(Counter.DroppedTicks, whole);
+            _droppedCarry -= whole;
+        }
         if (_frame.Kind == FrameKind.Vanilla && _applied) RestoreCamera();
         if (_frame.Kind == FrameKind.Vanilla) {
             _camera.Clear();
             _effects.Clear();
+            _drawCounters.Clear();
         }
         ApplyMute(_frame.Kind != FrameKind.Vanilla && _frame.Mute);
         Status = _frame.Kind == FrameKind.Vanilla ? "off: the game's own timing" : "running";
@@ -524,6 +555,7 @@ internal sealed unsafe class FrameHooks {
         }
         bool redraw = Redraw;
         int calm = 0;
+        Span<byte> counters = stackalloc byte[Game.DrawCountersSize];
         try {
             if (_applied) RestoreCamera();
             _pushedThisLoop = false;
@@ -532,16 +564,30 @@ internal sealed unsafe class FrameHooks {
             _cameraSnapped = false;
             _updateSerial++;
             _worldCalls.BeginUpdate(_updateSerial);
-            if (redraw) calm = _game.CalmFrames;
-            // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
-            else if (_inFrame && _frame.Kind == FrameKind.Tick) _effects.Clear();
+            if (redraw) {
+                calm = _game.CalmFrames;
+                // The draw's own counters (the title's water, the dream noise): drawn as at the last tick, then put back.
+                _game.ReadDrawCounters(counters);
+                _drawCounters.BeginRedraw(counters);
+                _game.WriteDrawCounters(counters);
+            }
+            else if (_inFrame && _frame.Kind == FrameKind.Tick) {
+                // A game update with ticks records the effects' draws afresh: a call it does not reach replays nothing.
+                _effects.Clear();
+                _game.ReadDrawCounters(counters);
+                _drawCounters.BeginTick(counters);
+            }
         }
         catch (Exception ex) {
             Fail("Sg_MainLoop", ex);
         }
         Stats.Add(Counter.Updates);
         next(dt);
-        if (redraw && !Failed) _game.CalmFrames = calm;
+        if (redraw && !Failed) {
+            _game.CalmFrames = calm;
+            _drawCounters.EndRedraw(counters);
+            _game.WriteDrawCounters(counters);
+        }
         if (_clothRecord && !Failed) {
             // Sg_MainLoop waited for the cloth jobs Ch_DrawMain queued: the tick's cloth is final.
             _clothRecord = false;

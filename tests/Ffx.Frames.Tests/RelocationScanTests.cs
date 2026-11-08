@@ -138,6 +138,25 @@ public class HookSitesInTheGameTests {
         yield return 0x006e0000u - 0x00400000;            // a base that refused
     }
 
+    /// <summary>
+    ///     The draw counters the mod holds on Redraw frames (<c>Game.ReadDrawCounters</c>: 1 + 1 + 2 bytes, <see cref="DrawCounters"/>): each
+    ///     address is the operand the game's own instruction uses, as wide as the mod reads it, and relocated by the loader.
+    /// </summary>
+    [Theory]
+    [InlineData(0x0065b5f0u, 0x00ccba09u, "0f b6 05")] // PhyreScene_drawMainMenuWaveEffect: movzx eax, byte [frame]
+    [InlineData(0x0065b6d0u, 0x00ccba0au, "fe 05")]    // inc byte [count]
+    [InlineData(0x0063e2bfu, 0x00ccb46cu, "66 a1")]    // graphicDrawDream: mov ax, word [cycle]
+    public void The_draw_counters_are_the_game_s_own_operands(uint operand, uint address, string opcode) {
+        Image img = Load()!;
+        uint rva = operand - 0x00400000;
+        Assert.Equal(address, img.U32(rva));
+        string[] want = opcode.Split(' ');
+        for (int i = 0; i < want.Length; i++) {
+            Assert.Equal(Convert.ToByte(want[i], 16), img.At(rva - (uint)want.Length + (uint)i));
+        }
+        Assert.True(Array.BinarySearch(img.Relocations, rva) >= 0, $"0x{operand:x8} is not relocated");
+    }
+
     [Fact]
     public void FFX_exe_has_relocations() {
         Image img = Load()!;

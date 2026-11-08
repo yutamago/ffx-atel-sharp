@@ -75,8 +75,16 @@ public sealed record FrameSettings {
     public double CapSeconds { get; init; } = 0.3;
     /// <summary>The most ticks one frame runs.</summary>
     public int MaxTicksPerFrame { get; init; } = 100;
-    /// <summary>The most whole game updates one frame runs; more ticks than this go through exec frames.</summary>
+    /// <summary>
+    ///     The most whole game updates one frame runs; more ticks than this go through exec frames, in every update but the
+    ///     last (which draws and runs one tick; with exec frames a frame has at least 2 updates, <see cref="TickPlan"/>).
+    /// </summary>
     public int MaxUpdatesPerFrame { get; init; } = 4;
+    /// <summary>
+    ///     The most real time one frame's game update may take, in seconds: past it the frame runs fewer ticks (the game
+    ///     then runs slower than the scale asks, and the overlay says so) instead of each frame taking longer than the last.
+    /// </summary>
+    public double FrameBudgetSeconds { get; init; } = 0.04;
 
     public DrawOnlyMode DrawOnly { get; init; } = DrawOnlyMode.Redraw;
     /// <summary>
@@ -138,6 +146,7 @@ public sealed record FrameSettings {
         CapSeconds = Clamp(CapSeconds, 0.05, 2, 0.3),
         MaxTicksPerFrame = Math.Clamp(MaxTicksPerFrame, 1, MaxTicks),
         MaxUpdatesPerFrame = Math.Clamp(MaxUpdatesPerFrame, 1, 10),
+        FrameBudgetSeconds = Clamp(FrameBudgetSeconds, MinBudget, MaxBudget, 0.04),
         CutDistance = Clamp(CutDistance, 1, 100000, 100),
         CutDegrees = Clamp(CutDegrees, 1, 180, 45),
         CharacterCutDistance = Clamp(CharacterCutDistance, 1, 100000, 50),
@@ -146,8 +155,10 @@ public sealed record FrameSettings {
 
     public const double MinFps = 10, MaxFps = 1000;
     public const double MinScale = 0.05, MaxScale = 100;
-    /// <summary>10 whole updates × 99 exec frames.</summary>
-    public const int MaxTicks = 990;
+    /// <summary>10 updates: 9 × 99 exec frames and the drawing update's 1 (<see cref="TickPlan.MaxTicks"/>).</summary>
+    public const int MaxTicks = 9 * TickPlan.MaxExec + 1;
+    /// <summary>The range of <see cref="FrameBudgetSeconds"/>.</summary>
+    public const double MinBudget = 0.005, MaxBudget = 0.3;
 
     private static double Clamp(double v, double min, double max, double fallback) =>
         double.IsNaN(v) ? fallback : Math.Clamp(v, min, max);

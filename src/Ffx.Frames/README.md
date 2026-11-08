@@ -34,10 +34,14 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 - **F9** shows and hides the settings window.
 - **Alt+F9** switches vsync on and off.
 - A small counter in the top-right corner shows the drawn fps, the world ticks a second (about 30 at
-  ×1), vsync and the time scale; "Show the fps counter" in the window turns it off.
+  ×1), vsync and the time scale; "Show the fps counter" in the window turns it off. When the CPU
+  cannot keep up with the scale, a yellow line shows the speed reached ("reached ×12 of ×18").
 - **Ctrl+F9** switches between the fast-forward scale (×10 by default) and ×1.
   **Shift+F9** does the same for slow motion (×0.25). **Ctrl+Shift+F9** goes back to ×1.
   **Ctrl+PgUp** and **Ctrl+PgDn** step through ×0.05 … ×100.
+- A saved fast-forward scale starts at ×1 and ramps up to it over the first seconds in the world
+  (it doubles every second: ×18 after about 4 s). A scale above ×1 is saved only once the game has
+  run at it for 5 s, so one that crashes the game is never saved and cannot crash the next start.
 - The settings are saved half a second after a change, in Fahrenheit's state folder:
   `state/global/yuta.frames/Ffx.Frames.FramesModule` (JSON; delete it to start over).
 - The log is `logs/<start time>/Ffx.Frames.FramesModule.log` in the Fahrenheit folder.
@@ -58,11 +62,13 @@ a line `yuta.frames` to `mods/loadorder`. It was built against Fahrenheit 1.0.0-
 | Keep the booster's limits | on | Also ×1 where the PC booster won't speed up (its maps and spells, the sphere grid, a load) |
 
 Advanced: the most real time one frame counts (0.3 s, as the game), the most ticks one frame
-runs (100), how many whole game updates a frame runs before it uses exec frames (4), for
+runs (100), the most update time one frame may take (40 ms: past it the frame runs fewer ticks), how
+many whole game updates a frame runs before it uses exec frames (4), for
 Redraw frames which parts are held still (the cloth among them), whether the characters' bones
 and cloth are interpolated or only their place (the cloth needs to be held), and the characters' warp thresholds. The window's **Live** section shows the drawn
-frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate), why the scale
-is held at ×1, and the camera's last move and cuts (to tune the cut thresholds). "The game's
+frame rate, the world's ticks a second (about 30 at ×1, whatever the frame rate), the measured cost
+of a tick and how many fit into the budget, the ticks dropped a second, why the scale is held at ×1,
+and the camera's last move and cuts (to tune the cut thresholds). "The game's
 instant camera sets are cuts" (on) also cuts when a script or magic file sets the camera at once,
 when it jumps against its last step, however little it moved.
 
@@ -76,7 +82,8 @@ drawing faster ran the game faster. The mod changes that:
    many whole ticks as fit, 0 included, and carries the rest, like Unity's `FixedUpdate`.
 3. **Frames without a tick.** Redraw runs the game's update with 0 ticks and holds what would
    still move: pad scan, controls, the v-blank count, the camera, the effects, the characters'
-   bones and motion events, the cloth (the hair is cloth too), field animation, fade counters, video. The effects'
+   bones and motion events, the cloth (the hair is cloth too), field animation, fade counters, video,
+   and the counters the draw steps itself (the title's water, the dream scenes' noise). The effects'
    programs step and draw in one pass, so on these frames the mod draws again what they drew at
    the last tick instead of running them. Menus, pauses, loads and movies always use Repeat,
    because their logic runs once per update.
@@ -87,8 +94,13 @@ drawing faster ran the game faster. The mod changes that:
    bigger than the cut or warp thresholds is drawn as it is. When the camera cuts to a new shot
    (by the thresholds, or the game sets its camera at once), the characters and their cloth are
    drawn as the tick has them too, so they do not slide in from the last shot.
-5. **Time scale.** Above ×4 per frame, ticks go through the game's exec frames (up to 99 ticks
+5. **Time scale.** Above 4 ticks per frame, ticks go through the game's exec frames (up to 99 ticks
    per update) instead of whole updates, so ×100 costs 3,000 ticks a second but no extra draws.
+   Only the frame's last update draws (the game skips the others' graphics), and it always runs
+   exactly one tick: each tick in it would add a VFX path, and the game's path table holds 16.
+6. **The time budget.** The mod measures what a tick costs and gives each frame only as many ticks
+   as fit into 40 ms of update time. A scale the CPU cannot keep up with then runs as fast as it
+   can at about 25 fps, instead of each frame taking longer than the last.
 
 ## Limits
 
@@ -100,8 +112,7 @@ drawing faster ran the game faster. The mod changes that:
 - **What the effects replay cannot cover.** The replay re-sends the effects' geometry, the order
   of their draw paths and their draw events (screen fades, buffer copies). Something an effect
   sets only while it runs keeps its last value between ticks: the point lights the map's
-  particles cast (`pppFpPointLightProc`), for example, are not set again. With exec frames (above ×4 per frame) a tick frame draws the effects once
-  per tick, as the game does, but a frame between ticks draws them once. If an effect still
+  particles cast (`pppFpPointLightProc`), for example, are not set again. If an effect still
   flickers or vanishes between ticks, set **Effects between ticks** to Run and report which one.
 - **Hard cuts the game does not mark.** A cut is a camera that moved over 100 units or turned
   over 45° in one tick, or one a script or magic file set at once and that jumped (more than
@@ -110,11 +121,19 @@ drawing faster ran the game faster. The mod changes that:
 - **Characters drawn by other paths** (a magic file's situation pass, the effects' character
   draws) stay at 30 Hz.
 - **Fast-forward costs CPU.** Every tick is simulated. ×100 is 3,000 ticks a second, which may
-  be more than one core can do in heavy scenes. The game then runs slower than asked but stays
-  responsive ("most ticks per frame").
-- **Above ×4 per frame**, exec frames run several ticks per update. What runs once per update
+  be more than one core can do (in a heavy scene a tick can take 2 to 3 ms, so about ×12 to ×15).
+  The game then runs slower than asked, at about 25 fps, and the overlay shows the speed reached. A
+  bigger "most update time per frame" gives more speed and fewer frames.
+- **Fast-forward crashed above about ×18 before 2026-11-08**, and a saved ×18.42 crashed every
+  start-up. A frame with many ticks ran up to 25 of them in its drawing update, and each adds an
+  effect pass and a VFX path: more than the game's table of 16 holds, which overwrote the heap (no
+  crash dump, nothing in the log). In play the CPU falling behind got there (each frame owed more
+  ticks than the last); at start-up the first world frame after the load did (its 0.3 s owe
+  9 × the scale ticks). Fixed by one tick in the drawing update, the time budget and the start-up
+  ramp (frame-timing.md, "Fast-forward: why ×18 crashed").
+- **Above 4 ticks per frame**, exec frames run several ticks per update. What runs once per update
   (field animation, fades, the characters' middle step, the video) then falls behind, as with
-  the game's debug fast-forward.
+  the game's debug fast-forward. The effects are drawn once per frame, from its last tick.
 - **Audio, movies, loads and voice-synced scenes run in real time**, whatever the scale.
 - **Uncapped with vsync off** keeps one CPU core busy.
 - Sound and subtitles: only the sound is muted when fast. The booster also mutes the battle

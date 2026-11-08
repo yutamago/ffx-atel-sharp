@@ -1738,6 +1738,21 @@ count, names placed.
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–11 follow and partly run alongside.
 
+Separate from the phases: **the Frames mod** (`yuta.frames`,
+[src/Ffx.Frames/README.md](../src/Ffx.Frames/README.md),
+[research/frame-timing.md](research/frame-timing.md)), in testing. Fixed
+2026-11-08: fast-forward above about ×18 froze and crashed (a spiral of ever
+longer frames, and 25 effect passes in the drawing update overrunning the
+game's 16-entry VFX path table). The drawing update now runs one tick, and a
+time budget per frame (40 ms of update time) limits the ticks; the overlay
+shows the speed reached. A saved ×18.42 crashed every start-up (the first
+world frame after the load owes 0.3 s of ticks): a session now starts at ×1
+and ramps up, and a scale above ×1 is saved only after 5 s at it. The
+title's water (a 70-frame flipbook stepped by its draw) and the dream
+scenes' noise ran at the frame rate; Redraw frames now draw them as at the
+last tick. Open: the in-game check of that fix, the effects'
+replay, the character interpolation and the cloth hold.
+
 ## Out of scope for now
 
 - Running something other than the ATEL VM (running the C# on .NET).
