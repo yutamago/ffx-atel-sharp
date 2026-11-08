@@ -695,6 +695,7 @@ writes on top of Phase 3:
   - A shared tail as a local function or an `[Inline]` helper would compile
     to a copy of the tail at each jump, not to a `jmp`; a `return` for a tail
     that only returns is `ret`, not `jmp`. Neither is byte for byte.
+
 ### Phase 5: typing and naming
 
 Started 2026-11-02. Every name has a source: the reference assembly
