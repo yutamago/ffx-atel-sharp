@@ -31,7 +31,7 @@ How it works:
 - [`docs/research/dead-code.md`](docs/research/dead-code.md): the dead `if (false)` blocks, what they are, and names for them.
 - [`docs/research/repeats.md`](docs/research/repeats.md): the code that repeats with only different values, as candidate inline helpers.
 - [`docs/research/handlers.md`](docs/research/handlers.md): which worker and entry the battle runs for which event (turn, hit, death, cameras, motions), from FFX.exe.
-- [`docs/research/frame-timing.md`](docs/research/frame-timing.md): what a script frame is (30 a second), seconds, frame-rate and fast-forward mods.
+- [`docs/research/frame-timing.md`](docs/research/frame-timing.md): what a script frame is (30 a second), waits in seconds, and why a frame-rate mod keeps the tick. The frame-rate mod that was `src/Ffx.Frames` (`yuta.frames`) is now FPS unlock (`yuta.fps-unlock`) in [ffx-mods](https://github.com/yutamago/ffx-mods) ([`docs/fps-unlock.md`](https://github.com/yutamago/ffx-mods/blob/main/docs/fps-unlock.md)).
 - [`docs/research/oo-surface.md`](docs/research/oo-surface.md): the object-oriented members over the natives, how they were chosen and measured.
 - [`docs/research/mod-saves.md`](docs/research/mod-saves.md): where a mod's saved fields live (the save's unused tail) and how the loader keeps them.
 - [`docs/research/save-fields.md`](docs/research/save-fields.md): the save variables the `Save` class names.
@@ -134,7 +134,6 @@ Phases 0-4, 6, 7, 10 and 11 are done; 5 (names), 8 (tooling) and 9 (mods) are un
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts |
 | `Ffx.Atel.Loader` | the Fahrenheit mod (`yuta.atel`) that links the enabled Atel mods and serves the results |
 | `Ffx.Atel.Cuts` | the Fahrenheit mod (`yuta.atel.cuts`) that switches the named dead blocks (`Cut.*`) on and off in the loaded scripts, from a menu |
-| `Ffx.Frames` | a separate Fahrenheit mod (`yuta.frames`): monitor-rate or uncapped frames at the game's speed, the camera interpolated between ticks, a time scale ([README](src/Ffx.Frames/README.md)) |
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, handlers, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `Ffx.Atel.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |
