@@ -657,6 +657,44 @@ writes on top of Phase 3:
   the C# check: Roslyn takes about 36 s of it, half of Phase 3's 72 s on the
   same machine (89 s with the check, 17 s without), as structured code gives
   its flow analysis no methods with tens of thousands of labels.
+- **The gotos that stay** (2026-11-08). `atel roundtrip` counts the gotos
+  left by shape (`GotoShapes`): where the label lies against the jump, which
+  constructs the jump leaves, and across them the jumps to a shared label and
+  those followed by dead code. A `switch` with only a `default` section (its
+  chain is the one `jmp`, `switch (StoryProgress) { default: … }` in NPC talk
+  entries) is structured now: 51 more switches, **8,448 → 8,295 gotos**,
+  still 1,621/1,621 byte for byte, 0 C# errors (221 ATL2006 warnings, as
+  before). By shape, before → after: forward in the same block 2,516 → 2,414
+  (+69 conditional), back in the same block 635 → 583, back out of a switch
+  1,240 → 1,241, forward out of a switch 1,061, back conditional 1,463,
+  forward out of an if 424, out of a loop 370 (+13), back out of an if 173
+  (+12), to the end of an if 152 (+60), break out of a switch 150, back out of
+  a loop 61, break out of a loop 29 (+17), to the next statement 3; 4,181 go to
+  a label several jumps share, 2,078 are followed by dead code (`goto l6;
+  break;`). What they are, and why they stay:
+  - **Switches the original wrote with a case twice** (about 300 switches,
+    nearly all of the 1,463 conditional back jumps: the chain's `if (1 ==
+    RegB) goto l40;`, plus the jump to the chain and the sections' ends). The
+    original compiler allowed `case 1:` twice; the second never matches but
+    its compare is in the code, and the first section often runs into the
+    second. C# refuses a repeated or covered case (CS0152, CS8120, also with
+    `when false`), and a pin attribute for the dead compare would have to
+    place a label inside a section. Some others jump into a section from
+    outside, which C# cannot either.
+  - **Hand-written gotos**: a shared exit from a run of loops (`goto l877;`
+    skips a movie from each of its wait loops), shared tails after several
+    branches (`goto l808;`), menus that restart from inside a switch
+    (`goto l2;`); the dead `break;`/`return;` after many of them says the
+    original source had the `goto`. The loops and ifs around them are not
+    structured either where a jump enters their body (2,903 constructs
+    dropped for that).
+  - **Talk entries laid out around other entries** (about 120): `goto l0;`
+    over an epilogue and `Entry(3); Entry(4); Entry(5);`, the body, `goto
+    l1;` back to the epilogue. A `try`/`finally` would read so but means
+    something else (a `return` in the body would run the epilogue).
+  - A shared tail as a local function or an `[Inline]` helper would compile
+    to a copy of the tail at each jump, not to a `jmp`; a `return` for a tail
+    that only returns is `ret`, not `jmp`. Neither is byte for byte.
 
 ### Phase 5: typing and naming
 
@@ -827,8 +865,8 @@ replaces and the round trip stays byte for byte.
   (`MsSetCommandUse` per picked actor), `WaitFrames_01d1` →
   `WaitFramesUnlessHddMode` (its poll is done at once in HDD mode,
   `g_FFXHddMode`). `tools/gen-natives.cs` fails on a `Ret` name and counts
-  the names still generated (131: `N0123`, a number suffix, `Cam_605b`);
-  those stay until their meaning is verified.
+  the names still generated (131: `N0123`, a number suffix, `Cam_605b`;
+  85 since 2026-11-08); those stay until their meaning is verified.
 - **`op_77` and `op_78`** (2026-11-02): from ffx-rust's interpreter port
   (`run.rs`) and FFX.exe: `op_77` pops entry and worker; while
   `AtelIsSignalQueued(worker, entry)` (`0x00863570`) finds a request for the
@@ -869,12 +907,43 @@ replaces and the round trip stays byte for byte.
   ret`, every call is the last term of a confirm-button test (`PadPressed()
   & 32` or `& 160`), and nothing available (ffx.sym, Fahrenheit's
   `AtelFn_Std_19C_RetI`, no PS2 executable) says what the PS2 version
-  tested. Left for later: the `Cam_6xxx` natives (42, 7,291 calls)
-  wrap camera helpers (`0x007bb410`, `0x007bb970`, …) without verified
-  names, and `TurnSetPitch_002a` turns rotation `+0x38` (0x0028 `+0x34`
-  yaw, 0x0029 `+0x30`), which is roll or pitch by the axis convention.
-  The docs section takes `notes` now: what was verified for Atel#, after
-  the symbol's notes in `<remarks>`.
+  tested. The docs section takes `notes` now: what was verified for Atel#,
+  after the symbol's notes in `<remarks>`.
+- **Camera natives and the roll** (2026-11-08): the 42 `Cam_6xxx` natives
+  (7,291 calls) are named after the helper each handler calls with its
+  side and kind, the helpers' names from ffx.sym (Fahrenheit's and the
+  Switch build's where they have one: `MsCameraResetShake`,
+  `MsCameraSetSpline`, …) and their behaviour from ffx-rust's ported camera
+  (`crates/ffx-battle/src/camera.rs`, `camera_native.rs`). Side 1 is the
+  eye, side 0 the focus point; a name follows its existing twin (`AddPolar`
+  for `SetPolar`'s add, `RefGetPos` for `GetPos`, `EyeClearAreas` for
+  `RefClearAreas`), else `Eye…`/`Focus…`: `EyeAimAtXZ`/`EyeAimAt`/
+  `EyeAimShortOf` (0x007bb410's request kinds 4-6, a polar aim at a point;
+  its three side-0 twins, misnamed `EyeAddArea*`, became `FocusAim…`),
+  `EyeFollowSpline`/`FocusFollowSpline` (0x007bb970, request kind 14),
+  `PathClearEye`/`PathClearFocus`, `MoveCosine`/`FocusTimeCosine`
+  (`MsCameraMoveFrame` curve 3, a cosine ease; curve 1 is linear),
+  `EyeShakeKind1`/`8`, `FocusShakeKind1`/`8`, `ScreenShakeKind3`/`5`,
+  `EyeResetShake`, `EyeShakeWait`, `ScreenShakeWait`, `RefAddPathArea`
+  (`MsCameraSetSplineFilter`), `EyeOnSpline` (`MsCameraSetSpline2`),
+  `FocusOnActors` (`MsCameraSetBtl` mode 0), `EyeOrbitPolar` (mode 4),
+  `SetBlur`, `FreeBattleCamera`, … Each entry's `notes` say what was
+  checked. Not known and so not in the names: what `MsCameraMoveFrame`'s
+  mode 1, `MsCameraMoveDivide`'s four values and the focus-list flag change
+  (`EyeMoveFrameLinear`, `EyeMoveDivide`, `SetFocusList1` say only what
+  the handler passes). **Roll**: the position block's rotation is `+0x30`
+  pitch, `+0x34` yaw, `+0x38` roll (ffx-rust script.md); checked against
+  the scripts, which set `+0x30` from the vertical angle to a target
+  (`Turn.Pitch = Move.PitchToTarget`, 2,206 times; `Math_YawPitchTo`'s
+  pitch), so 0x002a, which turns `+0x38`, is `TurnSetRoll` (`Turn.Roll =
+  …`), and the getters of `+0x30`/`+0x38` are `GetPitch`/`GetRoll`, the
+  worker's `Pitch` (now read and write) and `Roll` properties. 85 names
+  are still generated (from 128): same code under two ids (`SetMotion_501b`,
+  `Echo_*`, `AlwaysTrue_*`, …), and pairs whose difference is a flag whose
+  meaning is not verified (`ChrSetDirTarget_7006`, `GetTargetDist_7059`).
+  Not done: a nested `Camera.Eye`/`Camera.Focus` group (gen-members and the
+  compiler's `NativeMembers` know only flat static groups), so these stay
+  `Cam.…` calls.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
@@ -1519,7 +1588,8 @@ count, names placed.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label
    order and branch polarity matching the original. Exit: no `Asm` left.
    Done 2026-11-02, see "Phase 4: control flow": no `Asm`, 8,448 `goto`s
-   left, 26 label pins.
+   left, 26 label pins (8,295 since 2026-11-08, by shape in "The gotos that
+   stay").
 5. **Typing and naming** (ongoing). Enums by use, properties, text IDs,
    story constants, base classes and engine entries, Fahrenheit's names.
 6. **Source layout.** Folders, one file per worker, `partial`, project

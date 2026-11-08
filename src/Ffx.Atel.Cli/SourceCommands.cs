@@ -266,6 +266,7 @@ internal static class SourceCommands {
         Console.WriteLine(LibrarySummary(shared));
         Console.WriteLine(totals.ToString());
         Console.WriteLine(totals.FlowSummary());
+        Console.WriteLine(totals.GotoSummary());
         Console.WriteLine(totals.NameSummary());
         Console.WriteLine("constructs dropped: " + string.Join(", ", ScriptDecompiler.DroppedReasons.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}")));
         return identical == paths.Count && errors == 0 ? 0 : 1;

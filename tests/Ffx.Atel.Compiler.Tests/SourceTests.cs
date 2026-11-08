@@ -465,6 +465,59 @@ public sealed class SourceTests {
         Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
     }
 
+    /// <summary>
+    ///     A switch with only a default section (its chain is the one <c>jmp</c> to it) decompiles to a
+    ///     <c>switch</c>, not to gotos, and compiles back to the same bytes.
+    /// </summary>
+    [Fact]
+    public void DefaultOnlySwitchRoundTrips() {
+        string source = """
+            using Ffx;
+            using Ffx.Atel;
+            using static Monsters.M996.M996;
+
+            namespace Monsters.M996;
+
+            [Monster("m996")]
+            [Workers(typeof(W00))]
+            public static partial class M996
+            {
+                [Var(Storage.Private, 0x0000)] public static int Count;
+            }
+
+            public sealed class W00 : Worker2
+            {
+                [Entry(0)]
+                void E0()
+                {
+                    switch (Count)
+                    {
+                        default:
+                            Count = 3;
+                            break;
+                    }
+                    Count += 1;
+                }
+            }
+            """;
+        SyntaxTree compiled = ScriptCompiler.Parse(source, "m996.cs");
+        Assert.Empty(ScriptCompiler.Check([compiled]));
+        byte[] block = ScriptCompiler.Compile([compiled]).Block();
+        byte[] original = new byte[0x40 + (block.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(original, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(original.AsSpan(4), 0x40);
+        block.CopyTo(original, 0x40);
+
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m996/m996.bin", file);
+        Assert.Contains("default:", d.Source, StringComparison.Ordinal);
+        Assert.DoesNotContain("goto", d.Source, StringComparison.Ordinal);
+
+        SyntaxTree tree = ScriptCompiler.Parse(d.Source, "m996.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
+    }
+
     /// <summary>The reference assembly's constants (Phase 5): story values and save offsets compile to their numbers.</summary>
     [Fact]
     public void NamedConstantsCompile() {

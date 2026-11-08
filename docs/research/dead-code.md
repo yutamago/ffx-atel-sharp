@@ -226,8 +226,76 @@ The Highroad's lines are 330 to 337 (story progress from
   `BattleDialogLinesSeen[6]` bit 1): `Cut.HighroadBattleLine336AuronTidus`
   (`@d9a6`).
 
-Whether the battle text and voice for 335 and 336 exist in the game files is
-not checked yet (step 2).
+**What the lines are (read from the game files, 2026-11-08).** Both dead
+lines are complete: a voice in both voice languages and a text in every
+language that shows battle lines. Nothing is missing or a placeholder.
+
+How a line is played, in `system_01` and FFX.exe (ffx-rust `symbols/ffx.sym`,
+the Ghidra dump):
+
+1. `l22: Btl.RunEvent(1, 28)` runs handler 28 of the actor in slot 1;
+   then, with `V48` set, `Btl.AtelRequestSystem(8)` requests worker 2
+   (`SystemRequests2`), entry 2 (`OnRequest8`).
+2. `OnRequest8` does `Btl.StreamStandbyResult(V48)` and `Btl.StreamStart()`,
+   which is the voice, then `Btl.MsgShow(0, V63)`, which is the text. The `switch` skips the text for
+   lines 94, 110, 117, 380 and 396, which are sighs and grunts ("Pah!",
+   "Puh..."). Then it clears `V48` and `V63`.
+3. **Voice.** `V48` reaches `SndStandbyStream` and then `FmodVoice_read`
+   (`0x0070add0`), which looks the id up in
+   `sound_pc/voice/voiceidmapper.txt` (an `ML` file: id to event name). Ids
+   above `0x33000000` are events of the battle project
+   `voice/us|jp/ffx_us|jp_voice_btl.fev`, whose audio is in
+   `…_voice_btl_bank00.fsb` (FSB5, Vorbis). Voices exist in only two
+   languages, US English and Japanese.
+4. **Text.** `Btl.MsgShow(0, n)` (`0x7120`) drops its first argument and calls
+   `MsShowBattleMessage_0079d090(n)`. That function reads the table at
+   `*0x0112a998`, entry `n` (8 bytes an entry, the kana flag picks the
+   alternate), into the centre window. `0x0112a998` is `+0x14` of script
+   record 0 (`g_BtlScriptRecords`). `MsBattleInit` reads `system_01` first,
+   with `MsBattleExe`'s mode set, and `MsBtlScriptRecordShift` copies that
+   record over record 0. Record 1's `+0x14` (`0x0112a9b8`) is the current
+   battle's own table, the one `Text[n]` reads. So the line numbers index
+   `system_01`'s own message table,
+   `new_<lang>pc/battle/btl/system_01/system_01.bin` (494 entries). The
+   battle's tables and the kernel files are not used. `atel text export
+   system_01` decodes it already.
+5. The window opens only when `MsGetBattleMessageFlag` is set. That is the
+   case when the language is not English (`MsGetCheckEnglish`: `TkGetLang()
+   != 1`) and `g_BtlMessageOff` (`0x0112ca17`) is 0. In English the line is
+   only heard. The English table also leaves all eight empty: it has 6 texts
+   in 494 entries. The Japanese table has none for them, and the game shows
+   them with Japanese voice and no subtitle.
+
+The eight lines. The event name is the voice's (its suffix is the first
+speaker). The text is German, with French for comparison. The gloss is ours,
+from the European texts, because the English game has no text for these lines.
+The voice lengths are in seconds at 48 kHz, US / JP:
+
+| Line | `V48` → event | Speakers | Text (de; fr) | Gloss | Voice |
+|---:|---|---|---|---|---|
+| 330 | `0x4bb58504` `310104td` | Tidus | "OK!"; "OK !" | "OK!" | 1.18 / 0.81 |
+| 331 | `0x4bb5964e` `310105yn` | Yuna, Auron | "Ich bitte darum, Herr Auron." / "In Ordnung."; "Sire Auron, c'est un honneur." / "Merci." | "It's an honour, Sir Auron." / "Thanks." | 3.14 / 3.10 |
+| 332 | `0x4bb5a64e` `310106yn` | Yuna, Tidus | "Bist du in Ordnung?" / "Geht schon!"; "Tu es sûr que tout va bien ?" / "J'ai la super forme !" | "Are you sure you're OK?" / "I'm fine!" | 2.88 / 3.22 |
+| 333 | `0x4bb5b504` `310107td` | Tidus | "Wann kommen wir endlich an?"; "C'est encore loin ?" | "Are we there yet?" | 2.00 / 2.68 |
+| 334 | `0x4bb5c5cb` `310108wk` | Wakka, Lulu | "Ich brauch einen Chocobo." / "Halte den Mund und lauf."; "Je veux un chocobo..." / "Marche, ou tu leur serviras de repas !" | "I want a chocobo." / "Walk, or you'll be their dinner." | 4.35 / 3.50 |
+| **335** | `0x4bb5d504` `310109td` | Tidus | "Jetzt geht's rund."; "On va se le faire !" | "Let's get 'em!" | 1.78 / 1.57 |
+| **336** | `0x4bb5e04e` `310110an` | Auron, Tidus | "Bist du jetzt wach?" / "Lass mich in Ruhe!"; "Tu es réveillé maintenant ?" / "Fous-moi la paix !" | "Are you awake now?" / "Leave me alone!" | 3.23 / 3.08 |
+| 337 | `0x4bb5f5cb` `310111wk` | Wakka | "Dann wollen wir mal."; "On va mettre de l'ambiance !" | "Let's liven things up!" | 1.65 / 1.68 |
+
+For 335 and 336, the Spanish, Italian, Korean and Chinese tables also have the
+full text (es "¡Hagámoslo ya!"; "¿Estás despierto ahora?" / "Déjame en paz."),
+with the same speakers as the condition that picks the line (336: Auron, then
+Tidus). Each two-speaker line has a `{scroll:n}` between its speakers, and
+each line's voice is a single event of normal length. The table's
+placeholders look different: entries 492 and 493 hold test strings
+(`hello`, `wwwwwwww / 1234…`). So the two cut lines were recorded, translated
+and kept in every language like their live neighbours. The only thing that keeps
+them from playing is the `if (0)` in the script.
+
+How to check it again: `atel text export system_01 -o <dir>` (the texts), the
+`ML` table in `voiceidmapper.txt` (`"ML\0\0"`, `u32` count, `count` pairs of
+`{u32 id, u32 offset}`, then the zero-terminated names), and the sample names
+and lengths in the FSB5 bank's sample headers and name table.
 
 ### Superseded copies: the `AlwaysTrue_0260` gates
 
