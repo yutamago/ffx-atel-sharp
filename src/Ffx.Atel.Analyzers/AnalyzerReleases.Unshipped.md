@@ -30,3 +30,5 @@ ATL3003 | Atel.Calls | Error | InlineAnalyzer
 ATL3004 | Atel.Calls | Error | InlineAnalyzer
 ATL3005 | Atel.Calls | Error | InlineAnalyzer
 ATL3006 | Atel.Calls | Error | InlineAnalyzer
+ATL4001 | Atel.Mods | Error | ModAnalyzer
+ATL4002 | Atel.Mods | Error | ModAnalyzer

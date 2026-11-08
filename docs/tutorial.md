@@ -288,6 +288,28 @@ If something is wrong, the log says what:
 - Change something else: another vanilla method (`[Prefix(nameof(OnTurn))]` on the turn logic), a new
   variable in `partial class M209 { public static int Turns; }`, a new entry another method
   requests (`_ = Ai.CountAsync();`). [language.md](language.md) lists what compiles today.
+- Change the Larva's data instead of its code: a static constructor sets fields of the monster's stats,
+  rewards and the script's variables, which the linker writes into `m209.bin` in place
+  ([language.md](language.md#initial-values-and-data-edits); the example is
+  [`examples/ToughLarva`](../examples/ToughLarva)):
+
+  ```csharp
+  partial class M209
+  {
+      static M209()
+      {
+          MonsterStats.Hp = 4321;
+          MonsterRewards.Gil = 999;
+      }
+  }
+  ```
+
+  The log then says `info: my.tough-larva: m209: sets MonsterStats.Hp (the monster's stats +0x14, 4
+  byte(s))`; two mods that set the same field are a `conflict`, and the later one in the load order wins.
+- Put code inside a vanilla method instead of around it: `[Inject(nameof(OnTurn), After =
+  nameof(Btl.UseCommand), Occurrence = 3)]` runs after the statement with `OnTurn`'s third
+  `Btl.UseCommand` call ([language.md](language.md#injecting-code); the example is
+  [`examples/LarvaInject`](../examples/LarvaInject)).
 - Add a line of dialogue to an event: `Dialogue.Say(Text.New("Nice throw!"));` opens the usual
   window with a new message, waits for the player and closes it, exactly as the game's own lines
   ([language.md](language.md#inline-methods)).

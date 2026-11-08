@@ -1191,12 +1191,12 @@
       },
       "argc_source": "both",
       "kinds_source": "exe",
-      "doc": "0x0029: args (angle) -\u003E wrapped angle; turn struct \u002B0x24 = wrap(angle), \u002B0x30 = wrap(pos\u002B0x30 - angle); ?pitch, paired with 0x0020"
+      "doc": "0x0029: args (angle) -\u003E wrapped angle; turn struct \u002B0x24 = wrap(angle), \u002B0x30 = wrap(pos\u002B0x30 - angle); ?pitch, paired with 0x0020; Atel#: turns the position\u0027s \u002B0x30 axis (pitch in docs/formats/script.md\u0027s convention); 0x002a turns \u002B0x38"
     },
     {
       "id": "0x002a",
       "class": "Common",
-      "method": "TurnSetPitch_002a",
+      "method": "TurnSetRoll",
       "symbol": "Native_002a_TurnSetPitch",
       "slots": {
         "start": null,
@@ -1206,7 +1206,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "roll",
           "kind": "float"
         }
       ],
@@ -1220,7 +1220,7 @@
       },
       "argc_source": "both",
       "kinds_source": "exe",
-      "doc": "0x002a (float): (pitch): wrapped into the turn block\u0027s \u002B0x28, and the wrapped rest to the position\u0027s pitch (\u002B0x38) into \u002B0x34; ST0 the pitch; ported in native_move (script round 11); name from pitch wrapped into the turn block \u002B0x28, the rest into the position\u0027s \u002B0x34"
+      "doc": "0x002a (float): (pitch): wrapped into the turn block\u0027s \u002B0x28, and the wrapped rest to the position\u0027s pitch (\u002B0x38) into \u002B0x34; ST0 the pitch; ported in native_move (script round 11); name from pitch wrapped into the turn block \u002B0x28, the rest into the position\u0027s \u002B0x34; Atel#: the turn is about the position\u0027s \u002B0x38 axis (roll in docs/formats/script.md\u0027s convention), not \u002B0x30 as 0x0029 (Native_TurnSetPitch); name kept as the hook-table key"
     },
     {
       "id": "0x002b",
@@ -4158,7 +4158,7 @@
       },
       "args": [
         {
-          "name": "floatA",
+          "name": "pitch",
           "kind": "float"
         }
       ],
@@ -10729,7 +10729,7 @@
     {
       "id": "0x0174",
       "class": "Common",
-      "method": "PosGetField30",
+      "method": "GetPitch",
       "symbol": "Native_0174_PosGetField30",
       "slots": {
         "start": null,
@@ -10778,7 +10778,7 @@
     {
       "id": "0x0176",
       "class": "Common",
-      "method": "PosGetField30Of",
+      "method": "GetPitchOf",
       "symbol": "Native_0176_PosGetField30Of",
       "slots": {
         "start": null,
@@ -10788,7 +10788,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "worker",
           "kind": "int"
         }
       ],
@@ -11099,7 +11099,7 @@
     {
       "id": "0x0181",
       "class": "Common",
-      "method": "PosGetField38",
+      "method": "GetRoll",
       "symbol": "Native_0181_PosGetField38",
       "slots": {
         "start": null,
@@ -11121,7 +11121,7 @@
     {
       "id": "0x0182",
       "class": "Common",
-      "method": "PosGetField38Of",
+      "method": "GetRollOf",
       "symbol": "Native_0182_PosGetField38Of",
       "slots": {
         "start": null,
@@ -11131,7 +11131,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "worker",
           "kind": "int"
         }
       ],
@@ -11963,7 +11963,7 @@
       },
       "argc_source": "both",
       "kinds_source": "bytecode",
-      "doc": "(worker, [pops dispose]): frees worker\u002B0xaa attachment (1 model 0x008722f0 \u0022TK:ChN_DataDispose\u0022, 2 0x007ba9c0, 4/5 0x0086f4c0); \u002B0xaa = 0, \u002B0xa8 = 0; ported in native_move (script round 11)"
+      "doc": "(worker, [pops dispose]): frees worker\u002B0xaa attachment (1 model 0x008722f0 \u0022TK:ChN_DataDispose\u0022, 2 0x007ba9c0, 4/5 0x0086f4c0); \u002B0xaa = 0, \u002B0xa8 = 0; ported in native_move (script round 11); Atel#: native 0x019d, dispose non-zero also frees an attached model\u0027s data (ChN_DataDispose(\u002B0xa8, 0), 0x00824f00); 0x0005 enters it with 0; the scripts nearly always pass 1 (Atel# WorkerDetachAndDispose)"
     },
     {
       "id": "0x019e",
@@ -12763,7 +12763,7 @@
       "argc_statements": null,
       "argc_source": "exe",
       "kinds_source": "exe",
-      "doc": "0x01ba: (worker, on): the worker\u0027s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from \u00220x0086b150(chr, on)\u0022 = AtelGetElemId: armor model for 1, else weapon model"
+      "doc": "0x01ba: (worker, on): the worker\u0027s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from \u00220x0086b150(chr, on)\u0022 = AtelGetElemId: armor model for 1, else weapon model; Atel#: 0x0119 for another worker (worker \u002B0x40 the bound character 0-7, else 0; Atel# ChrGetEquipModelOf)"
     },
     {
       "id": "0x01bb",
@@ -23390,7 +23390,7 @@
       },
       "argc_source": "both",
       "kinds_source": "exe",
-      "doc": "0x5057: args (worker, on) -\u003E previous; chr \u002B0x194 bit 0 of another worker\u0027s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110)"
+      "doc": "0x5057: args (worker, on) -\u003E previous; chr \u002B0x194 bit 0 of another worker\u0027s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110); Atel#: 0x5056\u0027s call for another worker: pops on, then worker; AtelGetBasicWork(worker), AtelGetCharHandle, Ch_SetCalcNorm(chr, on); 0 without a model (Atel# SetBoneUpdateOf)"
     },
     {
       "id": "0x5058",
@@ -25270,7 +25270,7 @@
     {
       "id": "0x6005",
       "class": "Cam",
-      "method": "Cam_6005",
+      "method": "AddPolar",
       "symbol": "Native_Cam_6005",
       "slots": {
         "start": null,
@@ -25280,15 +25280,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "thetaDeg",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "phiDeg",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "len",
           "kind": "float"
         }
       ],
@@ -25307,7 +25307,7 @@
     {
       "id": "0x6006",
       "class": "Cam",
-      "method": "Cam_6006",
+      "method": "EyeAimAtXZ",
       "symbol": "Native_Cam_6006",
       "slots": {
         "start": null,
@@ -25317,27 +25317,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "z",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "pitchDeg",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "float"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "float"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "float"
         }
       ],
@@ -25356,7 +25356,7 @@
     {
       "id": "0x6007",
       "class": "Cam",
-      "method": "Cam_6007",
+      "method": "EyeAimAt",
       "symbol": "Native_Cam_6007",
       "slots": {
         "start": null,
@@ -25366,27 +25366,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "float"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "float"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "float"
         }
       ],
@@ -25405,7 +25405,7 @@
     {
       "id": "0x6008",
       "class": "Cam",
-      "method": "Cam_6008",
+      "method": "EyeAimShortOf",
       "symbol": "Native_Cam_6008",
       "slots": {
         "start": null,
@@ -25415,27 +25415,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "float"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "float"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "float"
         }
       ],
@@ -25674,7 +25674,7 @@
     {
       "id": "0x600f",
       "class": "Cam",
-      "method": "Cam_600f",
+      "method": "EyeClearAreas",
       "symbol": "Native_Cam_600f",
       "slots": {
         "start": null,
@@ -25727,7 +25727,7 @@
     {
       "id": "0x6011",
       "class": "Cam",
-      "method": "Cam_6011",
+      "method": "EyeMoveFrameLinear",
       "symbol": "Native_Cam_6011",
       "slots": {
         "start": null,
@@ -25737,7 +25737,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "frames",
           "kind": "int"
         }
       ],
@@ -25756,7 +25756,7 @@
     {
       "id": "0x6012",
       "class": "Cam",
-      "method": "Cam_6012",
+      "method": "MoveCosine",
       "symbol": "Native_Cam_6012",
       "slots": {
         "start": null,
@@ -25766,7 +25766,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "frames",
           "kind": "int"
         }
       ],
@@ -25920,7 +25920,7 @@
     {
       "id": "0x6017",
       "class": "Cam",
-      "method": "Cam_6017",
+      "method": "EyeMoveDivide",
       "symbol": "Native_Cam_6017",
       "slots": {
         "start": null,
@@ -25996,7 +25996,7 @@
     {
       "id": "0x6019",
       "class": "Cam",
-      "method": "Cam_6019",
+      "method": "EyeResetDir",
       "symbol": "Native_Cam_6019",
       "slots": {
         "start": null,
@@ -26066,7 +26066,7 @@
     {
       "id": "0x601c",
       "class": "Cam",
-      "method": "Cam_601c",
+      "method": "SetFocusList1",
       "symbol": "Native_Cam_601c",
       "slots": {
         "start": null,
@@ -26076,11 +26076,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "list",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "degrees",
           "kind": "float"
         }
       ],
@@ -26099,7 +26099,7 @@
     {
       "id": "0x601d",
       "class": "Cam",
-      "method": "Cam_601d",
+      "method": "SetTargetPolar1",
       "symbol": "Native_Cam_601d",
       "slots": {
         "start": null,
@@ -26109,19 +26109,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "target",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "degrees",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "x",
           "kind": "float"
         }
       ],
@@ -26173,7 +26173,7 @@
     {
       "id": "0x601f",
       "class": "Cam",
-      "method": "Cam_601f",
+      "method": "SetTargetPolar",
       "symbol": "Native_Cam_601f",
       "slots": {
         "start": null,
@@ -26183,19 +26183,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "target",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "degrees",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "y",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "x",
           "kind": "float"
         }
       ],
@@ -26251,7 +26251,7 @@
     {
       "id": "0x6021",
       "class": "Cam",
-      "method": "Cam_6021",
+      "method": "RefGetPos",
       "symbol": "Native_Cam_6021",
       "slots": {
         "start": null,
@@ -26261,15 +26261,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "int"
         }
       ],
@@ -26358,7 +26358,7 @@
     {
       "id": "0x6024",
       "class": "Cam",
-      "method": "EyeAddAreaMinus1",
+      "method": "FocusAimAtXZ",
       "symbol": "Native_6024_CamEyeAddAreaMinus1",
       "slots": {
         "start": null,
@@ -26368,27 +26368,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "z",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "pitchDeg",
           "kind": "int"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "int"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "int"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "int"
         }
       ],
@@ -26405,7 +26405,7 @@
     {
       "id": "0x6025",
       "class": "Cam",
-      "method": "EyeAddArea0",
+      "method": "FocusAimAt",
       "symbol": "Native_6025_CamEyeAddArea0",
       "slots": {
         "start": null,
@@ -26415,27 +26415,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "int"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "int"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "int"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "int"
         }
       ],
@@ -26452,7 +26452,7 @@
     {
       "id": "0x6026",
       "class": "Cam",
-      "method": "EyeAddArea1",
+      "method": "FocusAimShortOf",
       "symbol": "Native_6026_CamEyeAddArea1",
       "slots": {
         "start": null,
@@ -26462,27 +26462,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "y",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "z",
           "kind": "int"
         },
         {
-          "name": "a3",
+          "name": "pitchDivisor",
           "kind": "int"
         },
         {
-          "name": "a4",
+          "name": "length",
           "kind": "int"
         },
         {
-          "name": "a5",
+          "name": "lengthDivisor",
           "kind": "int"
         }
       ],
@@ -26536,7 +26536,7 @@
     {
       "id": "0x6028",
       "class": "Cam",
-      "method": "Cam_6028",
+      "method": "RefLineFilter",
       "symbol": "Native_Cam_6028",
       "slots": {
         "start": null,
@@ -26546,23 +26546,23 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x1",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "z1",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "x2",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "z2",
           "kind": "float"
         },
         {
-          "name": "a4",
+          "name": "r",
           "kind": "float"
         }
       ],
@@ -26807,7 +26807,7 @@
     {
       "id": "0x6030",
       "class": "Cam",
-      "method": "Cam_6030",
+      "method": "FocusTimeCosine",
       "symbol": "Native_Cam_6030",
       "slots": {
         "start": null,
@@ -26817,7 +26817,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "frames",
           "kind": "int"
         }
       ],
@@ -26969,7 +26969,7 @@
     {
       "id": "0x6035",
       "class": "Cam",
-      "method": "Cam_6035",
+      "method": "RefMoveDivide",
       "symbol": "Native_Cam_6035",
       "slots": {
         "start": null,
@@ -27171,7 +27171,7 @@
     {
       "id": "0x603c",
       "class": "Cam",
-      "method": "Cam_603c",
+      "method": "SetYaw",
       "symbol": "Native_Cam_603c",
       "slots": {
         "start": null,
@@ -27181,19 +27181,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "yawDeg",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "pitchDeg",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "length",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "unused",
           "kind": "float"
         }
       ],
@@ -27286,7 +27286,7 @@
     {
       "id": "0x603f",
       "class": "Cam",
-      "method": "Cam_603f",
+      "method": "FocusOnActors",
       "symbol": "Native_Cam_603f",
       "slots": {
         "start": null,
@@ -27296,15 +27296,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "actorA",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "actorB",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "lift",
           "kind": "float"
         }
       ],
@@ -27450,7 +27450,7 @@
     {
       "id": "0x6043",
       "class": "Cam",
-      "method": "Cam_6043",
+      "method": "EyeMoveStat",
       "symbol": "Native_Cam_6043",
       "slots": {
         "start": null,
@@ -27460,7 +27460,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "v",
           "kind": "int"
         }
       ],
@@ -27577,7 +27577,7 @@
     {
       "id": "0x6046",
       "class": "Cam",
-      "method": "Cam_6046",
+      "method": "EyeFollowSpline",
       "symbol": "Native_Cam_6046",
       "slots": {
         "start": null,
@@ -27587,19 +27587,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "spline",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "t",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "speed",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "flags",
           "kind": "int"
         }
       ],
@@ -27618,7 +27618,7 @@
     {
       "id": "0x6047",
       "class": "Cam",
-      "method": "Cam_6047",
+      "method": "FocusFollowSpline",
       "symbol": "Native_Cam_6047",
       "slots": {
         "start": null,
@@ -27628,19 +27628,19 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "spline",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "t",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "speed",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "flags",
           "kind": "int"
         }
       ],
@@ -27659,7 +27659,7 @@
     {
       "id": "0x6048",
       "class": "Cam",
-      "method": "Cam_6048",
+      "method": "PathClearEye",
       "symbol": "Native_Cam_6048",
       "slots": {
         "start": null,
@@ -27707,7 +27707,7 @@
     {
       "id": "0x604a",
       "class": "Cam",
-      "method": "Cam_604a",
+      "method": "PathClearFocus",
       "symbol": "Native_Cam_604a",
       "slots": {
         "start": null,
@@ -27804,7 +27804,7 @@
     {
       "id": "0x604d",
       "class": "Cam",
-      "method": "Cam_604d",
+      "method": "EyeOrbitPolar",
       "symbol": "Native_Cam_604d",
       "slots": {
         "start": null,
@@ -27814,27 +27814,27 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "actorA",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "actorB",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "height",
           "kind": "float"
         },
         {
-          "name": "a3",
+          "name": "yawDeg",
           "kind": "float"
         },
         {
-          "name": "a4",
+          "name": "pitchDeg",
           "kind": "float"
         },
         {
-          "name": "a5",
+          "name": "distance",
           "kind": "float"
         }
       ],
@@ -28248,7 +28248,7 @@
     {
       "id": "0x6059",
       "class": "Cam",
-      "method": "Cam_6059",
+      "method": "RefAddPathArea",
       "symbol": "Native_Cam_6059",
       "slots": {
         "start": null,
@@ -28258,11 +28258,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "path",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "kind",
           "kind": "int"
         }
       ],
@@ -28281,7 +28281,7 @@
     {
       "id": "0x605a",
       "class": "Cam",
-      "method": "Cam_605a",
+      "method": "RefAddPathAreaScaled",
       "symbol": "Native_Cam_605a",
       "slots": {
         "start": null,
@@ -28291,15 +28291,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "path",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "scale",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "kind",
           "kind": "int"
         }
       ],
@@ -28318,7 +28318,7 @@
     {
       "id": "0x605b",
       "class": "Cam",
-      "method": "Cam_605b",
+      "method": "EyeOnSpline",
       "symbol": "Native_Cam_605b",
       "slots": {
         "start": null,
@@ -28328,11 +28328,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "path",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "flags",
           "kind": "int"
         }
       ],
@@ -28351,7 +28351,7 @@
     {
       "id": "0x605c",
       "class": "Cam",
-      "method": "Cam_605c",
+      "method": "FocusShakeKind1",
       "symbol": "Native_Cam_605c",
       "slots": {
         "start": null,
@@ -28396,7 +28396,7 @@
     {
       "id": "0x605d",
       "class": "Cam",
-      "method": "Cam_605d",
+      "method": "EyeShakeKind1",
       "symbol": "Native_Cam_605d",
       "slots": {
         "start": null,
@@ -28490,7 +28490,7 @@
     {
       "id": "0x605f",
       "class": "Cam",
-      "method": "Cam_605f",
+      "method": "FocusResetShake",
       "symbol": "Native_Cam_605f",
       "slots": {
         "start": null,
@@ -28514,7 +28514,7 @@
     {
       "id": "0x6060",
       "class": "Cam",
-      "method": "Cam_6060",
+      "method": "EyeResetShake",
       "symbol": "Native_Cam_6060",
       "slots": {
         "start": null,
@@ -28567,7 +28567,7 @@
     {
       "id": "0x6062",
       "class": "Cam",
-      "method": "Cam_6062",
+      "method": "FocusShakeWait",
       "symbol": "Native_Cam_6062",
       "slots": {
         "start": null,
@@ -28591,7 +28591,7 @@
     {
       "id": "0x6063",
       "class": "Cam",
-      "method": "Cam_6063",
+      "method": "EyeShakeWait",
       "symbol": "Native_Cam_6063",
       "slots": {
         "start": null,
@@ -28615,7 +28615,7 @@
     {
       "id": "0x6064",
       "class": "Cam",
-      "method": "Cam_6064",
+      "method": "ScreenShakeWait",
       "symbol": "Native_Cam_6064",
       "slots": {
         "start": "0x007b9aa0",
@@ -28625,7 +28625,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "screen",
           "kind": "int"
         }
       ],
@@ -28896,7 +28896,7 @@
     {
       "id": "0x606b",
       "class": "Cam",
-      "method": "Cam_606b",
+      "method": "ScreenShakeKind3",
       "symbol": "Native_Cam_606b",
       "slots": {
         "start": null,
@@ -29168,7 +29168,7 @@
     {
       "id": "0x6071",
       "class": "Cam",
-      "method": "Cam_6071",
+      "method": "ScreenShakeKind5",
       "symbol": "Native_Cam_6071",
       "slots": {
         "start": null,
@@ -29383,7 +29383,7 @@
     {
       "id": "0x6076",
       "class": "Cam",
-      "method": "Cam_6076",
+      "method": "FreeBattleCamera",
       "symbol": "Native_Cam_6076",
       "slots": {
         "start": null,
@@ -29561,7 +29561,7 @@
     {
       "id": "0x607d",
       "class": "Cam",
-      "method": "Cam_607d",
+      "method": "SetBlur",
       "symbol": "Native_Cam_607d",
       "slots": {
         "start": null,
@@ -29571,7 +29571,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "weight",
           "kind": "int"
         }
       ],
@@ -29769,7 +29769,7 @@
     {
       "id": "0x6083",
       "class": "Cam",
-      "method": "Cam_6083",
+      "method": "FocusShakeKind8",
       "symbol": "Native_Cam_6083",
       "slots": {
         "start": null,
@@ -29814,7 +29814,7 @@
     {
       "id": "0x6084",
       "class": "Cam",
-      "method": "Cam_6084",
+      "method": "EyeShakeKind8",
       "symbol": "Native_Cam_6084",
       "slots": {
         "start": null,
@@ -29933,7 +29933,7 @@
     {
       "id": "0x6087",
       "class": "Cam",
-      "method": "Cam_6087",
+      "method": "FocusReset",
       "symbol": "Native_Cam_6087",
       "slots": {
         "start": null,
@@ -29957,7 +29957,7 @@
     {
       "id": "0x6088",
       "class": "Cam",
-      "method": "Cam_6088",
+      "method": "EyeReset",
       "symbol": "Native_Cam_6088",
       "slots": {
         "start": null,

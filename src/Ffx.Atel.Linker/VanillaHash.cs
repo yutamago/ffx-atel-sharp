@@ -55,6 +55,15 @@ public static class VanillaHash {
         return Finish(h);
     }
 
+    /// <summary>A data area's bytes (the vanilla bytes a package's data edits change).</summary>
+    public static string Data(ReadOnlySpan<byte> bytes) {
+        using IncrementalHash h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendU32(h, 0x4441_5431);    // "DAT1"
+        AppendU32(h, (uint)bytes.Length);
+        h.AppendData(bytes);
+        return Finish(h);
+    }
+
     private static void AppendU32(IncrementalHash h, uint v) {
         Span<byte> b = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(b, v);

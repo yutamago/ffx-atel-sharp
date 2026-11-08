@@ -37,6 +37,12 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
     /// <summary>Warnings: <c>Debug.*</c> calls left out (<see cref="DebugMode.Drop"/>).</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
+    /// <summary>
+    ///     Per worker (helpers' function workers too), each instruction's offset in the worker's code, its length and
+    ///     the statement it came from: what <c>[Inject]</c> resolves a statement of the source to.
+    /// </summary>
+    internal IReadOnlyList<IReadOnlyList<SourceSpan>> SourceMap { get; init; } = [];
+
     /// <summary>The script block's bytes.</summary>
     public byte[] Block() => Image.Write();
 
@@ -44,6 +50,9 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
     /// <exception cref="ScriptFormatException">The block does not parse (a worker without entries, …).</exception>
     public ScriptFile ApplyTo(ScriptFile vanilla) => vanilla.ReplaceScript(ScriptBlock.Parse(Block()));
 }
+
+/// <summary>An instruction's place in its worker's code and the statement it was compiled from (null when none is known).</summary>
+internal readonly record struct SourceSpan(uint Offset, uint Length, Location? Where);
 
 /// <summary>
 ///     Atel source to a script block, for the source shape of Phase 2 (see
@@ -152,6 +161,10 @@ public static partial class ScriptCompiler {
             }
         }
 
+        if (mainParts.SelectMany(p => p.Members).OfType<ConstructorDeclarationSyntax>().FirstOrDefault() is ConstructorDeclarationSyntax ctor) {
+            throw CompileException.At(ctor.Identifier.GetLocation(), "a static constructor sets a mod's initial values (atel compile-mod); a script's are its data areas ([SharedData(…)])");
+        }
+
         // Variables: [Var] fields of the script class, in declaration order.
         Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
@@ -251,11 +264,12 @@ public static partial class ScriptCompiler {
         Dictionary<uint, int> intIndex = [], floatIndex = [];
         for (int k = 0; k < image.IntConstants.Count; k++) intIndex.TryAdd(image.IntConstants[k], k);
         for (int k = 0; k < image.FloatConstants.Count; k++) floatIndex.TryAdd(image.FloatConstants[k], k);
+        List<IReadOnlyList<SourceSpan>> sourceMap = [];
         foreach ((WorkerImage wi, List<WorkerItem> items, string label, Location where) in workers) {
-            Assemble(wi, items, label, where, intIndex, floatIndex);
+            sourceMap.Add(Assemble(wi, items, label, where, intIndex, floatIndex));
         }
         hidden.Lay();
-        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings] };
+        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings], SourceMap = sourceMap };
     }
 
     /// <summary>Compiles one script from source text.</summary>
@@ -294,8 +308,9 @@ public static partial class ScriptCompiler {
         // An array's length is its size: `byte[] V3 = new byte[4];`; a 2-D array's second dimension
         // is the row length: `byte[,] V3 = new byte[2, 8];`.
         VariableDeclaratorSyntax declarator = field.Declaration.Variables[0];
+        InitializerExpressionSyntax? list = allocated ? ArrayInitializer(declarator.Initializer?.Value) : null;
         if (rank > 0) {
-            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: var sizes }] } && sizes.Count == rank) {
+            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: var sizes }] } && sizes.Count == rank && !sizes.Any(z => z is OmittedArraySizeExpressionSyntax)) {
                 int first = I32(Eval(sizes[0]), sizes[0]);
                 if (rank == 1) length = first;
                 else {
@@ -304,12 +319,26 @@ public static partial class ScriptCompiler {
                     if (rowLength <= 0) throw CompileException.At(sizes[1], "a 2-D array has rows of at least 1");
                 }
             }
+            else if (list is not null) {
+                // A mod's new variable with its initial values: its size is theirs (`int[] Table = { 1, 2, 3 };`).
+                length = list.Expressions.Count;
+                if (rank == 2) {
+                    rowLength = list.Expressions.FirstOrDefault() is InitializerExpressionSyntax row ? row.Expressions.Count : 0;
+                    if (rowLength <= 0 || list.Expressions.Any(r => r is not InitializerExpressionSyntax x || x.Expressions.Count != rowLength)) {
+                        throw CompileException.At(list, "a 2-D array's initializer has rows of one length: { { 1, 2 }, { 3, 4 } }");
+                    }
+                    length *= rowLength;
+                }
+                if (length == 0) throw CompileException.At(list, "an array variable has at least one element");
+            }
             else if (rank == 2 || !(a is not null && Named(a).Any(n => n.Key == "Length"))) {
                 throw CompileException.At(declarator, rank == 2 ? "a 2-D array variable needs its size: = new T[rows, cols]" : "an array variable needs its size: = new T[n]");
             }
         }
-        else if (declarator.Initializer is not null) {
-            throw CompileException.At(declarator.Initializer, "initial values are not read yet (they are in the data areas)");
+        else if (declarator.Initializer is not null && !(allocated && a is null)) {
+            throw CompileException.At(declarator.Initializer, allocated
+                ? "a variable at a fixed place ([Var]) has no initial value here: its value is the save's or the game's"
+                : "initial values are in the data areas ([SharedData(…)]); a mod sets one in a static constructor");
         }
         else if (length != 1) {
             throw CompileException.At(field, "a variable that is not an array has length 1");
@@ -398,7 +427,7 @@ public static partial class ScriptCompiler {
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
         string? name = null, int number = -1, HelperTable? helpers = null, Func<string, string, EntrySignature?>? signatures = null,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null, bool constructors = false) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -433,6 +462,8 @@ public static partial class ScriptCompiler {
         try {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
+                // A mod's new worker: its static constructor sets its private data's initial values (read by CompileMod).
+                if (constructors && member is ConstructorDeclarationSyntax) continue;
                 if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only (for now)");
                 if (helpers?.Contains(method) == true || InlineMethods.IsInline(method)) continue;
                 where = method.Identifier.GetLocation();
@@ -566,8 +597,11 @@ public static partial class ScriptCompiler {
     }
 
     /// <summary>Lays a worker's items out as code, entry and label tables, with the pools' indices.</summary>
-    private static void Assemble(WorkerImage wi, List<WorkerItem> items, string name, Location where, Dictionary<uint, int> ints, Dictionary<uint, int> floats) {
+    /// <returns>Each instruction's offset, length and statement (<see cref="CompiledScript.SourceMap"/>).</returns>
+    private static List<SourceSpan> Assemble(WorkerImage wi, List<WorkerItem> items, string name, Location where, Dictionary<uint, int> ints, Dictionary<uint, int> floats) {
         WorkerAssembler asm = new() { Name = name };
+        List<SourceSpan> map = [];
+        uint pc = 0;
         foreach (WorkerItem item in items) {
             try {
                 switch (item.Kind) {
@@ -581,7 +615,10 @@ public static partial class ScriptCompiler {
                             index = pool.TryGetValue(op.Value, out int k) ? (ushort)k
                                 : throw CompileException.At(item.Where ?? where, $"the pinned {(op.Code == Opcodes.PushC ? "integer" : "float")} pool has no {(op.Code == Opcodes.PushC ? ((int)op.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : BitConverter.UInt32BitsToSingle(op.Value).ToString("R", System.Globalization.CultureInfo.InvariantCulture))}");
                         }
-                        asm.Emit(op.ToInstr(index));
+                        Instr instr = op.ToInstr(index);
+                        asm.Emit(instr);
+                        map.Add(new SourceSpan(pc, instr.Length, item.Where));
+                        pc += instr.Length;
                         break;
                 }
             }
@@ -603,6 +640,7 @@ public static partial class ScriptCompiler {
         wi.Code = done.Code;
         wi.Entries = done.Entries;
         wi.Labels = done.Labels;
+        return pc == done.Code.Length ? map : [];
     }
 
     /// <summary>The natives of the reference assembly.</summary>

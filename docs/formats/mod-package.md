@@ -2,7 +2,7 @@
 
 What a compiled Atel mod holds and how the linker puts it onto the
 player's scripts (plan: "Mods", Phase 9). Code: `src/Ffx.Atel.Linker`
-(`ScriptPackage`, `ScriptLinker`, `BlockWriter`, `ModSet`).
+(`ScriptPackage`, `ScriptLinker`, `BlockWriter`, `DataAreas`, `ModSet`).
 
 ## A mod on disk
 
@@ -64,8 +64,15 @@ each vanilla part, so a package never contains game code.
   length and row length. Without `offset` the linker allocates them:
   storage 3 (private), 4 (shared, the default) or 6 (event). With `offset`
   they are a fixed location (a save or common variable the mod names).
+  `initial` (base64, little-endian) is the initial value of one the linker
+  places in the shared or event data (the field's initializer,
+  `public static int Turns = 5;`); the rest of the variable is zeros.
 - **`workers`**: new workers with their own entry numbers (entry 0 `Init`,
-  1 `Main`, …); the worker's number is given when linking. The mod's helper
+  1 `Main`, …); the worker's number is given when linking. `privateLength`
+  (from `[Worker(PrivateLength = …)]`) gives one a private block of its own
+  after the block's end, `private` (base64) its initial bytes
+  (`[PrivateData]`, its static constructor); both left out when it has
+  none. Format 3. The mod's helper
   methods are new function workers (type 0, entry 0, named
   `<helper>Class.Method`), after its other new workers.
 - New variables named `<local>…` are the hidden storage of the mod's
@@ -81,9 +88,18 @@ each vanilla part, so a package never contains game code.
   | `replace` | `[Replace(nameof(E3))]` | replaces the method's code |
   | `prefix` | `[Prefix(nameof(Init))]` | runs before it; `return;` ends the entry, so the method does not run (as Harmony's `return false`) |
   | `postfix` | `[Postfix(nameof(Init))]` | runs after it, wherever it ends the entry |
+  | `inject` | `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 3)]` | runs at a statement inside it (`at`, below) |
 
   `target` is the vanilla method's name (from the decompiled source); the
   patch applies to every entry that method starts.
+
+  An `inject` has `at`: `{ "position": "after", "start": 102, "end": 115,
+  "anchor": "after the statement with the 3rd call to Btl.UseCommand in
+  OnTurn" }`. `start` and `end` are the code range of the anchor statement,
+  as offsets from the method's start (inside the range its hash covers);
+  the compiler finds them from the vanilla source's statement (each
+  instruction's statement, `CompiledScript.SourceMap`). `anchor` is for the
+  report.
 
 - **Code** (`Fragment`): `bytes` (base64) are the instructions, `labels`
   the fragment's jump labels as offsets into them, and `relocs` the
@@ -129,8 +145,13 @@ A package is also a **runtime injection package**: put into the loader's
 changed one is linked again and served for the script's next load
 ([debug.md](debug.md#runtime-injection)).
 
-Later, in the same shape: `data` (per-field edits of data areas and
-kernel tables), and `inject` patches.
+- **`data`**: per-field edits, from the mod's static constructors (["Data
+  edits"](#data-edits) below). Left out when there are none.
+
+**Format.** A package says the lowest format that holds what it has: 1, 2
+with `cuts`, 3 with `data`, an `inject` patch or a new variable's
+`initial` value. A linker refuses a newer format than its own instead of
+dropping what it does not know.
 
 ## Linking
 
@@ -155,6 +176,14 @@ loader runs it for every file any enabled mod has a package for.
    which every `end` jumps to the postfixes (exits through `endp`/`end_1`
    or jumps out of the method skip them, with a warning). The method's
    entries point at the chain; the vanilla code stays where it was.
+   Injects go into that copy at their points: at one point first the
+   injects after the statement ending there, then those before the one
+   starting there, each in load order. A jump in the copy to a point runs
+   the injects whose statement it enters from outside (before) or leaves
+   from inside (after), and skips the others; falling into the point runs
+   them all. With injects the body is always copied; a replacement drops
+   them (a conflict). The copy needs a label number for each label in the
+   method, out of the worker's 65,536 (a link error when they run out).
 4. **Lay out.** Every vanilla byte of the block stays at its offset: the
    data areas hold block offsets (the "other" area points into the shared
    data in 1,611 of 1,621 scripts), so moving them would break those. What
@@ -227,11 +256,70 @@ the game runs they are set in the running event's table at once (with the
 explicit ones), and its table files are rewritten when they were served at
 startup.
 
+## Data edits
+
+A mod's static constructors set single values of the script's data
+([language.md](../language.md#initial-values-and-data-edits)); each
+assignment becomes one edit:
+
+```json
+"data": [
+  { "area": "monsterStats", "offset": 20, "bytes": "4RAAAA==", "field": "MonsterStats.Hp" },
+  { "area": "shared", "offset": 6, "bytes": "CQ==", "field": "Table[2]" },
+  { "area": "private", "worker": 0, "offset": 4, "bytes": "DAA=", "field": "Steps" }
+]
+```
+
+| `area` | Where `offset` counts from |
+|---|---|
+| `shared` | the shared data (storage 4; first worker's header `+0x30`) |
+| `other` | the "other" area (block `+0x2c`) |
+| `event` | the event data (storage 6, block `+0x20`) |
+| `area` | the area data (block `+0x28`) |
+| `private` | worker `worker`'s private data block (header `+0x2c`, `+0x10` bytes long) |
+| `monsterStats` | a monster file's stat record, section 2; the linker writes the same bytes into its copy, section 6. Offsets `0x14`-`0x7f` (the first `0x14` bytes are string references, which differ between the two) |
+| `monsterRewards` | a monster file's rewards, section 4, `0x118` bytes |
+
+`vanilla.data` lists each area the edits write to, with the hash of its
+vanilla bytes (`VanillaHash.Data`; the stat record's whole `0x80` bytes):
+`{ "area": "monsterStats", "hash": "…" }`, plus `"worker"` for private
+data. `atel compile-mod` reads them from the player's file
+(`DataAreas.Attach`). The linker checks them like the other hashes, checks
+that each edit lies inside its area and, for the stats, that sections 2
+and 6 hold the same stats, and leaves the package out otherwise.
+
+Edits are applied in load order, after the cuts and before any code is
+laid out, to the vanilla file: the data areas never move (they hold block
+offsets) and the monster's sections move only as a whole, so an edit is a
+write in place, and a copy the layout makes (a grown worker's private
+data) carries it. A package with only cuts and data edits leaves every
+other byte of the file as it was. Two mods writing a byte are a
+`conflict` in the report (`a sets MonsterStats.Hp and b sets
+MonsterStats.Hp, both at the monster's stats +0x14; b wins (last in load
+order)`), and the later mod's bytes stay; edits of different bytes
+combine.
+
+Corpus for injects (`CorpusTests.EveryScriptTakesInjects`): in the first six
+methods of every worker, code before and after a statement in the middle
+of the method (from an empty stack to the next): 1,598 scripts, 67,851
+methods. Each result parses and lays itself out again byte for byte,
+keeps its data areas, its other workers' code and the file's later
+sections, and each patched method's new code is its vanilla code
+instruction for instruction with the injects at their points. Five
+methods are left out: blitzball's 53,203-label method in the five scripts
+that have it, which cannot be copied.
+
+Corpus for data edits (`CorpusTests.EveryScriptTakesDataEdits`): edits of the shared,
+other and event data and, on all 361 monsters, of the HP and gil link onto
+1,614 of the 1,621 scripts (the other 7 have none of those areas), and
+the linked file is the vanilla file with exactly those bytes changed.
+
 ## The report
 
 Each message has a severity, the mod and a text: `info` (what was applied
 and the numbers given), `warning` (a postfix some exits skip, a load order
 `after` does not hold), `conflict` (two replacements of one method: the
-last in load order wins; incompatible mods) and `error` (a hash mismatch,
+last in load order wins; two data edits of the same bytes: the last wins;
+incompatible mods) and `error` (a hash mismatch,
 a broken package, a missing requirement: not applied). Prefixes and
 postfixes of several mods combine without a conflict.

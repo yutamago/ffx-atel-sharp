@@ -21,6 +21,9 @@ internal sealed class FlowStats {
     /// <summary>The signatures of the worker's own inline methods (<see cref="Layout.InlineNames.Signature"/>).</summary>
     public HashSet<string> HelperSignatures { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The gotos left, by shape (<see cref="Decompiler.GotoShapes"/>).</summary>
+    public Dictionary<string, int> GotoShapes { get; } = [];
+
     public int Gotos, LabelPins, Fallbacks, MergedMethods, FlatWorkers;
 }
 
@@ -160,6 +163,7 @@ internal sealed partial class WorkerDecompiler {
                 if (b.Node is IfStmt { Cut: not null }) Flow.CutSignatures.Add(DeadSignatureOf(m.Units, b.Start, DeadUnits(m, b).To));
             }
             if (m.Pin is not null) Flow.LabelPins++;
+            Decompiler.GotoShapes.Count(m.Body, Flow.GotoShapes);
             Walk(m.Body, s => {
                 if (s is GotoStmt or CondGotoStmt) Flow.Gotos++;
                 if (s is IfStmt { Cut: string cut }) Flow.Cuts[cut] = Flow.Cuts.GetValueOrDefault(cut) + 1;

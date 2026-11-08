@@ -492,9 +492,10 @@ area and offset:
   alternative for a 1-D array.
 - A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
   variable table has a bit for it.
-- Field initializers on scalars are errors: initial values are in the data areas
-  (`[SharedData(…)]` and the others in `M209.Data.cs`), as hex. **Planned**: initial values
-  as initializers.
+- Field initializers on a vanilla script's scalars are errors: its initial values are in the data areas
+  (`[SharedData(…)]` and the others in `M209.Data.cs`), as hex. A mod gives its own variables initial
+  values as initializers and changes vanilla ones in a static constructor ("Initial values and data
+  edits" below).
 - The order of the fields is the order of the script's variable table. The decompiler names
   variables `V0`, `V1`, …, save variables after the field at their offset
   (`StoryProgress`) or by offset (`Save_0a4a`), with `_2` for a second declaration of the same
@@ -936,16 +937,120 @@ public sealed partial class Helper : BattleWorker  // a new worker
 | `[Prefix(nameof(M))]` | runs before vanilla method `M`; `return;` ends the entry, so `M` does not run |
 | `[Postfix(nameof(M))]` | runs after `M`, wherever `M` ends the entry |
 | `[Replace(nameof(M))]` | runs instead of `M` |
+| `[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` | runs inside `M`, before (or `After =`) the statement with its n-th call to `X` ("Injecting code" below) |
 | an `async` method without attribute | a new entry; its number is given when linking |
 | a plain method without attribute | a helper (above): a new function worker of the mod |
 | a new class deriving from a worker type (`Actor`, `BattleWorker`, …, or `Worker0` … `Worker6`) | a new worker |
 | `[Register(n)]` fields | name registers, as in vanilla |
+| `static M999() { … }` in the script class | initial values: the script's data, the monster's stats and rewards ("Initial values and data edits") |
+| `static Larva() { … }` in a vanilla worker | initial values of that worker's private data (events only) |
+| an initializer on a new field (`public static int Turns = 5;`) | the new variable's initial value |
 
-**Available.** A mod does not change attributes or base classes of vanilla classes, and a new
-worker has no private data yet. Patches apply to every entry the vanilla method starts. Several
+**Available.** A mod does not change attributes or base classes of vanilla classes. A new worker
+has private data of its own with `[Worker(PrivateLength = 0x10)]` (and `[PrivateData(…)]` or its static
+constructor for initial values, events only); the mod's own private variables are
+`[Var(Storage.Private, offset)]` fields of the script class. Patches apply to every entry the vanilla method starts. Several
 mods' prefixes and postfixes on one method chain in load order; two replacements conflict and the
-later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Inject]`, `[Before]`/`[After]`,
-per-field data edits.
+later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Before]`/`[After]`.
 
 A patch is not an engine-run entry, so it cannot be `async void` and cannot `await`; request an
 entry of your own (`_ = Larva.CountAsync();`) and await there.
+
+### Initial values and data edits
+
+**Available.** A mod changes single values of a script's data without replacing the script or a
+method: a variable's initial value, an element of a table, a monster's stats and rewards. It writes them
+as a C# static constructor, which is where C# sets a class's static fields before anything uses them:
+
+```csharp
+partial class M209
+{
+    public static int Turns = 5;                 // a new variable with its initial value
+    public static byte[] Odds = { 10, 20, 70 };  // a new table; its size is its values'
+
+    static M209()
+    {
+        MonsterStats.Hp = 4321;                  // the monster's stat record (vanilla 1498)
+        MonsterStats.Strength = 30;
+        MonsterRewards.Gil = 999;
+        V7 = 2;                                  // a shared variable's initial value
+        Table[3] = 7;                            // an element of a shared array; Grid[1, 2] for 2-D
+        Data.At<ushort>(DataArea.Other, 0x20) = 7;   // bytes no variable covers
+    }
+}
+
+partial class Boy                                // an event's worker
+{
+    static Boy() { Steps = 12; }                 // its private data (storage 3)
+}
+```
+
+| Target | Where it is written |
+|---|---|
+| a shared (storage 4) or event (storage 6) variable, or an element by constant indices | the script's data area, at the variable's offset |
+| `MonsterStats.Hp`, `Mp`, `OverkillThreshold`, `Strength`, `Defense`, `Magic`, `MagicDefense`, `Agility`, `Luck`, `Evasion`, `Accuracy` | the monster file's stat record (section 2) and its copy (section 6) |
+| `MonsterRewards.Gil`, `Ap`, `OverkillAp`, `DropChance1`, `DropChance2`, `StealChance`, `EquipmentDropChance` | the monster file's rewards (section 4) |
+| `Data.At<T>(DataArea.Shared \| Other \| Event \| Area, offset)` | that area, at that offset |
+| a private (storage 3) variable, or `Data.At<T>(DataArea.Private, offset)`, in a worker's static constructor | that worker's private data block; in a mod's new worker (`[Worker(PrivateLength = …)]`) also the mod's own `[Var(Storage.Private, …)]` variables, carried in the new worker's private data |
+
+- Each statement assigns a constant: a literal, a `const`, a game constant (`Story.*`, `Save.*`) or an
+  enum member; arithmetic of them is folded. An integer must fit the field's width, a `float` field takes
+  any number.
+- The battle reads a monster's stats and rewards from its own file, not from the kernel tables (ffx-decomp,
+  `docs/formats/monster.md`: `Mon_AttachData`, `MsSetRamChr`). `Agility`, `Luck`, `Evasion` and `Accuracy`
+  are Fahrenheit's names; FFX.exe's code for them is not read yet.
+- A worker's private data has initial values only in events: in battle the game clears a worker's private
+  buffer when it sets the worker up, so a monster's worker cannot set one (an error).
+- Save (0) and common (1) variables are not the script's data: their values are the save's and the game's.
+- A field set twice in one mod is an error. Two mods that set the same bytes are a conflict in the link
+  report, and the later mod in the load order wins; different fields of two mods combine.
+- The linker writes the bytes in place: nothing moves, and a mod with only data edits leaves the rest of the
+  file as it was ([formats/mod-package.md](formats/mod-package.md#data-edits)).
+- [ATL4001](analyzers.md#atl4001) marks a static constructor that does anything else.
+- `atel compile` of a whole script does not take a static constructor: a script's own initial values are
+  its data areas (`[SharedData(…)]`).
+
+### Injecting code
+
+**Available.** `[Inject]` runs a mod's method at a point inside a vanilla method, not only before or
+after it. The point is a statement of the decompiled source, named by a call it holds:
+
+```csharp
+partial class Ai
+{
+    // In OnTurn, after the statement with the 3rd call to Btl.UseCommand.
+    [Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 3)]
+    void Exhausted()
+    {
+        Btl.SetActorProperty(ActorProperty.Hp, 1);
+    }
+
+    // Before the statement with the 1st call to Common.Random16.
+    [Inject(nameof(OnTurn), Before = "Common.Random16")]
+    void Count() { Turns += 1; }
+}
+```
+
+- **The anchor** is a call as it is written in the source: `nameof(Btl.UseCommand)` or `"Btl.UseCommand"` for a
+  native, `"Motion.Play"` for a member, `nameof(Dialogue.Say)` for an inline method, `"W02.OpenAsync"` for a
+  request, `"Helper"` for a helper. `Occurrence` (1 by default) counts the calls of that name in the method, in
+  the order they stand in the file. A shorter name matches longer ones (`"UseCommand"` matches
+  `Btl.UseCommand`). The statement is the innermost one holding the call: for a call in an `if`'s condition, the
+  whole `if` with its branches; for one inside a branch, that statement only.
+- **Before** runs as the statement is entered, **after** as it is left by its end. Jumps that stay inside the
+  statement do not run the code again: a loop's back edge to its head does not repeat the code before the loop,
+  and the loop's exit runs the code after it once. A jump from elsewhere to the statement (the `else` of an
+  earlier `if` landing on it) runs the code before it. A `return` inside the statement leaves without the code
+  after it, as a postfix's `return` does.
+- **The method** runs on as before; a `return;` in the injected method ends the entry there, as in a prefix.
+- **Stable across re-exports.** The compiler finds the statement in the vanilla source each time the mod is
+  built, and the package holds its code range in the method with the method's hash: a mod built on another
+  game version's method is left out (a hash mismatch), and a vanilla source written differently (a call folded
+  into an inline method) is a build error naming the anchor, not code in the wrong place.
+  [ATL4002](analyzers.md#atl4002) shows a missing call in the IDE.
+- Several mods' injects, prefixes and postfixes on one method combine: at one point the code after the statement
+  that ends there runs before the code before the one that starts there, each in load order. A `[Replace]` of
+  the method takes the code an inject points into: the inject is a reported conflict and is left out.
+- **Limit**: the linker copies the vanilla method to weave the code in, and a worker has 65,536 label numbers;
+  a method with more labels than its worker has left cannot take an inject (in the shipped scripts only the
+  1.6 MB method of blitzball's worker 36, 53,203 labels); the link reports it as an error.

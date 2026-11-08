@@ -54,6 +54,24 @@ internal sealed partial class StatementReader {
     ///     constant, and <c>+ - * /</c> and unary minus of them (<c>int</c> arithmetic stays <c>int</c>, a float
     ///     operand makes it <c>float</c>); null for anything else.
     /// </summary>
+    /// <summary>
+    ///     The value of a constant expression, for an initial value: what <see cref="Fold"/> computes, or a literal, an
+    ///     enum member, a game constant or <c>true</c>/<c>false</c> (casts are looked through); null for anything else.
+    /// </summary>
+    public Expr? ConstantValue(ExpressionSyntax syntax) {
+        if (Fold(syntax) is (double v, bool isFloat)) {
+            if (isFloat) return new FloatLit(BitConverter.SingleToUInt32Bits((float)v));
+            return v is >= int.MinValue and <= uint.MaxValue ? new IntLit(unchecked((int)(long)v)) : null;
+        }
+        try {
+            Expr e = ReadExpr(syntax);
+            return e is IntLit or FloatLit ? e : null;
+        }
+        catch (CompileException) {
+            return null;
+        }
+    }
+
     private double? ConstantNumber(ExpressionSyntax syntax) => Fold(syntax) switch {
         (double v, _) => v,
         _ => null,

@@ -10,5 +10,7 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="../../src/Ffx.Atel.Linker/Ffx.Atel.Linker.csproj" />
+        <!-- The natives' argument counts, for statement boundaries in the inject corpus test. -->
+        <ProjectReference Include="../../src/Ffx.Atel.Game/Ffx.Atel.Game.csproj" />
     </ItemGroup>
 </Project>
