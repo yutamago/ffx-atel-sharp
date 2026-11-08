@@ -16,7 +16,8 @@ namespace Ffx.Atel.Loader;
 /// <param name="Written">The archive paths of the files written to <c>efl/x</c>.</param>
 /// <param name="Messages">The link report: per mod, what was applied, conflicts and errors.</param>
 /// <param name="Linked">The mods linked, in load order, the injected packages last (<see cref="Injection"/>).</param>
-public sealed record LinkRun(List<string> Mods, List<string> Written, List<LinkMessage> Messages, List<AtelMod> Linked);
+/// <param name="Saved">Where the linked mods' saved fields are in the save's mod area this run (<see cref="SavedLayout"/>).</param>
+public sealed record LinkRun(List<string> Mods, List<string> Written, List<LinkMessage> Messages, List<AtelMod> Linked, SavedLayout Saved);
 
 /// <summary>
 ///     Links the enabled Atel mods onto the player's files and writes the results to the loader's
@@ -53,17 +54,20 @@ public static class ModLoader {
             if (AtelMod.IsAtelMod(dir)) found.Add(AtelMod.Load(id, dir));
         }
         List<AtelMod> mods = ModSet.Resolve(found, messages);
+        // One table of saved fields for every file, before any is linked: a mod they do not fit, or whose reads of
+        // another mod's fields do not resolve, is left out here (docs/formats/mod-package.md, "Saved fields").
+        SavedLayout saved = SavedLayout.Build(mods, messages, out mods);
         if (injected is not null) {
             foreach (string e in injected.Errors) messages.Add(new(LinkSeverity.Error, injected.Id, e));
             if (injected.Packages.Count > 0) mods.Add(injected);
         }
         List<string> written = [];
         if (mods.Count > 0 && mods.Any(m => m.Packages.Count > 0)) {
-            foreach (LinkedFile f in ModSet.Link(mods, readVanilla)) {
+            foreach (LinkedFile f in ModSet.Link(mods, readVanilla, saved)) {
                 if (Write(f, eflDir, taken, messages)) written.Add(f.Path);
             }
         }
-        return new LinkRun([.. found.Select(m => m.Id)], written, messages, mods);
+        return new LinkRun([.. found.Select(m => m.Id)], written, messages, mods, saved);
     }
 
     /// <summary>Writes a linked file to <paramref name="eflDir"/>, unless it failed, did not change or is <paramref name="taken"/>; the report to <paramref name="messages"/>.</summary>

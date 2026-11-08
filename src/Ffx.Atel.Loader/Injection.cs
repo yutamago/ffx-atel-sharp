@@ -37,9 +37,13 @@ public static class Injection {
     ///     injected packages) and then <paramref name="injected"/>. The script's file first, then its message
     ///     tables when the packages add messages; empty when no package is left for the file.
     /// </summary>
-    public static List<LinkedFile> Relink(IReadOnlyList<AtelMod> linked, AtelMod injected, string path, Func<string, byte[]?> readVanilla) {
+    /// <param name="saved">
+    ///     The startup link's saved fields: an injected package reads and writes the enabled mods' saved fields by their full
+    ///     key (<c>[Saved(Mod = …, Key = …)]</c>); it declares none of its own.
+    /// </param>
+    public static List<LinkedFile> Relink(IReadOnlyList<AtelMod> linked, AtelMod injected, string path, Func<string, byte[]?> readVanilla, SavedLayout? saved = null) {
         List<AtelMod> mods = [.. linked.Where(m => m.Id != ModId), injected];
-        return ModSet.Link([.. mods.Where(m => m.Packages.ContainsKey(path))], readVanilla);
+        return ModSet.Link([.. mods.Where(m => m.Packages.ContainsKey(path))], readVanilla, saved);
     }
 
     /// <summary>
