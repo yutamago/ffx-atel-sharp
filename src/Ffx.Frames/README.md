@@ -123,7 +123,8 @@ drawing faster ran the game faster. The mod changes that:
   5 bytes. `updateFFX` and `TkUpdateScanControler` each have a loop that jumps back to their third
   byte, and hooking them that way crashed the game on its first frame. The mod hooks these two at
   their calls instead. Before installing anything it checks every other hooked function for such a
-  jump, and each call site for the expected `call`. If a check fails it installs nothing and logs
+  jump (skipping the bytes Windows rewrites when it loads the game at another base), and each call
+  site for the expected `call`. If a check fails it installs nothing and logs
   why. Once Fahrenheit has applied the hooks, the first call through each one checks its chain. A
   bad chain switches the mod to pass-through. The details are in frame-timing.md ("Hooking: why
   the first run crashed").

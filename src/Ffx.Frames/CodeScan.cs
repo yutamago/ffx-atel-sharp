@@ -34,36 +34,55 @@ internal static class CodeScan {
     /// <param name="bodyVa">The address of <paramref name="body"/>[0].</param>
     /// <param name="from">The first address that must not be a branch target.</param>
     /// <param name="to">The address after the last one.</param>
+    /// <param name="relocated">Which bytes of <paramref name="body"/> the loader may rewrite; empty: none.</param>
     /// <remarks>
     ///     There is no instruction decoder: every offset is tried as the start of an instruction. A hit may therefore be
     ///     the bytes of some other instruction (the hook is then refused although it was safe), but a direct branch in
-    ///     <paramref name="body"/> is never missed. <c>loop</c> and <c>jcxz</c> (<c>e0</c>..<c>e3</c>) are left out:
+    ///     <paramref name="body"/> is never missed. A candidate overlapping a relocated byte
+    ///     (<paramref name="relocated"/>) is skipped: in the loaded game those bytes are an absolute operand the load base
+    ///     rewrites (FFX.exe is <c>DYNAMICBASE</c>), not a branch. <c>loop</c> and <c>jcxz</c> (<c>e0</c>..<c>e3</c>) are left out:
     ///     MSVC does not emit them, and as stray bytes they are common. Branches from other functions are not seen.
     /// </remarks>
-    public static int BranchInto(ReadOnlySpan<byte> body, uint bodyVa, uint from, uint to) {
+    public static int BranchInto(ReadOnlySpan<byte> body, uint bodyVa, uint from, uint to, ReadOnlySpan<bool> relocated = default) {
         for (int i = 0; i < body.Length; i++) {
             byte op = body[i];
             uint target;
+            int length;
             if ((op is >= 0x70 and <= 0x7f || op == 0xeb) && i + 2 <= body.Length) {
+                length = 2;
                 target = unchecked(bodyVa + (uint)i + 2 + (uint)(sbyte)body[i + 1]);
             }
             else if (op == JmpRel32 && i + 5 <= body.Length) {
+                length = 5;
                 target = unchecked(bodyVa + (uint)i + 5 + (uint)ReadI32(body, i + 1));
             }
             else if (op == 0x0f && i + 6 <= body.Length && body[i + 1] is >= 0x80 and <= 0x8f) {
+                length = 6;
                 target = unchecked(bodyVa + (uint)i + 6 + (uint)ReadI32(body, i + 2));
             }
             else {
                 continue;
             }
+            // A direct branch is relative: none of its bytes is ever relocated. Bytes the loader rewrote belong to an
+            // absolute operand, and what they say depends on where Windows loaded the game.
+            if (Overlaps(relocated, i, length)) continue;
             if (target >= from && target < to) return i;
         }
         return -1;
     }
 
+    private static bool Overlaps(ReadOnlySpan<bool> relocated, int at, int length) {
+        for (int k = at; k < at + length && k < relocated.Length; k++) {
+            if (relocated[k]) return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether a hook's first 5 bytes are safe to overwrite: no branch in its body goes to bytes 1 to 4.</summary>
     /// <returns>The offset in <paramref name="body"/> of the branch that makes it unsafe, or -1.</returns>
-    public static int PrologueBranch(ReadOnlySpan<byte> body, uint va) => BranchInto(body, va, va + 1, va + PatchSize);
+    /// <param name="relocated">Which bytes of <paramref name="body"/> the loader may rewrite (<see cref="PeRelocations.Covered"/>): skipped.</param>
+    public static int PrologueBranch(ReadOnlySpan<byte> body, uint va, ReadOnlySpan<bool> relocated = default) =>
+        BranchInto(body, va, va + 1, va + PatchSize, relocated);
 
     /// <summary>The target of the <c>call rel32</c> at <paramref name="siteVa"/>, if <paramref name="code"/> starts with one.</summary>
     public static bool TryCallTarget(ReadOnlySpan<byte> code, uint siteVa, out uint target) {

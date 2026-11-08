@@ -407,6 +407,23 @@ absolute address points there. The fix:
   first byte (a trampoline) or `e9` (another hook over it, as on `Sg_MainLoop`, which Fahrenheit's
   game-loop events hook too). Otherwise the mod passes through from then on and logs why.
 
+**The check refused a safe function at some load bases (2026-11-08).** A run reported
+"Sg_FrameSync (0x00821e80) cannot be hooked: the code at 0x00821ea0 branches into its first 5
+bytes" and installed nothing; the same build had run before. There is no such branch: at
+`0x00821e9d` is `fld dword [0x00b3eb44]`, and the scan, which has no decoder and tries every
+offset, read the operand's bytes `eb b3` at `0x00821ea0` as a `jmp rel8`. FFX.exe is
+`DYNAMICBASE` (it has 0x8f0e4 bytes of base relocations), and the check reads the live code: at
+another base the loader rewrites that operand, and loaded anywhere from 0x6c0000 to 0x700000 (or
+the same 64 KB steps higher up) its third byte is `df`..`e3`, so the "jmp" lands on bytes 1 to
+4. Five entries are affected this way, at a share of all 64 KB-aligned bases each: `Sg_FrameSync`
+(508 of 32,767), `Sg_ControlMain` (4,096), `MsCameraProcess` (1,020), `MsCameraResetMove` (508) and
+`MsSetCheckChange` (512). Runs at the crash dump's base 0x3d0000 passed; the refusing run's base
+was in one of those ranges. The check now reads the image's relocation table (`PeRelocations`)
+and skips every candidate branch with a byte the loader rewrites: a direct branch is relative and
+never relocated, so a real one is still found, and the result no longer depends on the base. A
+test scans every hooked function over FFX.exe's own bytes relocated to many bases, and checks
+that no fixed byte of a pattern is relocated. The error line now also logs the load base.
+
 ### The camera
 
 After each update that ticked, `graphicCameraSetWorldMatrix(&g_CameraMatrix)` (from `Cam_Apply`) is

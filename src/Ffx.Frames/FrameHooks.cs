@@ -59,10 +59,10 @@ internal sealed unsafe class FrameHooks {
 
     private static FhCallHandle<T> At<T>(uint va) where T : Delegate => new(new FhCallLocation("FFX.exe", Game.Offset(va)));
 
-    // Hooked at their call sites (CallHooked): a loop in each branches back into its first 5 bytes.
-    private const uint UpdateFfxVa = 0x00822840, UpdateScanVa = 0x00889a80;
-    // Hooked at their one call in Sg_MainLoop's effect loop (CallHooked): other callers keep the game's function.
-    private const uint Gs1TransferVa = 0x007eb580, FieldParticleVa = 0x009083e0, PartLoopVa = 0x00762240, OtDrawVa = 0x007ec470;
+    private const uint UpdateFfxVa = HookSites.UpdateFfxVa, UpdateScanVa = HookSites.UpdateScanVa;
+    private const uint Gs1TransferVa = HookSites.Gs1TransferVa, FieldParticleVa = HookSites.FieldParticleVa, PartLoopVa = HookSites.PartLoopVa, OtDrawVa = HookSites.OtDrawVa;
+    private static (uint Va, string Name, string Bytes, int Length)[] Prologues => HookSites.Prologues;
+    private static (uint Va, string Name, string Bytes, uint[] Calls)[] CallHooked => HookSites.CallHooked;
     // Hooked (Fahrenheit, MinHook).
     private static FhCallHandle<MainLoopFn> MainLoop => At<MainLoopFn>(0x00820ae0);
     private static FhCallHandle<FloatFn> FrameSync => At<FloatFn>(0x00821e80);
@@ -231,56 +231,6 @@ internal sealed unsafe class FrameHooks {
         _otDrawEntry = h_ot_draw;
     }
 
-    /// <summary>
-    ///     Every function the mod hooks through Fahrenheit: its first bytes, as in the Steam release this was written
-    ///     against (<c>??</c>: an absolute address, which a rebased image changes), and its length (to the next function
-    ///     in <c>ffx.sym</c>), which <see cref="CheckGame"/> scans for branches into the 5 bytes the hook overwrites. A
-    ///     different game version fails the check and the mod installs nothing.
-    /// </summary>
-    private static readonly (uint Va, string Name, string Bytes, int Length)[] Prologues = [
-        (0x00820ae0, "Sg_MainLoop", "55 8b ec 81 ec a4 00 00 00", 0xc60),
-        (0x00821e80, "Sg_FrameSync", "55 8b ec 83 ec 18 d9 05 ?? ?? ?? ?? d8 45 08", 0x3d0),
-        (0x0082d070, "Sg_ControlMain", "6a 00 6a 00 6a 00 e8", 0x110),
-        (0x00787e00, "MsEffectProcess", "55 8b ec 53 8b 5d 08 8b c3 56", 0x120),
-        (0x007be110, "MsCameraProcess", "55 8b ec 83 ec 44 a1", 0x9d0),
-        (0x0083f2e0, "Sg_CameraSetPlayer", "53 8b dc 83 ec 08 83 e4 f0", 0x1d0),
-        (0x00833390, "Ch_CalcMiddle", "55 8b ec 83 ec 08 a1", 0x1a0),
-        (0x00908320, "yiAnimMain", "68 ?? ?? ?? ?? e8 ?? ?? ?? ?? 59 c3", 0x10),
-        (0x00645df0, "graphicVideoUpdate", "e8 ?? ?? ?? ?? 80 b8 d0 06 00 00 00", 0x50),
-        (0x007ff680, "op_loop_ffx_after", "53 8b dc 83 ec 08 83 e4 f0", 0xf0),
-        (0x0082c0c0, "Sg_DrawFilter", "55 8b ec 83 ec 0c e8", 0x6e0),
-        (0x008206c0, "Sg_MainCalcRate", "55 8b ec 51 a1", 0x90),
-        (0x0088d3d0, "TkUpdateEventJump", "83 3d ?? ?? ?? ?? 00 74 6d 56 e8", 0x110),
-        (0x00639860, "graphicCameraSetWorldMatrix", "55 8b ec 81 ec c0 00 00 00", 0x2d0),
-        (0x00593760, "Renderer_PresentFlip", "56 8b f1 8b 56 74 85 d2", 0x30),
-        (0x006a52f0, "VfxGeometry_Register", "55 8b ec 53 56 8b 75 08", 0xf0),
-        (0x00645840, "graphicVFXSyncPath", "83 3d ?? ?? ?? ?? 00 75 0b", 0x20),
-        (0x00656940, "PhyreScene_addVFXDrawEvent", "55 8b ec 56 8b 75 08 57", 0x50),
-        (0x00a44b40, "JobSchedule_Ch_Cloth_PerCharacter", "55 8b ec 8b 0d ?? ?? ?? ?? 6a 00", 0x40),
-        (0x00830b90, "Ch_DrawClothClear", "55 8b ec 83 ec 10 53 56", 0xe0),
-        (0x0082ed50, "Ch_DrawMain", "55 8b ec 81 ec 20 04 00 00", 0x10b0),
-        (0x0063c3e0, "graphicCharacterInstanceSetWorldMatrix", "55 8b ec 57 8b 7d 08", 0x50),
-        (0x0063c430, "graphicCharacterInstanceSetWorldMatrixByMdlID", "55 8b ec 83 ec 0c 53 8b 5d 08", 0xd0),
-        (0x0063b740, "graphicCharacterInstanceSetClothVertexBuffers", "55 8b ec 83 ec 08 8b 0d ?? ?? ?? ?? 53 56 57", 0x90),
-        (0x007bed60, "MsCameraResetMove", "55 8b ec 56 57 8b 7d 08", 0xf0),
-        (0x007c0790, "MsSetCheckChange", "55 8b ec 8b 55 08 8b 45 0c", 0x180),
-    ];
-
-    /// <summary>
-    ///     The functions hooked at their call sites instead: each has a loop that branches back to byte 3 (<c>updateFFX</c>
-    ///     <c>jne 0x00822843</c> at <c>0x00822876</c>, <c>TkUpdateScanControler</c> <c>jl 0x00889a83</c> at
-    ///     <c>0x00889a9b</c>), where MinHook's <c>jmp</c> would be. These are all their callers in FFX.exe (no function
-    ///     pointer to them exists): each <c>call rel32</c> is pointed at the mod's entry, which calls the function.
-    /// </summary>
-    private static readonly (uint Va, string Name, string Bytes, uint[] Calls)[] CallHooked = [
-        (UpdateFfxVa, "updateFFX", "55 8b ec 83 3d ?? ?? ?? ?? 00 74 05", [0x0042f5b6]),
-        (UpdateScanVa, "TkUpdateScanControler", "56 33 f6 6a 00 56 e8", [0x00820b84, 0x0089ae60]),
-        (Gs1TransferVa, "op_gs1_transfer", "53 8b dc 83 ec 08 83 e4 f0", [0x00821477]),
-        (FieldParticleVa, "yiCallFieldParticle", "83 3d ?? ?? ?? ?? 00 74 0d", [0x0082148c]),
-        (PartLoopVa, "pppPartLoop", "55 8b ec 51 83 3d", [0x008214a2]),
-        (OtDrawVa, "op_ot_draw", "6a 00 c7 05", [0x008214ba]),
-    ];
-
     private bool Matches(uint va, string name, string bytes) {
         string[] want = bytes.Split(' ');
         for (int i = 0; i < want.Length; i++) {
@@ -303,9 +253,10 @@ internal sealed unsafe class FrameHooks {
                 ok = false;
                 continue;
             }
-            int at = CodeScan.PrologueBranch(_game.Code(va, length), va);
+            // The live code: skip the bytes the loader rewrote for this run's base (absolute operands, not branches).
+            int at = CodeScan.PrologueBranch(_game.Code(va, length), va, PeRelocations.Covered(_game.Relocations, (uint)Game.Offset(va), length));
             if (at < 0) continue;
-            _log.Error($"Frames: {name} (0x{va:x8}) cannot be hooked: the code at 0x{va + (uint)at:x8} branches into its first {CodeScan.PatchSize} bytes, which the hook overwrites.");
+            _log.Error($"Frames: {name} (0x{va:x8}) cannot be hooked: the code at 0x{va + (uint)at:x8} branches into its first {CodeScan.PatchSize} bytes, which the hook overwrites (FFX.exe loaded at 0x{(ulong)_game.Address(Game.ImageBase):x8}, {_game.Relocations.Length} relocations).");
             ok = false;
         }
         foreach ((uint va, string name, string bytes, uint[] calls) in CallHooked) {
