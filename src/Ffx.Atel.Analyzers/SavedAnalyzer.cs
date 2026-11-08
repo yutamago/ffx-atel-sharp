@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -24,8 +24,10 @@ public sealed class SavedAnalyzer : DiagnosticAnalyzer {
         context.EnableConcurrentExecution();
         context.RegisterCompilationStartAction(start => {
             if (AtelModel.Create(start.Compilation) is not AtelModel model) return;
-            ConcurrentDictionary<string, IFieldSymbol> keys = new(System.StringComparer.Ordinal);
-            start.RegisterSymbolAction(c => Field(c, model, keys), SymbolKind.Field);
+            // Per key, the field declared first (in source order): a later one with its key is the one reported, whatever
+            // order the fields are analyzed in.
+            System.Lazy<Dictionary<string, IFieldSymbol>> keys = new(() => FirstByKey(start.Compilation));
+            start.RegisterSymbolAction(c => Field(c, model, keys.Value), SymbolKind.Field);
             start.RegisterOperationAction(Write, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.Increment, OperationKind.Decrement);
         });
     }
@@ -39,7 +41,33 @@ public sealed class SavedAnalyzer : DiagnosticAnalyzer {
 
     // ----- ATL4003 ------------------------------------------------------------------------------
 
-    private static void Field(SymbolAnalysisContext c, AtelModel model, ConcurrentDictionary<string, IFieldSymbol> keys) {
+    /// <summary>The full key of a <c>[Saved]</c> field as written (<c>mod/key</c> for another mod's); null when it names none.</summary>
+    private static string? FullKey(IFieldSymbol field, AttributeData saved) {
+        string? key = Named(saved, "Key"), mod = Named(saved, "Mod");
+        if (mod is not null && key is null) return null;
+        string ns = field.ContainingType.ContainingNamespace is { IsGlobalNamespace: false } n ? n.ToDisplayString() + "." : "";
+        key ??= $"{ns}{field.ContainingType.Name}.{field.Name}";
+        return mod is null ? key : $"{mod}/{key}";
+    }
+
+    private static Dictionary<string, IFieldSymbol> FirstByKey(Compilation compilation) {
+        List<(string Key, IFieldSymbol Field, Location At)> all = [];
+        Stack<INamespaceOrTypeSymbol> todo = new([compilation.Assembly.GlobalNamespace]);
+        while (todo.Count > 0) {
+            INamespaceOrTypeSymbol n = todo.Pop();
+            foreach (ISymbol m in n.GetMembers()) {
+                if (m is INamespaceOrTypeSymbol inner) todo.Push(inner);
+                else if (m is IFieldSymbol f && SavedOf(f) is AttributeData a && FullKey(f, a) is string k && f.Locations.FirstOrDefault(l => l.IsInSource) is Location at) all.Add((k, f, at));
+            }
+        }
+        Dictionary<string, IFieldSymbol> first = new(System.StringComparer.Ordinal);
+        foreach ((string key, IFieldSymbol field, _) in all.OrderBy(x => x.At.SourceTree?.FilePath, System.StringComparer.Ordinal).ThenBy(x => x.At.SourceSpan.Start)) {
+            if (!first.ContainsKey(key)) first[key] = field;
+        }
+        return first;
+    }
+
+    private static void Field(SymbolAnalysisContext c, AtelModel model, Dictionary<string, IFieldSymbol> keys) {
         IFieldSymbol field = (IFieldSymbol)c.Symbol;
         if (SavedOf(field) is not AttributeData saved) return;
         Location where = field.Locations.FirstOrDefault() ?? Location.None;
@@ -70,7 +98,7 @@ public sealed class SavedAnalyzer : DiagnosticAnalyzer {
             return;
         }
         string full = mod is null ? key : $"{mod}/{key}";
-        if (!keys.TryAdd(full, field) && !SymbolEqualityComparer.Default.Equals(keys[full], field)) {
+        if (keys.TryGetValue(full, out IFieldSymbol? first) && !SymbolEqualityComparer.Default.Equals(first, field)) {
             Report(mod is null ? $"{field.Name}: another [Saved] field has the key {key}; give one its own Key" : $"{field.Name}: {mod}'s saved field {key} is declared twice");
         }
     }
