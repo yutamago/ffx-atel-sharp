@@ -12,11 +12,11 @@ The plan, its decisions and the phases are in [`docs/plan.md`](docs/plan.md).
 
 For modders, in reading order:
 
-1. [`docs/unity.md`](docs/unity.md): Atel for Unity people, how FFX's scripts read if you know C# from Unity.
-2. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
-3. [`docs/language.md`](docs/language.md): the language reference, which C# is Atel.
-4. [`docs/analyzers.md`](docs/analyzers.md): the rules that report C# ATEL cannot run.
-5. [`docs/editor.md`](docs/editor.md): message text and the game's names in the editor.
+1. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
+2. [`docs/language.md`](docs/language.md): the language reference, which C# is Atel.
+3. [`docs/analyzers.md`](docs/analyzers.md): the rules that report C# ATEL cannot run.
+4. [`docs/editor.md`](docs/editor.md): message text and the game's names in the editor.
+5. [`docs/sdk.md`](docs/sdk.md): a mod as a C# project, built with `dotnet build`.
 6. [`docs/formats/mod-package.md`](docs/formats/mod-package.md): what a mod ships and how the loader links it.
 
 How it works:
@@ -33,11 +33,13 @@ How it works:
 - [`docs/research/handlers.md`](docs/research/handlers.md): which worker and entry the battle runs for which event (turn, hit, death, cameras, motions), from FFX.exe.
 - [`docs/research/frame-timing.md`](docs/research/frame-timing.md): what a script frame is (30 a second), seconds, frame-rate and fast-forward mods.
 - [`docs/research/oo-surface.md`](docs/research/oo-surface.md): the object-oriented members over the natives, how they were chosen and measured.
+- [`docs/research/mod-saves.md`](docs/research/mod-saves.md): where a mod's saved fields live (the save's unused tail) and how the loader keeps them.
+- [`docs/research/save-fields.md`](docs/research/save-fields.md): the save variables the `Save` class names.
 - [`docs/source-repo.md`](docs/source-repo.md): the private repo of decompiled source.
 
 ## Status
 
-Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
+Phases 0-4, 6, 7, 10 and 11 are done; 5 (names), 8 (tooling) and 9 (mods) are under way:
 
 - `Ffx.Atel.Bytecode` reads `FFX_Data.vbf`, the event, monster and battle
   files and their script blocks, and disassembles and reassembles them.
@@ -49,8 +51,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   `_ = Lulu.E5Async();` and `await`, `return;`), structured as
   `if`/`else`, `while`, `do`, `for` and `switch` with `case` patterns,
   `break`, `continue` and `goto case`, with the original's label numbers
-  and branch polarity. The 8,448 jumps that have no structured form stay
-  `goto`; no `Asm` is left. `atel compile` turns that C# back into the
+  and branch polarity. The 8,295 jumps that have no structured form stay
+  `goto` (why, by shape: `atel roundtrip` and `docs/plan.md`, "The gotos
+  that stay"); no `Asm` is left. `atel compile` turns that C# back into the
   script file. All 1,621 scripts round-trip byte for byte, and the source
   compiles as C# against `Ffx.Atel.Game` without errors or warnings.
   Workers that are identical across scripts share library base classes.
@@ -64,22 +67,26 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   `Cameras.OnCamera24`; [`docs/research/handlers.md`](docs/research/handlers.md)).
 - The source reads object-oriented: the natives most scripts call are members of the worker
   (`Pos = new Vector3(…)`, `Yaw = …`, `Turn.Start(…)`, `Motion.Play(…)`, `Tidus.Pos.X`) and of
-  static classes (`Wait.Frames(…)`, `Camera.Roll = …`), generated from `data/native-members.json`
-  and compiled back onto the same natives ([`docs/language.md`](docs/language.md#members)).
+  static classes, nested where the game groups them (`Wait.Frames(…)`, `Camera.Eye.Position = …`,
+  `Camera.Focus.MoveEased(…)`, `Voice.Play(…)`), 74.5 % of all native calls, generated from
+  `data/native-members.json` and compiled back onto the same natives ([`docs/language.md`](docs/language.md#members)).
 - Repeated code is written once, as `[Inline]` methods: the reference assembly's (`Turn.To(…)`,
   `Move.To(…)`, `Dialogue.SayWithVoice(…)`, `ChangeMap(…)`, `Party.RestoreAll()`), and each worker's own,
   which the decompiler mines from its code (W36 of `bltz0000`: 190,402 lines → 15,447), still byte for
   byte ([`docs/language.md`](docs/language.md#repeated-code)).
-- The analyzers report C# that ATEL cannot run (23 rules), in the IDE and
+- The analyzers report C# that ATEL cannot run (30 rules), in the IDE and
   in `atel compile --check`; see [`docs/analyzers.md`](docs/analyzers.md).
 - Mods (Phase 9): `atel compile-mod` compiles a mod's C# (`partial`
   classes of the decompiled scripts, with `[Prefix]`, `[Postfix]`,
   `[Replace]`, new entries, workers and variables) into packages that hold
   no game code; `Ffx.Atel.Linker` links them onto the player's files, and
   the loader (`yuta.atel`) does that at game start for every Atel mod in
-  Fahrenheit's load order. Checked in game with the mod of
-  [`docs/tutorial.md`](docs/tutorial.md). Not done yet: `Text.New`,
-  per-field data edits, `[Inject]`.
+  Fahrenheit's load order. Also: new messages (`Text.New`), per-field data
+  edits in a static constructor (`MonsterStats.Hp = 4321;`), `[Inject]` at the
+  n-th call of a native inside a vanilla method, and `[Saved]` fields that a
+  mod keeps per save slot (beside the save, never in it), readable by other
+  mods. Each is checked in game. Not done yet:
+  laying out unchanged workers in place (a linked file grows by 36-57 KB).
 - The loader also serves rebuilt scripts from edited disassembly
   (`scripts/**/*.asm`), for development; see
   [`docs/research/loader.md`](docs/research/loader.md).
@@ -111,7 +118,9 @@ Phases 0-4, 6 and 7 are done; 5, 8 and 9 are under way:
   [`docs/research/dead-code.md`](docs/research/dead-code.md). In game, the separate mod
   `yuta.atel.cuts` switches each name on and off from a menu (F8) in the loaded scripts
   ([`src/Ffx.Atel.Cuts/README.md`](src/Ffx.Atel.Cuts/README.md)).
-- Not done: `Debug.*` text and runtime packages (Phase 10).
+- `Debug.Print(…)` and the other `Debug.*` natives write to the loader's log, and a package dropped into the
+  loader's `inject/` folder while the game runs takes effect at the script's next load, its messages at
+  once (Phase 10). Not done yet: an on-screen line for `Debug.Print`.
 
 ## Projects
 
