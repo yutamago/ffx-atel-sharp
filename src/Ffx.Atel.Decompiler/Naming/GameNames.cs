@@ -49,7 +49,10 @@ internal static class GameNames {
 
     private static readonly Lazy<Dictionary<int, string>> s_save = new(() => {
         Dictionary<int, string> byOffset = [];
-        foreach (FieldInfo f in ConstFields(typeof(Ffx.Save))) byOffset.TryAdd(System.Convert.ToInt32(f.GetRawConstantValue(), CultureInfo.InvariantCulture), f.Name);
+        foreach (FieldInfo f in ConstFields(typeof(Ffx.Save))) {
+            if (f.Name == nameof(Ffx.Save.ModAreaLength)) continue;    // a length, not an offset
+            byOffset.TryAdd(System.Convert.ToInt32(f.GetRawConstantValue(), CultureInfo.InvariantCulture), f.Name);
+        }
         return byOffset;
     });
 

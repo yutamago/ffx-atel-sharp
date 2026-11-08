@@ -110,3 +110,34 @@ public static class Link {
     /// <summary>The entry number of method <paramref name="method"/> of worker <typeparamref name="T"/> (<c>nameof(W01.Boost)</c>).</summary>
     public static int Entry<T>(string method) where T : Atel.Worker => throw Runtime.NotRunnable();
 }
+
+/// <summary>
+///     A field whose value is kept with the save game: <c>[Saved] public static ushort LarvasMet;</c> in a mod's plain static
+///     class (state several scripts share) or in its part of a script class (docs/language.md, "Saved fields"). It is a
+///     variable like any other in code. Its initializer is the value on a new game and in a save made without it.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The field is a storage 0 variable in the save's free tail (<see cref="Ffx.Save.ModArea"/>). The loader gives each
+///         enabled mod's fields their offsets there when the game starts, and keeps their values by key in its own file per
+///         save, so neither the game's save file nor the order of the mods matters. The key is the declaring type and the
+///         field (<c>LarvaCount.Progress.LarvasMet</c>), or <see cref="Key"/>; renaming the field changes the key unless
+///         <see cref="Key"/> keeps the old one. A field is a <c>byte</c> … <c>int</c>, a <c>float</c>, or a 1-D or 2-D
+///         array of one with its size; all of a mod's fields share 1,032 bytes with the other mods'.
+///     </para>
+///     <para>
+///         <b>Another mod's field</b>: with <see cref="Mod"/>, the field names a field of that mod by its key, to read it:
+///         <c>[Saved(Mod = "yuta.larvacount", Key = "LarvaCount.Progress.LarvasMet")] public static ushort LarvasMet;</c>.
+///         The type and size are that mod's; there is no initializer, and code only reads it. The mod's <c>mod.toml</c>
+///         lists the other mod in <c>requires</c>; the loader leaves the mod out when the other one is not linked or has no
+///         such field.
+///     </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Field, Inherited = false)]
+public sealed class SavedAttribute : Attribute {
+    /// <summary>The key the value is kept under, instead of <c>&lt;type&gt;.&lt;field&gt;</c>: a renamed field keeps its old one.</summary>
+    public string? Key { get; set; }
+
+    /// <summary>The id of the mod whose field this is (with <see cref="Key"/>); null for the mod's own.</summary>
+    public string? Mod { get; set; }
+}
