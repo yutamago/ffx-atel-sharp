@@ -159,8 +159,11 @@ internal sealed unsafe class Game(nint moduleBase) {
     public int ChrCount => *At<int>(0x023c44e0);
     public nint ChrArray => *At<nint>(0x023c44e4);
     public const int ChrSize = 0x880;
-    /// <summary>A character's fields: <c>u16</c> id, active byte, hide byte, its matrix (local to world), the renderer instance lists.</summary>
-    public const int ChrId = 0x0, ChrActive = 0x2, ChrHide = 0x180, ChrMatrix = 0x1d0, ChrInstances = 0x830, ChrShadowInstances = 0x838;
+    /// <summary>A character's fields: <c>u16</c> id, active byte, hide byte, its matrix (local to world), the renderer instance lists, its render cloth (<see cref="ClothHistory"/>).</summary>
+    public const int ChrId = 0x0, ChrActive = 0x2, ChrHide = 0x180, ChrMatrix = 0x1d0, ChrInstances = 0x830, ChrCloth = 0x834, ChrShadowInstances = 0x838;
+    /// <summary>A character's flags (<c>+0x194</c>); bit 21: its cloth is set up (<c>Ch_UpdateClothMatrix</c>, <c>Sg_ClothPlaceAnchors</c> need it).</summary>
+    public const int ChrFlags = 0x194;
+    public const uint ChrClothReady = 1u << 21;
 
     /// <summary>The window (<c>g_hWnd</c>, <c>0x00cc9ce8</c>; Fahrenheit reads it there too).</summary>
     public nint Window => *At<nint>(0x00cc9ce8);

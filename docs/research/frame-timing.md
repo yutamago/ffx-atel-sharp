@@ -318,6 +318,7 @@ are at the end of this section.
 | `VfxGeometry_Register` (`0x006a52f0`, `VFXDynamicGeometry` vtable `+8`, thiscall), `graphicVFXSyncPath` (`0x00645840`), `PhyreScene_addVFXDrawEvent` (`0x00656940`, thiscall) | Hooks | Record what the effect calls above hand the renderer on a tick (game thread only) |
 | `JobSchedule_Ch_Cloth_PerCharacter` (`0x00a44b40`), `Ch_DrawClothClear` (`0x00830b90`) | Hooks (switch, on) | Held on a Redraw: `Ch_DrawMain` steps the cloth once per game update |
 | `Ch_DrawMain` (`0x0082ed50`), `graphicCharacterInstanceSetWorldMatrix` (`0x0063c3e0`), `…ByMdlID` (`0x0063c430`) | Hooks | Draw the characters between ticks ("Characters between ticks") |
+| `graphicCharacterInstanceSetClothVertexBuffers` (`0x0063b740`, from `FFXApplication_render` `0x0042f95e`) | Hook (switch, on) | Draws the cloth between ticks: blended vertices and the drawn character's matrix written into each cloth mesh before the upload ("The cloth" below) |
 | `MsCameraProcess` (`0x007be110`), `Sg_CameraSetPlayer` (`0x0083f2e0`) | Hooks | Held on a Redraw: with exec frames 0, `Sg_MainLoop` still runs both when the camera is idle (`0x012fbbb0`) |
 | `Ch_CalcMiddle` (`0x00833390`) | Hook (switch, on) | Held on a Redraw. It is not idempotent: besides the bones it fires `Ch_MotEvent` (motion events). After a tick, where the characters are recorded |
 | `yiAnimMain` (`0x00908320`) | Hook (switch, on) | The field's animation, held on a Redraw |
@@ -326,6 +327,7 @@ are at the end of this section.
 | `Sg_MainCalcRate` (`0x008206c0`) | Hook (counts) | `Sg_MainLoop` calls it only on the way to the world update. A frame whose updates never called it (menu, pause, save screen, load) makes the next frames without a tick Repeats: their logic runs once per update, and a second update would speed it up |
 | `TkUpdateEventJump` (`0x0088d3d0`) | Hook (counts) | The world ticks that ran, for the window's "ticks/s" |
 | `graphicCameraSetWorldMatrix` (`0x00639860`) | Hook | See "The camera" below |
+| `MsCameraResetMove` (`0x007bed60`) | Hook (notes) | The game's instant camera set: noted for the update's camera sample ("Cuts" below) |
 | `Renderer_PresentFlip` (`0x00593760`, thiscall, render thread) | Hook | Counts presents (the drawn fps). For vsync on or off it sets the renderer's byte `+0x131c` around the call (the present's sync interval is 1 when it is not 0) and puts it back |
 
 The main menu runs at 60 fps in the game (`g_FrameVsyncs` 1), one update per frame. There the
@@ -485,6 +487,48 @@ The screen matrix is lerped element by element. A move over 100 units or a turn 
 The mod does not interpolate during a movie, with the part matrix on (`0x012fb8f9`), or for a
 second screen's camera (one that is not the recorded one).
 
+**Cuts.** In the 2026-11-07 test of PR #66 (characters on), a hard cut from one shot to the next
+drew the camera cut but slid the characters into place from where they stood in the last shot
+(fades hid it). A cut now applies to everything: at the tick where the camera cut, every
+character and every cloth mesh is drawn as the tick has it, as a warp is, and the next tick blends
+from there. Two signals make a cut:
+
+- the thresholds above;
+- the game's own: `MsCameraResetMove(camera, flags)` (`0x007bed60`) with `flags` bit 3 clear
+  stops a camera side's move and puts it at its target now. Its callers are the scripts' cut
+  natives (`Native_CamFocusCut` 0x6034, `Native_CamMoveFinish` 0x6016),
+  `MsAtelResetMoveCameraID` (`0x007ba860`) and the magic files' `opu_camera`; the battle's
+  slot resets pass bit 3. When it ran in the update, any change of the camera or screen matrix
+  (relative change above 1e-4) is a cut, however small. Setting "The game's instant camera sets
+  are cuts", on; the window's Live line counts these apart.
+
+The camera is only known in `MsScreenProcess`, after `Ch_DrawMain` has drawn the characters
+between ticks in the same update. So at a cut the mod also puts that draw back: the world
+matrices it corrected are sent again as the game made them (`graphicCharacterInstanceSetWorldMatrix`
+/ `…ByMdlID`), and the tick's bones are written back. The cloth's upload comes after the update and
+finds nothing to blend.
+
+**The crash this put back first (2026-11-08).** A build of PR #66 crashed in the opening, right
+after Tidus gets up at the campfire (the flashback starts), at target Game. It faulted reading
+`[0 + 4]` in `PhyreScene_setMeshInstanceWorldMatrix` (`0x0066d810`, `mov ecx, [esi+4]` at
+`0x0066d824`), called from `graphicCharacterInstanceSetWorldMatrix` (`0x0063c3e0`, which passes each
+`[list + 4][i]`); the null instance was slot 0 of the list. The minidump's stack: `Sg_MainLoop` →
+`MsScreenProcess` → `Cam_Apply` → the mod's camera hook → this "put back" replay, on a list
+`Ch_DrawMain` had logged in an earlier update. Two faults:
+
+- At target Game a tick frame's alpha was the accumulator's left-over (the limiter's jitter), so
+  the mod drew the characters a fraction behind and logged corrected world matrices, at 30 fps
+  where there is nothing between ticks. Now at target Game and ×1 or faster every frame's alpha
+  is 1, and the camera, the characters and the cloth all pass through (`FrameDirector.DrawsBetweenTicks`).
+- The log was emptied only when `Ch_DrawMain` ran. An update without it (the scene change) kept
+  the last one's lists, freed since. Now the log belongs to one update (`WorldMatrixLog`), and
+  each list is checked before the write: still an active character's `+0x830`/`+0x838`, the same
+  count and instance array as logged, no null instance. A list that fails is left as the game has it.
+
+The cloth upload also checks what it walks: the character's flags bit 21 (cloth set up, as
+`Ch_UpdateClothMatrix` and `Sg_ClothPlaceAnchors` need), aligned record, list and mesh pointers,
+and 16-aligned vertex buffers.
+
 ### Effects between ticks
 
 **Why they ran fast.** The draw's effect loop (`Sg_MainLoop`, `0x0082141d`..`0x008214ca`; port
@@ -582,15 +626,52 @@ identity and no warp:
 
 A warp is a move over 50 units or a turn over 120° in one tick (settings), a mirror that flips, or
 a matrix that cannot be taken apart and changed by a quarter. A character missing from the last
-tick, a new identity in the slot or a new map (`g_CurrentMapNo`) starts again. A `+0x1d0` that
+tick, a new identity in the slot or a new map (`g_CurrentMapNo`) starts again. A camera cut (above,
+"Cuts") draws every character as the tick has it. A `+0x1d0` that
 changed since the tick (magic `0x275`'s matrix swap) is drawn as it is.
 
 **The cloth.** `Ch_DrawMain` queues `Ch_Cloth_PerCharacter` (`Apply_Envelope`, `Sg_ClothStep`,
 `Sg_ClothPlaceAnchors`) for every cloth character once per game update, after
 `Ch_DrawClothClear`, so on Redraw frames the cloth simulated once per drawn frame. The mod skips
 both on a Redraw (setting, on). `FFXApplication_render` uploads the cloth's vertex records on every
-drawn frame (`graphicCharacterInstanceSetClothVertexBuffers`), so the cloth keeps its last tick's
-shape, as on a Repeat frame. It is not interpolated.
+drawn frame (`graphicCharacterInstanceSetClothVertexBuffers`), so without more the cloth keeps its
+last tick's shape and place, as on a Repeat frame.
+
+That is what the hair did in the 2026-11-07 test (main `fa093ad`, characters on, ×0.1): the bones
+were smooth, the hair trailed and moved only on ticks. **The hair is cloth**, not bones: the
+simulated pieces of a model's cloth table are the hair strands and crests as well as the shorts
+and coats (Wakka's crest is piece (0, 3), 255 pinned and 50 moving vertices; ffx-demaster
+`docs/models.md`, "Cloth"). How the cloth is drawn (ffx-rust `docs/formats/scene-chars.md`,
+"Cloth"; `docs/formats/main.md`, "Cloth anchors"; `crates/ffx-chara/src/cloth.rs`):
+
+- A character's render cloth `chr + 0x834` is the record the renderer lists (`0x00ccb250` count,
+  `0x00ccb254` slots): `+8` hidden, `+0xc` state (2 once set up), `+0x14` lists from `+0x30`,
+  each a `u32` count and mesh pointers. A mesh: 16 floats of matrix at `+0` (the shader's
+  `ClothWorld`), model `u16 +0x40`, piece `+0x42`, vertex count `+0x44`, vertices `[+0x4c]` (16
+  bytes each, vertex stream 5).
+- **The vertices** are relative to the model's base element: `Apply_Envelope` (`0x00832110`) skins
+  the PS2 model with base⁻¹ × element, `Sg_ClothStep` (`0x00822de0`) moves the free points, and
+  `Sg_ClothPlaceAnchors` (`0x0082dbc0`) puts each drawn vertex on its simulated triangle
+  (barycentric weights). Once per game update, on the job workers; `Sg_MainLoop` waits for them at
+  its end.
+- **The matrix** is written by `Ch_UpdateClothMatrix` (`0x008314c0`, first thing in `Ch_DrawMain`'s
+  walk for each shown character, every draw): the base element's global matrix (`chr + 0x328`
+  elements `+0x88`, translation × 1000) × the character's `+0x1d0` × diag(−1, −1, 1, 1)
+  (`g_ChrClothFlip` `0x00b92340`), in row-vector order (`mul4x4(a, b)` is `b × a`).
+
+So the cloth reads the true `+0x1d0` and the tick's skeleton, never the renderer bones the mod
+writes. **What the mod does** (`ClothHistory`, setting "Interpolate the characters' cloth", on;
+needs the cloth held): at the end of a game update that recorded the characters, each mesh's
+vertices and its local matrix L = `ClothWorld × flip × +0x1d0⁻¹` (the base element's matrix) go
+into a two-tick history (keyed by the mesh, identity = the vertex buffer and count). In the hook
+on `graphicCharacterInstanceSetClothVertexBuffers` (main thread, before the upload), for a
+character `Ch_DrawMain` drew between ticks: the vertices are the lerp of their two ticks (a vertex
+that did not move is left exactly as it is), the matrix is lerp(L) × the drawn `+0x1d0` × flip.
+With one sample, or with the bones not interpolated, the tick's cloth is carried along with the
+character (L × drawn `+0x1d0` × flip). As with the bones, a mesh that still holds what the mod
+wrote when the next tick is recorded was not written by the game, and gets its last true sample
+back. `Ch_UpdateClothMatrix` writes the true matrix again on every draw, and the cloth job
+overwrites every bound vertex on every tick, so nothing the mod writes reaches the simulation.
 
 ### Other things that advance per drawn frame
 
@@ -599,7 +680,7 @@ What each `Sg_MainLoop` runs once besides the ticks, and what the mod does with 
 | What | Where | On a Redraw |
 |---|---|---|
 | The effects | the effect loop, above | held, replayed |
-| The cloth | `Ch_DrawMain` → `Ch_Cloth_PerCharacter` | held (new) |
+| The cloth | `Ch_DrawMain` → `Ch_Cloth_PerCharacter` | held; drawn blended between ticks |
 | Bones, motion events, mouths, texture animations of the characters | `Ch_CalcMiddle` | held; bones interpolated |
 | Field animation (the map's texture animation frames, moving parts) | `yiAnimMain` | held. `yiRender_draw` only applies the frame |
 | Fades | `Sg_DrawFilter` | drawn, counters put back |
@@ -626,7 +707,10 @@ after it): one extra step when it opens.
   effect still flickers or vanishes between ticks ("gone" in the window's Live section counts
   geometries destroyed since the tick).
 - Whether interpolated bones look right on every model (skinned and not, the shadow instance
-  `+0x838`, Tidus's and Yuna's cloth over an interpolated body).
+  `+0x838`). The bones were smooth in the 2026-11-07 test (×0.1); the hair was not (cloth, above).
+- Whether the blended cloth sits on the body: hair roots, Tidus's shorts, Auron's coat, Wakka's
+  crest, in slow motion and while turning. A cloth reset (a scene cut that keeps the character in
+  place) is blended over one tick.
 - The character warp thresholds in world units.
 - Whether a Redraw frame looks like the tick frame before it: the field, message windows, battle UI.
 - Whether a Repeat frame (no update) shows the last picture or a broken one, and whether the

@@ -313,13 +313,15 @@ internal sealed class Structurer {
             }
             break;
         }
-        if (cases.Count == 0 || pendingSkip is not null && Pos(pendingSkip.Value) != k) return null;
+        if (pendingSkip is not null && Pos(pendingSkip.Value) != k) return null;
+        // The jump to the default: after the compares, or the whole chain (`switch (x) { default: … }`).
         int? def = null;
-        if (k < to && S(k) is GotoStmt jd && pendingSkip is null && _u[k].Labels.All(l => l == skipHere) && _u[k].Entries.Count == 0
+        if (k < to && S(k) is GotoStmt jd && pendingSkip is null && _u[k].Labels.All(l => l == skipHere || k == c && l == jc.Label) && _u[k].Entries.Count == 0
             && Pos(jd.Label) is int dp && dp >= i + 2 && dp < c && Free(jd.Label) && cases.All(x => x.Label != jd.Label)) {
             def = jd.Label;
             k++;
         }
+        if (cases.Count == 0 && def is null) return null;
         int e = k;
         if (e > to) return null;
 

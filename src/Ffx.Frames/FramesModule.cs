@@ -245,9 +245,10 @@ public sealed class FramesModule : FhModule {
             if (why is not null) ImGui.TextColored(Yellow, $"Time scale held at ×1: {why}");
             CameraHistory cam = h.Camera;
             string step = cam.LastStep is (double d, double deg) ? $"{d:0.0} units, {deg:0.0}°" : "-";
-            ImGui.Text($"Camera: last tick moved {step}; cuts {cam.Cuts}{(cam.Cut ? " (cut now)" : "")}");
+            ImGui.Text($"Camera: last tick moved {step}; cuts {cam.Cuts} ({cam.SnapCuts} set by the game){(cam.Cut ? " (cut now)" : "")}");
             ImGui.Text($"Effects: {h.EffectDraws} draws recorded; replayed {st.Rate(Counter.EffectReplays):0}/s, gone {st.Rate(Counter.EffectsGone):0}/s");
             ImGui.Text($"Characters: {h.Characters} held, between ticks {st.Rate(Counter.CharactersInterpolated):0}/s; warps {h.CharacterCuts}");
+            ImGui.Text($"Cloth: {h.ClothMeshesHeld} meshes held, blended {st.Rate(Counter.ClothInterpolated):0}/s");
             ImGui.TextColored(Grey, h.Status);
         }
 
@@ -275,6 +276,8 @@ public sealed class FramesModule : FhModule {
             ImGui.Separator();
             bool bones = s.InterpolateBones;
             if (ImGui.Checkbox("Interpolate the characters' bones (their animation), not only their place", ref bones)) Set(s with { InterpolateBones = bones });
+            bool clothLerp = s.InterpolateCloth;
+            if (ImGui.Checkbox("Interpolate the characters' cloth (hair, shorts, coats); needs the cloth held", ref clothLerp)) Set(s with { InterpolateCloth = clothLerp });
             float cdist = (float)s.CharacterCutDistance, cdeg = (float)s.CharacterCutDegrees;
             if (ImGui.SliderFloat("Character warp: moved more than", ref cdist, 1f, 2000f, "%.0f units", ImGuiSliderFlags.Logarithmic)) Set(s with { CharacterCutDistance = cdist });
             if (ImGui.SliderFloat("Character warp: turned more than", ref cdeg, 1f, 180f, "%.0f°")) Set(s with { CharacterCutDegrees = cdeg });
@@ -283,6 +286,8 @@ public sealed class FramesModule : FhModule {
             float dist = (float)s.CutDistance, deg = (float)s.CutDegrees;
             if (ImGui.SliderFloat("Cut: moved more than", ref dist, 1f, 2000f, "%.0f units", ImGuiSliderFlags.Logarithmic)) Set(s with { CutDistance = dist });
             if (ImGui.SliderFloat("Cut: turned more than", ref deg, 1f, 180f, "%.0f°")) Set(s with { CutDegrees = deg });
+            bool snaps = s.ScriptCameraCuts;
+            if (ImGui.Checkbox("The game's instant camera sets are cuts", ref snaps)) Set(s with { ScriptCameraCuts = snaps });
             if (ImGui.Button("Defaults")) Set(new FrameSettings { Enabled = s.Enabled });
         }
         ImGui.Separator();

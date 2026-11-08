@@ -657,6 +657,44 @@ writes on top of Phase 3:
   the C# check: Roslyn takes about 36 s of it, half of Phase 3's 72 s on the
   same machine (89 s with the check, 17 s without), as structured code gives
   its flow analysis no methods with tens of thousands of labels.
+- **The gotos that stay** (2026-11-08). `atel roundtrip` counts the gotos
+  left by shape (`GotoShapes`): where the label lies against the jump, which
+  constructs the jump leaves, and across them the jumps to a shared label and
+  those followed by dead code. A `switch` with only a `default` section (its
+  chain is the one `jmp`, `switch (StoryProgress) { default: … }` in NPC talk
+  entries) is structured now: 51 more switches, **8,448 → 8,295 gotos**,
+  still 1,621/1,621 byte for byte, 0 C# errors (221 ATL2006 warnings, as
+  before). By shape, before → after: forward in the same block 2,516 → 2,414
+  (+69 conditional), back in the same block 635 → 583, back out of a switch
+  1,240 → 1,241, forward out of a switch 1,061, back conditional 1,463,
+  forward out of an if 424, out of a loop 370 (+13), back out of an if 173
+  (+12), to the end of an if 152 (+60), break out of a switch 150, back out of
+  a loop 61, break out of a loop 29 (+17), to the next statement 3; 4,181 go to
+  a label several jumps share, 2,078 are followed by dead code (`goto l6;
+  break;`). What they are, and why they stay:
+  - **Switches the original wrote with a case twice** (about 300 switches,
+    nearly all of the 1,463 conditional back jumps: the chain's `if (1 ==
+    RegB) goto l40;`, plus the jump to the chain and the sections' ends). The
+    original compiler allowed `case 1:` twice; the second never matches but
+    its compare is in the code, and the first section often runs into the
+    second. C# refuses a repeated or covered case (CS0152, CS8120, also with
+    `when false`), and a pin attribute for the dead compare would have to
+    place a label inside a section. Some others jump into a section from
+    outside, which C# cannot either.
+  - **Hand-written gotos**: a shared exit from a run of loops (`goto l877;`
+    skips a movie from each of its wait loops), shared tails after several
+    branches (`goto l808;`), menus that restart from inside a switch
+    (`goto l2;`); the dead `break;`/`return;` after many of them says the
+    original source had the `goto`. The loops and ifs around them are not
+    structured either where a jump enters their body (2,903 constructs
+    dropped for that).
+  - **Talk entries laid out around other entries** (about 120): `goto l0;`
+    over an epilogue and `Entry(3); Entry(4); Entry(5);`, the body, `goto
+    l1;` back to the epilogue. A `try`/`finally` would read so but means
+    something else (a `return` in the body would run the epilogue).
+  - A shared tail as a local function or an `[Inline]` helper would compile
+    to a copy of the tail at each jump, not to a `jmp`; a `return` for a tail
+    that only returns is `ret`, not `jmp`. Neither is byte for byte.
 
 ### Phase 5: typing and naming
 
@@ -827,8 +865,8 @@ replaces and the round trip stays byte for byte.
   (`MsSetCommandUse` per picked actor), `WaitFrames_01d1` →
   `WaitFramesUnlessHddMode` (its poll is done at once in HDD mode,
   `g_FFXHddMode`). `tools/gen-natives.cs` fails on a `Ret` name and counts
-  the names still generated (131: `N0123`, a number suffix, `Cam_605b`);
-  those stay until their meaning is verified.
+  the names still generated (131: `N0123`, a number suffix, `Cam_605b`;
+  85 since 2026-11-08); those stay until their meaning is verified.
 - **`op_77` and `op_78`** (2026-11-02): from ffx-rust's interpreter port
   (`run.rs`) and FFX.exe: `op_77` pops entry and worker; while
   `AtelIsSignalQueued(worker, entry)` (`0x00863570`) finds a request for the
@@ -869,12 +907,43 @@ replaces and the round trip stays byte for byte.
   ret`, every call is the last term of a confirm-button test (`PadPressed()
   & 32` or `& 160`), and nothing available (ffx.sym, Fahrenheit's
   `AtelFn_Std_19C_RetI`, no PS2 executable) says what the PS2 version
-  tested. Left for later: the `Cam_6xxx` natives (42, 7,291 calls)
-  wrap camera helpers (`0x007bb410`, `0x007bb970`, …) without verified
-  names, and `TurnSetPitch_002a` turns rotation `+0x38` (0x0028 `+0x34`
-  yaw, 0x0029 `+0x30`), which is roll or pitch by the axis convention.
-  The docs section takes `notes` now: what was verified for Atel#, after
-  the symbol's notes in `<remarks>`.
+  tested. The docs section takes `notes` now: what was verified for Atel#,
+  after the symbol's notes in `<remarks>`.
+- **Camera natives and the roll** (2026-11-08): the 42 `Cam_6xxx` natives
+  (7,291 calls) are named after the helper each handler calls with its
+  side and kind, the helpers' names from ffx.sym (Fahrenheit's and the
+  Switch build's where they have one: `MsCameraResetShake`,
+  `MsCameraSetSpline`, …) and their behaviour from ffx-rust's ported camera
+  (`crates/ffx-battle/src/camera.rs`, `camera_native.rs`). Side 1 is the
+  eye, side 0 the focus point; a name follows its existing twin (`AddPolar`
+  for `SetPolar`'s add, `RefGetPos` for `GetPos`, `EyeClearAreas` for
+  `RefClearAreas`), else `Eye…`/`Focus…`: `EyeAimAtXZ`/`EyeAimAt`/
+  `EyeAimShortOf` (0x007bb410's request kinds 4-6, a polar aim at a point;
+  its three side-0 twins, misnamed `EyeAddArea*`, became `FocusAim…`),
+  `EyeFollowSpline`/`FocusFollowSpline` (0x007bb970, request kind 14),
+  `PathClearEye`/`PathClearFocus`, `MoveCosine`/`FocusTimeCosine`
+  (`MsCameraMoveFrame` curve 3, a cosine ease; curve 1 is linear),
+  `EyeShakeKind1`/`8`, `FocusShakeKind1`/`8`, `ScreenShakeKind3`/`5`,
+  `EyeResetShake`, `EyeShakeWait`, `ScreenShakeWait`, `RefAddPathArea`
+  (`MsCameraSetSplineFilter`), `EyeOnSpline` (`MsCameraSetSpline2`),
+  `FocusOnActors` (`MsCameraSetBtl` mode 0), `EyeOrbitPolar` (mode 4),
+  `SetBlur`, `FreeBattleCamera`, … Each entry's `notes` say what was
+  checked. Not known and so not in the names: what `MsCameraMoveFrame`'s
+  mode 1, `MsCameraMoveDivide`'s four values and the focus-list flag change
+  (`EyeMoveFrameLinear`, `EyeMoveDivide`, `SetFocusList1` say only what
+  the handler passes). **Roll**: the position block's rotation is `+0x30`
+  pitch, `+0x34` yaw, `+0x38` roll (ffx-rust script.md); checked against
+  the scripts, which set `+0x30` from the vertical angle to a target
+  (`Turn.Pitch = Move.PitchToTarget`, 2,206 times; `Math_YawPitchTo`'s
+  pitch), so 0x002a, which turns `+0x38`, is `TurnSetRoll` (`Turn.Roll =
+  …`), and the getters of `+0x30`/`+0x38` are `GetPitch`/`GetRoll`, the
+  worker's `Pitch` (now read and write) and `Roll` properties. 85 names
+  are still generated (from 128): same code under two ids (`SetMotion_501b`,
+  `Echo_*`, `AlwaysTrue_*`, …), and pairs whose difference is a flag whose
+  meaning is not verified (`ChrSetDirTarget_7006`, `GetTargetDist_7059`).
+  Not done: a nested `Camera.Eye`/`Camera.Focus` group (gen-members and the
+  compiler's `NativeMembers` know only flat static groups), so these stay
+  `Cam.…` calls.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
@@ -1203,20 +1272,35 @@ A .NET 10 solution in this repo (Roslyn is MIT):
   all constructors, and serves them. The loader owns `efl/x` and empties it
   on each start. Checked in game with an event and a monster script.
 - Patches on entries, after Harmony and Mixins: `[Prefix(nameof(OnTalk))]`,
-  `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry, `[Replace(…)]`;
-  ordering with `[Before("mod")]` / `[After("mod")]`.
+  `[Postfix(…)]`, `[Inject(…)]` at a point inside an entry (a statement named
+  by a call it holds), `[Replace(…)]`; ordering with `[Before("mod")]` /
+  `[After("mod")]` (not yet).
 - Data edits per field (kernel tables, messages), after RimWorld and the
-  Bethesda merge tools.
+  Bethesda merge tools. Done for the script's own data and the monster
+  file's stats and rewards (static constructors, Phase 9); the kernel
+  tables are not yet.
 - `mod.toml`: `source_language`, `after`, `requires`, `incompatible`.
 - The loader reports conflicts (log, and in game where Fahrenheit allows): what two
   mods both touch and who wins. Additions and prefix/postfix chains combine
   automatically; replacements and same-field edits are reported conflicts.
   A hash mismatch (another game version, a mod built on edited vanilla) is
   reported too.
-- Open: saved data for mods. The save has no known free space; storage 3
-  can be redirected through the ctrl work's `+0x54` callback, which nothing
-  uses, so the loader might give each mod its own saved variables in a side
-  file. Needs research.
+- Saved data for mods (researched 2026-11-08, design only,
+  [research/mod-saves.md](research/mod-saves.md)). The save file is `0x6900`
+  bytes, but the CRC and every known field end at block `+0x64b8`. The game
+  copies the last `0x408` bytes (`g_SaveData + 0x64b8`, storage 0
+  `0x62cc`..`0x66d3`) in and out with the rest and never reads them. No
+  script declares them, and they are zero in every save checked. Storage 3
+  is not a good place: battle already uses `+0x54`, and private data is
+  per worker. Fahrenheit gives each module a side file per save slot
+  ("local state") and asks mods not to keep data in the save. Recommended:
+  `[Saved] public static ushort Wins;` compiles to a storage 0 variable in
+  that tail, at an offset the loader assigns per run across all mods. The
+  engine reads and writes it with no hook. The loader keeps the values by
+  key (`<mod id>/<type>.<field>`) in `yuta.atel`'s local state, rebuilds the
+  tail from names on load (initial values for keys a save lacks), and zeroes
+  the tail in the written file. Not implemented yet; open questions and the
+  in-game checks are on that page.
 - File sizes (answered 2026-11-02, `docs/research/loader.md`): on PC the
   PS2 file layer sizes files with `CDfileSize_PC` (`0x00a428a0`), which
   Fahrenheit hooks so that it reads the replacement's real size from disk.
@@ -1321,8 +1405,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place; per-field data edits and `[Inject]`;
-  private data for new workers.
+  out unchanged workers in place. (Per-field data edits, `[Inject]` and
+  private data for new workers: done 2026-11-08, below.)
 - **Hidden locals in private data** (2026-11-02). Hidden locals used to be
   4-byte variables of the shared data (storage 4). FFX.exe
   ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
@@ -1404,6 +1488,48 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   31 blocks (`znkd1300` 29, `system_01` 2) are at the offsets the decompiler
   names, and only their opcode bytes change. Not run in game yet.
 
+- **Per-field data edits** (2026-11-08; [language.md](language.md#initial-values-and-data-edits),
+  [formats/mod-package.md](formats/mod-package.md#data-edits)). A mod sets single values in a C#
+  static constructor: `static M209() { MonsterStats.Hp = 4321; V7 = 2; Table[3] = 7; }`, private data
+  in a worker's (`static Boy() { Steps = 12; }`, events only: in battle the game clears it at set-up),
+  bytes no variable covers with `Data.At<T>(DataArea.Other, 0x20) = 7`; a new variable takes its
+  initializer (`public static int Turns = 5;`). `MonsterStats` and `MonsterRewards` (reference
+  assembly) are the monster file's stat record (section 2, and its copy in section 6) and rewards
+  (section 4), which the battle reads rather than the kernel's (ffx-decomp, `docs/formats/monster.md`).
+  Each assignment is an edit in the package's `data` (format 3) with a hash of its area's vanilla bytes;
+  the linker writes the bytes in place before any layout, so nothing moves. Two mods setting the same
+  bytes are a conflict (the later wins), different fields combine. ATL4001 marks a static constructor
+  that does anything else. Corpus: 1,614 scripts take edits of their shared, other and event data (all
+  361 monsters also of HP and gil), and exactly those bytes change. Example: `examples/ToughLarva`.
+  Not checked in game yet.
+- **`[Inject]`** (2026-11-08; [language.md](language.md#injecting-code),
+  [formats/mod-package.md](formats/mod-package.md#linking)). Anchor model: a statement of the
+  decompiled source named by a call it holds, `[Inject(nameof(OnTurn), After = nameof(Btl.UseCommand),
+  Occurrence = 3)]`, before or after it. Chosen over a label (few statements have one) and a statement
+  index (unreadable, and it shifts when the decompiler folds code): a call is what a reader sees, and the
+  compiler resolves it against the vanilla source at each build, through each instruction's statement
+  (`CompiledScript.SourceMap`). The package holds the statement's code range in the method, under the
+  method's hash, so a changed method is a hash mismatch and a changed source a build error, never code in
+  the wrong place. The linker weaves injects into the copy of the method it already makes for postfixes;
+  jumps from inside the statement stay inside (a loop's back edge does not repeat the code before it),
+  jumps from outside run it. Injects of several mods at one point run in load order; a replacement drops
+  them (a conflict). ATL4002 checks the anchor in the IDE. Corpus: injects before and after a statement in
+  67,851 methods of 1,598 scripts link, lay out again byte for byte and keep everything else; each patched
+  method is its vanilla code with the injects at their points. Limit: a copy needs a label number per label
+  of the method, so blitzball's 1.6 MB method of worker 36 (53,203 labels) cannot take one. Example:
+  `examples/LarvaInject`. Not checked in game yet.
+- **Private data for new workers** (2026-11-08). A mod's new worker takes `[Worker(PrivateLength = …)]`
+  and `[PrivateData]`, and its static constructor sets initial values in it (the mod's own
+  `[Var(Storage.Private, …)]` variables and vanilla private ones; events only, as above). The package's
+  new worker carries `privateLength` and `private`; the linker gives it a block of its own after the
+  block's end (grown further when it runs hidden locals). Unit tests only; no corpus run.
+- **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
+  (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
+  entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
+  and `ScriptImage` (Bytecode, shared with the decompiler's round trip) must take worker ranges that are
+  not in order, and what the game does with the code length at `+0x00` must be checked in game. Left
+  for a change of its own.
+
 ### Phase 10: debug text and runtime packages
 
 Done 2026-11-02. Format and design: [formats/debug.md](formats/debug.md);
@@ -1474,7 +1600,8 @@ count, names placed.
 4. **Control flow** (1–2 weeks). `if`/`while`/`switch`/`goto case`, label
    order and branch polarity matching the original. Exit: no `Asm` left.
    Done 2026-11-02, see "Phase 4: control flow": no `Asm`, 8,448 `goto`s
-   left, 26 label pins.
+   left, 26 label pins (8,295 since 2026-11-08, by shape in "The gotos that
+   stay").
 5. **Typing and naming** (ongoing). Enums by use, properties, text IDs,
    story constants, base classes and engine entries, Fahrenheit's names.
 6. **Source layout.** Folders, one file per worker, `partial`, project
@@ -1533,7 +1660,7 @@ count, names placed.
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
-   edits and `[Inject]` are open.
+   edits and `[Inject]` are done (2026-11-08, not yet checked in game).
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".

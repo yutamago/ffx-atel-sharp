@@ -27,6 +27,7 @@ namespace Ffx.Frames;
 ///         <item>The effects (<see cref="EffectRecorder"/>): <c>MsEffectProcess</c>, <c>op_loop_ffx_after</c> and, at their calls in <c>Sg_MainLoop</c>, <c>op_gs1_transfer</c>, <c>yiCallFieldParticle</c>, <c>pppPartLoop</c>, <c>op_ot_draw</c>. On a tick their draws (<c>VfxGeometry_Register</c>, <c>graphicVFXSyncPath</c>, <c>PhyreScene_addVFXDrawEvent</c>) are recorded; on a Redraw frame the calls are held and the draws replayed.</item>
 ///         <item><c>graphicCameraSetWorldMatrix</c> (<c>0x00639860</c>, from <c>Cam_Apply</c> in the draw's <c>MsScreenProcess</c>): records the tick's camera and swaps in the interpolated one.</item>
 ///         <item>The characters (<see cref="CharacterHistory"/>): recorded after <c>Ch_CalcMiddle</c>; <c>Ch_DrawMain</c> draws them between ticks (bones written into the renderer instances, the world matrices corrected in <c>graphicCharacterInstanceSetWorldMatrix(ByMdlID)</c>).</item>
+///         <item>The cloth (<see cref="ClothHistory"/>): recorded at the end of a game update with a tick (the cloth jobs are done); <c>graphicCharacterInstanceSetClothVertexBuffers</c> (<c>0x0063b740</c>, in <c>FFXApplication_render</c>, before the upload) gets the blended vertices and the matrix of the character as drawn.</item>
 ///         <item><c>Renderer_PresentFlip</c> (<c>0x00593760</c>, render thread): vsync on or off.</item>
 ///     </list>
 ///     <para>
@@ -50,6 +51,7 @@ internal sealed unsafe class FrameHooks {
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisIntFn(nint self, int a);
     [UnmanagedFunctionPointer(CallingConvention.ThisCall)] internal delegate int ThisPtrFn(nint self, nint p);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrIntFn(nint p, int a);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int IntIntFn(int a, int b);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrFn(nint p, nint q);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PtrPtrIntFn(nint p, nint q, int a);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int SegmentBufferFn(nint renderData, int segment, int vertices, int indices);
@@ -84,6 +86,8 @@ internal sealed unsafe class FrameHooks {
     private static FhCallHandle<VoidFn> DrawMain => At<VoidFn>(0x0082ed50);
     private static FhCallHandle<PtrPtrFn> ChrSetWorld => At<PtrPtrFn>(0x0063c3e0);
     private static FhCallHandle<PtrPtrIntFn> ChrSetWorldByModel => At<PtrPtrIntFn>(0x0063c430);
+    private static FhCallHandle<VoidFn> ClothUpload => At<VoidFn>(0x0063b740);
+    private static FhCallHandle<IntIntFn> CameraResetMove => At<IntIntFn>(0x007bed60);
     // Called.
     private static FhCallHandle<VoidFn> CanSpeedUp => At<VoidFn>(0x0081fd30);
     private static FhCallHandle<IntFn> SetMuteSound => At<IntFn>(0x00821c60);
@@ -102,6 +106,7 @@ internal sealed unsafe class FrameHooks {
     private readonly EffectRecorder _effects = new();
     private readonly CharacterHistory _chars = new();
     private readonly DrawCounters _drawCounters = new(Game.DrawCountersSize);
+    private readonly ClothHistory _cloth = new();
     public readonly FrameStats Stats = new();
 
     // The current frame (game thread). Vanilla outside updateFFX, so calls from elsewhere pass through.
@@ -152,6 +157,7 @@ internal sealed unsafe class FrameHooks {
     public int EffectDraws => _effects.Count;
     public int Characters => _chars.Characters;
     public int CharacterCuts => _chars.Cuts;
+    public int ClothMeshesHeld => _cloth.Meshes;
     public bool LimiterPatched => _limiterPatched;
     /// <summary>The start-up ramp and the scale that may be saved (<see cref="ScaleGuard"/>).</summary>
     public ScaleGuard Guard => _guard;
@@ -187,6 +193,20 @@ internal sealed unsafe class FrameHooks {
     private readonly HashSet<nint> _bonesSeen = [];
     private readonly Matrix4x4* _world;
     private Matrix4x4[] _boneScratch = new Matrix4x4[256];
+    // The cloth (ClothHistory): each character's matrix as drawn (Ch_DrawMain), what the mod wrote into each cloth mesh,
+    // whether this update recorded the characters (then the cloth is recorded at its end), whether the upload is armed.
+    private VoidFn? _nextClothUpload;
+    private readonly Dictionary<nint, Matrix4x4> _drawnRoot = [];
+    private readonly Dictionary<nint, (Matrix4x4 World, Vector4[] Vertices)> _clothWritten = [];
+    private readonly HashSet<nint> _clothSeen = [];
+    private Vector4[] _clothScratch = new Vector4[1024];
+    private bool _clothRecord, _clothArmed, _clothBlend, _clothBones;
+    // A camera cut: the game set its camera at once in this update (MsCameraResetMove); the world matrices Ch_DrawMain
+    // handed the renderer corrected this update (to send the true ones again when the camera turns out to have cut).
+    private IntIntFn? _nextCameraResetMove;
+    private bool _cameraSnapped;
+    private readonly WorldMatrixLog _worldCalls = new();
+    private readonly List<WorldMatrixLog.Entry> _worldReplay = [];
 
     private FloatFn? _nextFrameSync;
     private MainLoopFn? _nextMainLoop;
@@ -250,6 +270,8 @@ internal sealed unsafe class FrameHooks {
         (0x0082ed50, "Ch_DrawMain", "55 8b ec 81 ec 20 04 00 00", 0x10b0),
         (0x0063c3e0, "graphicCharacterInstanceSetWorldMatrix", "55 8b ec 57 8b 7d 08", 0x50),
         (0x0063c430, "graphicCharacterInstanceSetWorldMatrixByMdlID", "55 8b ec 83 ec 0c 53 8b 5d 08", 0xd0),
+        (0x0063b740, "graphicCharacterInstanceSetClothVertexBuffers", "55 8b ec 83 ec 08 8b 0d ?? ?? ?? ?? 53 56 57", 0x90),
+        (0x007bed60, "MsCameraResetMove", "55 8b ec 56 57 8b 7d 08", 0xf0),
     ];
 
     /// <summary>
@@ -354,6 +376,8 @@ internal sealed unsafe class FrameHooks {
         Hook(DrawMain.hook(owner, h_draw_main), "Ch_DrawMain");
         Hook(ChrSetWorld.hook(owner, h_chr_set_world), "graphicCharacterInstanceSetWorldMatrix");
         Hook(ChrSetWorldByModel.hook(owner, h_chr_set_world_by_model), "graphicCharacterInstanceSetWorldMatrixByMdlID");
+        Hook(ClothUpload.hook(owner, h_cloth_upload), "graphicCharacterInstanceSetClothVertexBuffers");
+        Hook(CameraResetMove.hook(owner, h_camera_reset_move), "MsCameraResetMove");
         return ok;
     }
 
@@ -448,7 +472,7 @@ internal sealed unsafe class FrameHooks {
         if (_frame.Kind == FrameKind.Repeat) {
             Stats.Add(Counter.RepeatFrames);
             try {
-                if (s.Interpolate && s.InterpolateRepeats && !_game.MovieOn && !_game.WaitFramesByTime) MoveCameraWithoutUpdate(_frame.Alpha);
+                if (s.Interpolate && s.InterpolateRepeats && _frame.Alpha < 1 && !_game.MovieOn && !_game.WaitFramesByTime) MoveCameraWithoutUpdate(_frame.Alpha);
             }
             catch (Exception ex) {
                 Fail("the camera on a repeated frame", ex);
@@ -580,7 +604,10 @@ internal sealed unsafe class FrameHooks {
             if (_applied) RestoreCamera();
             _pushedThisLoop = false;
             _loopTicked = false;
+            _clothRecord = false;
+            _cameraSnapped = false;
             _updateSerial++;
+            _worldCalls.BeginUpdate(_updateSerial);
             if (redraw) {
                 calm = _game.CalmFrames;
                 // The draw's own counters (the title's water, the dream noise): drawn as at the last tick, then put back.
@@ -604,6 +631,16 @@ internal sealed unsafe class FrameHooks {
             _game.CalmFrames = calm;
             _drawCounters.EndRedraw(counters);
             _game.WriteDrawCounters(counters);
+        }
+        if (_clothRecord && !Failed) {
+            // Sg_MainLoop waited for the cloth jobs Ch_DrawMain queued: the tick's cloth is final.
+            _clothRecord = false;
+            try {
+                RecordCloth();
+            }
+            catch (Exception ex) {
+                Fail("the cloth's history", ex);
+            }
         }
     }
 
@@ -924,7 +961,7 @@ internal sealed unsafe class FrameHooks {
         int r = next();
         if (record && !Failed) {
             try {
-                RecordCharacters(s);
+                _clothRecord = RecordCharacters(s) && s.InterpolateCloth && s.HoldCloth;
             }
             catch (Exception ex) {
                 Fail("the characters' history", ex);
@@ -935,19 +972,24 @@ internal sealed unsafe class FrameHooks {
 
     // ------------------------------------------------------------------ the characters (between ticks)
 
-    /// <summary>Each character's matrix and its instances' bones after a tick, into the history; a new map starts it again.</summary>
-    private void RecordCharacters(FrameSettings s) {
+    /// <summary>
+    ///     Each character's matrix and its instances' bones after a tick, into the history; a new map starts it again.
+    ///     True when a tick update was begun (the cloth is then recorded at the update's end).
+    /// </summary>
+    private bool RecordCharacters(FrameSettings s) {
         int map = _game.Map;
         if (map != _charMap || !s.InterpolateCharacters) {
             _charMap = map;
             _chars.Clear();
             _bonesWritten.Clear();
-            if (!s.InterpolateCharacters) return;
+            _cloth.Clear();
+            _clothWritten.Clear();
+            if (!s.InterpolateCharacters) return false;
         }
         _chars.BeginTick();
         int n = _game.ChrCount;
         nint chars = _game.ChrArray;
-        if (chars == 0 || n is <= 0 or > 4096) return;
+        if (chars == 0 || n is <= 0 or > 4096) return true;
         for (int i = 0; i < n; i++) {
             nint c = chars + i * Game.ChrSize;
             if (*(byte*)(c + Game.ChrActive) == 0) continue;
@@ -958,6 +1000,7 @@ internal sealed unsafe class FrameHooks {
             PushBones(*(nint*)(c + Game.ChrShadowInstances));
         }
         _chars.Prune();
+        return true;
     }
 
     private static ulong ChrIdentity(nint c, nint list) => CharacterHistory.Identity(*(ushort*)(c + Game.ChrId), (uint)list);
@@ -1025,15 +1068,22 @@ internal sealed unsafe class FrameHooks {
         if (next is null) return 0;
         if (Failed) return next();
         FrameSettings s = _settings();
-        bool on = _inFrame && _frame.Kind is FrameKind.Tick or FrameKind.Redraw && s.InterpolateCharacters;
+        // Between ticks only: a frame drawn at the tick itself (alpha 1, the game's own 30 fps) passes through.
+        bool on = _inFrame && _frame.Kind is FrameKind.Tick or FrameKind.Redraw && _frame.Alpha < 1 && s.InterpolateCharacters;
         try {
             _rootDelta.Clear();
+            _drawnRoot.Clear();
             if (on) Corrections(s, _frame.Alpha);
             WriteBones(s, _frame.Alpha, interpolate: on && s.InterpolateBones);
+            // The cloth is drawn from FFXApplication_render's upload, after this update (h_cloth_upload).
+            _clothBlend = on && s.InterpolateCloth && s.HoldCloth;
+            _clothBones = s.InterpolateBones;
+            _clothArmed = Environment.CurrentManagedThreadId == _gameThread && (_clothBlend || _clothWritten.Count > 0);
         }
         catch (Exception ex) {
             Fail("the characters between ticks", ex);
             _rootDelta.Clear();
+            _drawnRoot.Clear();
             return next();
         }
         _inDrawMain = _rootDelta.Count > 0;
@@ -1060,6 +1110,7 @@ internal sealed unsafe class FrameHooks {
             if (!_chars.TryLatestRoot(c, id, out Matrix4x4 latest) || CameraInterpolator.RelativeChange(latest, truth) > 1e-5) continue;
             if (!_chars.TryRoot(c, id, alpha, out Matrix4x4 drawn) || !Matrix4x4.Invert(truth, out Matrix4x4 inverse)) continue;
             Matrix4x4 delta = inverse * drawn;
+            _drawnRoot[c] = drawn;
             if (list != 0) _rootDelta[list] = delta;
             nint shadow = *(nint*)(c + Game.ChrShadowInstances);
             if (shadow != 0) _rootDelta[shadow] = delta;
@@ -1120,7 +1171,9 @@ internal sealed unsafe class FrameHooks {
     private int h_chr_set_world(nint list, nint matrix) {
         PtrPtrFn? next = _nextChrSetWorld ??= Chain(ChrSetWorld, h_chr_set_world, 0x0063c3e0);
         if (next is null) return 0;
-        return next(list, Corrected(list, matrix));
+        nint m = Corrected(list, matrix);
+        if (m != matrix) LogWorld(list, matrix, -1);
+        return next(list, m);
     }
 
     /// <summary><c>graphicCharacterInstanceSetWorldMatrixByMdlID(list, matrix, model)</c>: the same for one model of the character.</summary>
@@ -1128,7 +1181,9 @@ internal sealed unsafe class FrameHooks {
     private int h_chr_set_world_by_model(nint list, nint matrix, int model) {
         PtrPtrIntFn? next = _nextChrSetWorldByModel ??= Chain(ChrSetWorldByModel, h_chr_set_world_by_model, 0x0063c430);
         if (next is null) return 0;
-        return next(list, Corrected(list, matrix), model);
+        nint m = Corrected(list, matrix);
+        if (m != matrix) LogWorld(list, matrix, model);
+        return next(list, m, model);
     }
 
     /// <summary>
@@ -1159,6 +1214,246 @@ internal sealed unsafe class FrameHooks {
         PtrFn? next = _nextClothClear ??= Chain(ClothClear, h_cloth_clear, 0x00830b90);
         if (next is null) return 0;
         return Redraw && !Failed && _settings().HoldCloth ? 0 : next(chr);
+    }
+
+    // ------------------------------------------------------------------ camera cuts
+
+    /// <summary>
+    ///     <c>MsCameraResetMove(camera, flags)</c> (<c>0x007bed60</c>): stops a camera side's move and, unless
+    ///     <c>flags</c> bit 3, puts it at its target now. The scripts' cut natives (<c>CamFocusCut</c> 0x6034,
+    ///     <c>CamMoveFinish</c> 0x6016), <c>MsAtelResetMoveCameraID</c> and the magic files' <c>opu_camera</c> call it: the
+    ///     game's own "this is a new shot". Noted for the update's camera sample (<see cref="CameraHistory.Push"/>).
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_camera_reset_move(int camera, int flags) {
+        IntIntFn? next = _nextCameraResetMove ??= Chain(CameraResetMove, h_camera_reset_move, 0x007bed60);
+        if (next is null) return 0;
+        if (_inFrame && !Failed && (flags & 8) == 0) _cameraSnapped = true;
+        return next(camera, flags);
+    }
+
+    /// <summary>
+    ///     The camera cut at this tick (a new shot, by the thresholds or the game's instant set): every character and its
+    ///     cloth is drawn as the tick left it, like a warp, until the next tick. <c>Ch_DrawMain</c> ran before the camera
+    ///     (<c>MsScreenProcess</c>) in this update, so what it handed the renderer between ticks is put back: the true
+    ///     world matrices sent again, the tick's bones written back. The cloth's upload comes after the update and finds
+    ///     no character to blend.
+    /// </summary>
+    private void CutCharacters(FrameSettings s) {
+        _chars.CutAll();
+        _cloth.CutAll(_chars.Serial);
+        _rootDelta.Clear();
+        _drawnRoot.Clear();
+        if (_worldCalls.Count > 0 && Environment.CurrentManagedThreadId == _gameThread
+            && _worldCalls.Take(_updateSerial, ListIntact, _worldReplay) > 0) {
+            PtrPtrFn? set = _nextChrSetWorld;
+            PtrPtrIntFn? byModel = _nextChrSetWorldByModel;
+            foreach (WorldMatrixLog.Entry e in _worldReplay) {
+                *_world = e.Truth;
+                if (e.Model < 0) set?.Invoke(e.List, (nint)_world);
+                else byModel?.Invoke(e.List, (nint)_world, e.Model);
+            }
+            _worldReplay.Clear();
+        }
+        WriteBones(s, _frame.Alpha, interpolate: false);
+    }
+
+    /// <summary>Logs a world matrix the mod corrected in <c>Ch_DrawMain</c>, with the list as it is now.</summary>
+    private void LogWorld(nint list, nint matrix, int model) {
+        if (list == 0 || matrix == 0) return;
+        _worldCalls.Add(_updateSerial, new WorldMatrixLog.Entry(list, *(Matrix4x4*)matrix, model, *(uint*)list & 0x7fffffff, *(nint*)(list + 4)));
+    }
+
+    /// <summary>
+    ///     Whether a logged list may be written again: still the instance list (<c>+0x830</c> or <c>+0x838</c>) of an active
+    ///     character, with the count and instance array it was logged with and no null instance. Anything else is left as
+    ///     the game has it.
+    /// </summary>
+    private bool ListIntact(WorldMatrixLog.Entry e) {
+        if (!IsCharacterList(e.List)) return false;
+        nint arr = *(nint*)(e.List + 4);
+        return WorldMatrixLog.Intact(e, *(uint*)e.List, arr, i => *(nint*)(arr + 4 * i));
+    }
+
+    private bool IsCharacterList(nint list) {
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        if (list == 0 || chars == 0 || n is <= 0 or > 4096) return false;
+        for (int i = 0; i < n; i++) {
+            nint c = chars + i * Game.ChrSize;
+            if (*(byte*)(c + Game.ChrActive) == 0) continue;
+            if (*(nint*)(c + Game.ChrInstances) == list || *(nint*)(c + Game.ChrShadowInstances) == list) return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ the cloth (between ticks)
+
+    /// <summary>
+    ///     A character's cloth meshes: its render cloth (<c>chr + 0x834</c>) in its set-up state (<c>+0xc</c> 2, as
+    ///     <c>Ch_UpdateClothMatrix</c> leaves it), <c>+0x14</c> lists from <c>+0x30</c>, each a <c>u32</c> count and mesh
+    ///     pointers.
+    /// </summary>
+    private static int ClothMeshes(nint chr, Span<nint> into) {
+        // As Ch_UpdateClothMatrix and Sg_ClothPlaceAnchors: a render cloth and the cloth set up (flags bit 21).
+        if ((*(uint*)(chr + Game.ChrFlags) & Game.ChrClothReady) == 0) return 0;
+        nint rc = *(nint*)(chr + Game.ChrCloth);
+        if (rc == 0 || (rc & 3) != 0 || *(int*)(rc + 0xc) != 2) return 0;
+        uint lists = *(uint*)(rc + 0x14);
+        if (lists > 128) return 0;
+        int n = 0;
+        for (int i = 0; i < lists; i++) {
+            nint list = *(nint*)(rc + 0x30 + 4 * i);
+            if (list == 0) continue;
+            if ((list & 3) != 0) return 0;
+            uint count = *(uint*)list;
+            if (count > 256) return 0;
+            for (int k = 0; k < count && n < into.Length; k++) {
+                nint mesh = *(nint*)(list + 4 + 4 * k);
+                if ((mesh & 3) != 0) return 0;
+                if (mesh != 0) into[n++] = mesh;
+            }
+        }
+        return n;
+    }
+
+    /// <summary>A cloth mesh's drawn vertices: <c>+0x44</c> of them at <c>[+0x4c]</c>, 16 bytes each (<c>Sg_ClothPlaceAnchors</c>' output).</summary>
+    private static bool ClothVertices(nint mesh, out Vector4* vertices, out int count) {
+        count = *(int*)(mesh + 0x44);
+        vertices = *(Vector4**)(mesh + 0x4c);
+        // The vertex buffers come from the cloth heap, 16-aligned (graphicCharacterInstanceGetClothVertexBuffers).
+        return vertices != null && ((nint)vertices & 0xf) == 0 && count is > 0 and <= 65536;
+    }
+
+    private Span<Vector4> ClothScratch(int count) {
+        if (_clothScratch.Length < count) _clothScratch = new Vector4[count];
+        return _clothScratch.AsSpan(0, count);
+    }
+
+    /// <summary>
+    ///     The end of a game update with a tick: each cloth mesh's vertices and local matrix into the history. A mesh the
+    ///     game did not write this update (it still holds what the mod wrote: the character hidden or its cloth not stepped)
+    ///     gets its last true sample back and records that again, not the blend.
+    /// </summary>
+    private void RecordCloth() {
+        int serial = _chars.Serial;
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        if (chars == 0 || n is <= 0 or > 4096) return;
+        Span<nint> meshes = stackalloc nint[256];
+        for (int i = 0; i < n; i++) {
+            nint c = chars + i * Game.ChrSize;
+            if (*(byte*)(c + Game.ChrActive) == 0) continue;
+            int m = ClothMeshes(c, meshes);
+            if (m == 0) continue;
+            Matrix4x4 root = *(Matrix4x4*)(c + Game.ChrMatrix);
+            for (int k = 0; k < m; k++) {
+                nint mesh = meshes[k];
+                if (!ClothVertices(mesh, out Vector4* v, out int count)) continue;
+                ulong id = CharacterHistory.Identity((uint)(nint)v, (uint)count);
+                Span<Vector4> live = new(v, count);
+                Matrix4x4* world = (Matrix4x4*)mesh;
+                Span<Vector4> latest = ClothScratch(count);
+                Matrix4x4 local;
+                if (_clothWritten.Remove(mesh, out (Matrix4x4 World, Vector4[] Vertices) written)
+                    && _cloth.TryLatest(mesh, id, out Matrix4x4 latestLocal, latest)) {
+                    if (written.Vertices.Length == count && live.SequenceEqual(written.Vertices)) latest.CopyTo(live);
+                    if (*world == written.World) {
+                        local = latestLocal;
+                        *world = ClothHistory.World(local, root);
+                    }
+                    else if (!ClothHistory.Local(*world, root, out local)) continue;
+                }
+                else if (!ClothHistory.Local(*world, root, out local)) continue;
+                _cloth.Push(mesh, id, serial, local, live);
+            }
+        }
+        _cloth.Prune(serial);
+    }
+
+    /// <summary>
+    ///     <c>graphicCharacterInstanceSetClothVertexBuffers</c> (<c>0x0063b740</c>, <c>FFXApplication_render</c>, main
+    ///     thread, after the update): hands each cloth mesh's matrix and vertices to the renderer (<c>batchSetClothVertexBuffers</c>,
+    ///     whose submit copies the vertices into the draw's stream). Before it runs, each cloth mesh of a character drawn
+    ///     between ticks gets the blend of its last two ticks, placed with the character as drawn.
+    /// </summary>
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private int h_cloth_upload() {
+        VoidFn? next = _nextClothUpload ??= Chain(ClothUpload, h_cloth_upload, 0x0063b740);
+        if (next is null) return 0;
+        if (_clothArmed && !Failed && Environment.CurrentManagedThreadId == _gameThread) {
+            _clothArmed = false;
+            try {
+                WriteCloth(_frame.Alpha, _clothBlend, _clothBones);
+            }
+            catch (Exception ex) {
+                Fail("the cloth between ticks", ex);
+            }
+        }
+        return next();
+    }
+
+    /// <summary>
+    ///     Writes every cloth mesh of a character drawn between ticks: blended where the history has its last two ticks
+    ///     and the bones are interpolated too, else the tick's cloth carried along with the character; a mesh the mod wrote
+    ///     before and does not blend now gets its tick's own vertices back.
+    /// </summary>
+    private void WriteCloth(double alpha, bool blend, bool bones) {
+        if (!blend && _clothWritten.Count == 0) return;
+        _clothSeen.Clear();
+        int serial = _chars.Serial;
+        int n = _game.ChrCount;
+        nint chars = _game.ChrArray;
+        Span<nint> meshes = stackalloc nint[256];
+        if (chars != 0 && n is > 0 and <= 4096) {
+            for (int i = 0; i < n; i++) {
+                nint c = chars + i * Game.ChrSize;
+                if (*(byte*)(c + Game.ChrActive) == 0) continue;
+                int m = ClothMeshes(c, meshes);
+                if (m == 0) continue;
+                Matrix4x4 drawn = default;
+                bool lerp = blend && _drawnRoot.TryGetValue(c, out drawn);
+                Matrix4x4 root = *(Matrix4x4*)(c + Game.ChrMatrix);
+                for (int k = 0; k < m; k++) {
+                    nint mesh = meshes[k];
+                    if (!_clothSeen.Add(mesh) || !ClothVertices(mesh, out Vector4* v, out int count)) continue;
+                    ulong id = CharacterHistory.Identity((uint)(nint)v, (uint)count);
+                    WriteMesh(mesh, id, new Span<Vector4>(v, count), serial, alpha, lerp, bones, root, drawn);
+                }
+            }
+        }
+        // Meshes no character holds any more: forget them (their memory may be gone).
+        if (_clothWritten.Count > _clothSeen.Count) {
+            foreach (nint k in new List<nint>(_clothWritten.Keys)) {
+                if (!_clothSeen.Contains(k)) _clothWritten.Remove(k);
+            }
+        }
+    }
+
+    private void WriteMesh(nint mesh, ulong id, Span<Vector4> live, int serial, double alpha, bool lerp, bool bones, in Matrix4x4 root, in Matrix4x4 drawn) {
+        int count = live.Length;
+        Matrix4x4* world = (Matrix4x4*)mesh;
+        Span<Vector4> scratch = ClothScratch(count);
+        if (lerp) {
+            Matrix4x4 local;
+            if (bones && _cloth.TryBlend(mesh, id, serial, alpha, out local, scratch)) {
+                scratch.CopyTo(live);
+                Stats.Add(Counter.ClothInterpolated);
+            }
+            // One sample only (new, or its vertex buffer changed), or the bones drawn as they are: the tick's cloth goes
+            // along with the character.
+            else if (!ClothHistory.Local(*world, root, out local)) return;
+            *world = ClothHistory.World(local, drawn);
+            if (!_clothWritten.TryGetValue(mesh, out (Matrix4x4 World, Vector4[] Vertices) w) || w.Vertices.Length != count) w.Vertices = new Vector4[count];
+            live.CopyTo(w.Vertices);
+            w.World = *world;
+            _clothWritten[mesh] = w;
+        }
+        else if (_clothWritten.Remove(mesh) && _cloth.TryLatest(mesh, id, out Matrix4x4 latest, scratch)) {
+            // Not between ticks now (a warp, the setting off): the tick's own cloth again.
+            scratch.CopyTo(live);
+            *world = ClothHistory.World(latest, root);
+        }
     }
 
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
@@ -1222,10 +1517,11 @@ internal sealed unsafe class FrameHooks {
         try {
             FrameSettings s = _settings();
             if (_loopTicked && !_pushedThisLoop) {
-                _camera.Push(_game.CameraMatrix, _game.ScreenMatrix, s.CutDistance, s.CutDegrees);
+                _camera.Push(_game.CameraMatrix, _game.ScreenMatrix, s.CutDistance, s.CutDegrees, _cameraSnapped && s.ScriptCameraCuts);
                 _pushedThisLoop = true;
+                if (_camera.Cut) CutCharacters(s);
             }
-            if (s.Interpolate && !_game.MovieOn && !_game.WaitFramesByTime && !_game.PartMatrix
+            if (s.Interpolate && _frame.Alpha < 1 && !_game.MovieOn && !_game.WaitFramesByTime && !_game.PartMatrix
                 && _camera.TryAt(_frame.Alpha, out Matrix4x4 cam, out Matrix4x4 scr)
                 && Same(_camera, _game.CameraMatrix)) {
                 if (!_applied) {

@@ -94,6 +94,11 @@ public static partial class ScriptCompiler {
 
         // ----- The mod's declarations ------------------------------------------------------------
         ScriptPackage package = new() { Script = vanilla.Name };
+        List<string> variableNames = [.. vanillaVarNames];
+        DataEdits edits = new(package, v, vanilla.Category, v.Variables.Count, variableNames, var => variables.Values.First(x => x.Index == var).Entry);
+        // Initial values: the static constructors of the script class and of vanilla workers, read once every variable is known.
+        List<(ConstructorDeclarationSyntax Ctor, string Class, int? Worker)> ctors = [];
+        StatementReader constants = new(variables, new Dictionary<string, RegExpr>(StringComparer.Ordinal), NativesByName.Value, workers, false);
         Dictionary<string, List<ClassDeclarationSyntax>> modParts = new(StringComparer.Ordinal);
         List<ClassDeclarationSyntax> mainModParts = [];
         List<(string Name, List<ClassDeclarationSyntax> Parts)> newWorkers = [];
@@ -105,15 +110,24 @@ public static partial class ScriptCompiler {
                 mainModParts.Add(c);
                 foreach (MemberDeclarationSyntax member in c.Members) {
                     if (member is MethodDeclarationSyntax m && IsHelper(m, functionWorker: false)) continue;
-                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables and helper methods");
+                    if (member is ConstructorDeclarationSyntax ctor) {
+                        ctors.Add((ctor, n, null));
+                        continue;
+                    }
+                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables, helper methods and a static constructor (initial values)");
                     string fieldName = field.Declaration.Variables[0].Identifier.ValueText;
                     if (variables.ContainsKey(fieldName)) throw CompileException.At(field, $"{fieldName} is already a variable");
                     VarEntry entry = Variable(field, allocated: true);
                     bool fixedPlace = Attributes(field).Any(x => NameOf(x) == "Var");
+                    if (fixedPlace && ArrayInitializer(field.Declaration.Variables[0].Initializer?.Value) is InitializerExpressionSyntax list) {
+                        throw CompileException.At(list, "a variable at a fixed place ([Var]) has no initial value here: its value is the save's or the game's");
+                    }
+                    byte[]? initial = fixedPlace ? null : edits.Initial(field, entry, constants);
                     variables[fieldName] = new VariableSymbol(v.Variables.Count + package.Variables.Count, entry);
+                    variableNames.Add(fieldName);
                     package.Variables.Add(new NewVariable {
                         Name = fieldName, Type = entry.Type, Storage = entry.Storage, Offset = fixedPlace ? entry.Offset : null,
-                        Length = entry.Length, RowLength = entry.RowLength, Array = entry.IsArray,
+                        Length = entry.Length, RowLength = entry.RowLength, Array = entry.IsArray, Initial = initial,
                     });
                 }
             }
@@ -158,19 +172,28 @@ public static partial class ScriptCompiler {
         for (int k = 0; k < helpers.All.Count; k++) helpers.All[k].Worker = vanillaWorkers.Count + newWorkers.Count + k;
 
         List<(string Worker, MethodDeclarationSyntax Method, EntryPatch Patch)> patches = [];
+        Dictionary<EntryPatch, InjectAnchor> anchors = [];
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
-                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
+                if (member is ConstructorDeclarationSyntax ctor) {
+                    ctors.Add((ctor, worker, workers[worker]));
+                    continue;
+                }
+                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods, [Register] fields and a static constructor (its private data's initial values)");
                 if (helpers.Contains(method) || InlineMethods.IsInline(method)) continue;
                 if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "an entry has a body");
                 PatchKind kind = PatchKind.Entry;
                 string? target = null;
+                InjectAnchor? anchor = null;
                 foreach (AttributeSyntax a in method.AttributeLists.SelectMany(l => l.Attributes)) {
+                    if (kind != PatchKind.Entry) throw CompileException.At(a, "one patch attribute per method");
+                    if (NameOf(a) == "Inject") anchor = ReadInject(a);
                     (kind, target) = NameOf(a) switch {
                         "Prefix" => (PatchKind.Prefix, Target(a)),
                         "Postfix" => (PatchKind.Postfix, Target(a)),
                         "Replace" => (PatchKind.Replace, Target(a)),
+                        "Inject" => (PatchKind.Inject, anchor!.Method),
                         "Entry" => throw CompileException.At(a, "a new entry gets its number when linking; patch a vanilla entry with [Replace(nameof(…))]"),
                         _ => throw CompileException.At(a, $"unknown attribute [{NameOf(a)}] on a mod's method"),
                     };
@@ -179,7 +202,9 @@ public static partial class ScriptCompiler {
                 if (kind == PatchKind.Entry && method.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
                     throw CompileException.At(method.Identifier.GetLocation(), $"{worker} has its own {method.Identifier.ValueText}; patch it with [Prefix], [Postfix] or [Replace]");
                 }
-                patches.Add((worker, method, new EntryPatch { Kind = kind, Worker = workers[worker], Name = method.Identifier.ValueText, Target = target }));
+                EntryPatch entryPatch = new() { Kind = kind, Worker = workers[worker], Name = method.Identifier.ValueText, Target = target };
+                if (anchor is not null) anchors[entryPatch] = anchor;
+                patches.Add((worker, method, entryPatch));
             }
         }
 
@@ -278,7 +303,7 @@ public static partial class ScriptCompiler {
         List<CompiledWorker> compiledNew = [];
         for (int i = 0; i < newWorkers.Count; i++) {
             (string name, List<ClassDeclarationSyntax> parts) = newWorkers[i];
-            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets, NewText));
+            compiledNew.Add(Worker(parts, library, variables, workers, entryMethods, Links, debug, name, vanillaWorkers.Count + i, helpers, SignatureOf, RequestTargets, NewText, constructors: true));
         }
         List<FlowEmitter> patchCode = [];
         foreach ((string worker, MethodDeclarationSyntax method, EntryPatch patch) in patches) {
@@ -333,14 +358,18 @@ public static partial class ScriptCompiler {
             WorkerImage wi = cw.Image;
             PlaceSlots(cw.Emitter, WorkerRegisters(vanillaWorkers.Count + i), Hide, CallWaits, callClobbers: CallClobbers);
             List<WorkerItem> items = ItemsOf(cw.Emitter);
-            if (wi.Private is not null || wi.PrivateLength != 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a new worker has no private data (yet)");
+            // Its private data ([Worker(PrivateLength = …)], [PrivateData]); its static constructor's initial values are read below.
+            if (wi.PrivateLength != 0 && wi.Type == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a function worker has no private data: it uses its caller's");
+            if (wi.Private is not null && wi.PrivateLength == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "[PrivateData] needs [Worker(PrivateLength = …)]");
+            if (wi.PrivateLength > 0) edits.NewWorker(vanillaWorkers.Count + i, wi.PrivateLength, wi.Private);
+            foreach (ConstructorDeclarationSyntax ctor in parts.SelectMany(p => p.Members).OfType<ConstructorDeclarationSyntax>()) ctors.Add((ctor, name, vanillaWorkers.Count + i));
             (Fragment code, Dictionary<int, uint> entries) = fragments.Build(items, parts[0].Identifier.GetLocation());
             if (entries.Count == 0) throw CompileException.At(parts[0].Identifier.GetLocation(), "a worker without entries");
             uint[] table = new uint[entries.Keys.Max() + 1];
             for (int e = 0; e < table.Length; e++) {
                 table[e] = entries.TryGetValue(e, out uint at) ? at : throw CompileException.At(parts[0].Identifier.GetLocation(), $"{name} has no entry {e}");
             }
-            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table });
+            package.Workers.Add(new NewWorker { Name = name, Type = wi.Type, Word0C = wi.Unknown0C, Code = code, Entries = table, PrivateLength = wi.PrivateLength > 0 ? wi.PrivateLength : null });
         }
 
         // ----- Helpers ---------------------------------------------------------------------------
@@ -361,6 +390,19 @@ public static partial class ScriptCompiler {
             package.Patches.Add(patch);
         }
 
+        // ----- Injects: the statement each anchors to, in the vanilla method's code ------------------
+        foreach ((string worker, MethodDeclarationSyntax _, EntryPatch patch) in patches) {
+            if (!anchors.TryGetValue(patch, out InjectAnchor? anchor)) continue;
+            int w = workers[worker];
+            MethodDeclarationSyntax vanillaMethod = vanillaParts[worker].SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>().First(m => m.Identifier.ValueText == anchor.Method);
+            (_, uint start, uint end) = methods[worker][anchor.Method];
+            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], start, end);
+        }
+
+        // ----- Initial values -------------------------------------------------------------------
+        foreach ((ConstructorDeclarationSyntax ctor, string cls, int? w) in ctors) edits.Read(ctor, cls, w, constants);
+        for (int i = 0; i < newWorkers.Count; i++) package.Workers[i].Private = edits.PrivateOf(vanillaWorkers.Count + i);
+
         // ----- The vanilla parts it attaches to ------------------------------------------------
         foreach (int w in fragments.Workers.Order()) {
             package.Vanilla.Workers.Add(new WorkerRef(w, vanillaWorkers[w], VanillaHash.Worker(v.Workers[w])));
@@ -374,6 +416,7 @@ public static partial class ScriptCompiler {
             package.Vanilla.Variables.Add(new VariableRef(i, vanillaVarNames[i], VanillaHash.Variable(v.Variables[i])));
         }
         if (debug.Strings.Count > 0) package.DebugStrings = [.. debug.Strings];
+        package.Format = Math.Max(package.Format, package.NeededFormat());
         return new CompiledMod(vanilla.Category, vanilla.Name, package) { Warnings = [.. debug.Warnings] };
     }
 

@@ -65,6 +65,24 @@ public class StartupTests {
     }
 
     [Fact]
+    public void Passing_through_at_the_game_target_still_reports_dropped_ticks() {
+        // At target Game and ×1 or faster the frame is drawn as the tick (alpha 1, #66); the budget's drops are counted
+        // all the same, so the overlay's reached speed holds there too.
+        FrameDirector d = new();
+        FrameSettings s = Saved with { Target = FpsTarget.Game };
+        FrameDecision f = d.Next(World(0.3, 18.42), s);
+        Assert.False(FrameDirector.DrawsBetweenTicks(s, f.Scale));
+        Assert.Equal(1, f.Alpha);
+        Assert.Equal(FrameKind.Tick, f.Kind);
+        Assert.True(f.Dropped > 0);
+        Assert.Equal(1, f.Plan.ExecFor(f.Plan.Loops - 1));
+        // In slow motion it draws between ticks again, from the accumulator's fraction.
+        FrameDecision slow = new FrameDirector().Next(World(1 / 60.0, 0.25), s with { TimeScale = 0.25 });
+        Assert.Equal(FrameKind.Redraw, slow.Kind);
+        Assert.InRange(slow.Alpha, 0, 0.99);
+    }
+
+    [Fact]
     public void Start_up_ramps_from_x1_to_the_saved_scale() {
         // Start-up: the load's long frame, then the world at about 200 fps.
         ScaleGuard g = new(Saved.TimeScale);

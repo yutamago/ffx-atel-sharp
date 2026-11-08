@@ -109,6 +109,11 @@ public sealed record FrameSettings {
     public double CutDistance { get; init; } = 100;
     /// <summary>A camera that turned more than this in one tick cut (degrees).</summary>
     public double CutDegrees { get; init; } = 45;
+    /// <summary>
+    ///     A camera the game sets at once (<c>MsCameraResetMove</c>: the scripts' cut natives, the magic files' camera) is a
+    ///     cut whenever it changed, however little. A cut draws the camera, every character and their cloth as the tick has them.
+    /// </summary>
+    public bool ScriptCameraCuts { get; init; } = true;
 
     /// <summary>
     ///     Draw each character's place and facing between its last two ticks. Experimental and off by default until an
@@ -117,6 +122,12 @@ public sealed record FrameSettings {
     public bool InterpolateCharacters { get; init; }
     /// <summary>Also draw the characters' bones between their last two ticks (their animation), not only their place.</summary>
     public bool InterpolateBones { get; init; } = true;
+    /// <summary>
+    ///     Also draw the characters' cloth (hair, Tidus's shorts, Auron's coat) between their last two ticks: its vertices
+    ///     blended and carried with the character. Needs <see cref="HoldCloth"/>; without it the cloth keeps its last tick's
+    ///     shape and place while the body moves on.
+    /// </summary>
+    public bool InterpolateCloth { get; init; } = true;
     /// <summary>A character that moved further than this in one tick warped: it is drawn as it is (world units).</summary>
     public double CharacterCutDistance { get; init; } = 50;
     /// <summary>A character that turned more than this in one tick warped (degrees).</summary>

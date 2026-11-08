@@ -29,13 +29,13 @@ public class DrawCounterTests {
     }
 
     /// <summary>The title at <paramref name="fps"/> (30 Hz world, Redraw between ticks), for <paramref name="seconds"/>.</summary>
-    private static List<(FrameKind Kind, int Water, bool Speckles)> Title(double fps, double seconds, bool hold) {
+    private static List<(FrameKind Kind, int Water, bool Speckles)> Title(double fps, double seconds, bool hold, FrameSettings? settings = null) {
         Model game = new();
         DrawCounters counters = new(game.Memory.Length);
         FrameDirector d = new();
         List<(FrameKind, int, bool)> drawn = [];
         for (int i = 0; i < (int)(fps * seconds); i++) {
-            FrameDecision f = d.Next(new FrameInput(1 / fps, 2, true, false, false), new FrameSettings());
+            FrameDecision f = d.Next(new FrameInput(1 / fps, 2, true, false, false), settings ?? new FrameSettings());
             int updates = f.Kind == FrameKind.Tick ? f.Plan.Loops : 1;
             for (int u = 0; u < updates; u++) {
                 if (hold && f.Kind == FrameKind.Redraw) counters.BeginRedraw(game.Memory);
@@ -71,6 +71,25 @@ public class DrawCounterTests {
                 Assert.Equal(last < 0 ? 0 : (last + 1) % 0x46, water);
                 last = water;
             }
+            else if (last >= 0) Assert.Equal(last, water);
+        }
+        Assert.Equal((ticks - 1) % 0x46, last);
+    }
+
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(0.25)]
+    public void At_the_game_target_the_water_keeps_the_tick_speed(double scale) {
+        // Target Game (#66's pass-through): at ×1 every frame ticks, the counters are never held, and the water steps
+        // once a frame as in the game; in slow motion the frames between ticks are Redraws again and hold it.
+        FrameSettings s = new() { Target = FpsTarget.Game, TimeScale = scale };
+        var drawn = Title(30, 4, hold: true, s);
+        int ticks = drawn.Count(x => x.Kind == FrameKind.Tick);
+        Assert.InRange(ticks, 120 * scale - 2, 120 * scale + 2);
+        if (scale == 1) Assert.All(drawn, x => Assert.Equal(FrameKind.Tick, x.Kind));
+        int last = -1;
+        foreach ((FrameKind kind, int water, _) in drawn) {
+            if (kind == FrameKind.Tick) last = water;
             else if (last >= 0) Assert.Equal(last, water);
         }
         Assert.Equal((ticks - 1) % 0x46, last);

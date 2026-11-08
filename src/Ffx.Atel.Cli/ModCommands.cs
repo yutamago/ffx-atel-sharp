@@ -65,6 +65,8 @@ internal static class ModCommands {
             foreach (string w in mod.Warnings) Console.Error.WriteLine($"warning: {w}");
             string path = GameData.Find(archive, mod.Category, mod.Name) ?? throw new ArgumentException($"the game has no {mod.Category} {mod.Name}");
             mod.Package.File = path;
+            // Data edits: the hashes of the areas they change, from the player's file.
+            DataAreas.Attach(mod.Package, archive.Read(archive.Find(path)!));
             packages[path] = mod.Package;
         }
         foreach (string name in cuts.Distinct(StringComparer.Ordinal)) AddCut(archive, packages, name);
@@ -74,8 +76,9 @@ internal static class ModCommands {
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.WriteAllText(target, p.ToJson());
             string switched = p.Cuts is { Count: > 0 } c ? $", cuts {string.Join(", ", c.Select(x => $"{x.Name} ({x.Blocks} block(s))"))}" : "";
+            string data = p.Data is { Count: > 0 } d ? $", {d.Count} data edits" : "";
             Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"{p.Script}: {p.Patches.Count} entries and patches, {p.Workers.Count} new workers, {p.Variables.Count} new variables{switched} -> {target}"));
+                $"{p.Script}: {p.Patches.Count} entries and patches, {p.Workers.Count} new workers, {p.Variables.Count} new variables{data}{switched} -> {target}"));
             count++;
         }
         string toml = Path.Combine(modDir, AtelMod.ManifestFile);
