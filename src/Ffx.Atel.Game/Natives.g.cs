@@ -217,15 +217,16 @@ public static partial class Common
     [Atel.Native(0x0028)]
     public static float TurnSetYaw(float yaw) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0029: args (angle) -&gt; wrapped angle; turn struct +0x24 = wrap(angle), +0x30 = wrap(pos+0x30 - angle); ?pitch, paired with 0x0020</summary>
-    /// <remarks>Native <c>0x0029</c>, <c>Native_TurnSetPitch</c>; 2946 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the pitch the worker turns to (see <see cref="TurnStart"/>), in radians; returns it wrapped into one turn.</summary>
+    /// <remarks>Native <c>0x0029</c>, <c>Native_TurnSetPitch</c>; 2946 calls in the shipped scripts. Reverse engineering: 0x0029: args (angle) -&gt; wrapped angle; turn struct +0x24 = wrap(angle), +0x30 = wrap(pos+0x30 - angle); ?pitch, paired with 0x0020; Atel#: turns the position&apos;s +0x30 axis (pitch in docs/formats/script.md&apos;s convention); 0x002a turns +0x38 Verified for Atel#: handler 0x00859880: the angle wrapped into the turn block's +0x24, the wrapped rest from the position's +0x30 into +0x30; the scripts set it from Move.PitchToTarget (0x0020, Math_YawPitchTo's pitch) 2,206 times, so +0x30 is pitch (0x002a turns +0x38, the roll).</remarks>
     [Atel.Native(0x0029)]
     public static float TurnSetPitch(float angle) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x002a (float): (pitch): wrapped into the turn block&apos;s +0x28, and the wrapped rest to the position&apos;s pitch (+0x38) into +0x34; ST0 the pitch; ported in native_move (script round 11); name from pitch wrapped into the turn block +0x28, the rest into the position&apos;s +0x34</summary>
-    /// <remarks>Native <c>0x002a</c>, <c>Native_002a_TurnSetPitch</c>; 477 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the roll the worker turns to (see <see cref="TurnStart"/>), in radians; returns it wrapped into one turn.</summary>
+    /// <param name="roll">The target roll, in radians.</param>
+    /// <remarks>Native <c>0x002a</c>, <c>Native_002a_TurnSetPitch</c>; 477 calls in the shipped scripts. Reverse engineering: 0x002a (float): (pitch): wrapped into the turn block&apos;s +0x28, and the wrapped rest to the position&apos;s pitch (+0x38) into +0x34; ST0 the pitch; ported in native_move (script round 11); name from pitch wrapped into the turn block +0x28, the rest into the position&apos;s +0x34; Atel#: the turn is about the position&apos;s +0x38 axis (roll in docs/formats/script.md&apos;s convention), not +0x30 as 0x0029 (Native_TurnSetPitch); name kept as the hook-table key Verified for Atel#: handler 0x00859bb0: the angle wrapped into the turn block's +0x28 and the wrapped rest from the position's +0x38 into +0x34, as 0x0029 does for +0x30 and 0x0028 for the yaw +0x34. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x002a)]
-    public static float TurnSetPitch_002a(float a0) => throw Atel.Runtime.NotRunnable();
+    public static float TurnSetRoll(float roll) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x002b (float): (float v) -&gt; 0x00871520(worker, level, v)&apos;s ST0; ported in native_btl/native_move (script round 10); name from 0x00871520 = Atel_SetLevel5f4 (worker, level, v)</summary>
     /// <remarks>Native <c>0x002b</c>, <c>Native_002b_LevelSet5f4</c>; 626 calls in the shipped scripts.</remarks>
@@ -778,10 +779,11 @@ public static partial class Common
     [Atel.Native(0x0095)]
     public static float SetYaw(float yaw) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0096: args (float a) -&gt; a; Script_StopTurn(self), Angle_Wrap(a) into transform +0x24 (second heading angle in 0x008629c0) and +0x30 (model rot X); ? pitch; ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x0096</c>, <c>Native_SetPitch</c>; 1072 calls in the shipped scripts.</remarks>
+    /// <summary>Turns the worker to pitch <paramref name="pitch"/> at once (its model's rotation about x); returns it wrapped.</summary>
+    /// <param name="pitch">The pitch, in radians.</param>
+    /// <remarks>Native <c>0x0096</c>, <c>Native_SetPitch</c>; 1072 calls in the shipped scripts. Reverse engineering: 0x0096: args (float a) -&gt; a; Script_StopTurn(self), Angle_Wrap(a) into transform +0x24 (second heading angle in 0x008629c0) and +0x30 (model rot X); ? pitch; ported in native_move (script round 11) Verified for Atel#: handler 0x0085f460: Script_StopTurn, the wrapped angle into +0x24 and +0x30. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x0096)]
-    public static float SetPitch(float floatA) => throw Atel.Runtime.NotRunnable();
+    public static float SetPitch(float pitch) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Returns message window <paramref name="window"/>'s state: 0 closed, 1 opening, 2 open, 3 closing.</summary>
     /// <remarks>Native <c>0x0097</c>, <c>Native_MsgGetState</c>; 7809 calls in the shipped scripts. Reverse engineering: 0x0097: args (window) -&gt; u16 Msg_Window(w)+0x14 (0 closed, 1 opening, 2 open, 3 closing, 4 ?); scripts loop until it is 2</remarks>
@@ -1918,20 +1920,20 @@ public static partial class Common
     [Atel.Native(0x0173)]
     public static float PosGetField24() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0174 (float): the position&apos;s +0x30; ported in native_move (script round 11); name from the position&apos;s +0x30 (float)</summary>
-    /// <remarks>Native <c>0x0174</c>, <c>Native_0174_PosGetField30</c>; 44 calls in the shipped scripts.</remarks>
+    /// <summary>The worker's pitch (its rotation +0x30), in radians.</summary>
+    /// <remarks>Native <c>0x0174</c>, <c>Native_0174_PosGetField30</c>; 44 calls in the shipped scripts. Reverse engineering: 0x0174 (float): the position&apos;s +0x30; ported in native_move (script round 11); name from the position&apos;s +0x30 (float) Verified for Atel#: handler: the position block's +0x30. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x0174)]
-    public static float PosGetField30() => throw Atel.Runtime.NotRunnable();
+    public static float GetPitch() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0175: (i): worker i&apos;s position block +0x24; ported in native_mods (script round 19); name from worker i&apos;s position block +0x24</summary>
     /// <remarks>Native <c>0x0175</c>, <c>Native_0175_PosGetField24Of</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0175)]
     public static float PosGetField24Of(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0176: (i): worker i&apos;s position block +0x30; ported in native_mods (script round 19); name from worker i&apos;s position block +0x30</summary>
-    /// <remarks>Native <c>0x0176</c>, <c>Native_0176_PosGetField30Of</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="GetPitch"/> of worker <paramref name="worker"/>.</summary>
+    /// <remarks>Native <c>0x0176</c>, <c>Native_0176_PosGetField30Of</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0176: (i): worker i&apos;s position block +0x30; ported in native_mods (script round 19); name from worker i&apos;s position block +0x30 Verified for Atel#: handler: worker i's position block +0x30. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x0176)]
-    public static float PosGetField30Of(int a0) => throw Atel.Runtime.NotRunnable();
+    public static float GetPitchOf(int worker) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0177: (on): +0x36 bit 6 = on, and bit 15 set when on; on != 0; ported in native_move (script round 11); name from +0x36 bit 6 = on, and bit 15 set when on</summary>
     /// <remarks>Native <c>0x0177</c>, <c>Native_0177_WorkerSetFlag36Bit6</c>; 79 calls in the shipped scripts.</remarks>
@@ -1983,15 +1985,15 @@ public static partial class Common
     [Atel.Native(0x0180)]
     public static int CurMusicVolumeTranslate(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0181 (float): the position&apos;s +0x38; ported in native_move (script round 11); name from the position&apos;s +0x38 (float)</summary>
-    /// <remarks>Native <c>0x0181</c>, <c>Native_0181_PosGetField38</c>; 174 calls in the shipped scripts.</remarks>
+    /// <summary>The worker's roll (its rotation +0x38), in radians.</summary>
+    /// <remarks>Native <c>0x0181</c>, <c>Native_0181_PosGetField38</c>; 174 calls in the shipped scripts. Reverse engineering: 0x0181 (float): the position&apos;s +0x38; ported in native_move (script round 11); name from the position&apos;s +0x38 (float) Verified for Atel#: handler: the position block's +0x38. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x0181)]
-    public static float PosGetField38() => throw Atel.Runtime.NotRunnable();
+    public static float GetRoll() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0182: (i): worker i&apos;s position block +0x38; ported in native_mods (script round 19); name from worker i&apos;s position block +0x38</summary>
-    /// <remarks>Native <c>0x0182</c>, <c>Native_0182_PosGetField38Of</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="GetRoll"/> of worker <paramref name="worker"/>.</summary>
+    /// <remarks>Native <c>0x0182</c>, <c>Native_0182_PosGetField38Of</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0182: (i): worker i&apos;s position block +0x38; ported in native_mods (script round 19); name from worker i&apos;s position block +0x38 Verified for Atel#: handler: worker i's position block +0x38. Axis convention: the position block's rotation is +0x30 pitch, +0x34 yaw, +0x38 roll (ffx-rust docs/formats/script.md, Atel_TurnUpdate_00869510). Checked for Atel#: +0x34 is the heading (Native_SetYaw writes it with the move heading +0x20, Ch_SetRot is the model's yaw), and the scripts set +0x30 from the vertical angle to a target: Turn.Pitch = Move.PitchToTarget 2,206 times (0x0020, the pitch of Math_YawPitchTo, 0x0088b4d0), so +0x30 is pitch and +0x38, the third axis, is roll.</remarks>
     [Atel.Native(0x0182)]
-    public static float PosGetField38Of(int a0) => throw Atel.Runtime.NotRunnable();
+    public static float GetRollOf(int worker) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0183: (a f): Script_StopTurn(worker, -1) (0x00863fe0), position block +0x38 = Math_WrapAngle(a), AtelSetMoveHokanMode(worker, 0) (0x008703b0), and AtelSetBi; ported in native_mods (script round 19); name from Script_StopTurn(worker, -1) (0x00863fe0), position +0x38 = Math_WrapAngle(a), AtelSetMoveHokanMode</summary>
     /// <remarks>Native <c>0x0183</c>, <c>Native_0183_StopTurnSetAngle38</c>; 0 calls in the shipped scripts.</remarks>
@@ -2125,7 +2127,7 @@ public static partial class Common
 
     /// <summary>Releases what the worker is attached to, as <see cref="WorkerDetach"/>; with <paramref name="dispose"/> non-zero it also frees an attached model's character data (<c>ChN_DataDispose</c>).</summary>
     /// <param name="dispose">Non-zero to free the model's data too (the scripts pass 1).</param>
-    /// <remarks>Native <c>0x019d</c>, <c>Worker_Detach</c>; 765 calls in the shipped scripts. Reverse engineering: (worker, [pops dispose]): frees worker+0xaa attachment (1 model 0x008722f0 &quot;TK:ChN_DataDispose&quot;, 2 0x007ba9c0, 4/5 0x0086f4c0); +0xaa = 0, +0xa8 = 0; ported in native_move (script round 11) Verified for Atel#: handler Worker_Detach (0x0085ca00) pops dispose; by the attachment kind (+0xaa): 1 a model: AtelBindElemOff for elements 0 and 1, TkCh_Dispose(+0x9c), and with dispose ChN_DataDispose(+0xa8, 0) (0x00824f00); 2 MsBindOffCamera; 4/5 AtelSetBindObject; then +0xaa = 0, +0xa8 = 0. WorkerDetach (0x0005, 0x0085cdc0) pushes 0 and jumps into this handler. 730 of the 764 calls pass 1.</remarks>
+    /// <remarks>Native <c>0x019d</c>, <c>Worker_Detach</c>; 765 calls in the shipped scripts. Reverse engineering: (worker, [pops dispose]): frees worker+0xaa attachment (1 model 0x008722f0 &quot;TK:ChN_DataDispose&quot;, 2 0x007ba9c0, 4/5 0x0086f4c0); +0xaa = 0, +0xa8 = 0; ported in native_move (script round 11); Atel#: native 0x019d, dispose non-zero also frees an attached model&apos;s data (ChN_DataDispose(+0xa8, 0), 0x00824f00); 0x0005 enters it with 0; the scripts nearly always pass 1 (Atel# WorkerDetachAndDispose) Verified for Atel#: handler Worker_Detach (0x0085ca00) pops dispose; by the attachment kind (+0xaa): 1 a model: AtelBindElemOff for elements 0 and 1, TkCh_Dispose(+0x9c), and with dispose ChN_DataDispose(+0xa8, 0) (0x00824f00); 2 MsBindOffCamera; 4/5 AtelSetBindObject; then +0xaa = 0, +0xa8 = 0. WorkerDetach (0x0005, 0x0085cdc0) pushes 0 and jumps into this handler. 730 of the 764 calls pass 1.</remarks>
     [Atel.Native(0x019d)]
     public static int WorkerDetachAndDispose(int dispose) => throw Atel.Runtime.NotRunnable();
 
@@ -2267,7 +2269,7 @@ public static partial class Common
     /// <summary><see cref="ChrGetEquipModel"/> for another worker: the armor model (<paramref name="kind"/> 1) or weapon model (0) of the party member that worker is bound to; 0 when it is bound to none.</summary>
     /// <param name="worker">The worker.</param>
     /// <param name="kind">1 armor, 0 weapon (clamped to 0-1).</param>
-    /// <remarks>Native <c>0x01ba</c>, <c>Native_01ba_ChrGetEquipModel</c>; 921 calls in the shipped scripts. Reverse engineering: 0x01ba: (worker, on): the worker&apos;s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from &quot;0x0086b150(chr, on)&quot; = AtelGetElemId: armor model for 1, else weapon model Verified for Atel#: handler 0x0085beb0 pops kind, then worker, clamps kind to 0-1; AtelGetBasicWork(worker) +0x40 (the bound character) 0-7: AtelGetElemId(chr, kind) (0x0086b150: MsGetSaveChrArmorModel for 1, else MsGetSaveChrWeaponModel), else 0. 0x0119 does the same with the worker's own +0x40.</remarks>
+    /// <remarks>Native <c>0x01ba</c>, <c>Native_01ba_ChrGetEquipModel</c>; 921 calls in the shipped scripts. Reverse engineering: 0x01ba: (worker, on): the worker&apos;s bound character (0..=7) gets 0x0086b150(chr, on) (on clamped to 0..=1); else 0; ported in native_move (script round 11); name from &quot;0x0086b150(chr, on)&quot; = AtelGetElemId: armor model for 1, else weapon model; Atel#: 0x0119 for another worker (worker +0x40 the bound character 0-7, else 0; Atel# ChrGetEquipModelOf) Verified for Atel#: handler 0x0085beb0 pops kind, then worker, clamps kind to 0-1; AtelGetBasicWork(worker) +0x40 (the bound character) 0-7: AtelGetElemId(chr, kind) (0x0086b150: MsGetSaveChrArmorModel for 1, else MsGetSaveChrWeaponModel), else 0. 0x0119 does the same with the worker's own +0x40.</remarks>
     [Atel.Native(0x01ba)]
     public static int ChrGetEquipModelOf(int worker, int kind) => throw Atel.Runtime.NotRunnable();
 
@@ -4089,7 +4091,7 @@ public static partial class Chr
     /// <summary><see cref="SetBoneUpdate"/> for another worker's model (<c>Ch_SetCalcNorm</c> on it). Returns what that returns, 0 when the worker has no model.</summary>
     /// <param name="worker">The worker whose model it sets.</param>
     /// <param name="on">1 on, 0 off.</param>
-    /// <remarks>Native <c>0x5057</c>, <c>Native_ChrSetBoneUpdate</c>; 1637 calls in the shipped scripts. Reverse engineering: 0x5057: args (worker, on) -&gt; previous; chr +0x194 bit 0 of another worker&apos;s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110) Verified for Atel#: handler 0x00a78af0 pops on, then worker; AtelGetBasicWork(worker) (0x0086a830), its character (AtelGetCharHandle, 0x0086ae80), then Ch_SetCalcNorm(chr, on) (0x00835750), the call 0x5056 makes on the worker's own model.</remarks>
+    /// <remarks>Native <c>0x5057</c>, <c>Native_ChrSetBoneUpdate</c>; 1637 calls in the shipped scripts. Reverse engineering: 0x5057: args (worker, on) -&gt; previous; chr +0x194 bit 0 of another worker&apos;s chr (0x00835750); ?bit 0 = recompute the skeleton every frame (0x00832110); Atel#: 0x5056&apos;s call for another worker: pops on, then worker; AtelGetBasicWork(worker), AtelGetCharHandle, Ch_SetCalcNorm(chr, on); 0 without a model (Atel# SetBoneUpdateOf) Verified for Atel#: handler 0x00a78af0 pops on, then worker; AtelGetBasicWork(worker) (0x0086a830), its character (AtelGetCharHandle, 0x0086ae80), then Ch_SetCalcNorm(chr, on) (0x00835750), the call 0x5056 makes on the worker's own model.</remarks>
     [Atel.Native(0x5057)]
     public static int SetBoneUpdateOf(int worker, int on) => throw Atel.Runtime.NotRunnable();
 
@@ -4410,25 +4412,31 @@ public static partial class Cam
     [Atel.Native(0x6004)]
     public static int SetPolar(float thetaDeg, float phiDeg, float len) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6005: 0x007bb5d0(w, a, s, 1, -1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6005</c>, <c>Native_Cam_6005</c>; 21 calls in the shipped scripts.</remarks>
+    /// <summary>Adds to the eye's polar placement around the point it looks at (<see cref="SetPolar"/>): angles in degrees and a distance.</summary>
+    /// <remarks>Native <c>0x6005</c>, <c>Native_Cam_6005</c>; 21 calls in the shipped scripts. Reverse engineering: 0x6005: 0x007bb5d0(w, a, s, 1, -1); 0; ported in native_cam Verified for Atel#: handler 0x007b9320: MsAtelCameraPolar_007bb5d0(worker, args, stack, side 1, add -1), which pops the distance and the two angles (degrees to radians) into Cam_AddPolar (Cam_SetPolar for add 0, native 0x6004); the eye twin of RefAddPolar (0x6023).</remarks>
     [Atel.Native(0x6005)]
-    public static int Cam_6005(float a0, float a1, float a2) => throw Atel.Runtime.NotRunnable();
+    public static int AddPolar(float thetaDeg, float phiDeg, float len) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6006: 0x007bb410(w, a, s, 1, -1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6006</c>, <c>Native_Cam_6006</c>; 483 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's eye in polar form at a point: yaw towards (x, z) from the side's base, pitch = pitch + distance / pitchDivisor, length = length + distance / lengthDivisor.</summary>
+    /// <param name="x"></param>
+    /// <param name="z"></param>
+    /// <param name="pitchDeg">The pitch, in degrees.</param>
+    /// <param name="pitchDivisor"></param>
+    /// <param name="length"></param>
+    /// <param name="lengthDivisor"></param>
+    /// <remarks>Native <c>0x6006</c>, <c>Native_Cam_6006</c>; 483 calls in the shipped scripts. Reverse engineering: 0x6006: 0x007bb410(w, a, s, 1, -1); 0; ported in native_cam Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 1, short -1) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 4 (MsCameraSetAimPolar_007bf330): yaw towards (x, z) from the side's base, pitch = pitch + distance / pitchDivisor, length = length + distance / lengthDivisor (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6006)]
-    public static int Cam_6006(float a0, float a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+    public static int EyeAimAtXZ(float x, float z, float pitchDeg, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6007: 0x007bb410(w, a, s, 1, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6007</c>, <c>Native_Cam_6007</c>; 111 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's eye in polar form at a point: yaw towards (x, y, z), keeping the point's own pitch (plus distance / pitchDivisor), length = length + distance / lengthDivisor.</summary>
+    /// <remarks>Native <c>0x6007</c>, <c>Native_Cam_6007</c>; 111 calls in the shipped scripts. Reverse engineering: 0x6007: 0x007bb410(w, a, s, 1, 0); 0; ported in native_cam Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 1, short 0) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 5 (MsCameraSetAimPolar2_007bf420, short 0): yaw towards (x, y, z), keeping the point's own pitch (plus distance / pitchDivisor), length = length + distance / lengthDivisor (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6007)]
-    public static int Cam_6007(float a0, float a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+    public static int EyeAimAt(float x, float y, float z, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6008: 0x007bb410(w, a, s, 1, 1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6008</c>, <c>Native_Cam_6008</c>; 320 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's eye in polar form at a point: as kind 5, but the length is the distance less (length + distance / lengthDivisor): it stops short of the point.</summary>
+    /// <remarks>Native <c>0x6008</c>, <c>Native_Cam_6008</c>; 320 calls in the shipped scripts. Reverse engineering: 0x6008: 0x007bb410(w, a, s, 1, 1); 0; ported in native_cam Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 1, short 1) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 6 (MsCameraSetAimPolar2_007bf420, short 1): as kind 5, but the length is the distance less (length + distance / lengthDivisor): it stops short of the point (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6008)]
-    public static int Cam_6008(float a0, float a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+    public static int EyeAimShortOf(float x, float y, float z, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6009: 0x007bab90(worker, args, stack, 1); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraFocus(side 1) -&gt; MsCameraSetAtelFocus; eye twin of Native_CamRefSetTarget (side 0)</summary>
     /// <remarks>Native <c>0x6009</c>, <c>Native_6009_CamSetTarget</c>; 0 calls in the shipped scripts.</remarks>
@@ -4460,25 +4468,25 @@ public static partial class Cam
     [Atel.Native(0x600e)]
     public static int EyeSetChannelFlagF5(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x600f: 0x007bed10(cam, 1); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x600f</c>, <c>Native_Cam_600f</c>; 149 calls in the shipped scripts.</remarks>
+    /// <summary>Removes the eye's areas (the line, circle and path limits added by <see cref="AddLineArea"/> and the like).</summary>
+    /// <remarks>Native <c>0x600f</c>, <c>Native_Cam_600f</c>; 149 calls in the shipped scripts. Reverse engineering: 0x600f: 0x007bed10(cam, 1); the handle; ported in native_cam Verified for Atel#: handler 0x007b9520: MsCameraResetFilter(cam, 1) (Fahrenheit's name, from the Switch build): the eye channel's filter count +4 = 0; the eye twin of RefClearAreas (0x602d, side 0).</remarks>
     [Atel.Native(0x600f)]
-    public static int Cam_600f() => throw Atel.Runtime.NotRunnable();
+    public static int EyeClearAreas() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6010: args (frames) -&gt; 0; starts the eye (side 1) moving to its set position over n frames, linear (Cam_StartMove 0x007bde50, mode 0)</summary>
     /// <remarks>Native <c>0x6010</c>, <c>Native_CamMove</c>; 2776 calls in the shipped scripts.</remarks>
     [Atel.Native(0x6010)]
     public static int Move(int frames) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6011: (frames): MsCameraMoveFrame(cam, 1, 1, frames, 1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6011</c>, <c>Native_Cam_6011</c>; 65 calls in the shipped scripts.</remarks>
+    /// <summary>Starts the eye's move to its target over <paramref name="frames"/> frames, linear, with move mode 1 (<see cref="Move"/> is mode 0).</summary>
+    /// <remarks>Native <c>0x6011</c>, <c>Native_Cam_6011</c>; 65 calls in the shipped scripts. Reverse engineering: 0x6011: (frames): MsCameraMoveFrame(cam, 1, 1, frames, 1); 0; ported in native_cam Verified for Atel#: handler 0x007b9730: MsCameraMoveFrame(cam, side 1, mode 1, frames, curve 1); curve 1 is linear, 3 a cosine ease (MsCameraMoveCalc, ffx-rust camera.rs). Move (0x6010) is (1, 0, frames, 1), EyeMoveFrame (0x6013) (1, 1, frames, 3). What mode 1 changes (the move's byte +1) is not known.</remarks>
     [Atel.Native(0x6011)]
-    public static int Cam_6011(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int EyeMoveFrameLinear(int frames) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6012: (frames): MsCameraMoveFrame(cam, 1, 0, frames, 3); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6012</c>, <c>Native_Cam_6012</c>; 108 calls in the shipped scripts.</remarks>
+    /// <summary>Starts the eye's move to its target over <paramref name="frames"/> frames with a cosine ease (<see cref="Move"/> is linear).</summary>
+    /// <remarks>Native <c>0x6012</c>, <c>Native_Cam_6012</c>; 108 calls in the shipped scripts. Reverse engineering: 0x6012: (frames): MsCameraMoveFrame(cam, 1, 0, frames, 3); 0; ported in native_cam Verified for Atel#: handler 0x007b9800: MsCameraMoveFrame(cam, side 1, mode 0, frames, curve 3); curve 3 is a cosine ease (MsCameraMoveCalc, ffx-rust camera.rs); Move (0x6010) passes curve 1.</remarks>
     [Atel.Native(0x6012)]
-    public static int Cam_6012(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int MoveCosine(int frames) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6013: args (frames) -&gt; MsCameraMoveFrame(cam, 1, 1, frames, 3) (0x007bde50); 0; ported in native_chr (script round 12); name from 0x007bde50 = MsCameraMoveFrame (cam, 1, 1, frames, 3): the eye half (1)</summary>
     /// <remarks>Native <c>0x6013</c>, <c>Native_6013_CamEyeMoveFrame</c>; 1 calls in the shipped scripts.</remarks>
@@ -4500,20 +4508,20 @@ public static partial class Cam
     [Atel.Native(0x6016)]
     public static int MoveFinish() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6017: 0x007bb520(w, a, s, 1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6017</c>, <c>Native_Cam_6017</c>; 22 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the four move-divide values of the camera's eye (<c>MsCameraMoveDivide</c>). What they divide is not known yet.</summary>
+    /// <remarks>Native <c>0x6017</c>, <c>Native_Cam_6017</c>; 22 calls in the shipped scripts. Reverse engineering: 0x6017: 0x007bb520(w, a, s, 1); 0; ported in native_cam Verified for Atel#: handler: MsAtelCameraMoveDivide_007bb520(worker, args, stack, side 1): four floats popped into MsCameraMoveDivide(cam, side, ...) (Fahrenheit's name), the channel's +0x70..+0x7c (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6017)]
-    public static int Cam_6017(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+    public static int EyeMoveDivide(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6018: 0x007bb210(worker, args, stack, 1); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraDirVector(side 1) -&gt; MsCameraSetDirVector</summary>
     /// <remarks>Native <c>0x6018</c>, <c>Native_6018_CamSetDir</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x6018)]
     public static int SetDir(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6019: 0x007bec90(cam, 1); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6019</c>, <c>Native_Cam_6019</c>; 206 calls in the shipped scripts.</remarks>
+    /// <summary>Turns off the eye's direction vector (set by <see cref="SetDir"/>).</summary>
+    /// <remarks>Native <c>0x6019</c>, <c>Native_Cam_6019</c>; 206 calls in the shipped scripts. Reverse engineering: 0x6019: 0x007bec90(cam, 1); the handle; ported in native_cam Verified for Atel#: handler 0x007b9ac0: MsCameraResetDirVector(cam, 1) (Fahrenheit's name): the side's +0x33 flag off, its +0x70 vector zero; the eye twin of RefResetDir (0x6037).</remarks>
     [Atel.Native(0x6019)]
-    public static int Cam_6019() => throw Atel.Runtime.NotRunnable();
+    public static int EyeResetDir() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Waits until the camera's eye has stopped moving.</summary>
     /// <remarks>Native <c>0x601a</c>, <c>Native_CamWait</c>; 41536 calls in the shipped scripts. Reverse engineering: 0x601a (poll slot only): no args; done (5) once the eye stops moving (Cam_IsMoving 0x007bdd20 == 0); strings &quot;CameraWaitStart!&quot;, &quot;CameraWaitExec: Frame = %d!&quot;</remarks>
@@ -4525,35 +4533,35 @@ public static partial class Cam
     [Atel.Native(0x601b)]
     public static int IsMoving() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x601c: (var, degrees): 0x007bf520(cam, 1, 1, &amp;var, radians); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x601c</c>, <c>Native_Cam_601c</c>; 34 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="SetFocusList"/> with flag 1: the eye follows the focus list in <paramref name="list"/>.</summary>
+    /// <remarks>Native <c>0x601c</c>, <c>Native_Cam_601c</c>; 34 calls in the shipped scripts. Reverse engineering: 0x601c: (var, degrees): 0x007bf520(cam, 1, 1, &amp;var, radians); the handle; ported in native_cam Verified for Atel#: handler 0x007b8330: MsCameraSetFocusList_007bf520(cam, side 1, flags 1, &amp;list, degrees in radians): a request of kind 8 with the list and the angle; SetFocusList (0x601e) passes flags 0. What the flag (ORed into the request's +3) changes is not known.</remarks>
     [Atel.Native(0x601c)]
-    public static int Cam_601c(int a0, float a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetFocusList1(int list, float degrees) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x601d: (var, degrees, y, x): 0x007bf600(cam, 1, 1, &amp;var, radians, y, x); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x601d</c>, <c>Native_Cam_601d</c>; 67 calls in the shipped scripts.</remarks>
+    /// <summary>Makes the eye follow <paramref name="target"/> in polar form (request kind 9), with flag 1.</summary>
+    /// <remarks>Native <c>0x601d</c>, <c>Native_Cam_601d</c>; 67 calls in the shipped scripts. Reverse engineering: 0x601d: (var, degrees, y, x): 0x007bf600(cam, 1, 1, &amp;var, radians, y, x); the handle; ported in native_cam Verified for Atel#: handler 0x007b8470: MsCameraSetTargetPolar_007bf600(cam, side 1, flags 1, &amp;target, radians, y, x) (ffx-rust ffx-sg camera.rs): kind 9 following the target, the angle added to the polar form's +0x100 on the running request. SetTargetPolar (0x601f) passes flags 0.</remarks>
     [Atel.Native(0x601d)]
-    public static int Cam_601d(int a0, float a1, float a2, float a3) => throw Atel.Runtime.NotRunnable();
+    public static int SetTargetPolar1(int target, float degrees, float y, float x) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x601e: args (var, deg f) -&gt; 0x007bf520(cam, 1, 0, &amp;var, deg * pi / 180); the camera; ported in native_chr (script round 12); name from 0x007bf520 = MsCameraSetFocusList (cam, 1, 0, &amp;var, deg * pi / 180)</summary>
     /// <remarks>Native <c>0x601e</c>, <c>Native_601e_CamSetFocusList</c>; 18 calls in the shipped scripts.</remarks>
     [Atel.Native(0x601e)]
     public static int SetFocusList(int var, float degF) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x601f: as 0x601d with 0 for the mode; ported in native_cam</summary>
-    /// <remarks>Native <c>0x601f</c>, <c>Native_Cam_601f</c>; 27 calls in the shipped scripts.</remarks>
+    /// <summary>Makes the eye follow <paramref name="target"/> in polar form (request kind 9).</summary>
+    /// <remarks>Native <c>0x601f</c>, <c>Native_Cam_601f</c>; 27 calls in the shipped scripts. Reverse engineering: 0x601f: as 0x601d with 0 for the mode; ported in native_cam Verified for Atel#: handler 0x007b8530: as 0x601d with flags 0: MsCameraSetTargetPolar_007bf600(cam, side 1, 0, &amp;target, radians, y, x).</remarks>
     [Atel.Native(0x601f)]
-    public static int Cam_601f(int a0, float a1, float a2, float a3) => throw Atel.Runtime.NotRunnable();
+    public static int SetTargetPolar(int target, float degrees, float y, float x) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Sets the point the camera looks at.</summary>
     /// <remarks>Native <c>0x6020</c>, <c>Native_CamRefSetPos</c>; 19674 calls in the shipped scripts. Reverse engineering: 0x6020: args (x, y, z) -&gt; 0; sets the camera reference/look-at point (side 0), same body as 0x6002 with side 0 (0x007bb6a0)</remarks>
     [Atel.Native(0x6020)]
     public static int RefSetPos(float x, float y, float z) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6021: 0x007ba3c0(w, a, s, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6021</c>, <c>Native_Cam_6021</c>; 47 calls in the shipped scripts.</remarks>
+    /// <summary>Stores the point the camera looks at in three variables (<see cref="GetPos"/> is the eye's).</summary>
+    /// <remarks>Native <c>0x6021</c>, <c>Native_Cam_6021</c>; 47 calls in the shipped scripts. Reverse engineering: 0x6021: 0x007ba3c0(w, a, s, 0); 0; ported in native_cam Verified for Atel#: handler 0x007b9d40: Atel_CamGetVars_007ba3c0(worker, args, stack, side 0): three variable addresses popped, Cam_GetPos(cam, 0, &amp;x, &amp;y, &amp;z); GetPos (0x6003) is side 1.</remarks>
     [Atel.Native(0x6021)]
-    public static int Cam_6021(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int RefGetPos(int x, int y, int z) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6022: 0x007bb5d0(worker, args, stack, 0, 0); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraPolar(side 0, add 0) -&gt; Cam_SetPolar; ref twin of Native_CamSetPolar</summary>
     /// <remarks>Native <c>0x6022</c>, <c>Native_6022_CamRefSetPolar</c>; 0 calls in the shipped scripts.</remarks>
@@ -4565,30 +4573,36 @@ public static partial class Cam
     [Atel.Native(0x6023)]
     public static int RefAddPolar(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6024: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, -1); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, -1)</summary>
-    /// <remarks>Native <c>0x6024</c>, <c>Native_6024_CamEyeAddAreaMinus1</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's focus point in polar form at a point: yaw towards (x, z) from the side's base, pitch = pitch + distance / pitchDivisor, length = length + distance / lengthDivisor.</summary>
+    /// <param name="x"></param>
+    /// <param name="z"></param>
+    /// <param name="pitchDeg">The pitch, in degrees.</param>
+    /// <param name="pitchDivisor"></param>
+    /// <param name="length"></param>
+    /// <param name="lengthDivisor"></param>
+    /// <remarks>Native <c>0x6024</c>, <c>Native_6024_CamEyeAddAreaMinus1</c>; 0 calls in the shipped scripts. Reverse engineering: 0x6024: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, -1); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, -1) Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 0, short -1) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 4 (MsCameraSetAimPolar_007bf330): yaw towards (x, z) from the side's base, pitch = pitch + distance / pitchDivisor, length = length + distance / lengthDivisor (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6024)]
-    public static int EyeAddAreaMinus1(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int FocusAimAtXZ(int x, int z, int pitchDeg, int pitchDivisor, int length, int lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6025: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, 0); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, 0)</summary>
-    /// <remarks>Native <c>0x6025</c>, <c>Native_6025_CamEyeAddArea0</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's focus point in polar form at a point: yaw towards (x, y, z), keeping the point's own pitch (plus distance / pitchDivisor), length = length + distance / lengthDivisor.</summary>
+    /// <remarks>Native <c>0x6025</c>, <c>Native_6025_CamEyeAddArea0</c>; 0 calls in the shipped scripts. Reverse engineering: 0x6025: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, 0); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, 0) Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 0, short 0) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 5 (MsCameraSetAimPolar2_007bf420, short 0): yaw towards (x, y, z), keeping the point's own pitch (plus distance / pitchDivisor), length = length + distance / lengthDivisor (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6025)]
-    public static int EyeAddArea0(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int FocusAimAt(int x, int y, int z, int pitchDivisor, int length, int lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6026: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, 1); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, 1)</summary>
-    /// <remarks>Native <c>0x6026</c>, <c>Native_6026_CamEyeAddArea1</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Aims the camera's focus point in polar form at a point: as kind 5, but the length is the distance less (length + distance / lengthDivisor): it stops short of the point.</summary>
+    /// <remarks>Native <c>0x6026</c>, <c>Native_6026_CamEyeAddArea1</c>; 0 calls in the shipped scripts. Reverse engineering: 0x6026: MsAtelCameraEyeAddArea_007bb410(worker, args, stack, 0, 1); 0; ported in native_mods (script round 19); name from MsAtelCameraEyeAddArea (worker, args, stack, 0, 1) Verified for Atel#: handler calls MsAtelCameraEyeAddArea_007bb410(worker, args, stack, side 0, short 1) (ffx.sym; despite the name it sets no area): six floats popped, the pitch from degrees; kind 6 (MsCameraSetAimPolar2_007bf420, short 1): as kind 5, but the length is the distance less (length + distance / lengthDivisor): it stops short of the point (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6026)]
-    public static int EyeAddArea1(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int FocusAimShortOf(int x, int y, int z, int pitchDivisor, int length, int lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6027: args (target, bone?, y offset) -&gt; 0; ref (side 0) follow mode 3: +0xc = target, +0xe = bone, offset (0,y,0) (0x007beeb0); scripts push (0, -1, y); ?target/bone meaning</summary>
     /// <remarks>Native <c>0x6027</c>, <c>Native_CamRefSetTarget</c>; 4463 calls in the shipped scripts.</remarks>
     [Atel.Native(0x6027)]
     public static int RefSetTarget(int target, int bone, float yOffset) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6028: 0x007bb2b0(w, a, s, 0, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6028</c>, <c>Native_Cam_6028</c>; 115 calls in the shipped scripts.</remarks>
+    /// <summary>Adds a line limit of kind 0 to the focus point: the segment from (<paramref name="x1"/>, <paramref name="z1"/>) to (<paramref name="x2"/>, <paramref name="z2"/>) with width <paramref name="r"/> (<see cref="LineFilter"/> is the eye's).</summary>
+    /// <remarks>Native <c>0x6028</c>, <c>Native_Cam_6028</c>; 115 calls in the shipped scripts. Reverse engineering: 0x6028: 0x007bb2b0(w, a, s, 0, 0); 0; ported in native_cam Verified for Atel#: handler 0x007ba0e0: MsAtelCameraLineFilter_007bb2b0(worker, args, stack, side 0, kind 0) -> MsCameraAddLineFilter_007bf0b0: one more filter record (at most five) with the segment in the xz plane, record type 0 (2 for a non-zero kind, RefAddLineArea) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6028)]
-    public static int Cam_6028(float a0, float a1, float a2, float a3, float a4) => throw Atel.Runtime.NotRunnable();
+    public static int RefLineFilter(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6029: args (x1, z1, x2, z2, r) floats -&gt; 0; adds a segment constraint (max 5, count at side +0xc4) to the ref (0x007bf0b0 stores dir, origin, -dot, |dir|^2, r); ?keeps the ref within r of the segment</summary>
     /// <remarks>Native <c>0x6029</c>, <c>Native_CamRefAddLineArea</c>; 3940 calls in the shipped scripts.</remarks>
@@ -4625,10 +4639,10 @@ public static partial class Cam
     [Atel.Native(0x602f)]
     public static int RefMoveFrame(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6030: (frames): MsCameraMoveFrame(cam, 0, 0, frames, 3); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6030</c>, <c>Native_Cam_6030</c>; 106 calls in the shipped scripts.</remarks>
+    /// <summary>Starts the focus point's move to its target over <paramref name="frames"/> frames with a cosine ease (<see cref="FocusTimeLinear"/> is linear).</summary>
+    /// <remarks>Native <c>0x6030</c>, <c>Native_Cam_6030</c>; 106 calls in the shipped scripts. Reverse engineering: 0x6030: (frames): MsCameraMoveFrame(cam, 0, 0, frames, 3); 0; ported in native_cam Verified for Atel#: handler 0x007b8050: MsCameraMoveFrame(cam, side 0, mode 0, frames, curve 3); FocusTimeLinear (0x602e) is (0, 0, frames, 1).</remarks>
     [Atel.Native(0x6030)]
-    public static int Cam_6030(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int FocusTimeCosine(int frames) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6031: (frames): MsCameraMoveFrame(cam, 0, 1, frames, 3); 0; ported in native_mods (script round 19); name from MsCameraMoveFrame (cam, 0, 1, frames, 3): the ref half (0); 0</summary>
     /// <remarks>Native <c>0x6031</c>, <c>Native_6031_CamRefMoveFrame3</c>; 0 calls in the shipped scripts.</remarks>
@@ -4650,10 +4664,10 @@ public static partial class Cam
     [Atel.Native(0x6034)]
     public static int FocusCut() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6035: 0x007bb520(w, a, s, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6035</c>, <c>Native_Cam_6035</c>; 346 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the four move-divide values of the camera's focus point (<c>MsCameraMoveDivide</c>). What they divide is not known yet.</summary>
+    /// <remarks>Native <c>0x6035</c>, <c>Native_Cam_6035</c>; 346 calls in the shipped scripts. Reverse engineering: 0x6035: 0x007bb520(w, a, s, 0); 0; ported in native_cam Verified for Atel#: handler: MsAtelCameraMoveDivide_007bb520(worker, args, stack, side 0): four floats popped into MsCameraMoveDivide(cam, side, ...) (Fahrenheit's name), the channel's +0x70..+0x7c (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6035)]
-    public static int Cam_6035(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
+    public static int RefMoveDivide(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6036: 0x007bb210(worker, args, stack, 0); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraDirVector(side 0) -&gt; MsCameraSetDirVector</summary>
     /// <remarks>Native <c>0x6036</c>, <c>Native_6036_CamRefSetDir</c>; 0 calls in the shipped scripts.</remarks>
@@ -4687,10 +4701,10 @@ public static partial class Cam
     [Atel.Native(0x603b)]
     public static int SetScreenDepth(float depth) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x603c: 0x007bac40(w, a, s, 1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x603c</c>, <c>Native_Cam_603c</c>; 347 calls in the shipped scripts.</remarks>
+    /// <summary>Places the eye in polar form (request kind 10): yaw and pitch in degrees, and a length.</summary>
+    /// <remarks>Native <c>0x603c</c>, <c>Native_Cam_603c</c>; 347 calls in the shipped scripts. Reverse engineering: 0x603c: 0x007bac40(w, a, s, 1); 0; ported in native_cam Verified for Atel#: handler 0x007b9400: MsAtelCameraYaw_007bac40(worker, args, stack, side 1): four floats popped, the first two pushed from degrees, into MsCameraSetAtelYaw_007befc0(cam, 1, yaw, pitch, length), which stores +0x40, +0x44, +0x48 with kind 10 and leaves the fourth value unused (dump); the eye twin of RefSetYaw (0x603d).</remarks>
     [Atel.Native(0x603c)]
-    public static int Cam_603c(float a0, float a1, float a2, float a3) => throw Atel.Runtime.NotRunnable();
+    public static int SetYaw(float yawDeg, float pitchDeg, float length, float unused) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x603d: 0x007bac40(worker, args, stack, 0); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraYaw(side 0) -&gt; MsCameraSetAtelYaw(cam, side, yaw, pitch, length)</summary>
     /// <remarks>Native <c>0x603d</c>, <c>Native_603d_CamRefSetYaw</c>; 0 calls in the shipped scripts.</remarks>
@@ -4702,10 +4716,10 @@ public static partial class Cam
     [Atel.Native(0x603e)]
     public static int SetBtl(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x603f: 0x007bad10(w, a, s, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x603f</c>, <c>Native_Cam_603f</c>; 243 calls in the shipped scripts.</remarks>
+    /// <summary>Points the focus point at the battle actors <paramref name="actorA"/> and <paramref name="actorB"/> (their mean camera position), lowered by <paramref name="lift"/>% of their height.</summary>
+    /// <remarks>Native <c>0x603f</c>, <c>Native_Cam_603f</c>; 243 calls in the shipped scripts. Reverse engineering: 0x603f: 0x007bad10(w, a, s, 0); 0; ported in native_cam Verified for Atel#: handler 0x007b86f0: MsAtelCameraSetBtl_007bad10(worker, args, stack, side 0) -> MsCameraSetBtl(cam, 0, actor, mode 0, a, b, lift / 100, 0, 0, 0): channel kind 0xb; MsCamSetBtl averages MsGetChrInfo kind 9 (camera position) of the two sets, y less lift times the height (kind 10) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)). The twin of SetBtl (0x603e, side 1).</remarks>
     [Atel.Native(0x603f)]
-    public static int Cam_603f(int a0, int a1, float a2) => throw Atel.Runtime.NotRunnable();
+    public static int FocusOnActors(int actorA, int actorB, float lift) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6040: args (actor a, actor b, height, yaw deg, pitch deg, distance) -&gt; cam; 0x007badb0(half 1, mode 1): eye = mean of actors + height * actor height + orbit at distance/100 * actor size</summary>
     /// <remarks>Native <c>0x6040</c>, <c>Native_CamEyeOrbitScaled</c>; 1961 calls in the shipped scripts.</remarks>
@@ -4722,10 +4736,10 @@ public static partial class Cam
     [Atel.Native(0x6042)]
     public static int RefMoveStat(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6043: (v): 0x007bdf90(cam, 1, v ^ 0xffff); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6043</c>, <c>Native_Cam_6043</c>; 405 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the eye's move-stat byte (<c>MsCameraMoveStat</c>, the value inverted).</summary>
+    /// <remarks>Native <c>0x6043</c>, <c>Native_Cam_6043</c>; 405 calls in the shipped scripts. Reverse engineering: 0x6043: (v): 0x007bdf90(cam, 1, v ^ 0xffff); the handle; ported in native_cam Verified for Atel#: handler 0x007b8660: MsCameraMoveStat(cam, 1, v ^ 0xffff) (Fahrenheit's name): the channel's +7 = v; the eye twin of RefMoveStat (0x6042). +7 holds the lane flags a move leaves alone (MsCameraMoveAcc), so the value says which axes move.</remarks>
     [Atel.Native(0x6043)]
-    public static int Cam_6043(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int EyeMoveStat(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6044: same as 0x6040 with mode 2: distance/10 + actor size (absolute); eye half; e.g. (-2, -1, 30, -160, 0, 150)</summary>
     /// <remarks>Native <c>0x6044</c>, <c>Native_CamEyeOrbit</c>; 103182 calls in the shipped scripts.</remarks>
@@ -4737,30 +4751,30 @@ public static partial class Cam
     [Atel.Native(0x6045)]
     public static int FocusOrbit(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6046: returns 0x007bb970(w, a, s, 1); ported in native_cam</summary>
-    /// <remarks>Native <c>0x6046</c>, <c>Native_Cam_6046</c>; 394 calls in the shipped scripts.</remarks>
+    /// <summary>Moves the camera's eye along a spline (request kind 14): path 0 or 1 is the built-in one (<see cref="PathAddEye"/>), any other value a variable holding one; from <paramref name="t"/> at <paramref name="speed"/>.</summary>
+    /// <remarks>Native <c>0x6046</c>, <c>Native_Cam_6046</c>; 394 calls in the shipped scripts. Reverse engineering: 0x6046: returns 0x007bb970(w, a, s, 1); ported in native_cam Verified for Atel#: handler: MsAtelCameraSpline_007bb970(worker, args, stack, side 1): flags, speed, t and the spline popped into MsCameraSetSpline(cam, side, spline, t, speed, flags) (Fahrenheit's name); 0 and 1 are the built-in splines at 0x01136b68 (used from 3 points on), else AtelGetRealVarAdrs (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6046)]
-    public static int Cam_6046(int a0, float a1, float a2, int a3) => throw Atel.Runtime.NotRunnable();
+    public static int EyeFollowSpline(int spline, float t, float speed, int flags) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6047: returns 0x007bb970(w, a, s, 0); ported in native_cam</summary>
-    /// <remarks>Native <c>0x6047</c>, <c>Native_Cam_6047</c>; 388 calls in the shipped scripts.</remarks>
+    /// <summary>Moves the camera's focus point along a spline (request kind 14): path 0 or 1 is the built-in one (<see cref="PathAddFocus"/>), any other value a variable holding one; from <paramref name="t"/> at <paramref name="speed"/>.</summary>
+    /// <remarks>Native <c>0x6047</c>, <c>Native_Cam_6047</c>; 388 calls in the shipped scripts. Reverse engineering: 0x6047: returns 0x007bb970(w, a, s, 0); ported in native_cam Verified for Atel#: handler: MsAtelCameraSpline_007bb970(worker, args, stack, side 0): flags, speed, t and the spline popped into MsCameraSetSpline(cam, side, spline, t, speed, flags) (Fahrenheit's name); 0 and 1 are the built-in splines at 0x01136b68 (used from 3 points on), else AtelGetRealVarAdrs (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6047)]
-    public static int Cam_6047(int a0, float a1, float a2, int a3) => throw Atel.Runtime.NotRunnable();
+    public static int FocusFollowSpline(int spline, float t, float speed, int flags) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6048: MsCameraGetID(cam) == cam clears g_BtlSplines[1]; the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6048</c>, <c>Native_Cam_6048</c>; 399 calls in the shipped scripts.</remarks>
+    /// <summary>Empties the eye's built-in path (the points <see cref="PathAddEye"/> appends).</summary>
+    /// <remarks>Native <c>0x6048</c>, <c>Native_Cam_6048</c>; 399 calls in the shipped scripts. Reverse engineering: 0x6048: MsCameraGetID(cam) == cam clears g_BtlSplines[1]; the handle; ported in native_cam Verified for Atel#: handler 0x007b9da0: when MsCameraGetID(cam) is the camera, g_BtlSplines[1]'s count is cleared; PathAddEye (0x6049, MsSplineRegist(cam, 1)) appends to that list.</remarks>
     [Atel.Native(0x6048)]
-    public static int Cam_6048() => throw Atel.Runtime.NotRunnable();
+    public static int PathClearEye() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6049: () -&gt; cam; 0x007baac0(cam, 1): appends the eye&apos;s yaw/pitch/distance and roll to path list 1 (0x01136b60, max 32), used by the path move 0x007ba020 (&gt;= 3 points)</summary>
     /// <remarks>Native <c>0x6049</c>, <c>Native_CamPathAddEye</c>; 3236 calls in the shipped scripts.</remarks>
     [Atel.Native(0x6049)]
     public static int PathAddEye() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x604a: as 0x6048 for g_BtlSplines[0]; ported in native_cam</summary>
-    /// <remarks>Native <c>0x604a</c>, <c>Native_Cam_604a</c>; 391 calls in the shipped scripts.</remarks>
+    /// <summary>Empties the focus point's built-in path (the points <see cref="PathAddFocus"/> appends).</summary>
+    /// <remarks>Native <c>0x604a</c>, <c>Native_Cam_604a</c>; 391 calls in the shipped scripts. Reverse engineering: 0x604a: as 0x6048 for g_BtlSplines[0]; ported in native_cam Verified for Atel#: handler 0x007b9eb0: as 0x6048 for g_BtlSplines[0], the list PathAddFocus (0x604b) appends to.</remarks>
     [Atel.Native(0x604a)]
-    public static int Cam_604a() => throw Atel.Runtime.NotRunnable();
+    public static int PathClearFocus() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x604b: () -&gt; cam; 0x007baac0(cam, 0): appends the focus point to path list 0</summary>
     /// <remarks>Native <c>0x604b</c>, <c>Native_CamPathAddFocus</c>; 3182 calls in the shipped scripts.</remarks>
@@ -4772,10 +4786,10 @@ public static partial class Cam
     [Atel.Native(0x604c)]
     public static int EyeSetBtlPc(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x604d: 0x007badb0(w, a, s, 1, 4); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x604d</c>, <c>Native_Cam_604d</c>; 68 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="EyeOrbit"/> kept in polar form (MsCameraSetBtl mode 4): the eye circles the two actors at a distance.</summary>
+    /// <remarks>Native <c>0x604d</c>, <c>Native_Cam_604d</c>; 68 calls in the shipped scripts. Reverse engineering: 0x604d: 0x007badb0(w, a, s, 1, 4); 0; ported in native_cam Verified for Atel#: handler 0x007b87b0: MsAtelCameraSetBtlPc_007badb0(worker, args, stack, side 1, mode 4); MsCameraSetBtl modes 3 and 4 are polar (channel byte 0), mode 4 takes the length as mode 2 (EyeOrbit, 0x6044) does: 10 times the distance plus the actors' width (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x604d)]
-    public static int Cam_604d(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
+    public static int EyeOrbitPolar(int actorA, int actorB, float height, float yawDeg, float pitchDeg, float distance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x604e: no args -&gt; six: 0x007bc930(f, 1), 0x007bc890(f, e, d, c, b, a, 0); 0; ported in native_chr (script round 12); name from Cam_SetScreenCameraOn(f, 1), Cam_SetScreenVector(f, e, d, c, b, a, 0)</summary>
     /// <remarks>Native <c>0x604e</c>, <c>Native_604e_CamSetScreenVector</c>; 14 calls in the shipped scripts.</remarks>
@@ -4832,65 +4846,65 @@ public static partial class Cam
     [Atel.Native(0x6058)]
     public static int ScreenMoveAccSide1(int a0, int a1, int a2, int a3) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6059: (path, a): focus along path (0/1 battle spline lists, else a variable): 0x007bfe70(cam, 0, path, 0.0, a); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6059</c>, <c>Native_Cam_6059</c>; 25 calls in the shipped scripts.</remarks>
+    /// <summary>Adds a path limit to the focus point: it keeps near spline <paramref name="path"/> (0 or 1 the built-in ones, else a variable).</summary>
+    /// <remarks>Native <c>0x6059</c>, <c>Native_Cam_6059</c>; 25 calls in the shipped scripts. Reverse engineering: 0x6059: (path, a): focus along path (0/1 battle spline lists, else a variable): 0x007bfe70(cam, 0, path, 0.0, a); 0; ported in native_cam Verified for Atel#: handler 0x007ba020: MsCameraSetSplineFilter(cam, 0, path, 0.0, kind) (Fahrenheit's name): a channel with fewer than five filters adds one, of kind 5 for kind 3 (a spline) else 4; MsCameraLimits keeps the position near the filters (ffx-rust camera.rs).</remarks>
     [Atel.Native(0x6059)]
-    public static int Cam_6059(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int RefAddPathArea(int path, int kind) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x605a: (path, t, a): as 0x6059 from t; ported in native_cam</summary>
-    /// <remarks>Native <c>0x605a</c>, <c>Native_Cam_605a</c>; 569 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="RefAddPathArea"/> with a scale.</summary>
+    /// <remarks>Native <c>0x605a</c>, <c>Native_Cam_605a</c>; 569 calls in the shipped scripts. Reverse engineering: 0x605a: (path, t, a): as 0x6059 from t; ported in native_cam Verified for Atel#: handler 0x007ba100: MsCameraSetSplineFilter(cam, 0, path, scale, kind); the scale goes to the filter's +0x20.</remarks>
     [Atel.Native(0x605a)]
-    public static int Cam_605a(int a0, float a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int RefAddPathAreaScaled(int path, float scale, int kind) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x605b: (path, a): eye along path: 0x007bfd90(cam, 1, path, a); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x605b</c>, <c>Native_Cam_605b</c>; 594 calls in the shipped scripts.</remarks>
+    /// <summary>Places the eye on spline <paramref name="path"/> (request kind 17).</summary>
+    /// <remarks>Native <c>0x605b</c>, <c>Native_Cam_605b</c>; 594 calls in the shipped scripts. Reverse engineering: 0x605b: (path, a): eye along path: 0x007bfd90(cam, 1, path, a); 0; ported in native_cam Verified for Atel#: handler 0x007ba210: MsCameraSetSpline2(cam, 1, path, flags) (Fahrenheit's name): with a spline, a request of kind 17 with the spline and flags; the running request takes its place on the spline (ffx-rust camera.rs ms_camera_spline_pos).</remarks>
     [Atel.Native(0x605b)]
-    public static int Cam_605b(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int EyeOnSpline(int path, int flags) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x605c: returns 0x007bb8c0(w, a, s, 0, 1); ported in native_cam</summary>
-    /// <remarks>Native <c>0x605c</c>, <c>Native_Cam_605c</c>; 171 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the camera's focus point, shake kind 1 (as <see cref="FocusShakeKind2"/>).</summary>
+    /// <remarks>Native <c>0x605c</c>, <c>Native_Cam_605c</c>; 171 calls in the shipped scripts. Reverse engineering: 0x605c: returns 0x007bb8c0(w, a, s, 0, 1); ported in native_cam Verified for Atel#: handler: MsAtelCameraShake(worker, args, stack, side 0, kind 1) (0x007bb8c0): three ints, a float and which popped into MsCameraShake(cam, side, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x605c)]
-    public static int Cam_605c(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int FocusShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x605d: returns 0x007bb8c0(w, a, s, 1, 1); ported in native_cam</summary>
-    /// <remarks>Native <c>0x605d</c>, <c>Native_Cam_605d</c>; 164 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the camera's eye, shake kind 1 (as <see cref="EyeShakeKind2"/>).</summary>
+    /// <remarks>Native <c>0x605d</c>, <c>Native_Cam_605d</c>; 164 calls in the shipped scripts. Reverse engineering: 0x605d: returns 0x007bb8c0(w, a, s, 1, 1); ported in native_cam Verified for Atel#: handler: MsAtelCameraShake(worker, args, stack, side 1, kind 1) (0x007bb8c0): three ints, a float and which popped into MsCameraShake(cam, side, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x605d)]
-    public static int Cam_605d(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int EyeShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x605e: no args -&gt; 0x007bb840(..., 1); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 1) -&gt; MsScreenShake kind 1</summary>
     /// <remarks>Native <c>0x605e</c>, <c>Native_605e_ScreenShakeKind1</c>; 2 calls in the shipped scripts.</remarks>
     [Atel.Native(0x605e)]
     public static int ScreenShakeKind1(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x605f: 0x007c4f50(cam, 0); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x605f</c>, <c>Native_Cam_605f</c>; 60 calls in the shipped scripts.</remarks>
+    /// <summary>Stops the shakes of the camera's focus point.</summary>
+    /// <remarks>Native <c>0x605f</c>, <c>Native_Cam_605f</c>; 60 calls in the shipped scripts. Reverse engineering: 0x605f: 0x007c4f50(cam, 0); 0; ported in native_cam Verified for Atel#: handler: MsCameraResetShake(cam, 0) (Fahrenheit's name, from the Switch build): the side's three shake records cleared.</remarks>
     [Atel.Native(0x605f)]
-    public static int Cam_605f() => throw Atel.Runtime.NotRunnable();
+    public static int FocusResetShake() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6060: 0x007c4f50(cam, 1); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6060</c>, <c>Native_Cam_6060</c>; 353 calls in the shipped scripts.</remarks>
+    /// <summary>Stops the shakes of the camera's eye.</summary>
+    /// <remarks>Native <c>0x6060</c>, <c>Native_Cam_6060</c>; 353 calls in the shipped scripts. Reverse engineering: 0x6060: 0x007c4f50(cam, 1); 0; ported in native_cam Verified for Atel#: handler: MsCameraResetShake(cam, 1) (Fahrenheit's name, from the Switch build): the side's three shake records cleared.</remarks>
     [Atel.Native(0x6060)]
-    public static int Cam_6060() => throw Atel.Runtime.NotRunnable();
+    public static int EyeResetShake() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6061: args (v) -&gt; MsScreenResetShake(v) (0x007c56c0); ported in native_chr (script round 12); name from MsScreenResetShake(v)</summary>
     /// <remarks>Native <c>0x6061</c>, <c>Native_6061_ScreenResetShake</c>; 17 calls in the shipped scripts.</remarks>
     [Atel.Native(0x6061)]
     public static int ScreenResetShake(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>5 once 0x007c4f10(cam, 0) is 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6062</c>, <c>Native_Cam_6062</c>; 49 calls in the shipped scripts.</remarks>
+    /// <summary>Waits until the shakes of the camera's focus point have ended.</summary>
+    /// <remarks>Native <c>0x6062</c>, <c>Native_Cam_6062</c>; 49 calls in the shipped scripts. Reverse engineering: 5 once 0x007c4f10(cam, 0) is 0; ported in native_cam Verified for Atel#: poll handler: done (5) once MsCameraCheckShake(cam, 0) is 0 (-1 while any of the side's shake records runs).</remarks>
     [Atel.Native(0x6062, Polls = true)]
-    public static int Cam_6062() => throw Atel.Runtime.NotRunnable();
+    public static int FocusShakeWait() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>5 once 0x007c4f10(cam, 1) is 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6063</c>, <c>Native_Cam_6063</c>; 55 calls in the shipped scripts.</remarks>
+    /// <summary>Waits until the shakes of the camera's eye have ended.</summary>
+    /// <remarks>Native <c>0x6063</c>, <c>Native_Cam_6063</c>; 55 calls in the shipped scripts. Reverse engineering: 5 once 0x007c4f10(cam, 1) is 0; ported in native_cam Verified for Atel#: poll handler: done (5) once MsCameraCheckShake(cam, 1) is 0 (-1 while any of the side's shake records runs).</remarks>
     [Atel.Native(0x6063, Polls = true)]
-    public static int Cam_6063() => throw Atel.Runtime.NotRunnable();
+    public static int EyeShakeWait() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>(id) into the args word; EAX is the id; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6064</c>, <c>Native_Cam_6064</c>; 83 calls in the shipped scripts.</remarks>
+    /// <summary>Waits until the shakes of screen <paramref name="screen"/> have ended.</summary>
+    /// <remarks>Native <c>0x6064</c>, <c>Native_Cam_6064</c>; 83 calls in the shipped scripts. Reverse engineering: (id) into the args word; EAX is the id; ported in native_cam Verified for Atel#: start 0x007b9aa0 keeps the screen in the args word; poll 0x007b9b20: done (5) once MsScreenCheckShake(screen) (0x007c5680) is 0.</remarks>
     [Atel.Native(0x6064, Polls = true)]
-    public static int Cam_6064(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ScreenShakeWait(int screen) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6065: (p): MsCameraPriority(cam, p) (0x007be0a0); the camera handle; ported in native_mods (script round 19); name ours; name from MsCameraPriority(cam, p)</summary>
     /// <remarks>Native <c>0x6065</c>, <c>Native_6065_CamSetPriority</c>; 6 calls in the shipped scripts.</remarks>
@@ -4922,10 +4936,10 @@ public static partial class Cam
     [Atel.Native(0x606a)]
     public static int EyeShakeKind3(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x606b: 0x007bb840(w, a, s, 3); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x606b</c>, <c>Native_Cam_606b</c>; 72 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the screen, shake kind 3 (as <see cref="ScreenShakeKind4"/>).</summary>
+    /// <remarks>Native <c>0x606b</c>, <c>Native_Cam_606b</c>; 72 calls in the shipped scripts. Reverse engineering: 0x606b: 0x007bb840(w, a, s, 3); 0; ported in native_cam Verified for Atel#: handler: MsAtelScreenShake(worker, args, stack, kind 3) (0x007bb840): three ints, a float, which and the screen popped into MsScreenShake(screen, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x606b)]
-    public static int Cam_606b(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int ScreenShakeKind3(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x606c: no args -&gt; the shake with (0, 4); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 4)</summary>
     /// <remarks>Native <c>0x606c</c>, <c>Native_606c_CamFocusShakeKind4</c>; 2 calls in the shipped scripts.</remarks>
@@ -4952,10 +4966,10 @@ public static partial class Cam
     [Atel.Native(0x6070)]
     public static int EyeShakeKind5(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6071: 0x007bb840(w, a, s, 5); 0; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6071</c>, <c>Native_Cam_6071</c>; 73 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the screen, shake kind 5 (as <see cref="ScreenShakeKind4"/>).</summary>
+    /// <remarks>Native <c>0x6071</c>, <c>Native_Cam_6071</c>; 73 calls in the shipped scripts. Reverse engineering: 0x6071: 0x007bb840(w, a, s, 5); 0; ported in native_cam Verified for Atel#: handler: MsAtelScreenShake(worker, args, stack, kind 5) (0x007bb840): three ints, a float, which and the screen popped into MsScreenShake(screen, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6071)]
-    public static int Cam_6071(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int ScreenShakeKind5(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6072: MsAtelCameraShake(.., 0, 6)&apos;s EAX; ported in native_mods (script round 19); name ours; name from MsAtelCameraShake(.., side 0, kind 6)</summary>
     /// <remarks>Native <c>0x6072</c>, <c>Native_6072_CamFocusShakeKind6</c>; 0 calls in the shipped scripts.</remarks>
@@ -4977,10 +4991,10 @@ public static partial class Cam
     [Atel.Native(0x6075)]
     public static int ScreenSetCamNo(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6076: 0x007ba950(); 0. Not a function start in the dump yet; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6076</c>, <c>Native_Cam_6076</c>; 25 calls in the shipped scripts.</remarks>
+    /// <summary>Frees the battle camera (<c>MsBattleCameraFree</c>).</summary>
+    /// <remarks>Native <c>0x6076</c>, <c>Native_Cam_6076</c>; 25 calls in the shipped scripts. Reverse engineering: 0x6076: 0x007ba950(); 0. Not a function start in the dump yet; ported in native_cam Verified for Atel#: handler 0x007b8fe0 calls MsBattleCameraFree (0x007ba950, Fahrenheit's name) and returns 0.</remarks>
     [Atel.Native(0x6076)]
-    public static int Cam_6076() => throw Atel.Runtime.NotRunnable();
+    public static int FreeBattleCamera() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>native 0x6077 float handler (g_NativeTables group 6 entry 0x77, ffx-script native_counts); 8 calls in the shipped scripts; calls MsNearRag; name by id; ported in native_chr (script round 13); name from dump: MsCameraGetRollNow (g_Camera +0xc90) -&gt; MsNearRag, radians to degrees</summary>
     /// <remarks>Native <c>0x6077</c>, <c>Native_6077_CamGetRoll_ResultF</c>; 13 calls in the shipped scripts.</remarks>
@@ -5012,10 +5026,10 @@ public static partial class Cam
     [Atel.Native(0x607c, Polls = true)]
     public static int ScreenMoveWaitSide1(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x607d: (v): 0x007bcdd0(cam, v); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x607d</c>, <c>Native_Cam_607d</c>; 125 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the screen blur to <paramref name="weight"/> while this camera is the one in use.</summary>
+    /// <remarks>Native <c>0x607d</c>, <c>Native_Cam_607d</c>; 125 calls in the shipped scripts. Reverse engineering: 0x607d: (v): 0x007bcdd0(cam, v); the handle; ported in native_cam Verified for Atel#: handler 0x007b8840: MsCameraBlurIfCurrent_007bcdd0(cam, weight): Sg_Blur(weight) when MsCameraGetID(cam) is the camera.</remarks>
     [Atel.Native(0x607d)]
-    public static int Cam_607d(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SetBlur(int weight) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>?0x607e: args (flags; &lt;0 keeps the old value | 2) -&gt; cam; camera +0xcac; Battle cam update passes it to 0x0082cb60 (full-screen Z mask enable)</summary>
     /// <remarks>Native <c>0x607e</c>, <c>Native_CamSetDepthMaskMode</c>; 608 calls in the shipped scripts.</remarks>
@@ -5042,15 +5056,15 @@ public static partial class Cam
     [Atel.Native(0x6082)]
     public static int EyeShakeKind7(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6083: returns 0x007bb8c0(w, a, s, 0, 8); ported in native_cam</summary>
-    /// <remarks>Native <c>0x6083</c>, <c>Native_Cam_6083</c>; 42 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the camera's focus point, shake kind 8 (as <see cref="FocusShakeKind2"/>).</summary>
+    /// <remarks>Native <c>0x6083</c>, <c>Native_Cam_6083</c>; 42 calls in the shipped scripts. Reverse engineering: 0x6083: returns 0x007bb8c0(w, a, s, 0, 8); ported in native_cam Verified for Atel#: handler: MsAtelCameraShake(worker, args, stack, side 0, kind 8) (0x007bb8c0): three ints, a float and which popped into MsCameraShake(cam, side, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6083)]
-    public static int Cam_6083(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int FocusShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6084: returns 0x007bb8c0(w, a, s, 1, 8); ported in native_cam</summary>
-    /// <remarks>Native <c>0x6084</c>, <c>Native_Cam_6084</c>; 42 calls in the shipped scripts.</remarks>
+    /// <summary>Shakes the camera's eye, shake kind 8 (as <see cref="EyeShakeKind2"/>).</summary>
+    /// <remarks>Native <c>0x6084</c>, <c>Native_Cam_6084</c>; 42 calls in the shipped scripts. Reverse engineering: 0x6084: returns 0x007bb8c0(w, a, s, 1, 8); ported in native_cam Verified for Atel#: handler: MsAtelCameraShake(worker, args, stack, side 1, kind 8) (0x007bb8c0): three ints, a float and which popped into MsCameraShake(cam, side, which, kind, f, c, b, a) (ffx-rust crates/ffx-battle/src/camera.rs and camera_native.rs (ported, checked against the game)).</remarks>
     [Atel.Native(0x6084)]
-    public static int Cam_6084(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int EyeShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6085: 0x007ba460(worker, args, stack, 1); 0; ported in native_mods (script round 19); name from 0x007ba460 = Atel_CamGetRefVars (worker, args, stack, 1): the eye half (1)</summary>
     /// <remarks>Native <c>0x6085</c>, <c>Native_6085_CamGetEyeVars</c>; 3 calls in the shipped scripts.</remarks>
@@ -5062,15 +5076,15 @@ public static partial class Cam
     [Atel.Native(0x6086)]
     public static int GetRefVars(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6087: 0x007beae0(cam, 0); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6087</c>, <c>Native_Cam_6087</c>; 132 calls in the shipped scripts.</remarks>
+    /// <summary>Puts the camera's focus point back at its channel's start position.</summary>
+    /// <remarks>Native <c>0x6087</c>, <c>Native_Cam_6087</c>; 132 calls in the shipped scripts. Reverse engineering: 0x6087: 0x007beae0(cam, 0); the handle; ported in native_cam Verified for Atel#: handler: MsCameraReset(cam, 0) (Fahrenheit's name, from the Switch build): the current request's side takes its channel's start as its position and target (ffx-rust camera.rs).</remarks>
     [Atel.Native(0x6087)]
-    public static int Cam_6087() => throw Atel.Runtime.NotRunnable();
+    public static int FocusReset() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x6088: 0x007beae0(cam, 1); the handle; ported in native_cam</summary>
-    /// <remarks>Native <c>0x6088</c>, <c>Native_Cam_6088</c>; 132 calls in the shipped scripts.</remarks>
+    /// <summary>Puts the camera's eye back at its channel's start position.</summary>
+    /// <remarks>Native <c>0x6088</c>, <c>Native_Cam_6088</c>; 132 calls in the shipped scripts. Reverse engineering: 0x6088: 0x007beae0(cam, 1); the handle; ported in native_cam Verified for Atel#: handler: MsCameraReset(cam, 1) (Fahrenheit's name, from the Switch build): the current request's side takes its channel's start as its position and target (ffx-rust camera.rs).</remarks>
     [Atel.Native(0x6088)]
-    public static int Cam_6088() => throw Atel.Runtime.NotRunnable();
+    public static int EyeReset() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x6089: (p8, p7, p6, p5, p4 f, p3, p2 f, p1): MsScreenShake2(p8, p7, 9, p6, p5, p4, p3, p2, p1) (0x007c57b0); 0; ported in native_mods (script round 19); name ours; name from MsScreenShake2(p8, p7, 9, ...): screen shake, &quot;kind-9 springs&quot;</summary>
     /// <remarks>Native <c>0x6089</c>, <c>Native_6089_ScreenShakeKind9</c>; 0 calls in the shipped scripts.</remarks>

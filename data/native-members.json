@@ -50,6 +50,8 @@
     "0x0091": { "member": "Yaw", "as": "get" },
     "0x0093": { "member": "Yaw", "as": "get", "worker": true },
     "0x0096": { "member": "Pitch", "as": "set" },
+    "0x0174": { "member": "Pitch", "as": "get" },
+    "0x0181": { "member": "Roll", "as": "get" },
     "0x0001": { "member": "Model", "as": "set" },
     "0x0042": { "member": "PartyIndex", "as": "set" },
     "0x006c": { "member": "MoveSpeed", "as": "set" },
@@ -69,6 +71,7 @@
 
     "0x0028": { "member": "Turn.Yaw", "as": "set" },
     "0x0029": { "member": "Turn.Pitch", "as": "set" },
+    "0x002a": { "member": "Turn.Roll", "as": "set" },
     "0x002e": { "member": "Turn.Speed", "as": "set" },
     "0x002f": { "member": "Turn.Speed2", "as": "set" },
     "0x001d": { "member": "Turn.SetFrames" },

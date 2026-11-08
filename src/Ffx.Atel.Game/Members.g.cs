@@ -41,9 +41,13 @@ namespace Ffx.Atel
         /// <remarks>Setting it calls native <c>0x0095</c>, <c>Common.SetYaw</c> (14294 calls in the shipped scripts). Reading it calls native <c>0x0091</c>, <c>Common.GetYaw</c> (534 calls in the shipped scripts). Reading it calls native <c>0x0093</c>, <c>Common.GetWorkerYaw</c> (166 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         protected static float Yaw { [NativeMember(0x0091)] [NativeMember(0x0093, Worker = true)] get => throw Runtime.NotRunnable(); [NativeMember(0x0095)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>0x0096: args (float a) -&gt; a; Script_StopTurn(self), Angle_Wrap(a) into transform +0x24 (second heading angle in 0x008629c0) and +0x30 (model rot X); ? pitch; ported in native_move (script round 11)</summary>
-        /// <remarks>Setting it calls native <c>0x0096</c>, <c>Common.SetPitch</c> (1072 calls in the shipped scripts).</remarks>
-        protected static float Pitch { [NativeMember(0x0096)] set => throw Runtime.NotRunnable(); }
+        /// <summary>Turns the worker to pitch <c>pitch</c> at once (its model's rotation about x); returns it wrapped.</summary>
+        /// <remarks>Setting it calls native <c>0x0096</c>, <c>Common.SetPitch</c> (1072 calls in the shipped scripts). Reading it calls native <c>0x0174</c>, <c>Common.GetPitch</c> (44 calls in the shipped scripts).</remarks>
+        protected static float Pitch { [NativeMember(0x0174)] get => throw Runtime.NotRunnable(); [NativeMember(0x0096)] set => throw Runtime.NotRunnable(); }
+
+        /// <summary>The worker's roll (its rotation +0x38), in radians.</summary>
+        /// <remarks>Reading it calls native <c>0x0181</c>, <c>Common.GetRoll</c> (174 calls in the shipped scripts).</remarks>
+        protected static float Roll { [NativeMember(0x0181)] get => throw Runtime.NotRunnable(); }
 
         /// <summary>Loads model <c>model</c> for the worker, in place of the one it had.</summary>
         /// <remarks>Setting it calls native <c>0x0001</c>, <c>Common.SetModel</c> (5690 calls in the shipped scripts).</remarks>
@@ -127,9 +131,13 @@ namespace Ffx
         /// <remarks>Setting it calls native <c>0x0028</c>, <c>Common.TurnSetYaw</c> (20727 calls in the shipped scripts).</remarks>
         public float Yaw { [Atel.NativeMember(0x0028)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x0029: args (angle) -&gt; wrapped angle; turn struct +0x24 = wrap(angle), +0x30 = wrap(pos+0x30 - angle); ?pitch, paired with 0x0020</summary>
+        /// <summary>Sets the pitch the worker turns to (see <see cref="Common.TurnStart"/>), in radians; returns it wrapped into one turn.</summary>
         /// <remarks>Setting it calls native <c>0x0029</c>, <c>Common.TurnSetPitch</c> (2946 calls in the shipped scripts).</remarks>
         public float Pitch { [Atel.NativeMember(0x0029)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary>Sets the roll the worker turns to (see <see cref="Common.TurnStart"/>), in radians; returns it wrapped into one turn.</summary>
+        /// <remarks>Setting it calls native <c>0x002a</c>, <c>Common.TurnSetRoll</c> (477 calls in the shipped scripts).</remarks>
+        public float Roll { [Atel.NativeMember(0x002a)] set => throw Atel.Runtime.NotRunnable(); }
 
         /// <summary>0x002e: args (rad/frame); turn struct +0x10 (FUN_00871580), the turn step (0x00869xxx; +0x14 when flag 0x200); default pi/64; scripts 0.1047</summary>
         /// <remarks>Setting it calls native <c>0x002e</c>, <c>Common.TurnSetSpeed</c> (8627 calls in the shipped scripts).</remarks>
