@@ -222,10 +222,6 @@ internal static class ExportCommand {
 
         ## Start here
 
-        New to C# beyond Unity? Read ffx-atel-sharp's `docs/unity.md` ("Atel for
-        Unity people") first: it maps `Start()`, `Update()` and coroutines onto
-        the scripts here.
-
         1. Install the .NET 10 SDK and VS Code with C# Dev Kit (VS Code offers
            it: `.vscode/extensions.json`), or Rider, or Visual Studio.
         2. Open the folder. VS Code opens `Start.slnx`: the Thunder Plains
