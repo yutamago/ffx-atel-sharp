@@ -29,7 +29,7 @@ internal sealed partial class StatementReader {
     /// <summary>Whether a simple name is a local, register or variable (which the member does not hide).</summary>
     private bool IsDataName(string name) => Local(name) is not null || registers.ContainsKey(name) || variables.ContainsKey(name);
 
-    /// <summary>The member an expression names, if it is one: <c>Pos</c>, <c>Turn.Yaw</c>, <c>Tidus.Pos.X</c>, <c>Workers[n].Turn</c>, <c>Sprites[3].Show</c>.</summary>
+    /// <summary>The member an expression names, if it is one: <c>Pos</c>, <c>Turn.Yaw</c>, <c>Tidus.Pos.X</c>, <c>Workers[n].Turn</c>, <c>Sprites[3].Show</c>, <c>Camera.Eye.AimAt</c>.</summary>
     private MemberSyntax? MemberOf(ExpressionSyntax e) {
         switch (e) {
             case IdentifierNameSyntax id: {
@@ -59,6 +59,9 @@ internal sealed partial class StatementReader {
                     // Tidus.Turn.Stop, Workers[n].Pos.X.
                     case MemberAccessExpressionSyntax inner when MemberOf(inner) is { Path: string root } r && !root.Contains('.') && (r.Worker is not null || r.Receiver is not null):
                         return r with { Path = $"{root}.{member}", Node = e };
+                    // Camera.Eye.AimAt: a member of a nested static group.
+                    case MemberAccessExpressionSyntax inner when MemberOf(inner) is { Path: string group, Worker: null, Receiver: null } r && Members.NestedGroups.Contains(group):
+                        return r with { Path = $"{group}.{member}", Node = e };
                     default:
                         return null;
                 }
