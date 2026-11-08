@@ -104,4 +104,62 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         Assert.Equal(paths.Count, linked + skipped);
     }
 
+    /// <summary>
+    ///     Data edits on every shipped script: a byte of the shared data, of the "other" area and of the event data, and on a
+    ///     monster its HP (in sections 2 and 6) and gil. The linked file is the vanilla file with exactly those bytes changed.
+    /// </summary>
+    [Fact]
+    public void EveryScriptTakesDataEdits() {
+        string? dir = GameData.GameDir();
+        if (dir is null) Assert.Skip($"{GameData.GameDirVariable} is not set");
+        using VbfArchive archive = GameData.OpenArchiveExclusive(dir!);
+        List<string> paths = GameData.AllScriptPaths(archive);
+        ConcurrentBag<string> failures = [];
+        int linked = 0, edits = 0, monsters = 0;
+        foreach (string path in paths) {
+            byte[] bytes = archive.Read(path);
+            try {
+                ScriptFile file = ScriptFile.Parse(bytes);
+                ScriptImage image = ScriptImage.FromBlock(file.Script);
+                ScriptPackage p = new() { File = path, Script = path, Data = [] };
+                HashSet<int> expected = [];
+                void Edit(DataEditArea area, int offset, byte[] value) {
+                    if (DataAreas.Find(file, image, path, area, null) is not DataAreas.Area a) return;
+                    // A value that differs from the vanilla byte, so the change shows.
+                    byte[] v = [.. value.Select((b, i) => (byte)(bytes[a.At + offset + i] == b ? b ^ 0x5a : b))];
+                    p.Data.Add(new DataEdit { Area = area, Offset = offset, Bytes = v, Field = area.ToString() });
+                    for (int i = 0; i < v.Length; i++) expected.Add(a.At + offset + i);
+                    if (area == DataEditArea.MonsterStats) {
+                        int copy = file.Section(DataAreas.StatsCopySection)!.Value.Start;
+                        for (int i = 0; i < v.Length; i++) expected.Add(copy + offset + i);
+                    }
+                }
+                Edit(DataEditArea.Shared, 0, [0x11]);
+                Edit(DataEditArea.Other, 0x3f, [0x22]);
+                Edit(DataEditArea.Event, 0, [0x33]);
+                Edit(DataEditArea.MonsterStats, 0x14, [0x39, 0x30, 0, 0]);
+                Edit(DataEditArea.MonsterRewards, 0, [0xe7, 0x03]);
+                if (p.Data.Count == 0) continue;
+                if (p.Data.Any(e => e.Area == DataEditArea.MonsterStats)) monsters++;
+                DataAreas.Attach(p, bytes);
+                LinkResult r = ScriptLinker.Link(bytes, [new ModScript("test", ScriptPackage.FromJson(p.ToJson()))]);
+                if (!r.Changed) {
+                    failures.Add($"{path}: {string.Join("; ", r.Messages.Where(m => m.Severity == LinkSeverity.Error))}");
+                    continue;
+                }
+                if (r.File.Length != bytes.Length) failures.Add($"{path}: the file changed its size");
+                List<int> changed = [.. Enumerable.Range(0, Math.Min(bytes.Length, r.File.Length)).Where(i => bytes[i] != r.File[i])];
+                if (!changed.SequenceEqual(expected.Order())) failures.Add($"{path}: {changed.Count} bytes changed, {expected.Count} expected");
+                linked++;
+                edits += p.Data.Count;
+            }
+            catch (Exception ex) when (ex is ScriptFormatException or ArgumentException) {
+                failures.Add($"{path}: {ex.Message}");
+            }
+        }
+        output.WriteLine($"{linked} scripts took {edits} data edits ({monsters} monsters their stats); only those bytes changed");
+        foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
+        Assert.Empty(failures);
+        Assert.True(monsters >= 361, $"only {monsters} monsters");
+    }
 }

@@ -7,7 +7,7 @@ namespace Ffx.Atel.Analyzers;
 /// <summary>
 ///     Every ATL diagnostic, documented in <c>docs/analyzers.md</c>. Numbering: ATL0xxx the plan's own
 ///     warnings (registers), ATL1xxx C# that ATEL cannot run (the subset), ATL2xxx requests between
-///     workers, ATL3xxx <c>call</c> (functions and helpers).
+///     workers, ATL3xxx <c>call</c> (functions and helpers), ATL4xxx what a mod writes on top of vanilla.
 /// </summary>
 public static class Rules {
     private const string Docs = "https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#";
@@ -16,6 +16,7 @@ public static class Rules {
     public const string RequestCategory = "Atel.Requests";
     public const string CallCategory = "Atel.Calls";
     public const string RegisterCategory = "Atel.Registers";
+    public const string ModCategory = "Atel.Mods";
 
     private static DiagnosticDescriptor Rule(string id, string title, string message, string category, DiagnosticSeverity severity, string description, params string[] tags) =>
         new(id, title, message, category, severity, isEnabledByDefault: true, description, Docs + id.ToLowerInvariant(), tags);
@@ -182,4 +183,12 @@ public static class Rules {
         "Wait.Seconds({0}) is {1} frames; the shortest wait is one frame, 1/30 s, the longest 2147483647 frames",
         CallCategory, DiagnosticSeverity.Error,
         "Wait.Seconds(s) compiles to Wait.Frames(n), n = s × 30 rounded to the nearest frame. Scripts run once a frame (30 a second), so a wait lasts at least one frame; a value that rounds to 0 frames, a negative one, or one beyond int's range is an error.");
+
+    // ----- ATL4xxx: mods ----------------------------------------------------------------------
+
+    public static readonly DiagnosticDescriptor InitialValue = Rule(
+        "ATL4001", "Static constructor that is not initial values",
+        "{0}",
+        ModCategory, DiagnosticSeverity.Error,
+        "A mod's static constructor sets initial values, compiled into data edits the linker writes in place: each statement assigns a constant to a variable of the script (shared or event data in the script class's, private data in a worker's, events only), an element of one, a field of MonsterStats or MonsterRewards (monster scripts), or Data.At<T>(area, offset).");
 }

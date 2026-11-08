@@ -20,6 +20,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | ATL1xxx | C# that ATEL cannot run: the subset |
 | ATL2xxx | requests between workers |
 | ATL3xxx | `call`: functions, helpers and inline methods |
+| ATL4xxx | what a mod writes on top of vanilla |
 
 | Id | Severity | Rule | Fix |
 |---|---|---|---|
@@ -49,6 +50,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3004](#atl3004) | error | argument of an inline method with an effect | a variable first |
 | [ATL3005](#atl3005) | error | argument of a `[Constant]` parameter (`Wait.Seconds`) is not a constant | a literal or a `const` |
 | [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
+| [ATL4001](#atl4001) | error | a static constructor that is not initial values | |
 
 "Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
 do not list it.
@@ -374,4 +376,29 @@ frames (below 1/60 s), a negative one, or one past 2,147,483,647 frames is an er
 ```csharp
 Wait.Seconds(1f / 30);                                 // fine: Wait.Frames(1)
 Wait.Seconds(0.01f);                                   // ATL3006: 0.3 frames
+```
+
+### ATL4001
+
+A mod's static constructor sets initial values ([language.md](language.md#initial-values-and-data-edits)):
+each statement assigns a constant to a field of the script's data, which the linker writes into the
+player's file in place. Reported:
+
+- a statement that is not `target = constant;` (a call, `+=`, a loop);
+- a value that is not a constant (`Hp = Turns;`);
+- an element by an index that is not a constant;
+- a target that is no field of the script's data: the mod's own variable (give it an initializer), a save
+  or common variable (storage 0, 1), something else;
+- a target in the wrong static constructor: private data (storage 3) is set in the worker's, the shared
+  and event data and `MonsterStats`/`MonsterRewards` in the script class's;
+- private data of a monster's or battle's worker (the game clears it at set-up), `MonsterStats` or
+  `MonsterRewards` outside a monster script.
+
+```csharp
+static M209()
+{
+    MonsterStats.Hp = 4321;     // fine
+    Hp = Turns;                 // ATL4001: an initial value is a constant
+    Mine = 1;                   // ATL4001: private data, set it in the worker's static constructor
+}
 ```

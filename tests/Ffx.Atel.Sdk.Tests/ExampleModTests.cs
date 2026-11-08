@@ -10,8 +10,8 @@ namespace Ffx.Atel.Sdk.Tests;
 
 /// <summary>
 ///     The SDK as a modder uses it (docs/sdk.md): packed to a local feed, the vanilla source of m209
-///     decompiled by the packed atel, the example mod (examples/LarvaHp) built with <c>dotnet build</c>,
-///     and its package compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
+///     decompiled by the packed atel, the example mods (examples/LarvaHp, examples/ToughLarva) built with
+///     <c>dotnet build</c>, and their packages compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
 /// </summary>
 public sealed class ExampleModTests {
     private const string GameDirVariable = "FFX_GAME_DIR";
@@ -55,32 +55,35 @@ public sealed class ExampleModTests {
             }
             Run(vanilla, env, ["build", Path.Combine(vanilla, "Atel.slnx"), .. BuildFlags]);
 
-            // The example mod, copied out of the repo with the examples' (empty) build files.
-            string mod = Path.Combine(root, "mod", "LarvaHp");
-            Directory.CreateDirectory(mod);
+            // The SDK's version, as a modder pins it (docs/sdk.md); the examples' (empty) build files.
+            Directory.CreateDirectory(Path.Combine(root, "mod"));
             foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples"))) File.Copy(f, Path.Combine(root, "mod", Path.GetFileName(f)));
-            foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", "LarvaHp"))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));
-            // The SDK's version, as a modder pins it (docs/sdk.md).
             File.WriteAllText(Path.Combine(root, "mod", "global.json"), $$"""
                 { "msbuild-sdks": { "Ffx.Atel.Sdk": "{{version}}" } }
                 """);
-            Run(mod, env, ["build", mod, $"-p:AtelVanillaSource={vanilla}", .. BuildFlags]);
+            // Each example mod, copied out of the repo, built, and compared with atel compile-mod's package.
+            foreach ((string example, string id, string shows) in new[] { ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\"") }) {
+                string mod = Path.Combine(root, "mod", example);
+                Directory.CreateDirectory(mod);
+                foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", example))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));
+                Run(mod, env, ["build", mod, $"-p:AtelVanillaSource={vanilla}", .. BuildFlags]);
 
-            string built = Path.Combine(mod, "bin", "Debug", "net10.0", "mods", "yuta.larvahp");
-            string expected = Path.Combine(root, "expected");
-            Run(root, env, [atel, "compile-mod", mod, "--vanilla", vanilla, "-o", expected]);
+                string built = Path.Combine(mod, "bin", "Debug", "net10.0", "mods", id);
+                string expected = Path.Combine(root, "expected", example);
+                Run(root, env, [atel, "compile-mod", mod, "--vanilla", vanilla, "-o", expected]);
 
-            string package = Path.Combine("atel", "ffx_ps2", "ffx", "master", "jppc", "battle", "mon", "_m209", "m209.bin.json");
-            Assert.Equal(Files(expected), Files(built).Where(f => !f.EndsWith(".manifest.json", StringComparison.Ordinal)));
-            Assert.Contains(package, Files(built));
-            foreach (string f in Files(expected)) Assert.Equal(File.ReadAllBytes(Path.Combine(expected, f)), File.ReadAllBytes(Path.Combine(built, f)));
-            Assert.Contains("\"postfix\"", File.ReadAllText(Path.Combine(built, package)), StringComparison.Ordinal);
+                string package = Path.Combine("atel", "ffx_ps2", "ffx", "master", "jppc", "battle", "mon", "_m209", "m209.bin.json");
+                Assert.Equal(Files(expected), Files(built).Where(f => !f.EndsWith(".manifest.json", StringComparison.Ordinal)));
+                Assert.Contains(package, Files(built));
+                foreach (string f in Files(expected)) Assert.Equal(File.ReadAllBytes(Path.Combine(expected, f)), File.ReadAllBytes(Path.Combine(built, f)));
+                Assert.Contains(shows, File.ReadAllText(Path.Combine(built, package)), StringComparison.Ordinal);
 
-            // A file-only Fahrenheit mod that depends on the loader; no DLL (it would hold vanilla code).
-            using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(built, "yuta.larvahp.manifest.json")));
-            Assert.Equal("yuta.larvahp", manifest.RootElement.GetProperty("Id").GetString());
-            Assert.Equal(["yuta.atel"], manifest.RootElement.GetProperty("Dependencies").EnumerateArray().Select(e => e.GetString()));
-            Assert.Empty(Directory.GetFiles(Path.Combine(mod, "bin"), "*.dll", SearchOption.AllDirectories));
+                // A file-only Fahrenheit mod that depends on the loader; no DLL (it would hold vanilla code).
+                using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(built, $"{id}.manifest.json")));
+                Assert.Equal(id, manifest.RootElement.GetProperty("Id").GetString());
+                Assert.Equal(["yuta.atel"], manifest.RootElement.GetProperty("Dependencies").EnumerateArray().Select(e => e.GetString()));
+                Assert.Empty(Directory.GetFiles(Path.Combine(mod, "bin"), "*.dll", SearchOption.AllDirectories));
+            }
         }
         finally {
             Directory.Delete(root, recursive: true);

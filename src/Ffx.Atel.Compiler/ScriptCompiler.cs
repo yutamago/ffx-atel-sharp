@@ -152,6 +152,10 @@ public static partial class ScriptCompiler {
             }
         }
 
+        if (mainParts.SelectMany(p => p.Members).OfType<ConstructorDeclarationSyntax>().FirstOrDefault() is ConstructorDeclarationSyntax ctor) {
+            throw CompileException.At(ctor.Identifier.GetLocation(), "a static constructor sets a mod's initial values (atel compile-mod); a script's are its data areas ([SharedData(…)])");
+        }
+
         // Variables: [Var] fields of the script class, in declaration order.
         Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
@@ -294,8 +298,9 @@ public static partial class ScriptCompiler {
         // An array's length is its size: `byte[] V3 = new byte[4];`; a 2-D array's second dimension
         // is the row length: `byte[,] V3 = new byte[2, 8];`.
         VariableDeclaratorSyntax declarator = field.Declaration.Variables[0];
+        InitializerExpressionSyntax? list = allocated ? ArrayInitializer(declarator.Initializer?.Value) : null;
         if (rank > 0) {
-            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: var sizes }] } && sizes.Count == rank) {
+            if (declarator.Initializer?.Value is ArrayCreationExpressionSyntax { Type.RankSpecifiers: [{ Sizes: var sizes }] } && sizes.Count == rank && !sizes.Any(z => z is OmittedArraySizeExpressionSyntax)) {
                 int first = I32(Eval(sizes[0]), sizes[0]);
                 if (rank == 1) length = first;
                 else {
@@ -304,12 +309,26 @@ public static partial class ScriptCompiler {
                     if (rowLength <= 0) throw CompileException.At(sizes[1], "a 2-D array has rows of at least 1");
                 }
             }
+            else if (list is not null) {
+                // A mod's new variable with its initial values: its size is theirs (`int[] Table = { 1, 2, 3 };`).
+                length = list.Expressions.Count;
+                if (rank == 2) {
+                    rowLength = list.Expressions.FirstOrDefault() is InitializerExpressionSyntax row ? row.Expressions.Count : 0;
+                    if (rowLength <= 0 || list.Expressions.Any(r => r is not InitializerExpressionSyntax x || x.Expressions.Count != rowLength)) {
+                        throw CompileException.At(list, "a 2-D array's initializer has rows of one length: { { 1, 2 }, { 3, 4 } }");
+                    }
+                    length *= rowLength;
+                }
+                if (length == 0) throw CompileException.At(list, "an array variable has at least one element");
+            }
             else if (rank == 2 || !(a is not null && Named(a).Any(n => n.Key == "Length"))) {
                 throw CompileException.At(declarator, rank == 2 ? "a 2-D array variable needs its size: = new T[rows, cols]" : "an array variable needs its size: = new T[n]");
             }
         }
-        else if (declarator.Initializer is not null) {
-            throw CompileException.At(declarator.Initializer, "initial values are not read yet (they are in the data areas)");
+        else if (declarator.Initializer is not null && !(allocated && a is null)) {
+            throw CompileException.At(declarator.Initializer, allocated
+                ? "a variable at a fixed place ([Var]) has no initial value here: its value is the save's or the game's"
+                : "initial values are in the data areas ([SharedData(…)]); a mod sets one in a static constructor");
         }
         else if (length != 1) {
             throw CompileException.At(field, "a variable that is not an array has length 1");

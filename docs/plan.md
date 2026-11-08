@@ -1321,8 +1321,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
   (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place; per-field data edits and `[Inject]`;
-  private data for new workers.
+  out unchanged workers in place; `[Inject]`; private data for new
+  workers. (Per-field data edits: done 2026-11-08, below.)
 - **Hidden locals in private data** (2026-11-02). Hidden locals used to be
   4-byte variables of the shared data (storage 4). FFX.exe
   ([formats/script-block.md](formats/script-block.md#private-data-at-run-time)):
@@ -1403,6 +1403,21 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   left out; two mods enabling the same name is fine. Corpus: the three names'
   31 blocks (`znkd1300` 29, `system_01` 2) are at the offsets the decompiler
   names, and only their opcode bytes change. Not run in game yet.
+
+- **Per-field data edits** (2026-11-08; [language.md](language.md#initial-values-and-data-edits),
+  [formats/mod-package.md](formats/mod-package.md#data-edits)). A mod sets single values in a C#
+  static constructor: `static M209() { MonsterStats.Hp = 4321; V7 = 2; Table[3] = 7; }`, private data
+  in a worker's (`static Boy() { Steps = 12; }`, events only: in battle the game clears it at set-up),
+  bytes no variable covers with `Data.At<T>(DataArea.Other, 0x20) = 7`; a new variable takes its
+  initializer (`public static int Turns = 5;`). `MonsterStats` and `MonsterRewards` (reference
+  assembly) are the monster file's stat record (section 2, and its copy in section 6) and rewards
+  (section 4), which the battle reads rather than the kernel's (ffx-decomp, `docs/formats/monster.md`).
+  Each assignment is an edit in the package's `data` (format 3) with a hash of its area's vanilla bytes;
+  the linker writes the bytes in place before any layout, so nothing moves. Two mods setting the same
+  bytes are a conflict (the later wins), different fields combine. ATL4001 marks a static constructor
+  that does anything else. Corpus: 1,614 scripts take edits of their shared, other and event data (all
+  361 monsters also of HP and gil), and exactly those bytes change. Example: `examples/ToughLarva`.
+  Not checked in game yet.
 
 ### Phase 10: debug text and runtime packages
 
@@ -1533,7 +1548,7 @@ count, names placed.
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
    packages, the linker, `atel compile-mod`, `atel link` and the loader's
    link step are done and checked in game, `Text.New` too; per-field data
-   edits and `[Inject]` are open.
+   edits are done (2026-11-08, not yet checked in game); `[Inject]` is open.
 10. **Debug text and runtime packages.** The `Debug.*` natives in a free
     group (in the loader), the injection package. Done 2026-11-02, see
     "Phase 10: debug text and runtime packages".

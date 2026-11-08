@@ -12,10 +12,16 @@ namespace Ffx.Atel.Linker;
 /// <summary>What one mod does to one script: <c>atel/&lt;archive path&gt;.json</c> in the mod's folder.</summary>
 public sealed class ScriptPackage {
     /// <summary>The newest format this linker reads; it refuses a newer one.</summary>
-    public const int CurrentFormat = 2;
+    public const int CurrentFormat = 3;
 
     /// <summary>The format of a package with <see cref="Cuts"/>: a linker that does not know them must refuse it, not drop them.</summary>
     public const int CutsFormat = 2;
+
+    /// <summary>
+    ///     The format of a package with <see cref="Data"/>, an <see cref="PatchKind.Inject"/> patch or a new variable's
+    ///     <see cref="NewVariable.Initial"/> value: an older linker would drop them.
+    /// </summary>
+    public const int DataFormat = 3;
 
     /// <summary>The format of a package without what later formats added.</summary>
     public const int BaseFormat = 1;
@@ -64,7 +70,18 @@ public sealed class ScriptPackage {
     /// </summary>
     public List<CutSwitch>? Cuts { get; set; }
 
-    // Later: Data (per-field edits of data areas and tables).
+    /// <summary>
+    ///     Per-field edits of the script's data (initial values in its data areas) and of the monster's data in its file
+    ///     (stats, rewards), from the mod's static constructors; the linker writes them in place. Null when there are
+    ///     none; a package with them has format <see cref="DataFormat"/>.
+    /// </summary>
+    public List<DataEdit>? Data { get; set; }
+
+    /// <summary>The format this package needs: the lowest that holds everything in it.</summary>
+    public int NeededFormat() =>
+        Data is { Count: > 0 } || Patches.Any(p => p.Kind == PatchKind.Inject) || Variables.Any(v => v.Initial is not null) ? DataFormat
+        : Cuts is { Count: > 0 } ? CutsFormat
+        : BaseFormat;
 
     public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web) {
         WriteIndented = true,
@@ -84,6 +101,46 @@ public sealed class VanillaRefs {
     public List<WorkerRef> Workers { get; set; } = [];
     public List<EntryRef> Entries { get; set; } = [];
     public List<VariableRef> Variables { get; set; } = [];
+
+    /// <summary>The data areas the package's <see cref="ScriptPackage.Data"/> edits, each with a hash of its vanilla bytes; null when there are none.</summary>
+    public List<DataRef>? Data { get; set; }
+}
+
+/// <summary>A data area of the script (<see cref="Worker"/> for a worker's private data) and the hash of its vanilla bytes (<see cref="VanillaHash.Data"/>).</summary>
+public sealed record DataRef(DataEditArea Area, int? Worker, string Hash);
+
+/// <summary>Where a <see cref="DataEdit"/> writes (docs/formats/mod-package.md, "Data edits").</summary>
+public enum DataEditArea {
+    /// <summary>The shared data (storage 4); offsets from its start, as a shared variable's.</summary>
+    Shared,
+    /// <summary>The "other" area (block <c>+0x2c</c>).</summary>
+    Other,
+    /// <summary>The event data (storage 6).</summary>
+    Event,
+    /// <summary>The area data (block <c>+0x28</c>).</summary>
+    Area,
+    /// <summary>A worker's private data block (storage 3, header <c>+0x2c</c>); the edit names the worker.</summary>
+    Private,
+    /// <summary>A monster file's stat record: section 2, and its copy in section 6, which get the same bytes.</summary>
+    MonsterStats,
+    /// <summary>A monster file's rewards (section 4).</summary>
+    MonsterRewards,
+}
+
+/// <summary>
+///     Bytes a mod writes at <see cref="Offset"/> of a data area, in place: a variable's initial value, an element of
+///     a table, a monster's stat. <see cref="Field"/> names it for the report (<c>V7</c>, <c>Table[3]</c>,
+///     <c>MonsterStats.Hp</c>).
+/// </summary>
+public sealed class DataEdit {
+    public DataEditArea Area { get; set; }
+
+    /// <summary>The vanilla worker whose private data it is (<see cref="DataEditArea.Private"/>); else null.</summary>
+    public int? Worker { get; set; }
+
+    public int Offset { get; set; }
+    public byte[] Bytes { get; set; } = [];
+    public string Field { get; set; } = "";
 }
 
 /// <summary>
@@ -129,6 +186,12 @@ public sealed class NewVariable {
     /// <summary>Declared as an array (location bit 24).</summary>
     public bool Array { get; set; }
 
+    /// <summary>
+    ///     The initial value (the field's initializer), little-endian, at most <c>Length × ElementSize</c> bytes; the rest
+    ///     are zeros. Null for zeros. Only for a variable the linker allocates in the shared or event data.
+    /// </summary>
+    public byte[]? Initial { get; set; }
+
     /// <summary>Bytes per element.</summary>
     [JsonIgnore]
     public int ElementSize => Type switch { 0 or 1 => 1, 2 or 3 => 2, _ => 4 };
@@ -164,7 +227,26 @@ public enum PatchKind {
     Prefix,
     /// <summary>Runs after the target, wherever it ends the entry (<c>[Postfix]</c>).</summary>
     Postfix,
+    /// <summary>Runs at a point inside the target (<c>[Inject]</c>, <see cref="EntryPatch.At"/>); it runs off its end into what follows.</summary>
+    Inject,
 }
+
+/// <summary>Before or after the anchor statement of an <see cref="InjectPoint"/>.</summary>
+public enum InjectPosition {
+    Before,
+    After,
+}
+
+/// <summary>
+///     Where an <c>[Inject]</c> patch runs: before or after the statement whose code is <see cref="Start"/> to
+///     <see cref="End"/> of the target method (offsets from the method's start, inside the code its hash covers).
+///     <see cref="Anchor"/> says which statement in words, for the report (<c>before the 2nd call to Btl.UseCommand</c>).
+/// </summary>
+/// <remarks>
+///     Jumps from inside the statement to its start or end stay inside it: before-code runs as the statement is
+///     entered from outside, after-code as it is left by its end (falling off it, or a jump from inside to its end).
+/// </remarks>
+public sealed record InjectPoint(InjectPosition Position, uint Start, uint End, string Anchor);
 
 /// <summary>New code on a vanilla worker: a new entry, or a patch on one of its entry methods.</summary>
 public sealed class EntryPatch {
@@ -178,6 +260,9 @@ public sealed class EntryPatch {
 
     /// <summary>The vanilla method it patches (one of <see cref="VanillaRefs.Entries"/>), null for <see cref="PatchKind.Entry"/>.</summary>
     public string? Target { get; set; }
+
+    /// <summary>Where an <see cref="PatchKind.Inject"/> patch runs; null for the other kinds.</summary>
+    public InjectPoint? At { get; set; }
 
     /// <summary>
     ///     The code. Entries and replacements end in <c>end</c> (<c>ret</c> in a function worker);

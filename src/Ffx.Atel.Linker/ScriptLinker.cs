@@ -76,6 +76,7 @@ public static class ScriptLinker {
         Dictionary<uint, DeadJump> cutJumps = [];
         foreach (ModScript mod in mods) {
             List<string> problems = Validate(mod.Package, vanilla);
+            if (problems.Count == 0) problems.AddRange(ValidateData(mod.Package, file, vanilla));
             if (firstMessage is null && NewMessages(mod.Package).Any()) problems.Add("the script has no message table for Text.New (a monster's messages are the battle's)");
             List<(CutSwitch Cut, List<DeadJump> Jumps)> cuts = problems.Count == 0 ? FindCuts(mod.Package, file, problems) : [];
             if (problems.Count > 0) {
@@ -93,24 +94,26 @@ public static class ScriptLinker {
         }
         if (accepted.Count == 0) return result;
 
-        if (cutJumps.Count > 0) {
-            // The switched-on blocks: each `jmp L` becomes `nop_76 L`, the same length, so nothing moves and the
-            // rest of the file stays byte for byte. Done on the vanilla file before any code is laid out, so
-            // the mods' copies of vanilla code (postfix bodies) carry it too.
-            byte[] switched = file.ToArray();
+        if (cutJumps.Count > 0 || accepted.Any(m => m.Package.Data is { Count: > 0 })) {
+            // Changes in place, done on the vanilla file before any code is laid out, so the mods' copies of
+            // vanilla code (postfix bodies) and of vanilla private data carry them too. A switched-on block: each
+            // `jmp L` becomes `nop_76 L`, the same length, so nothing moves. A data edit: its bytes, where the data
+            // areas stay (they hold block offsets) or in the monster's sections, which move only as a whole.
+            byte[] patched = file.ToArray();
             try {
-                foreach (DeadJump j in cutJumps.Values.OrderBy(j => j.Offset)) SwitchOn(switched, file, j);
+                foreach (DeadJump j in cutJumps.Values.OrderBy(j => j.Offset)) SwitchOn(patched, file, j);
             }
             catch (LinkException ex) {
                 result.Messages.Add(new(LinkSeverity.Error, "", $"{accepted[0].Package.Script}: {ex.Message}; no mod applied to this script"));
                 return result;
             }
-            if (accepted.All(m => OnlyCuts(m.Package))) {
-                result.File = switched;
+            ApplyData(patched, file, vanilla, accepted, result.Messages);
+            if (accepted.All(m => InPlaceOnly(m.Package))) {
+                result.File = patched;
                 result.Applied.AddRange(accepted.Select(m => m.Mod));
                 return result;
             }
-            file = ScriptFile.Parse(switched);
+            file = ScriptFile.Parse(patched);
             vanilla = ScriptImage.FromBlock(file.Script);
         }
 
@@ -172,8 +175,62 @@ public static class ScriptLinker {
         bytes[at] = DeadJumps.NopByte;
     }
 
-    /// <summary>Whether a package does nothing but switch blocks on: then the linked file is the vanilla file with those jumps changed.</summary>
-    private static bool OnlyCuts(ScriptPackage p) =>
+    // ----- Data edits ---------------------------------------------------------------------------
+
+    /// <summary>What keeps a package's data edits from applying: an area it does not list, a hash mismatch, an edit outside its area.</summary>
+    private static List<string> ValidateData(ScriptPackage p, ScriptFile file, ScriptImage vanilla) {
+        List<string> errors = [];
+        HashSet<(DataEditArea, int?)> listed = [];
+        foreach (DataRef d in p.Vanilla.Data ?? []) {
+            string what = DataAreas.Describe(d.Area, d.Worker);
+            if (DataAreas.Find(file, vanilla, p.File, d.Area, d.Worker) is not DataAreas.Area a) errors.Add($"the script has no {what}");
+            else if (VanillaHash.Data(file.Bytes.Slice(a.At, a.Length)) != d.Hash) errors.Add($"{what} differs from the one the mod was built against (hash mismatch)");
+            else listed.Add((d.Area, d.Worker));
+        }
+        if (errors.Count > 0) return errors;
+        foreach (DataEdit e in p.Data ?? []) {
+            if (!listed.Contains((e.Area, e.Worker))) errors.Add($"{e.Field}: {DataAreas.Describe(e.Area, e.Worker)} is not in the package's vanilla data");
+        }
+        if (errors.Count == 0) errors.AddRange(DataAreas.Check(p, file, vanilla));
+        foreach (NewVariable v in p.Variables) {
+            if (v.Initial is not { } init) continue;
+            if (v.Offset is not null || v.Storage is not (4 or 6)) errors.Add($"variable {v.Name}: an initial value only for a variable the linker places in the shared or event data");
+            else if (init.Length > v.ElementSize * v.Length) errors.Add($"variable {v.Name}: its initial value is longer than the variable");
+        }
+        return errors;
+    }
+
+    /// <summary>
+    ///     Writes the accepted packages' data edits into <paramref name="bytes"/> (a copy of <paramref name="file"/>), in
+    ///     load order: a byte two mods both set is a conflict, and the later mod's value stays.
+    /// </summary>
+    private static void ApplyData(byte[] bytes, ScriptFile file, ScriptImage vanilla, List<ModScript> mods, List<LinkMessage> messages) {
+        Dictionary<(DataEditArea, int?, int), (string Mod, string Field)> owners = [];
+        foreach (ModScript m in mods) {
+            foreach (DataEdit e in m.Package.Data ?? []) {
+                DataAreas.Area a = DataAreas.Find(file, vanilla, m.Package.File, e.Area, e.Worker)!.Value;
+                List<(string Mod, string Field)> earlier = [];
+                for (int i = 0; i < e.Bytes.Length; i++) {
+                    (DataEditArea, int?, int) key = (e.Area, e.Worker, e.Offset + i);
+                    if (owners.TryGetValue(key, out var prev) && prev.Mod != m.Mod && !earlier.Contains(prev)) earlier.Add(prev);
+                    owners[key] = (m.Mod, e.Field);
+                }
+                e.Bytes.CopyTo(bytes, a.At + e.Offset);
+                if (e.Area == DataEditArea.MonsterStats) e.Bytes.CopyTo(bytes, DataAreas.StatsCopy(file)!.Value.At + e.Offset);
+                string where = string.Create(CultureInfo.InvariantCulture, $"{DataAreas.Describe(e.Area, e.Worker)} +0x{e.Offset:x}");
+                messages.Add(new(LinkSeverity.Info, m.Mod, string.Create(CultureInfo.InvariantCulture, $"{m.Package.Script}: sets {e.Field} ({where}, {e.Bytes.Length} byte(s))")));
+                foreach ((string mod, string field) in earlier) {
+                    messages.Add(new(LinkSeverity.Conflict, m.Mod, $"{m.Package.Script}: {mod} sets {field} and {m.Mod} sets {e.Field}, both at {where}; {m.Mod} wins (last in load order)"));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Whether a package only changes bytes in place (switches blocks on, edits data): then the linked file is the vanilla
+    ///     file with those bytes changed.
+    /// </summary>
+    private static bool InPlaceOnly(ScriptPackage p) =>
         p.Variables.Count == 0 && p.Workers.Count == 0 && p.Patches.Count == 0 && p.Messages is not { Count: > 0 } && p.DebugStrings is not { Count: > 0 };
 
     // ----- Checks -----------------------------------------------------------------------------
@@ -341,7 +398,9 @@ public static class ScriptLinker {
                 else {
                     while (_data.Count % Math.Max(v.ElementSize, 4) != 0) _data.Add(0);
                     data = _data.Count;
-                    _data.AddRange(new byte[(v.ElementSize * v.Length + 3) & ~3]);
+                    byte[] bytes = new byte[(v.ElementSize * v.Length + 3) & ~3];
+                    v.Initial?.CopyTo(bytes, 0);
+                    _data.AddRange(bytes);
                 }
                 n.Vars[i] = _vars.Count;
                 _vars.Add(new VarSlot(new VarEntry(location, (ushort)v.Length, (ushort)v.RowLength), data));

@@ -94,6 +94,11 @@ public static partial class ScriptCompiler {
 
         // ----- The mod's declarations ------------------------------------------------------------
         ScriptPackage package = new() { Script = vanilla.Name };
+        List<string> variableNames = [.. vanillaVarNames];
+        DataEdits edits = new(package, v, vanilla.Category, v.Variables.Count, variableNames);
+        // Initial values: the static constructors of the script class and of vanilla workers, read once every variable is known.
+        List<(ConstructorDeclarationSyntax Ctor, string Class, int? Worker)> ctors = [];
+        StatementReader constants = new(variables, new Dictionary<string, RegExpr>(StringComparer.Ordinal), NativesByName.Value, workers, false);
         Dictionary<string, List<ClassDeclarationSyntax>> modParts = new(StringComparer.Ordinal);
         List<ClassDeclarationSyntax> mainModParts = [];
         List<(string Name, List<ClassDeclarationSyntax> Parts)> newWorkers = [];
@@ -105,15 +110,24 @@ public static partial class ScriptCompiler {
                 mainModParts.Add(c);
                 foreach (MemberDeclarationSyntax member in c.Members) {
                     if (member is MethodDeclarationSyntax m && IsHelper(m, functionWorker: false)) continue;
-                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables and helper methods");
+                    if (member is ConstructorDeclarationSyntax ctor) {
+                        ctors.Add((ctor, n, null));
+                        continue;
+                    }
+                    if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables, helper methods and a static constructor (initial values)");
                     string fieldName = field.Declaration.Variables[0].Identifier.ValueText;
                     if (variables.ContainsKey(fieldName)) throw CompileException.At(field, $"{fieldName} is already a variable");
                     VarEntry entry = Variable(field, allocated: true);
                     bool fixedPlace = Attributes(field).Any(x => NameOf(x) == "Var");
+                    if (fixedPlace && ArrayInitializer(field.Declaration.Variables[0].Initializer?.Value) is InitializerExpressionSyntax list) {
+                        throw CompileException.At(list, "a variable at a fixed place ([Var]) has no initial value here: its value is the save's or the game's");
+                    }
+                    byte[]? initial = fixedPlace ? null : edits.Initial(field, entry, constants);
                     variables[fieldName] = new VariableSymbol(v.Variables.Count + package.Variables.Count, entry);
+                    variableNames.Add(fieldName);
                     package.Variables.Add(new NewVariable {
                         Name = fieldName, Type = entry.Type, Storage = entry.Storage, Offset = fixedPlace ? entry.Offset : null,
-                        Length = entry.Length, RowLength = entry.RowLength, Array = entry.IsArray,
+                        Length = entry.Length, RowLength = entry.RowLength, Array = entry.IsArray, Initial = initial,
                     });
                 }
             }
@@ -161,7 +175,11 @@ public static partial class ScriptCompiler {
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
                 if (member is FieldDeclarationSyntax) continue;
-                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods and [Register] fields only");
+                if (member is ConstructorDeclarationSyntax ctor) {
+                    ctors.Add((ctor, worker, workers[worker]));
+                    continue;
+                }
+                if (member is not MethodDeclarationSyntax method) throw CompileException.At(member, "a worker holds methods, [Register] fields and a static constructor (its private data's initial values)");
                 if (helpers.Contains(method) || InlineMethods.IsInline(method)) continue;
                 if (method.Body is null && method.ExpressionBody is null) throw CompileException.At(method, "an entry has a body");
                 PatchKind kind = PatchKind.Entry;
@@ -361,6 +379,9 @@ public static partial class ScriptCompiler {
             package.Patches.Add(patch);
         }
 
+        // ----- Initial values -------------------------------------------------------------------
+        foreach ((ConstructorDeclarationSyntax ctor, string cls, int? w) in ctors) edits.Read(ctor, cls, w, constants);
+
         // ----- The vanilla parts it attaches to ------------------------------------------------
         foreach (int w in fragments.Workers.Order()) {
             package.Vanilla.Workers.Add(new WorkerRef(w, vanillaWorkers[w], VanillaHash.Worker(v.Workers[w])));
@@ -374,6 +395,7 @@ public static partial class ScriptCompiler {
             package.Vanilla.Variables.Add(new VariableRef(i, vanillaVarNames[i], VanillaHash.Variable(v.Variables[i])));
         }
         if (debug.Strings.Count > 0) package.DebugStrings = [.. debug.Strings];
+        package.Format = Math.Max(package.Format, package.NeededFormat());
         return new CompiledMod(vanilla.Category, vanilla.Name, package) { Warnings = [.. debug.Warnings] };
     }
 

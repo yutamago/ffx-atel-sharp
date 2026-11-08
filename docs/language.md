@@ -492,9 +492,10 @@ area and offset:
   alternative for a 1-D array.
 - A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
   variable table has a bit for it.
-- Field initializers on scalars are errors: initial values are in the data areas
-  (`[SharedData(…)]` and the others in `M209.Data.cs`), as hex. **Planned**: initial values
-  as initializers.
+- Field initializers on a vanilla script's scalars are errors: its initial values are in the data areas
+  (`[SharedData(…)]` and the others in `M209.Data.cs`), as hex. A mod gives its own variables initial
+  values as initializers and changes vanilla ones in a static constructor ("Initial values and data
+  edits" below).
 - The order of the fields is the order of the script's variable table. The decompiler names
   variables `V0`, `V1`, …, save variables after the field at their offset
   (`StoryProgress`) or by offset (`Save_0a4a`), with `_2` for a second declaration of the same
@@ -940,12 +941,68 @@ public sealed partial class Helper : BattleWorker  // a new worker
 | a plain method without attribute | a helper (above): a new function worker of the mod |
 | a new class deriving from a worker type (`Actor`, `BattleWorker`, …, or `Worker0` … `Worker6`) | a new worker |
 | `[Register(n)]` fields | name registers, as in vanilla |
+| `static M999() { … }` in the script class | initial values: the script's data, the monster's stats and rewards ("Initial values and data edits") |
+| `static Larva() { … }` in a vanilla worker | initial values of that worker's private data (events only) |
+| an initializer on a new field (`public static int Turns = 5;`) | the new variable's initial value |
 
 **Available.** A mod does not change attributes or base classes of vanilla classes, and a new
 worker has no private data yet. Patches apply to every entry the vanilla method starts. Several
 mods' prefixes and postfixes on one method chain in load order; two replacements conflict and the
-later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Inject]`, `[Before]`/`[After]`,
-per-field data edits.
+later wins. New messages: `Text.New("…")` ("Text"). **Planned**: `[Inject]`, `[Before]`/`[After]`.
 
 A patch is not an engine-run entry, so it cannot be `async void` and cannot `await`; request an
 entry of your own (`_ = Larva.CountAsync();`) and await there.
+
+### Initial values and data edits
+
+**Available.** A mod changes single values of a script's data without replacing the script or a
+method: a variable's initial value, an element of a table, a monster's stats and rewards. It writes them
+as a C# static constructor, which is where C# sets a class's static fields before anything uses them:
+
+```csharp
+partial class M209
+{
+    public static int Turns = 5;                 // a new variable with its initial value
+    public static byte[] Odds = { 10, 20, 70 };  // a new table; its size is its values'
+
+    static M209()
+    {
+        MonsterStats.Hp = 4321;                  // the monster's stat record (vanilla 1498)
+        MonsterStats.Strength = 30;
+        MonsterRewards.Gil = 999;
+        V7 = 2;                                  // a shared variable's initial value
+        Table[3] = 7;                            // an element of a shared array; Grid[1, 2] for 2-D
+        Data.At<ushort>(DataArea.Other, 0x20) = 7;   // bytes no variable covers
+    }
+}
+
+partial class Boy                                // an event's worker
+{
+    static Boy() { Steps = 12; }                 // its private data (storage 3)
+}
+```
+
+| Target | Where it is written |
+|---|---|
+| a shared (storage 4) or event (storage 6) variable, or an element by constant indices | the script's data area, at the variable's offset |
+| `MonsterStats.Hp`, `Mp`, `OverkillThreshold`, `Strength`, `Defense`, `Magic`, `MagicDefense`, `Agility`, `Luck`, `Evasion`, `Accuracy` | the monster file's stat record (section 2) and its copy (section 6) |
+| `MonsterRewards.Gil`, `Ap`, `OverkillAp`, `DropChance1`, `DropChance2`, `StealChance`, `EquipmentDropChance` | the monster file's rewards (section 4) |
+| `Data.At<T>(DataArea.Shared \| Other \| Event \| Area, offset)` | that area, at that offset |
+| a private (storage 3) variable, or `Data.At<T>(DataArea.Private, offset)`, in a worker's static constructor | that worker's private data block |
+
+- Each statement assigns a constant: a literal, a `const`, a game constant (`Story.*`, `Save.*`) or an
+  enum member; arithmetic of them is folded. An integer must fit the field's width, a `float` field takes
+  any number.
+- The battle reads a monster's stats and rewards from its own file, not from the kernel tables (ffx-decomp,
+  `docs/formats/monster.md`: `Mon_AttachData`, `MsSetRamChr`). `Agility`, `Luck`, `Evasion` and `Accuracy`
+  are Fahrenheit's names; FFX.exe's code for them is not read yet.
+- A worker's private data has initial values only in events: in battle the game clears a worker's private
+  buffer when it sets the worker up, so a monster's worker cannot set one (an error).
+- Save (0) and common (1) variables are not the script's data: their values are the save's and the game's.
+- A field set twice in one mod is an error. Two mods that set the same bytes are a conflict in the link
+  report, and the later mod in the load order wins; different fields of two mods combine.
+- The linker writes the bytes in place: nothing moves, and a mod with only data edits leaves the rest of the
+  file as it was ([formats/mod-package.md](formats/mod-package.md#data-edits)).
+- [ATL4001](analyzers.md#atl4001) marks a static constructor that does anything else.
+- `atel compile` of a whole script does not take a static constructor: a script's own initial values are
+  its data areas (`[SharedData(…)]`).
