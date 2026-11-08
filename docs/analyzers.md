@@ -52,6 +52,8 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
 | [ATL4001](#atl4001) | error | a static constructor that is not initial values | |
 | [ATL4002](#atl4002) | error | `[Inject]` names no call of its method | |
+| [ATL4003](#atl4003) | error | a `[Saved]` field that cannot be saved | |
+| [ATL4004](#atl4004) | error | a write to another mod's `[Saved]` field | |
 
 "Hint" is `DiagnosticSeverity.Info`: the IDE shows it as a suggestion, `dotnet build` and `--check`
 do not list it.
@@ -413,4 +415,30 @@ attribute names neither or both of `Before` and `After`, or an `Occurrence` belo
 
 ```csharp
 [Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 4)]   // ATL4002: OnTurn has 3 call(s) to Btl.UseCommand, not 4
+```
+
+### ATL4003
+
+A `[Saved]` field ([language.md](language.md#saved-fields)) is a storage 0 variable the loader places in the
+save's mod area. Reported for a field that is not static, or is `const` or `readonly`; has `[Var]` or
+`[Register]`; is not `byte` … `int`, `float` or a 1-D or 2-D array of one; is an array without its size; is
+in a worker, a nested class, or a class that is neither static nor the script class; has a key that is empty
+or holds a `/` or a space; has the key of another saved field of the mod. Another mod's field (`Mod = …`) is
+reported without its `Key`, and with an initializer (the value is that mod's).
+
+```csharp
+[Saved] public static ushort LarvasMet;
+[Saved] public static byte[] Flags;                                            // ATL4003: a saved array has its size
+[Saved(Mod = "yuta.larvacount")] public static ushort Met;                    // ATL4003: named by its Key
+```
+
+### ATL4004
+
+`[Saved(Mod = "…", Key = "…")]` declares another mod's saved field, to read it. Reported on an assignment,
+a compound assignment, `++` or `--` of it or of an element of it: the other mod writes its fields. The
+compiler refuses the same.
+
+```csharp
+Hp = Tally.LarvasMet;
+Tally.LarvasMet = 0;                                                        // ATL4004
 ```

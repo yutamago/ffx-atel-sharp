@@ -3,8 +3,10 @@
 
 The plan's open item: a mod that keeps a counter or a flag across saves
 needs somewhere to keep it. This page maps the save, what is free in it,
-what Fahrenheit offers, and recommends a design. Research only (2026-11-08);
-nothing here is implemented yet.
+what Fahrenheit offers, and recommends a design. Research of 2026-11-08.
+Implemented the same day as recommended (D), with the user's answers to
+the open questions (plan.md, "Decisions (user)"): [language.md](../language.md#saved-fields),
+[formats/mod-package.md](../formats/mod-package.md#saved-fields).
 
 FFX.exe addresses and names are ffx-rust's (`symbols/ffx.sym`,
 `docs/formats/save.md`, `docs/formats/script.md`); the code was read in the
@@ -351,6 +353,11 @@ In game (for the parent; the harness of
    slot calls `load_local_state` before the map's scripts start.
 
 ## Open questions
+
+Answered by the user on 2026-11-08 (plan.md, "Decisions (user)"): 1. zero
+the tail; 2. ignore a state of another save, with a warning; 3. no
+`SEPARATE_SAVES`; 4. yes, by key, with the other mod in `requires`
+(`[Saved(Mod = …, Key = …)]`). The questions as they were:
 
 1. Zero the tail in the written file (recommended: save files stay vanilla,
    as Fahrenheit asks), or also keep the bytes there as a copy, so a save

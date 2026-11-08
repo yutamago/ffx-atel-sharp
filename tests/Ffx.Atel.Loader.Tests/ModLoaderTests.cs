@@ -83,6 +83,36 @@ public sealed class ModLoaderTests : IDisposable {
         Assert.Empty(run.Mods);
         Assert.Empty(run.Written);
     }
+
+    /// <summary>
+    ///     Saved fields through the loader's link: one table for the load order before any file is linked; a mod whose fields
+    ///     do not fit is left out with an error, and the linked script's variable is storage 0 at its field's offset.
+    /// </summary>
+    [Fact]
+    public void PlacesTheModsSavedFieldsBeforeLinking() {
+        byte[] vanilla = Vanilla();
+        AtelMod("counter", vanilla);
+        string package = Path.Combine(Mods, "counter", AtelMod_.PackageDir, "ffx_ps2", "test", "m996.bin.json");
+        ScriptPackage p = ScriptPackage.FromJson(File.ReadAllText(package));
+        p.Variables.Add(new NewVariable { Name = "Count", Type = 5, Storage = 0, Saved = "Counter.Progress.Count" });
+        p.Format = p.NeededFormat();
+        File.WriteAllText(package, p.ToJson());
+        File.WriteAllText(Path.Combine(Mods, "counter", AtelMod_.PackageDir, SavedFile.FileName),
+            new SavedFile { Fields = [new SavedField { Key = "Counter.Progress.Count", Type = 5 }] }.ToJson());
+        Directory.CreateDirectory(Path.Combine(Mods, "huge", AtelMod_.PackageDir));
+        File.WriteAllText(Path.Combine(Mods, "huge", AtelMod_.PackageDir, SavedFile.FileName),
+            new SavedFile { Fields = [new SavedField { Key = "Huge.Table", Type = 0, Length = SaveArea.Length, Array = true }] }.ToJson());
+        File.WriteAllLines(Path.Combine(Mods, ModLoader.LoadOrderFile), ["yuta.atel", "counter", "huge"]);
+
+        LinkRun run = ModLoader.Link(Mods, Efl, path => path == Script ? vanilla : null, new HashSet<string>());
+        Assert.Equal(["counter"], run.Linked.Select(m => m.Id));
+        Assert.Contains(run.Messages, m => m.Mod == "huge" && m.Severity == LinkSeverity.Error && m.Text.Contains("do not fit", StringComparison.Ordinal));
+        Assert.Equal(SaveArea.Start, run.Saved.Find("counter/Counter.Progress.Count")!.Offset);
+        Assert.Equal([Script], run.Written);
+        ScriptImage linked = ScriptImage.FromBlock(ScriptFile.Parse(File.ReadAllBytes(Path.Combine(Efl, "ffx_ps2", "test", "m996.bin"))).Script);
+        VarEntry count = linked.Variables[^1];
+        Assert.Equal((0, SaveArea.Start, 5), (count.Storage, count.Offset, count.Type));
+    }
 }
 
 /// <summary>The linker's mod folder names (the test's own helper is called <c>AtelMod</c>).</summary>

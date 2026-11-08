@@ -733,6 +733,9 @@ public static partial class ScriptCompiler {
         }),
         MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: false) is int constant => constant,
         MemberAccessExpressionSyntax m => new EnumMember(m.Name.Identifier.ValueText),
+        // An offset from a constant: [Var(Storage.Save, Save.ModArea + 0x4)].
+        BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression or (int)SyntaxKind.SubtractExpression } b =>
+            (object)(Integer(Eval(b.Left), b.Left) + (b.IsKind(SyntaxKind.AddExpression) ? 1 : -1) * Integer(Eval(b.Right), b.Right)),
         _ => throw CompileException.At(e, "not a constant the compiler reads (yet)"),
     };
 

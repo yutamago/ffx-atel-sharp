@@ -82,6 +82,18 @@ public sealed class MemberTests {
         Common.SfxPlay((Sfx)0x80000017);
         Common.SfxPlayEx((Sfx)0x80000017, 64, 127);
         Common.MoveSetTarget(1f, 2f, 3f);
+        Cam.SetPos(1f, 2f, 3f);
+        Cam.RefSetPos(4f, 5f, 6f);
+        Cam.EyeAimAt(1f, 2f, 3f, 4f, 5f, 6f);
+        Cam.FocusFollowSpline(V0, 0f, 1f, 0);
+        Cam.EyeShakeKind1(0, 2f, 3, 4, 5);
+        Cam.SetBlur(3);
+        Cam.SetScreenDepth(Cam.GetScreenDepth() + 1f);
+        Cam.MoveEased(20, 30, 20, 0);
+        Cam.Wait();
+        Cam.FocusWait();
+        Cam.ScreenShakeWait(1);
+        Common.VoiceStop();
         """;
 
     private const string Members = """
@@ -114,6 +126,18 @@ public sealed class MemberTests {
         Sound.Play((Sfx)0x80000017);
         Sound.Play((Sfx)0x80000017, 64, 127);
         Move.Target = new(1f, 2f, 3f);
+        Camera.Eye.Position = new Vector3(1f, 2f, 3f);
+        Camera.Focus.Position = new(4f, 5f, 6f);
+        Camera.Eye.AimAt(1f, 2f, 3f, 4f, 5f, 6f);
+        Camera.Focus.FollowSpline(V0, 0f, 1f, 0);
+        Camera.Eye.ShakeKind1(0, 2f, 3, 4, 5);
+        Camera.Blur = 3;
+        Camera.ScreenDepth = Camera.ScreenDepth + 1f;
+        Camera.Eye.MoveEased(20, 30, 20, 0);
+        Camera.Eye.Wait();
+        Camera.Focus.Wait();
+        Camera.Screen.WaitShake(1);
+        Voice.Stop();
         """;
 
     private static byte[] Block(string body) {
@@ -143,11 +167,16 @@ public sealed class MemberTests {
             "Workers[V0].AutoTalk = false;", "AutoTalk = true;", "Hidden = V0 > 2;", "Sprites[3].Show(V0);",
             "Sprites[V0 + 1].SetColor(255, 128, 0);", "Camera.Roll = 5f;", "Model = Model.Rikk;", "Sound.Play((Sfx)0x80000017, 64, 127);",
             "Move.Target = new Vector3(1f, 2f, 3f);", ".Turn.Stop();",
+            "Camera.Eye.Position = new Vector3(1f, 2f, 3f);", "Camera.Focus.Position = new Vector3(4f, 5f, 6f);",
+            "Camera.Eye.AimAt(1f, 2f, 3f, 4f, 5f, 6f);", "Camera.Focus.FollowSpline(V0, 0f, 1f, 0);", "Camera.Eye.ShakeKind1(0, 2f, 3, 4, 5);",
+            "Camera.Blur = 3;", "Camera.ScreenDepth = Camera.ScreenDepth + 1f;", "Camera.Eye.MoveEased(20, 30, 20, 0);", "Camera.Eye.Wait();",
+            "Camera.Focus.Wait();", "Camera.Screen.WaitShake(1);", "Voice.Stop();",
         }) {
             Assert.Contains(line, source, StringComparison.Ordinal);
         }
         Assert.DoesNotContain("Common.", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Chr.", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cam.", source, StringComparison.Ordinal);
         SyntaxTree back = ScriptCompiler.Parse(source, "m996.cs");
         Assert.Empty(ScriptCompiler.Check([back]));
         Assert.Equal(file, ScriptCompiler.Compile([back]).ApplyTo(parsed).ToArray());
@@ -167,6 +196,8 @@ public sealed class MemberTests {
         Assert.Contains("Vector3", Assert.Throws<CompileException>(() => ScriptCompiler.Compile([tree])).Message, StringComparison.Ordinal);
         tree = ScriptCompiler.Parse(Head + "Tidus.Pos = new Vector3(1f, 2f, 3f);" + Tail, "test0000.cs");
         Assert.Contains("this worker only", Assert.Throws<CompileException>(() => ScriptCompiler.Compile([tree])).Message, StringComparison.Ordinal);
+        tree = ScriptCompiler.Parse(Head + "Camera.Eye.AimAt(1f, 2f);" + Tail, "test0000.cs");
+        Assert.Contains("Camera.Eye.AimAt takes no 2 arguments", Assert.Throws<CompileException>(() => ScriptCompiler.Compile([tree])).Message, StringComparison.Ordinal);
     }
 }
 
@@ -189,6 +220,10 @@ public sealed class NativeMembersTests {
             Assert.Contains(m, members.Find(m.Path, m.Use));
         }
         Assert.Contains("Wait", members.StaticRoots);
+        // A nested group is reached through its parent: Camera.Eye.AimAt, not a root of its own.
+        Assert.Contains("Camera.Eye", members.NestedGroups);
+        Assert.DoesNotContain("Eye", members.StaticRoots);
+        Assert.Equal((ushort)0x6007, Assert.Single(members.Find("Camera.Eye.AimAt", MemberUse.Call)).Id);
         Assert.Contains("Turn", members.WorkerRoots);
         Assert.Contains("Sprites", members.IndexedRoots);
     }

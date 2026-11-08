@@ -310,6 +310,10 @@ If something is wrong, the log says what:
   nameof(Btl.UseCommand), Occurrence = 3)]` runs after the statement with `OnTurn`'s third
   `Btl.UseCommand` call ([language.md](language.md#injecting-code); the example is
   [`examples/LarvaInject`](../examples/LarvaInject)).
+- Keep a value with the save game: `[Saved] public static ushort LarvasMet;` in a static class of the mod is a
+  variable the loader keeps with each save, by name, whatever other mods are installed
+  ([language.md](language.md#saved-fields); the example is [`examples/LarvaCount`](../examples/LarvaCount), and
+  [`examples/LarvaCountReader`](../examples/LarvaCountReader) reads its count from another mod).
 - Add a line of dialogue to an event: `Dialogue.Say(Text.New("Nice throw!"));` opens the usual
   window with a new message, waits for the player and closes it, exactly as the game's own lines
   ([language.md](language.md#inline-methods)).

@@ -83,6 +83,21 @@ first arguments are not described yet), message windows outside dialogue lines (
 battle natives (already typed with enums: `Btl.GetActorProperty(Target.Own, ActorProperty.Hp)`), `Random16`
 and `Random`. They are the next candidates, once their meaning is verified.
 
+## Numbers (2026-11-08): nested groups
+
+- Static groups may nest (`Camera.Eye`, `Camera.Focus`, `Camera.Screen`), and `Voice` is a group: 168
+  natives are members (74.5 % of the 3,146,543 calls; 91 and 65.4 % before). `Camera` holds 8 natives
+  (275,290 calls), `Camera.Eye` 37 (268,416), `Camera.Focus` 31 (271,657), `Camera.Screen` 8 (274),
+  `Voice` 4 (30,059).
+- `atel roundtrip --check`: 1,621 / 1,621 byte for byte, 0 C# errors, 221 warnings (ATL2006, as before). The
+  decompiler wrote 1,287,033 member uses (16,078 on this worker, 35,367 on another).
+- 19 camera natives with calls stay `Cam.…` (1,514 calls): the variable readers (`GetPos`, `RefGetPos`,
+  `GetEyeVars`, `GetRefVars`), `BtlRandom`, and natives whose meaning or side is not documented yet.
+
+Next candidates: the shake kinds as one `Shake(kind, …)` and `Btl`'s actor properties as properties. Both
+pass the choice as an argument (each kind is its own native, the property is the native's argument), so the
+compiler would need to pick the native or the argument from a constant first.
+
 ## Repeated sequences
 
 Repeated statement sequences become `[Inline]` helpers (the second 2026-11-04 decision), written with these

@@ -106,7 +106,7 @@ public sealed class SubsetTests {
             {
                 Pos = new Vector3(1f, 2f, 3f);
                 Move.Target = new(1f, 2f, 3f);
-                Camera.LookAt = new Vector3(0f, 0f, 0f);
+                Camera.Focus.Position = new Vector3(0f, 0f, 0f);
                 var v = {|ATL1001:new Vector3(1f, 2f, 3f)|};
             }
         }

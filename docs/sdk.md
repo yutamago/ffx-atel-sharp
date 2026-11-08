@@ -6,8 +6,11 @@ decompiled source and writes a Fahrenheit mod folder. That folder holds only
 the mod's own code, as packages the loader links onto the player's scripts
 (plan: "Mods"; format: [formats/mod-package.md](formats/mod-package.md)).
 The examples are [`examples/LarvaHp`](../examples/LarvaHp) (a postfix),
-[`examples/ToughLarva`](../examples/ToughLarva) (data edits) and
-[`examples/LarvaInject`](../examples/LarvaInject) (`[Inject]`).
+[`examples/ToughLarva`](../examples/ToughLarva) (data edits),
+[`examples/LarvaInject`](../examples/LarvaInject) (`[Inject]`),
+[`examples/LarvaCount`](../examples/LarvaCount) (`[Saved]` fields) and
+[`examples/LarvaCountReader`](../examples/LarvaCountReader) (reading another
+mod's saved field).
 
 ## What you need
 
@@ -210,7 +213,12 @@ What happens:
 The compiled DLL is only the C# check. It contains the vanilla code, so it
 stays in `obj/` and is copied nowhere. Without `FFX_GAME_DIR` or
 `AtelVanillaSource` the build stops with ATLSDK004 or ATLSDK001. A namespace
-with no vanilla folder gives ATLSDK003.
+with no vanilla folder gives ATLSDK003, except a file of the mod's own
+`[Saved]` classes (plain static classes, nothing `partial`), which changes no
+script ([language.md](language.md#saved-fields)). A mod with saved fields
+also gets `atel/saved.json`. A mod that reads another mod's saved field lists
+that mod in `mod.toml`'s `requires` and in `AtelModDependencies`
+(`yuta.atel;yuta.larvacount`).
 
 ## 4. Install
 

@@ -11,7 +11,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Ffx.Atel.Compiler;
 
 /// <summary>A variable of the script class: its table index and entry.</summary>
-internal sealed record VariableSymbol(int Index, VarEntry Entry);
+internal sealed record VariableSymbol(int Index, VarEntry Entry) {
+    /// <summary>
+    ///     Why code may not assign it, as the error says it (another mod's <c>[Saved]</c> field); null when it may. Several
+    ///     names may stand for one variable (a saved field by <c>Progress.LarvasMet</c> and <c>LarvaCount.Progress.LarvasMet</c>).
+    /// </summary>
+    public string? ReadOnly { get; init; }
+}
 
 /// <summary>
 ///     Reads C# statements of an entry method into <see cref="Stmt"/>s, from the syntax alone (Phase 3
@@ -305,10 +311,30 @@ internal sealed partial class StatementReader(
             : new AssignStmt(target, new BinaryExpr(op, target, value));
     }
 
+    private Dictionary<int, string>? _readOnly;
+
     private Expr Target(ExpressionSyntax e) {
         Expr t = ReadExpr(e);
+        int? var = t switch { VarExpr v => v.Var, ElemExpr el => el.Var, Elem2Expr el => el.Var, _ => null };
+        _readOnly ??= variables.Values.Where(v => v.ReadOnly is not null).DistinctBy(v => v.Index).ToDictionary(v => v.Index, v => v.ReadOnly!);
+        if (var is int index && _readOnly.TryGetValue(index, out string? why)) throw Error(e, why);
         return t is VarExpr or ElemExpr or Elem2Expr or RegExpr { Kind: not RegKind.Facc } or LocalExpr ? t : throw Error(e, "not something to assign to");
     }
+
+    /// <summary>
+    ///     A variable by a dotted name (<c>Progress.LarvasMet</c>, <c>LarvaCount.Progress.LarvasMet</c>, <c>global::…</c>): a
+    ///     mod's saved field in another class, which the compiler lists under each name it may be written as.
+    /// </summary>
+    private VariableSymbol? DottedVariable(ExpressionSyntax e) =>
+        e is MemberAccessExpressionSyntax && DottedName(e) is string name && variables.TryGetValue(name, out VariableSymbol? v) ? v : null;
+
+    /// <summary><c>A.B.C</c> for a chain of simple member accesses, without <c>global::</c>; null for anything else.</summary>
+    internal static string? DottedName(ExpressionSyntax e) => e switch {
+        IdentifierNameSyntax id => id.Identifier.ValueText,
+        AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global" } q => q.Name.Identifier.ValueText,
+        MemberAccessExpressionSyntax { Name: IdentifierNameSyntax n } m when m.IsKind(SyntaxKind.SimpleMemberAccessExpression) && DottedName(m.Expression) is string left => $"{left}.{n.Identifier.ValueText}",
+        _ => null,
+    };
 
     private Stmt CallStatement(InvocationExpressionSyntax call) {
         if (DebugCalls.MethodOf(call) is string debugMethod) {
@@ -451,6 +477,8 @@ internal sealed partial class StatementReader(
                 return Binary(b);
             case IdentifierNameSyntax id:
                 return Name(id);
+            case MemberAccessExpressionSyntax m when DottedVariable(m) is VariableSymbol saved:
+                return saved.Entry.IsArray ? throw Error(m, $"{m} is an array") : new VarExpr(saved.Index);
             case MemberAccessExpressionSyntax m when GameConstants.Lookup(m, enums: true) is int constant:
                 return new IntLit(constant);
             // A property of the object-oriented surface: its native's result (StatementReader.Members).
@@ -582,8 +610,8 @@ internal sealed partial class StatementReader(
     }
 
     private VariableSymbol ArrayVariable(ExpressionSyntax e) =>
-        Strip(e) is IdentifierNameSyntax id && variables.TryGetValue(id.Identifier.ValueText, out VariableSymbol? v) && v.Entry.IsArray
-            ? v
+        (Strip(e) is IdentifierNameSyntax id && variables.TryGetValue(id.Identifier.ValueText, out VariableSymbol? v) ? v : DottedVariable(Strip(e))) is { Entry.IsArray: true } array
+            ? array
             : throw Error(e, "not an array variable");
 
     private Expr Element(ExpressionSyntax e) {

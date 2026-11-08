@@ -41,8 +41,14 @@ public static partial class ScriptCompiler {
     ///     <c>Worker6</c> (or a library class) is a new worker, its entries numbered as in vanilla source.
     /// </remarks>
     /// <exception cref="CompileException">The vanilla or the mod's source does not compile, or the mod does something a package cannot hold.</exception>
-    public static CompiledMod CompileMod(IReadOnlyList<SyntaxTree> vanillaTrees, IReadOnlyList<SyntaxTree> modTrees, ScriptLibrary? library = null, CompileOptions? options = null) {
+    /// <param name="saved">
+    ///     The mod's <c>[Saved]</c> fields from all its files (<see cref="ReadSaved"/>), so that code reaches those of its static
+    ///     classes in other namespaces; null reads them from <paramref name="modTrees"/>.
+    /// </param>
+    public static CompiledMod CompileMod(IReadOnlyList<SyntaxTree> vanillaTrees, IReadOnlyList<SyntaxTree> modTrees, ScriptLibrary? library = null, CompileOptions? options = null,
+        SavedDeclarations? saved = null) {
         library ??= ScriptLibrary.Empty;
+        saved ??= ReadSaved(modTrees);
         DebugCalls debug = new((options ?? CompileOptions.Default).Debug);
         CompiledScript vanilla = Compile(vanillaTrees, library);
         ScriptImage v = vanilla.Image;
@@ -115,6 +121,7 @@ public static partial class ScriptCompiler {
                         continue;
                     }
                     if (member is not FieldDeclarationSyntax field) throw CompileException.At(member, "a mod's part of the script class holds variables, helper methods and a static constructor (initial values)");
+                    if (IsSaved(field)) continue;    // a saved field, below
                     string fieldName = field.Declaration.Variables[0].Identifier.ValueText;
                     if (variables.ContainsKey(fieldName)) throw CompileException.At(field, $"{fieldName} is already a variable");
                     VarEntry entry = Variable(field, allocated: true);
@@ -140,6 +147,9 @@ public static partial class ScriptCompiler {
             else if (byName[n].Any()) {
                 throw CompileException.At(c.Identifier.GetLocation(), $"{n} is a vanilla class, but not a worker");
             }
+            else if (SavedDeclarations.IsSavedClass(c)) {
+                continue;    // the mod's class of saved fields, no worker
+            }
             else {
                 List<ClassDeclarationSyntax>? parts = newWorkers.FirstOrDefault(x => x.Name == n).Parts;
                 if (parts is null) {
@@ -148,6 +158,33 @@ public static partial class ScriptCompiler {
                 }
                 parts.Add(c);
             }
+        }
+
+        // Saved fields the code names: storage 0 variables whose offsets the loader gives (docs/language.md, "Saved fields").
+        // One is written as C# would name it from here: Namespace.Class.Field, Class.Field (when only one class of the mod
+        // has that name), and in the script class's own part by its field name.
+        HashSet<string> written = new(modTrees.SelectMany(t => t.GetRoot().DescendantNodes())
+            .Select(node => node is MemberAccessExpressionSyntax or IdentifierNameSyntax ? StatementReader.DottedName((ExpressionSyntax)node) : null)
+            .OfType<string>(), StringComparer.Ordinal);
+        Dictionary<string, int> shortNames = saved.Fields.GroupBy(f => $"{f.Class}.{f.Field}", StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        foreach (SavedDeclaration f in saved.Fields) {
+            bool own = f.Declaring is not null && mainModParts.Contains(f.Declaring);
+            if (f.Declaring is not null && !own && !SavedDeclarations.IsSavedClass(f.Declaring)) {
+                throw CompileException.At(f.Declaring.Identifier.GetLocation(), $"{f.Field}: a [Saved] field is in a mod's static class or in its part of the script class, not in a worker");
+            }
+            List<string> names = [f.FullName];
+            if (shortNames[$"{f.Class}.{f.Field}"] == 1) names.Add($"{f.Class}.{f.Field}");
+            if (own) names.Add(f.Field);
+            if (!names.Any(written.Contains)) continue;
+            if (own && variables.ContainsKey(f.Field)) throw CompileException.At(f.Declaring!.Identifier.GetLocation(), $"{f.Field} is already a variable");
+            VariableSymbol symbol = new(v.Variables.Count + package.Variables.Count, f.Entry) {
+                ReadOnly = f.Mod is null ? null : $"{f.FullName} is {f.Mod}'s saved field: a mod reads another mod's fields, it does not write them",
+            };
+            foreach (string name in names) variables[name] = symbol;
+            variableNames.Add(f.Field);
+            package.Variables.Add(new NewVariable {
+                Name = f.FullName, Type = f.Entry.Type, Storage = 0, Length = f.Entry.Length, RowLength = f.Entry.RowLength, Array = f.Entry.IsArray, Saved = f.PackageKey,
+            });
         }
 
         // The patches and new entries on vanilla workers, numbered before any code is read, so that
@@ -175,6 +212,9 @@ public static partial class ScriptCompiler {
         Dictionary<EntryPatch, InjectAnchor> anchors = [];
         foreach ((string worker, List<ClassDeclarationSyntax> parts) in modParts) {
             foreach (MemberDeclarationSyntax member in parts.SelectMany(p => p.Members)) {
+                if (member is FieldDeclarationSyntax f && IsSaved(f)) {
+                    throw CompileException.At(f, "a [Saved] field is in a mod's static class or in its part of the script class, not in a worker");
+                }
                 if (member is FieldDeclarationSyntax) continue;
                 if (member is ConstructorDeclarationSyntax ctor) {
                     ctors.Add((ctor, worker, workers[worker]));

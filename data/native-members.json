@@ -1,5 +1,5 @@
 {
-  "comment": "The object-oriented surface over the natives (docs/language.md, \"Members\"; docs/research/oo-surface.md). tools/gen-members.cs writes src/Ffx.Atel.Game/Members.g.cs from this file and data/natives.json; the compiler lowers each member onto its native, and the decompiler writes the member where the bytes allow. \"groups\": the containers members go into: \"component\" (a property of every worker, Turn.Start()), \"indexed\" (a property of every worker indexed by the native's first argument, Sprites[3].Show(…)), \"static\" (an engine-wide static class, Wait.Frames(…)). \"members\": native id -> \"member\" (a path: \"Pos\" a member of the worker, \"Turn.Start\" a member of a group, \"Pos.X\" a component of a Vector3 property), \"as\" (\"method\", the default; \"get\" or \"set\" for a property), \"worker\" (the native's first argument is the worker it acts on: unqualified the member passes Common.GetWorkerId(-1), Tidus.Member passes Tidus's number, Workers[n].Member passes n), \"vector\" (the setter's three float arguments are a Vector3), \"bool\" (the setter's value is 0 or 1: a bool property). Names come from the native's verified name and its summary; a member names nothing the native's documentation does not say.",
+  "comment": "The object-oriented surface over the natives (docs/language.md, \"Members\"; docs/research/oo-surface.md). tools/gen-members.cs writes src/Ffx.Atel.Game/Members.g.cs from this file and data/natives.json; the compiler lowers each member onto its native, and the decompiler writes the member where the bytes allow. \"groups\": the containers members go into: \"component\" (a property of every worker, Turn.Start()), \"indexed\" (a property of every worker indexed by the native's first argument, Sprites[3].Show(…)), \"static\" (an engine-wide static class, Wait.Frames(…)); a group whose name has a dot is a static group nested in the one before the dot (\"Camera.Eye\": Camera.Eye.AimAt(…)). \"members\": native id -> \"member\" (a path: \"Pos\" a member of the worker, \"Turn.Start\" a member of a group, \"Camera.Eye.AimAt\" a member of a nested group, \"Pos.X\" a component of a Vector3 property), \"as\" (\"method\", the default; \"get\" or \"set\" for a property), \"worker\" (the native's first argument is the worker it acts on: unqualified the member passes Common.GetWorkerId(-1), Tidus.Member passes Tidus's number, Workers[n].Member passes n), \"vector\" (the setter's three float arguments are a Vector3), \"bool\" (the setter's value is 0 or 1: a bool property). Names come from the native's verified name and its summary; a member names nothing the native's documentation does not say.",
   "groups": {
     "Turn": {
       "kind": "component",
@@ -33,11 +33,27 @@
     },
     "Camera": {
       "kind": "static",
-      "summary": "The event camera: its eye, the point it looks at, roll and screen depth, and its moves."
+      "summary": "The camera: its eye (<see cref=\"Camera.Eye\"/>), the point it looks at (<see cref=\"Camera.Focus\"/>), the screens it draws to (<see cref=\"Camera.Screen\"/>), roll, screen depth and blur."
+    },
+    "Camera.Eye": {
+      "kind": "static",
+      "summary": "The camera's eye (side 1 of its channel, FFX.exe's <c>cam</c>): where it is, how it moves there, its limits, path and shakes."
+    },
+    "Camera.Focus": {
+      "kind": "static",
+      "summary": "The point the camera looks at (side 0 of its channel, FFX.exe's <c>ref</c>): where it is, how it moves there, its limits, path and shakes."
+    },
+    "Camera.Screen": {
+      "kind": "static",
+      "summary": "The screens the camera draws to, by number (<c>MsScreen…</c>): their shakes and moves."
     },
     "Sound": {
       "kind": "static",
       "summary": "Sound effects."
+    },
+    "Voice": {
+      "kind": "static",
+      "summary": "The voice line: prepare it (<see cref=\"Voice.Prepare\"/>), play it (<see cref=\"Voice.Play\"/>), wait while it plays (<see cref=\"Voice.IsPlaying\"/>), stop it."
     }
   },
   "members": {
@@ -126,17 +142,98 @@
     "0x01d1": { "member": "Wait.FramesUnlessHddMode" },
     "0x005f": { "member": "Wait.Forever" },
 
-    "0x6002": { "member": "Camera.Pos", "as": "set", "vector": true },
-    "0x6020": { "member": "Camera.LookAt", "as": "set", "vector": true },
     "0x603a": { "member": "Camera.Roll", "as": "set" },
     "0x603b": { "member": "Camera.ScreenDepth", "as": "set" },
-    "0x6004": { "member": "Camera.SetPolar" },
-    "0x6014": { "member": "Camera.MoveEased" },
-    "0x6032": { "member": "Camera.FocusTimeEase" },
-    "0x601a": { "member": "Camera.Wait" },
-    "0x6038": { "member": "Camera.FocusWait" },
-    "0x6016": { "member": "Camera.MoveFinish" },
-    "0x6034": { "member": "Camera.FocusCut" },
+    "0x6078": { "member": "Camera.ScreenDepth", "as": "get" },
+    "0x607d": { "member": "Camera.Blur", "as": "set" },
+    "0x607e": { "member": "Camera.DepthMaskMode", "as": "set" },
+    "0x607f": { "member": "Camera.SetDepthMask" },
+    "0x6000": { "member": "Camera.Suspend" },
+    "0x6001": { "member": "Camera.Resume" },
+
+    "0x6002": { "member": "Camera.Eye.Position", "as": "set", "vector": true },
+    "0x6004": { "member": "Camera.Eye.SetPolar" },
+    "0x6005": { "member": "Camera.Eye.AddPolar" },
+    "0x603c": { "member": "Camera.Eye.SetYaw" },
+    "0x6006": { "member": "Camera.Eye.AimAtXZ" },
+    "0x6007": { "member": "Camera.Eye.AimAt" },
+    "0x6008": { "member": "Camera.Eye.AimShortOf" },
+    "0x601e": { "member": "Camera.Eye.SetFocusList" },
+    "0x601c": { "member": "Camera.Eye.SetFocusList1" },
+    "0x601f": { "member": "Camera.Eye.SetTargetPolar" },
+    "0x601d": { "member": "Camera.Eye.SetTargetPolar1" },
+    "0x6044": { "member": "Camera.Eye.Orbit" },
+    "0x6040": { "member": "Camera.Eye.OrbitScaled" },
+    "0x604d": { "member": "Camera.Eye.OrbitPolar" },
+    "0x6010": { "member": "Camera.Eye.Move" },
+    "0x6012": { "member": "Camera.Eye.MoveCosine" },
+    "0x6014": { "member": "Camera.Eye.MoveEased" },
+    "0x6011": { "member": "Camera.Eye.MoveMode1" },
+    "0x6015": { "member": "Camera.Eye.MoveEasedMode1" },
+    "0x6017": { "member": "Camera.Eye.MoveDivide" },
+    "0x6043": { "member": "Camera.Eye.MoveStat", "as": "set" },
+    "0x6016": { "member": "Camera.Eye.FinishMove" },
+    "0x601a": { "member": "Camera.Eye.Wait" },
+    "0x6019": { "member": "Camera.Eye.ResetDir" },
+    "0x6088": { "member": "Camera.Eye.Reset" },
+    "0x600a": { "member": "Camera.Eye.LineFilter" },
+    "0x600f": { "member": "Camera.Eye.ClearAreas" },
+    "0x6046": { "member": "Camera.Eye.FollowSpline" },
+    "0x605b": { "member": "Camera.Eye.OnSpline" },
+    "0x6048": { "member": "Camera.Eye.ClearPath" },
+    "0x6049": { "member": "Camera.Eye.AddPathPoint" },
+    "0x605d": { "member": "Camera.Eye.ShakeKind1" },
+    "0x6067": { "member": "Camera.Eye.ShakeKind2" },
+    "0x6082": { "member": "Camera.Eye.ShakeKind7" },
+    "0x6084": { "member": "Camera.Eye.ShakeKind8" },
+    "0x6060": { "member": "Camera.Eye.ResetShake" },
+    "0x6063": { "member": "Camera.Eye.WaitShake" },
+
+    "0x6020": { "member": "Camera.Focus.Position", "as": "set", "vector": true },
+    "0x6027": { "member": "Camera.Focus.SetTarget" },
+    "0x603f": { "member": "Camera.Focus.OnActors" },
+    "0x6045": { "member": "Camera.Focus.Orbit" },
+    "0x6041": { "member": "Camera.Focus.OrbitScaled" },
+    "0x602e": { "member": "Camera.Focus.Move" },
+    "0x6030": { "member": "Camera.Focus.MoveCosine" },
+    "0x6032": { "member": "Camera.Focus.MoveEased" },
+    "0x6033": { "member": "Camera.Focus.MoveEasedMode1" },
+    "0x6035": { "member": "Camera.Focus.MoveDivide" },
+    "0x6042": { "member": "Camera.Focus.MoveStat", "as": "set" },
+    "0x6034": { "member": "Camera.Focus.FinishMove" },
+    "0x6038": { "member": "Camera.Focus.Wait" },
+    "0x6087": { "member": "Camera.Focus.Reset" },
+    "0x6028": { "member": "Camera.Focus.LineFilter" },
+    "0x6029": { "member": "Camera.Focus.AddLineArea" },
+    "0x602b": { "member": "Camera.Focus.AddCircleArea" },
+    "0x602d": { "member": "Camera.Focus.ClearAreas" },
+    "0x6059": { "member": "Camera.Focus.AddPathArea" },
+    "0x605a": { "member": "Camera.Focus.AddPathAreaScaled" },
+    "0x6047": { "member": "Camera.Focus.FollowSpline" },
+    "0x604a": { "member": "Camera.Focus.ClearPath" },
+    "0x604b": { "member": "Camera.Focus.AddPathPoint" },
+    "0x605c": { "member": "Camera.Focus.ShakeKind1" },
+    "0x6066": { "member": "Camera.Focus.ShakeKind2" },
+    "0x6069": { "member": "Camera.Focus.ShakeKind3" },
+    "0x606c": { "member": "Camera.Focus.ShakeKind4" },
+    "0x6081": { "member": "Camera.Focus.ShakeKind7" },
+    "0x6083": { "member": "Camera.Focus.ShakeKind8" },
+    "0x605f": { "member": "Camera.Focus.ResetShake" },
+    "0x6062": { "member": "Camera.Focus.WaitShake" },
+
+    "0x605e": { "member": "Camera.Screen.ShakeKind1" },
+    "0x606b": { "member": "Camera.Screen.ShakeKind3" },
+    "0x606e": { "member": "Camera.Screen.ShakeKind4" },
+    "0x6071": { "member": "Camera.Screen.ShakeKind5" },
+    "0x6074": { "member": "Camera.Screen.ShakeKind6" },
+    "0x6061": { "member": "Camera.Screen.ResetShake" },
+    "0x6064": { "member": "Camera.Screen.WaitShake" },
+    "0x607b": { "member": "Camera.Screen.WaitMove" },
+
+    "0x00d5": { "member": "Voice.Prepare" },
+    "0x00d6": { "member": "Voice.Play" },
+    "0x00d7": { "member": "Voice.Stop" },
+    "0x00d8": { "member": "Voice.IsPlaying", "as": "get" },
 
     "0x00df": { "member": "Sound.Play" },
     "0x00fd": { "member": "Sound.Play" }

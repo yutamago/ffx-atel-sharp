@@ -32,7 +32,7 @@ namespace Ffx.Atel.Loader;
 ///     </para>
 /// </remarks>
 internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, string eflDir, IReadOnlyList<AtelMod> linked,
-                                             IReadOnlySet<string> served, IReadOnlySet<string> taken, FhLogger log) : IDisposable {
+                                             IReadOnlySet<string> served, IReadOnlySet<string> taken, FhLogger log, SavedLayout saved) : IDisposable {
     // Offsets from the image base (FFX.exe at 0x00400000).
     /// <summary>Ctrl work 0, the event's (<c>0x01325ba0</c>): <c>+0</c> bit 0 in use, <c>+0x34</c>/<c>+0x38</c> its message tables.</summary>
     private const nint CtrlWork0 = 0x00f25ba0;
@@ -133,7 +133,7 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
                 List<(int Index, string Text)> texts = [.. p.Messages!.Where(m => m.Index is not null).Select(m => (m.Index!.Value, m.Text))];
                 if (ScriptLinker.NewMessages(p).Any()) {
                     string path = p.File.Replace('\\', '/').ToLowerInvariant();
-                    LinkResult? relinked = Injection.Relink(linked, injected, path, readVanilla).FirstOrDefault()?.Result;
+                    LinkResult? relinked = Injection.Relink(linked, injected, path, readVanilla, saved).FirstOrDefault()?.Result;
                     texts.AddRange(relinked?.NewMessages.Where(m => m.Mod == Injection.ModId).Select(m => (m.Index, m.Text)) ?? []);
                 }
                 foreach ((int index, string text) in texts) {
@@ -163,7 +163,7 @@ internal sealed unsafe class RuntimeInjector(string loaderDir, string gameDir, s
             return;
         }
         string target = Path.Combine(eflDir, path.Replace('/', Path.DirectorySeparatorChar));
-        List<LinkedFile> files = Injection.Relink(linked, injected, path, readVanilla);
+        List<LinkedFile> files = Injection.Relink(linked, injected, path, readVanilla, saved);
         List<LinkMessage> report = [];
         bool ok;
         if (files.Count == 0) {

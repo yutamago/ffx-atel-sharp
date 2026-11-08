@@ -10,7 +10,8 @@ namespace Ffx.Atel.Sdk.Tests;
 
 /// <summary>
 ///     The SDK as a modder uses it (docs/sdk.md): packed to a local feed, the vanilla source of m209
-///     decompiled by the packed atel, the example mods (examples/LarvaHp, ToughLarva, LarvaInject) built with
+///     decompiled by the packed atel, the example mods (examples/LarvaHp, ToughLarva, LarvaInject, LarvaCount,
+///     LarvaCountReader) built with
 ///     <c>dotnet build</c>, and their packages compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
 /// </summary>
 public sealed class ExampleModTests {
@@ -62,7 +63,12 @@ public sealed class ExampleModTests {
                 { "msbuild-sdks": { "Ffx.Atel.Sdk": "{{version}}" } }
                 """);
             // Each example mod, copied out of the repo, built, and compared with atel compile-mod's package.
-            foreach ((string example, string id, string shows) in new[] { ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\""), ("LarvaInject", "yuta.larvainject", "\"inject\"") }) {
+            // In this order: LarvaCountReader reads LarvaCount's saved field.
+            foreach ((string example, string id, string shows) in new[] {
+                         ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\""), ("LarvaInject", "yuta.larvainject", "\"inject\""),
+                         ("LarvaCount", "yuta.larvacount", "\"saved\": \"LarvaCount.Progress.LarvasMet\""),
+                         ("LarvaCountReader", "yuta.larvacountreader", "\"saved\": \"yuta.larvacount/LarvaCount.Progress.LarvasMet\""),
+                     }) {
                 string mod = Path.Combine(root, "mod", example);
                 Directory.CreateDirectory(mod);
                 foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", example))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));
@@ -81,7 +87,8 @@ public sealed class ExampleModTests {
                 // A file-only Fahrenheit mod that depends on the loader; no DLL (it would hold vanilla code).
                 using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(built, $"{id}.manifest.json")));
                 Assert.Equal(id, manifest.RootElement.GetProperty("Id").GetString());
-                Assert.Equal(["yuta.atel"], manifest.RootElement.GetProperty("Dependencies").EnumerateArray().Select(e => e.GetString()));
+                string[] dependencies = example == "LarvaCountReader" ? ["yuta.atel", "yuta.larvacount"] : ["yuta.atel"];
+                Assert.Equal(dependencies, manifest.RootElement.GetProperty("Dependencies").EnumerateArray().Select(e => e.GetString()));
                 Assert.Empty(Directory.GetFiles(Path.Combine(mod, "bin"), "*.dll", SearchOption.AllDirectories));
             }
         }
