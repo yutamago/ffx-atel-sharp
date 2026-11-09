@@ -1130,9 +1130,21 @@ replaces and the round trip stays byte for byte.
   cast (`V1 = (uint)V0;`), `+ - * & | ^ <<` on itself stay compound (`V1 +=
   (uint)V0;`), `/ % >>` do not (`V1 = (uint)((int)V1 >> 2);`: C# does them
   unsigned on a `uint`). Casts are no code, so the bytes stay.
-- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register and variable
-  names beyond the save, names for function workers, storage 1 names,
-  entry names beyond 0 and 1 (requested entries are `E5Async`).
+- **Names by rule** (2026-11-09; [research/variable-names.md](research/variable-names.md),
+  [source-repo.md](source-repo.md#names)): entries beyond 0 and 1 by their trigger
+  (FFX.exe's default trigger table `0x00c52ad8`, read from the file: `OnTalk`, `OnTouch`,
+  `OnCross`, `OnTouchBegin`, `OnTouchEnd`) and by what their code does (`Say12`, `Walk`,
+  `Hide`, `Unload`, `GoToKami0100`, `Scene12`, …); function workers (`SetMoveTalkDefaults`,
+  `AttachEquipment`, `DetachEquipment`); storage 1 by offset for every script
+  (`data/variable-names.toml`: `CameraActor`, `TurnActorIsParty`, `CameraActorUnavailable`,
+  `AeonOnField`, `MoveSteps`, `LastCameraPick`); a script's own variables by use
+  (`TriggerEntries`, a native's result). Save offsets: every field Fahrenheit's `SaveData`
+  and ffx-rust's save.md name at or past save `+0x1ec` was already in `Save`; the other
+  ffx.sym labels in the save block (`g_SaveAbilityMap`, `g_SaveWalkMap`, …) lie at offsets
+  no script declares, so the 1,538 `Save_xxxx` declarations stay.
+- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register names, empty entries
+  that are no trigger entry (8,649), long entries that mix kinds of natives and requests,
+  storage 1 offsets whose writers do not say what they hold.
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
   workers named after their model; 29,136 `Init`/`Main` overrides. The
   corpus still round-trips 1,621/1,621 with 0 C# errors and 0 warnings.
@@ -1293,10 +1305,14 @@ how `atel compile` reads it:
   story indexes on 124 event scripts. 1,621/1,621 scripts compile to the
   game's bytes (`atel compile-all --check`), 0 C# errors, the 221 ATL2006
   warnings of vanilla.
-- Not done: bodies that call a sibling worker (`Call<W48>()`, 66 groups,
-  75 more workers) could name the library class of the target
-  (`Call<Shared0002>()`, resolved to the script's worker deriving from it);
-  near-duplicates with parameters.
+- **Bodies that name a sibling** (2026-11-09, was "Not done"): a body that names
+  other workers of its script is shared when each is the one worker of the script
+  deriving from a library class; the library body names the class
+  (`MoveTalkDefaults.Run()`, `Bjyt0000CameraLine.OnCrossAsync()`), which the
+  compiler reads as that worker (`ScriptCompiler.LibraryAliases`). Library classes
+  without a hand name are named by rule from their users' place and name
+  (`Bjyt0000CameraLine`, `ThunderPlainsSystemRequests2`, `IdleActor`;
+  source-repo.md, "Library names"). Not done: near-duplicates with parameters.
 - **Layout and data parts** (2026-11-03, review proposal P16): what only
   pins the compiled layout is in `<Script>.Layout.cs`, the data areas in
   `<Script>.Data.cs`, and neither in the files people read: the layout part

@@ -15,7 +15,8 @@ namespace Ffx.Atel.Decompiler.Naming;
 ///             <b>Trigger entries</b> of an event worker: the entry the engine requests when the player talks to,
 ///             touches or crosses the worker, by the type's default table (FFX.exe <c>0x00c52ad8</c>, ffx-rust
 ///             <c>docs/formats/script.md</c>, "Trigger entries") and the worker's own <c>SetTriggerEntry</c> with
-///             constants: <c>OnTalk</c>, <c>OnTouch</c>, <c>OnCross</c>, <c>OnTouchBegin</c>, <c>OnTouchEnd</c>.
+///             constants: <c>OnTalk</c>, <c>OnTouch</c>, <c>OnCross</c>, <c>OnTouchBegin</c>, <c>OnTouchEnd</c>; a line
+///             sensor's entry 2 <c>OnCross</c>, a box sensor's 2 and 3 <c>OnTouchBegin</c>, <c>OnTouchEnd</c>.
 ///             Only kinds the worker can receive: a kind's bit in worker <c>+0xab</c> is on by default
 ///             (<c>0xf7</c> for an actor, so no touch; <c>0xff</c> for triggers and sensors), turned on by
 ///             <c>EnableTrigger(kind)</c>, and an actor is talked to only when it has a model.
@@ -222,6 +223,16 @@ internal static class EntryRoles {
     private static Dictionary<int, string> TriggerNames(WorkerDecompiler worker, IReadOnlyList<StructuredMethod> methods) {
         Dictionary<int, string> found = [];
         int type = worker.Type;
+        // A sensor (types 5, 6) checks another worker against its line or box at level 1, every kind of
+        // trigger running entry 2 (a box's kind 6, a touch ending, entry 3): FFX.exe rows 2 and 3.
+        if (type is 5 or 6) {
+            bool setsTable = false;
+            foreach (StructuredMethod m in methods) Inline.Walk(m.Body, _ => { }, s => setsTable |= s is OpArgsStmt { Op: Opcodes.Op79 });
+            if (setsTable) return found;
+            found[2] = type == 5 ? "OnCross" : "OnTouchBegin";
+            if (type == 6) found[3] = "OnTouchEnd";
+            return found;
+        }
         if (DefaultEntries(type) is not int[] defaults) return found;
         HashSet<int> enabled = [], disabled = [];
         bool anyEnable = false;

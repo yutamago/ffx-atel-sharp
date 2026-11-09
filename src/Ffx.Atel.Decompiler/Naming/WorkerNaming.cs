@@ -15,7 +15,8 @@ namespace Ffx.Atel.Decompiler.Naming;
 ///     workers with the same model get their number (<c>Tidus_03</c>, <c>Tidus_07</c>); a model without a
 ///     <c>chr_</c> name (only its file code, <c>W101</c>) names nothing. A worker without a model name is
 ///     named after its role where its structured code says it (<see cref="AssignRoles"/>: <c>Director</c>,
-///     <c>ExitToKami0100</c>, <c>CameraLine</c>); all others keep <c>W03</c>. Function workers keep theirs too.
+///     <c>ExitToKami0100</c>, <c>CameraLine</c>), a function worker after what it does to its caller
+///     (<c>SetMoveTalkDefaults</c>); all others keep <c>W03</c>.
 /// </summary>
 internal static class WorkerNaming {
     private const ushort SetModel = 0x0001;

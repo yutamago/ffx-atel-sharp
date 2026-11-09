@@ -125,6 +125,9 @@ public sealed partial class Larva : BattleWorker
   entries `OnTurn`, `OnHit`, `OnDeath`; [research/handlers.md](research/handlers.md)), else after what
   its code does (`Director`, `ExitToKami0100`, `CameraLine_21`; [source-repo.md](source-repo.md#names)),
   else `W03`.
+- Entry methods beyond `Init` and `Main` are named after the trigger that runs them (`OnTalk`, `OnTouch`,
+  `OnCross`) or what their code does (`Say12`, `Walk`, `Hide`), else `E5`; the names are only names, the
+  `[Entry(n)]` attribute keeps the number ([research/variable-names.md](research/variable-names.md)).
 - `[Worker(Word0C = …, PrivateLength = …)]` carries two header words; `[PrivateData(length, hex)]`
   the worker's private data block. **Decompiler only.**
 - A worker holds only entry methods and `[Register]` fields. Other members are compile errors.
