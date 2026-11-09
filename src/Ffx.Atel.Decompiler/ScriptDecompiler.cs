@@ -240,6 +240,7 @@ public static class ScriptDecompiler {
                 continue;
             }
             string name = overlay.Variables.TryGetValue((v.Storage, v.Offset), out given) ? given
+                : SharedVariableNames.Value.Variables.TryGetValue((v.Storage, v.Offset), out string? shared) ? shared
                 : v.Storage != 0 ? string.Create(CultureInfo.InvariantCulture, $"V{i}")
                 : GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? field
                 : InModArea(v.Offset) ? string.Create(CultureInfo.InvariantCulture, $"ModArea_{v.Offset - Ffx.Save.ModArea:x4}")
@@ -250,6 +251,17 @@ public static class ScriptDecompiler {
         }
         return names;
     }
+
+    /// <summary>
+    ///     Names of the variables every script that declares them shares (storage 1), by storage and offset:
+    ///     <c>data/variable-names.toml</c>, embedded; a script's overlay comes first.
+    /// </summary>
+    internal static readonly Lazy<NameOverlay> SharedVariableNames = new(() => {
+        using Stream stream = typeof(ScriptDecompiler).Assembly.GetManifestResourceStream("variable-names.toml")
+                              ?? throw new InvalidOperationException("variable-names.toml is not embedded");
+        using StreamReader reader = new(stream);
+        return NameOverlay.Parse(reader.ReadToEnd(), "data/variable-names.toml");
+    });
 
     /// <summary>Whether a storage 0 offset is in the mods' area (<see cref="Ffx.Save.ModArea"/>), where only linked mods' saved fields are.</summary>
     private static bool InModArea(int offset) => offset >= Ffx.Save.ModArea && offset < Ffx.Save.ModArea + Ffx.Save.ModAreaLength;
@@ -372,6 +384,8 @@ public static class ScriptDecompiler {
         foreach (WorkerDecompiler w in workers) w.Structure();
         // Role names read the structured code; nothing has printed a name yet.
         WorkerNaming.AssignRoles(names.Category, workers, workerNames, defaults, taken);
+        // The script's own variables by what the code does with them (TriggerEntries, MsgChoiceResult).
+        VariableRoles.Assign(workers, image.Variables, varNames, vars, WorkerNaming.ReservedWith([.. workerNames, .. taken.Except(varNames)]));
         inline ??= Compiler.InlineMethods.Game.All;
         foreach (WorkerDecompiler w in workers) {
             w.FoldInline(inline);
