@@ -32,7 +32,7 @@ From ffx-rust's `docs/formats/text.md` and `docs/formats/script.md`; the codec i
   calls a message native; it has no text anywhere. The Japanese folders also hold `.ftc` files beside
   the tables, which are not message tables.
 - **Battles**: `new_<lang>pc/battle/btl/<name>/<name>.bin`, 163 of the 863 battle scripts. The export
-  writes them too, but no battle script calls `MsgSetText` or `MsgGetText_0236`, so their sources have
+  writes them too, but no battle script calls `MsgSetText` or `MsgGetTextAddress`, so their sources have
   no `Text[n]`: battle texts are shown through the battle natives (`0x7042`, `0x7072`, `0x70b7`,
   `0x711f`/`0x7121`; the table at `*0x0112a9b8`, script.md), whose index parameters are plain `int`s so
   far. Typing those as `TextId` is a later Phase 5 step, once it is known which table each reads.
@@ -40,7 +40,7 @@ From ffx-rust's `docs/formats/text.md` and `docs/formats/script.md`; the codec i
   in the kernel `monster` tables). Should one ever use `Text[n]`, the index is into the running battle's
   table (the monster runs in the battle's ctrl work); the extension says so instead of guessing.
 
-Measured over the corpus: all 33,759 `MsgSetText`/`MsgGetText_0236` calls are in 359 event scripts.
+Measured over the corpus: all 33,759 `MsgSetText`/`MsgGetTextAddress` calls are in 359 event scripts.
 
 ### Encoding
 

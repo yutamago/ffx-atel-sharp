@@ -880,7 +880,7 @@ replaces and the round trip stays byte for byte.
   `WaitFramesUnlessHddMode` (its poll is done at once in HDD mode,
   `g_FFXHddMode`). `tools/gen-natives.cs` fails on a `Ret` name and counts
   the names still generated (131: `N0123`, a number suffix, `Cam_605b`;
-  85 since 2026-11-08); those stay until their meaning is verified.
+  85 since 2026-11-08, 0 since 2026-11-09, below).
 - **`op_77` and `op_78`** (2026-11-02): from ffx-rust's interpreter port
   (`run.rs`) and FFX.exe: `op_77` pops entry and worker; while
   `AtelIsSignalQueued(worker, entry)` (`0x00863570`) finds a request for the
@@ -980,6 +980,74 @@ replaces and the round trip stays byte for byte.
   properties as properties (`Btl.SetActorsProperty(Target.Party,
   ActorProperty.Hp, 0)`, 33,358 calls, the same: the property is an
   argument).
+- **The last generated names** (2026-11-09): all 85 have names now (0
+  generated; 96 entries of `data/native-types.json`'s docs, 10 of them
+  renames of plain names that misled). Each handler was compared with its
+  twin's in the Ghidra dump; the notes say what differs. **Same code under
+  two ids**: the plain name goes to the id the shipped scripts call (it was
+  `GetNowEventJumpId` for 0x000f, never called, and `_0087` for the 523
+  calls: 0x0087 is `GetNowEventJumpId` now, 0x000f `GetNowEventJumpIdAlias`;
+  the same for `GetLastEventJumpId`), the other gets `Alias` (`Alias2`, …
+  for more): `SetMotionAlias`, `MapChangeAlias`, `EchoAlias`, `NoOpAlias`,
+  the `mov eax, 1; ret` copies `AlwaysTrueAlias`/`2`/`3`, 30 in all. A mod
+  written against either name runs the same code. As members the busy ones
+  read as a second spelling: `Motion.Set(id)` (0x501b, 5,195 calls) next to
+  `Motion = id` (0x5000), `Motion.SetSpeed(v)` (0x5021) next to
+  `Motion.Speed = v`, `Motion.WaitCounted()` (0x501e: `WaitMotion` that
+  counts the frames waited in debug mode). **Pairs with a difference**, by
+  it: `TriggerSetBoxSize` (0x0059 sets a box trigger's half-extents, what
+  `Atel_CheckBoxTrigger` compares; 0x0058 `TriggerSetPointDefault` was the
+  same with height -1, now `TriggerSetBoxSizeNoHeight`), `SetPosXZResetLast`,
+  `BackupEventJumpWithId`, `MusicMultiStartKeepPoint`, `CheckCaptMonsterArea`
+  and `CheckCaptMonsterAll` (`AtelCheckCaptMonster` modes 1 and 2; mode 0,
+  `CheckCaptMonster`, is by species), `MsgGetTextAddress` (0x0236 returns the
+  text; 0x007b returns a constant on PC), `DisposeDataWithCheck`,
+  `DisposeSystemMgrpOfModel`; in battle `ChrFaceBattleDir`/`…KeepTurn`
+  (`MsSetChrDirTarget` mode 1, the turn flag) and `ChrSetDirMode`/
+  `…KeepTurn` (the mode an argument) next to `ChrSetDirTarget` (mode 2),
+  `GetTargetDistFlat` (`MsGetTargetDist`'s flat flag), `MoveTargetDistGravity`,
+  `ActorGetMotionInfo` and `SelSetEffect7`/`8` (own actor against a selector,
+  as `Actor…`/`Sel…` elsewhere), `ActorPlayMotionHoldCommand`,
+  `ActorPlayMotionEvenIfHidden`, `ChrSetTransparentIfPending`,
+  `AtelRequestSystemAllowCameras` (`g_BtlCameraState` 1, not 2),
+  `TrySearchScriptTarget`, `QueueCommandWhenInPlace`,
+  `MsgDrawAmesBattleMessage`, `LuluAttachWeapon` and `WakkaAttachWeapon`
+  (actors 5 and 4), and the battle type: 0x7113 `SetStealRule` set type 1
+  (no capture), now `SetBattleTypeNoCapture`; 0x7114 `SetBattleTypeNoSteal`
+  (type 2: no capture, steal, battle records or Tidus overdrive learning).
+  **From their callees** (`N0123` names): `StartNewGame` (0x023d,
+  `MsSetSaveStartGame`), `EffectChrRefreshFieldMode`, `ShadowReset`,
+  `SetLoadingScreen`, `Fx.FpResetRuns`, `Fx.FpFreeAll`. **Movie**: the PC
+  handlers log a line naming the PS2 callback they stand for, which names
+  them (`movie_pause_resulti` → `Movie.Pause`; `Volume`, `Channel`,
+  `FramePal`, `FrameDrawPath3`, `Status` for 0xb002, `StartDebugInitResult`
+  for 0xb008). **Camera**: the four "circle area" natives add a limit
+  `ms_camera_limits` applies to the side's height (ffx-rust camera.rs): kind
+  1 soft, kind 3 keeping a share of the overshoot; the scripts pass low =
+  high (`(-62.8f, -62.8f, 0.83f)`), so they hold the focus near a height:
+  `Camera.Focus.AddHeightLimitScaled(low, high, keep)` (985 calls, was
+  `AddCircleArea`), `…Soft`, and the eye's twins. **Footsteps**:
+  `SndKickFootKind0`-`7` (the kind `SndKickFoot` passes; no names known, as
+  `EyeShakeKind1`). What stays thin: `AlwaysTrueOf(v)` (0x0260/0x0261 drop
+  their argument and return 1 on PC; the scripts take 0x0261's result `% 60`,
+  so PS2 may have read a clock), `SetVarSlotWithFlag` (what reads the flag is
+  not known), `AlwaysTrue019c` (kept, see above). 174 natives are members
+  now (74.9 % of the calls, from 74.5 %).
+- **A native or property picked by a constant argument** (evaluated
+  2026-11-09, not done). `Btl.SetActorsProperty(Target.Party,
+  ActorProperty.Hp, 0)` (and its getter, 0x700f) is one native whatever the
+  property, so it needs no choice of native: what it needs is a member kind
+  whose receiver and name are constant arguments, `Actors[Target.Party].Hp
+  = 0;` lowered back to `(selector, property, value)`. That stays byte for
+  byte (the compiler already reads both constants by name), but it is a new
+  member form: an indexer typed by `Target`, a property per `ActorProperty`
+  member (about 200, generated from the enum; a computed property stays
+  the call), its getter averaging over the picked actors, which a property
+  hides. Worth doing as its own change, with the reading checked on a few
+  monster scripts. `Shake(kind, …)` for `ShakeKind1`…`8` would need the
+  compiler to pick the native from the constant; with no names for the
+  kinds, `Camera.Eye.Shake(1, …)` reads no better than `ShakeKind1(…)`, so it
+  stays.
 - **Engine entries**: a method that holds only entry 0 or only entry 1 of a
   worker (not a function worker) is `protected override void Init()` or
   `Main()`, overriding the base class's virtual members, without `[Entry]`;
@@ -1052,6 +1120,16 @@ replaces and the round trip stays byte for byte.
   3,344 → 3,349. 1,621/1,621 round-trip, 0 C# errors, 0 warnings. What is left
   is mostly variables and bit tests (`AsBool(V3)`, `AsBool(V3 & 4)`) and
   natives that return values.
+- **`uint` variables** (2026-11-09, issue #74): the printer typed a `u32`
+  variable (type 4) as `int` while the declaration said `uint`, so a `uint`
+  stored into an `int` lost its cast (CS0266). No shipped script declares
+  one (0 of the 29,103 variable declarations of the 1,621 scripts), so the vanilla round trip never
+  met it; a linked mod's `[Saved] uint` field did. The printer has a `uint`
+  type now: as an operand it is `(int)x` (the machine's values are signed,
+  and C# makes `uint` with `int` a `long`), a store from another type is
+  cast (`V1 = (uint)V0;`), `+ - * & | ^ <<` on itself stay compound (`V1 +=
+  (uint)V0;`), `/ % >>` do not (`V1 = (uint)((int)V1 >> 2);`: C# does them
+  unsigned on a `uint`). Casts are no code, so the bytes stay.
 - Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register and variable
   names beyond the save, names for function workers, storage 1 names,
   entry names beyond 0 and 1 (requested entries are `E5Async`).

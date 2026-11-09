@@ -183,7 +183,7 @@ natives do, nothing more.
 | R039 | 306 | 96 | 2,744 | `Savesphere.JumpToBltz0200(effect)` | `SfxPlay`, `FpBind`/`FpRun(effect)`, a fade, `MapJump(Map.Bltz0200, 0)` | nothing |
 | R046 | 746 | 130 | 2,234 | `Turn.To(yaw, frames, mode: 4099)` | `TurnSetFrames(0f, frames); TurnSetYaw(yaw); TurnStart(0, mode, 0); TurnWait();` | nothing |
 | R051 | 484 | 16 | 1,931 | `Chr.LoadModelWithTurns(group, model, m0, m1, m2, m3)` | `LoadSystemMgrpResult; WaitCdIdle(); SetModel(model); SetTurnMotions(…); SetPushWeight(-1);` | nothing |
-| R053 | 899 | 104 | 1,795 | `Motion.PlayOnceThenLoop(once, loop, …)` | `PlayMotion(once, 0, 1, …); WaitMotion_501e(); PlayMotion(loop, 0, 0, …);` | nothing |
+| R053 | 899 | 104 | 1,795 | `Motion.PlayOnceThenLoop(once, loop, …)` | `PlayMotion(once, 0, 1, …); Motion.WaitCounted(); PlayMotion(loop, 0, 0, …);` | nothing |
 | R060 | 1,595 | 280 | 1,593 | `Trigger.SetLine(x1, y1, z1, x2, y2, z2, extend1, extend2)` | `TriggerSetLine(…); LineExtend(…);` | nothing |
 
 Left out of the list though the cover takes them: runs that are no clearer

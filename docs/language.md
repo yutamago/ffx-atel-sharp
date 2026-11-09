@@ -490,6 +490,9 @@ area and offset:
   (`i32`), `float` (`f32`); arrays of those, 1-D or 2-D. The size is the initializer
   (`new byte[6]`; a 2-D array's second dimension is the row length). `[Var(…, Length = n)]` is the
   alternative for a 1-D array.
+- The machine's values are signed 32-bit, so a `uint` read as an operand is `(int)x`: the decompiler
+  writes `Hp = (int)Kills;`, `if ((int)Kills > 3)`, `Kills += (uint)n;`, and the compiler drops the
+  casts. No shipped script declares a `u32` variable; a mod's `[Saved] uint` field is the usual one.
 - A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
   variable table has a bit for it.
 - Field initializers on a vanilla script's scalars are errors: its initial values are in the data areas
@@ -609,8 +612,9 @@ if (Btl.GetActorProperty(Target.Own, ActorProperty.Hp) < 100)
 - 25 natives that are predicates return `bool` (`Common.VoiceIsPlaying()`,
   `Common.PartyIsJoined(…)`); the others return `int` (or `float`), also when the scripts only
   test them.
-- Many natives still have generated names (`Btl.ActorSetField505`, `Common.MsgGetText_0236`) and
-  untyped parameters (`a0`, `a1`). Names and types come from `data/native-types.json` and the
+- Every native has a name now (none generated since 2026-11-09); where two ids run the same code,
+  one has the plain name and the other the same with `Alias` (`Chr.SetMotionAlias`, the same code as
+  `SetMotion`). Many parameters are still untyped (`a0`, `a1`). Names and types come from `data/native-types.json` and the
   generator `tools/gen-natives.cs`.
 - The natives most scripts call are also members of the worker and of static classes (`Pos = …`,
   `Turn.Start(…)`, `Wait.Frames(…)`): see "Members". The decompiler writes those.
@@ -707,13 +711,13 @@ The groups and their members:
 | the worker | `Pos` (`SetPos`; `.X` `.Y` `.Z`: `GetWorkerX/Y/Z`), `Position` (`SetPosition`), `Yaw` (`SetYaw`, `GetYaw`, another's `GetWorkerYaw`), `Pitch`, `Model`, `PartyIndex`, `MoveSpeed`, `TalkRange`, `TalkAngle`, `Hidden` (`Chr.Hide`), `BodyHit`, `GroundFollow`, `PushWeight`, `GroundMode`, `AutoTalk` (`SetAutoTalk`, another's `SetAutoTalkOf`), `EnableTrigger`, `DisableTrigger`, `Detach`, `DetachAndDispose` |
 | `Turn` | `Yaw`, `Pitch`, `Speed`, `Speed2`, `SetFrames`, `Start`, `Wait`, `Stop` (any worker), `GetKind`, `GetMotion`, `GetFrames`, `SetMotions` |
 | `Move` | `Target` (`Vector3`), `Speed`, `ArriveRadius`, `Yaw`, `SetFrames`, `Start`, `Wait`, `Stop` (any worker), `StopAllLevels`, `YawToTarget`, `PitchToTarget` |
-| `Motion` | `= id` (`SetMotion`), `Current`, `Play`, `Wait`, `Release`, `PlayDefault`, `SetAuto`, `Blend`, `NextBlend`, `Speed` (any worker), `Frame` (any worker) |
+| `Motion` | `= id` (`SetMotion`), `Set(id)` (`SetMotionAlias`, the same code), `Current`, `Play`, `Wait`, `WaitCounted` (`WaitMotionCounted`: the frames counted in debug mode), `Release`, `PlayDefault`, `SetAuto`, `Blend`, `NextBlend`, `Speed` (any worker), `SetSpeed(v)` (`SetMotionSpeedAlias`), `Frame` (any worker) |
 | `Neck` | `Enabled`, `Target` (a worker's number), `TargetPos` (`Vector3`), `TargetCamera`, `Speed`, `SetRot` |
 | `Sprites[slot]` | `Show`, `Hide`, `SetPos`, `SetScale`, `SetColor` |
 | `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever`; `Seconds` (below) |
 | `Camera` | `Roll`, `ScreenDepth` (read and write), `Blur`, `DepthMaskMode`, `SetDepthMask`, `Suspend`, `Resume`; the groups `Eye`, `Focus`, `Screen` |
-| `Camera.Eye` | `Position` (`Vector3`, `SetPos`), `SetPolar`, `AddPolar`, `SetYaw`, `AimAtXZ`, `AimAt`, `AimShortOf`, `SetFocusList`, `SetFocusList1`, `SetTargetPolar`, `SetTargetPolar1`, `Orbit`, `OrbitScaled`, `OrbitPolar`, `Move`, `MoveCosine`, `MoveEased`, `MoveMode1`, `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove`, `Wait`, `ResetDir`, `Reset`, `LineFilter`, `ClearAreas`, `FollowSpline`, `OnSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`7`/`8`, `ResetShake`, `WaitShake` |
-| `Camera.Focus` | `Position` (`Vector3`, `RefSetPos`), `SetTarget`, `OnActors`, `Orbit`, `OrbitScaled`, `Move` (`FocusTimeLinear`), `MoveCosine`, `MoveEased` (`FocusTimeEase`), `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove` (`FocusCut`), `Wait`, `Reset`, `LineFilter`, `AddLineArea`, `AddCircleArea`, `ClearAreas`, `AddPathArea`, `AddPathAreaScaled`, `FollowSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`3`/`4`/`7`/`8`, `ResetShake`, `WaitShake` |
+| `Camera.Eye` | `Position` (`Vector3`, `SetPos`), `SetPolar`, `AddPolar`, `SetYaw`, `AimAtXZ`, `AimAt`, `AimShortOf`, `SetFocusList`, `SetFocusList1`, `SetTargetPolar`, `SetTargetPolar1`, `Orbit`, `OrbitScaled`, `OrbitPolar`, `Move`, `MoveCosine`, `MoveEased`, `MoveMode1`, `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove`, `Wait`, `ResetDir`, `Reset`, `LineFilter`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `FollowSpline`, `OnSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`7`/`8`, `ResetShake`, `WaitShake` |
+| `Camera.Focus` | `Position` (`Vector3`, `RefSetPos`), `SetTarget`, `OnActors`, `Orbit`, `OrbitScaled`, `Move` (`FocusTimeLinear`), `MoveCosine`, `MoveEased` (`FocusTimeEase`), `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove` (`FocusCut`), `Wait`, `Reset`, `LineFilter`, `AddLineArea`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `AddPathArea`, `AddPathAreaScaled`, `FollowSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`3`/`4`/`7`/`8`, `ResetShake`, `WaitShake` |
 | `Camera.Screen` | `ShakeKind1`/`3`/`4`/`5`/`6`, `ResetShake`, `WaitShake`, `WaitMove` (each takes the screen) |
 | `Voice` | `Prepare` (`VoiceStandbyEnd`), `Play` (`VoiceStartEnd`), `Stop`, `IsPlaying` |
 | `Sound` | `Play(sfx)`, `Play(sfx, pan, volume)` |

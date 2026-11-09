@@ -306,6 +306,17 @@ namespace Ffx
         [Atel.NativeMember(0x5003, Polls = true)] 
         public void Wait() => throw Atel.Runtime.NotRunnable();
 
+        /// <summary>Waits until the worker's model has finished its motion, as <see cref="Chr.WaitMotion"/>; in the game's debug mode it also counts the frames it waited.</summary>
+        /// <remarks>Calls native <c>0x501e</c>, <c>Chr.WaitMotionCounted</c> (3657 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x501e, Polls = true)] 
+        public void WaitCounted() => throw Atel.Runtime.NotRunnable();
+
+        /// <summary>The same code as <see cref="Chr.SetMotion"/> (<c>0x5000</c>), under another id. Sets the worker's model to motion <paramref name="motion"/>. Returns 0.</summary>
+        /// <param name="motion">The motion id.</param>
+        /// <remarks>Calls native <c>0x501b</c>, <c>Chr.SetMotionAlias</c> (5195 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x501b)] 
+        public int Set(int motion) => throw Atel.Runtime.NotRunnable();
+
         /// <summary>Ends the scripted motion, so that the model's own stand, walk and run motions take over.</summary>
         /// <remarks>Calls native <c>0x5005</c>, <c>Chr.ReleaseMotion</c> (6376 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x5005)] 
@@ -322,6 +333,12 @@ namespace Ffx
         /// <remarks>Calls native <c>0x5025</c>, <c>Chr.SetAutoMotion</c> (23505 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x5025)] 
         public int SetAuto(int slot, int motion) => throw Atel.Runtime.NotRunnable();
+
+        /// <summary>The same code as <see cref="Chr.SetMotionSpeed"/> (<c>0x5018</c>), under another id. Sets the speed of the worker's model's motion. Returns 0.</summary>
+        /// <param name="speed"></param>
+        /// <remarks>Calls native <c>0x5021</c>, <c>Chr.SetMotionSpeedAlias</c> (1660 calls in the shipped scripts).</remarks>
+        [Atel.NativeMember(0x5021)] 
+        public int SetSpeed(int speed) => throw Atel.Runtime.NotRunnable();
     }
 
     /// <summary>The neck of the worker's model: where it looks and how fast it turns there.</summary>
@@ -758,6 +775,22 @@ namespace Ffx
             /// <remarks>Calls native <c>0x6063</c>, <c>Cam.EyeShakeWait</c> (55 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x6063, Polls = true)] 
             public static void WaitShake() => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Keeps the camera's eye between heights <paramref name="low"/> and <paramref name="high"/>, pulling it back softly. Returns 0. Was <c>EyeAddCircleArea</c>.</summary>
+            /// <param name="low"></param>
+            /// <param name="high"></param>
+            /// <param name="keep"></param>
+            /// <remarks>Calls native <c>0x600c</c>, <c>Cam.EyeAddHeightLimitSoft</c> (0 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x600c)] 
+            public static int AddHeightLimitSoft(int low, int high, int keep) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Keeps the camera's eye between heights <paramref name="low"/> and <paramref name="high"/>, keeping the share <paramref name="keep"/> of the overshoot (0 pins it there, 1 leaves it free). Returns 0. Was <c>AddCircleArea</c>.</summary>
+            /// <param name="low"></param>
+            /// <param name="high"></param>
+            /// <param name="keep"></param>
+            /// <remarks>Calls native <c>0x600d</c>, <c>Cam.EyeAddHeightLimitScaled</c> (0 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x600d)] 
+            public static int AddHeightLimitScaled(int low, int high, int keep) => throw Atel.Runtime.NotRunnable();
         }
 
         /// <summary>The point the camera looks at (side 0 of its channel, FFX.exe's <c>ref</c>): where it is, how it moves there, its limits, path and shakes.</summary>
@@ -884,13 +917,21 @@ namespace Ffx
             [Atel.NativeMember(0x6029)] 
             public static int AddLineArea(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x602b: args (x, z, r) -&gt; 0; adds a circle constraint (type 3) to the ref&apos;s list (0x007bf1f0); ?keeps the ref inside/around the circle</summary>
-            /// <param name="x"></param>
-            /// <param name="z"></param>
-            /// <param name="r"></param>
-            /// <remarks>Calls native <c>0x602b</c>, <c>Cam.RefAddCircleArea_602b</c> (985 calls in the shipped scripts).</remarks>
+            /// <summary>Keeps the camera's focus point between heights <paramref name="low"/> and <paramref name="high"/>, keeping the share <paramref name="keep"/> of the overshoot (0 pins it there, 1 leaves it free). Returns 0. Was <c>RefAddCircleArea_602b</c>.</summary>
+            /// <param name="low"></param>
+            /// <param name="high"></param>
+            /// <param name="keep"></param>
+            /// <remarks>Calls native <c>0x602b</c>, <c>Cam.FocusAddHeightLimitScaled</c> (985 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x602b)] 
-            public static int AddCircleArea(float x, float z, float r) => throw Atel.Runtime.NotRunnable();
+            public static int AddHeightLimitScaled(float low, float high, float keep) => throw Atel.Runtime.NotRunnable();
+
+            /// <summary>Keeps the camera's focus point between heights <paramref name="low"/> and <paramref name="high"/>, pulling it back softly. Returns 0. Was <c>RefAddCircleArea</c>.</summary>
+            /// <param name="low"></param>
+            /// <param name="high"></param>
+            /// <param name="keep"></param>
+            /// <remarks>Calls native <c>0x602a</c>, <c>Cam.FocusAddHeightLimitSoft</c> (2 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x602a)] 
+            public static int AddHeightLimitSoft(float low, float high, float keep) => throw Atel.Runtime.NotRunnable();
 
             /// <summary>0x602d: no args -&gt; camera handle; clears the ref&apos;s constraint count (byte 0x01137634 + side/channel, 0x007bed10)</summary>
             /// <remarks>Calls native <c>0x602d</c>, <c>Cam.RefClearAreas</c> (3255 calls in the shipped scripts).</remarks>

@@ -203,7 +203,7 @@ public static class ScriptDecompiler {
 
     private static VarInfo VarInfoOf(VarEntry v, string name) {
         CType type = v.Type switch {
-            0 => CType.Byte, 1 => CType.SByte, 2 => CType.UShort, 3 => CType.Short, 5 => CType.Int, 6 => CType.Float,
+            0 => CType.Byte, 1 => CType.SByte, 2 => CType.UShort, 3 => CType.Short, 4 => CType.UInt, 5 => CType.Int, 6 => CType.Float,
             _ => CType.Int,
         };
         Domain? domain = v.Storage == 0 && v.Offset == GameNames.StoryOffset && !v.IsArray ? GameNames.Story : null;

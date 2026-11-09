@@ -104,7 +104,7 @@ handle `OnTurn`, 292 `OnHit`, 291 `OnDeath`, 276 `OnTargeted`, 258 `OnTurnStart`
 - Cameras: `OnCamera24` for camera 24 (decimal, as the scripts' calls write it).
 - Motions: `OnMotion39`. The motion numbers `MsSetMotion` takes are the battle's motion requests
   (0x27 entering, 0x1c targeted, 0x12 escaping), not `BattleMotion` values.
-- System requests: `OnRequest0` for `Btl.AtelRequestSystem_7097(0)`.
+- System requests: `OnRequest0` for `Btl.AtelRequestSystemAllowCameras(0)`.
 - Voices: `OnLine3` for line 3.
 - Command cameras: the command, `OnDelayAttack` for `Command.DelayAttack` (`0x3006`), `OnPotion`.
 
