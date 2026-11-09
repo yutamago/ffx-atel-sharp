@@ -139,8 +139,9 @@ and moved here when work began.
   into inline methods of the worker (`data/inline-names.toml` names the common ones). W36 of
   `bltz0000`: 190,402 lines → 15,447; the corpus 7,842,894 → 4,403,971; still byte for byte
   ([language.md](language.md#repeated-code), [research/repeats.md](research/repeats.md#status)).
-  Not done: the constant `if` on a parameter that would merge a macro's two foldings into one helper
-  (they stay two).
+  The constant `if` on a parameter that would merge a macro's two foldings into one helper: not done,
+  measured 2026-11-09 (Phase 5, "Typing and members picked by a constant"): no worker has both foldings
+  as helpers, so it would merge nothing.
 - **The in-game switch for `Cut.*` blocks is its own mod**, separate from
   the loader: a debug mod with a menu, which patches the loaded scripts.
 
@@ -380,7 +381,7 @@ carries only entry, worker and priority. The compiler provides both:
   members, called without a prefix (`PlayMotion`). XML doc comments carry
   what is known about each, so the IDE shows it on hover.
 - Actor properties are properties: `Radius = 35f;`, `if (Hp < 100)`,
-  `Party.Alive.Defense = 0;`. `Position = (x, y, z);` through a tuple
+  `Actors[Target.AllPly].Defense = 0;`, `Self.Hp` (Phase 5, 2026-11-09). `Position = (x, y, z);` through a tuple
   conversion. Named arguments where they help (`frames: 15`).
 - Float literals need C#'s `f` (`35f`); the decompiler writes them so.
 - Values are typed by use: `Item[] Rewards = { Item.Potion, … }`,
@@ -974,12 +975,9 @@ replaces and the round trip stays byte for byte.
   `VoiceStartEnd`, …). 168 natives are members (74.5 % of the calls, from 91
   and 65.4 %); 19 camera natives with calls stay `Cam.…` (1,514 calls: the
   variable readers `GetPos`/`RefGetPos`, `BtlRandom`, and the unverified
-  screen vector and link natives). Not done: the shake kinds as one
-  `Shake(kind, …)` (each kind is its own native, so a kind argument would
-  need the compiler to pick the native by a constant); `Btl`'s actor
-  properties as properties (`Btl.SetActorsProperty(Target.Party,
-  ActorProperty.Hp, 0)`, 33,358 calls, the same: the property is an
-  argument).
+  screen vector and link natives). The shake kinds as one `Shake(kind, …)`
+  and `Btl`'s actor properties as properties: done 2026-11-09 (below,
+  "Typing and members picked by a constant").
 - **The last generated names** (2026-11-09): all 85 have names now (0
   generated; 96 entries of `data/native-types.json`'s docs, 10 of them
   renames of plain names that misled). Each handler was compared with its
@@ -1034,7 +1032,7 @@ replaces and the round trip stays byte for byte.
   not known), `AlwaysTrue019c` (kept, see above). 174 natives are members
   now (74.9 % of the calls, from 74.5 %).
 - **A native or property picked by a constant argument** (evaluated
-  2026-11-09, not done). `Btl.SetActorsProperty(Target.Party,
+  2026-11-09; done the same day, next entry). `Btl.SetActorsProperty(Target.Party,
   ActorProperty.Hp, 0)` (and its getter, 0x700f) is one native whatever the
   property, so it needs no choice of native: what it needs is a member kind
   whose receiver and name are constant arguments, `Actors[Target.Party].Hp
@@ -1130,9 +1128,91 @@ replaces and the round trip stays byte for byte.
   cast (`V1 = (uint)V0;`), `+ - * & | ^ <<` on itself stay compound (`V1 +=
   (uint)V0;`), `/ % >>` do not (`V1 = (uint)((int)V1 >> 2);`: C# does them
   unsigned on a `uint`). Casts are no code, so the bytes stay.
-- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register and variable
-  names beyond the save, names for function workers, storage 1 names,
-  entry names beyond 0 and 1 (requested entries are `E5Async`).
+- **Typing and members picked by a constant** (2026-11-09). Counted on
+  `atel roundtrip -o` (library classes on, so a shared worker counts once;
+  the 40,771/3,349 above were without them): `AsBool` 25,755 → 18,205,
+  `AsInt` 2,715 → 2,669. By kind (`AsBool`): variables 7,532 → 516 and
+  integer registers 652 → 118 (flags typed `bool`, below); bit tests
+  (`AsBool(V3 & 4)`) 9,890, unchanged; natives that return a count, side or
+  byte (`CountActorsInBoth` 1,905, `LineGetCrossSide` 911, `GetReflected`
+  247, `PadIsHeld` 205, …) 3,587, unchanged; actor properties (were
+  `Btl.GetActorProperty`, 2,235, now `Actors[…].X`/`Self.X`, 2,234) stay:
+  an `int` averaged over the picked actors, not a flag; `&`, `|`, `^` of
+  ints and comparisons (`AsBool(AsInt(a > b) & AsInt(c < d))`, `and` not
+  `land`) 1,796, unchanged; `AsBool(0)` 39. `AsInt`: a `not` used as a value
+  (`AsInt(!!AsBool(Save_0265[1] & 8)) == 0`, as the original wrote it)
+  1,323; a comparison as a value 1,341 (188 stored → 143: the rest go into
+  flags). Each kept form is what the bytes say (`x != 0` would add an `ne`,
+  `&` of two conditions is `land`).
+  - **Flags are `bool`.** A scalar integer variable whose writes are 0, 1 or
+    a condition and whose reads are conditions (a value passed on costs an
+    `AsInt`; it becomes `bool` only where more `AsBool` go) is declared
+    `bool` (`FlagVariables`): 2,264 declarations (2,186 common, 60 private,
+    18 event; 21 kept as `byte`/`sbyte` through `[Var(…, Stored =
+    typeof(byte))]`). The compiler reads a `bool` variable or register as a
+    condition, so `if (V0 & !V4)` is `land` as `if (AsBool(V0) &
+    !AsBool(V4))` was, and `V4 = true` is `pushimm 1`. Integer registers the
+    same, 525 (`[Register(0)] public static bool I0;`), not in a function
+    worker or a worker that calls one (they share registers) and not where a
+    reference-assembly inline keeps a local there (`Turn.To`'s `I3`).
+    `Btl.DebugPrint` has a `bool` overload (the native prints `%d`): 1,604
+    flags passed to it would otherwise read `AsInt(V4)`. Not typed: natives
+    that return 0 or 1 but whose results the scripts mostly use as numbers
+    (`PadIsHeld` and `PadIsPressed`, 0/1 in ffx-rust's port: 210 and 14
+    conditions against 120 and 192 value uses, so typing them would add more
+    `AsInt` than it removes; `IsUnderwater` 40 against 3,196), and inline
+    helpers' parameters (about 40 `AsBool`, blitzball).
+  - **Actor properties**: `Actors[Target.AllPly].Hp = 0;` is
+    `Btl.SetActorsProperty(Target.AllPly, ActorProperty.Hp, 0)`,
+    `Actors[Target.Own].Mp` `Btl.GetActorProperty(…)`, `Self.Hp` the own
+    actor's `GetSelfProperty`/`SetActorProperty` (0x70aa/0x70ab, selector
+    -13 inside): one `int` property per `ActorProperty` member (339),
+    generated by gen-members from the enum (`"properties"` on the group),
+    `[NativeMember(0x700f, Constant = 0x0000)]` on the accessor; the
+    compiler inserts the constant after the receiver, the decompiler writes
+    the member where the argument is a constant with a member. 45,069 uses
+    (`ActorProperty` names placed as arguments 46,511 → 1,442: other natives
+    and computed ones). `Actors[…].Hp += 1` is ATL1012, `var a =
+    Actors[…];` ATL1013 (`MemberAnalyzer`). Read on monster scripts
+    (`m136`: `Self.EffectHitNum = 8;`, `Actors[Target.Own].DeathPattern =
+    1;`). No other receiver+property natives: `SelectTarget`/`FindActor`
+    take a property but pick an actor, and the float properties
+    (`SetSelfFloatProperty(0, 40f)`) have no names.
+  - **Shakes**: `Camera.Eye.Shake(ShakeKind.SineFadeOut, 7, 3.14f, 90, 20,
+    0)` was `Camera.Eye.ShakeKind1(…)`. The kinds are named from FFX.exe's
+    `MsCameraShakeProcess` (`0x007c50f0`, ported in ffx-rust
+    `crates/ffx-battle/src/shake.rs`, docs/formats/battle.md "Shakes"): the
+    frames left count down from the length, odd kinds 1-5 scale by frames
+    left / length (fade out), even ones by the rest (fade in), 7 and 8 do
+    not fade; the wave is `sin` (1, 2, 7), `(sin a + cos(a + 0.3)) / 2` (3,
+    4), the same with 0.1 (8), and 5/6 hold half the last value on odd
+    frames: `SineFadeOut`, `SineFadeIn`, `BlendFadeOut`, `BlendFadeIn`,
+    `JerkyFadeOut`, `JerkyFadeIn`, `Sine`, `Blend`. The arguments are
+    `MsAtelCameraShake`'s pops (`which` axes, `speed` the angle step per
+    frame, `frames`, `amplitude`, `jitter`). One member per side, its natives
+    marked `[NativeMember(id, Choice = k)]`: the compiler picks the native by
+    the constant kind and does not pass it. 579 calls written so (the 7
+    kinds no script calls are members too); the spring (kind 9) stays
+    `Cam.ScreenShakeKind9`. 185 natives are members, 76.5 % of the calls.
+  - **The constant `if` on a parameter** (an inline method's `if` on a
+    `[Constant]` parameter lowered as the original folded it: true `A; if
+    (false) { B }`, false `if (false) { A } else { B }`) was built and
+    measured, not kept: it compiles byte for byte, but the decompiler finds
+    nothing to merge. The 9,745 folded twins of research/repeats.md are
+    single statements (`Common.MsgClose(5); if (false) {
+    Common.MsgClose(4); }` against `if (false) { Common.MsgClose(5); } else
+    { Common.MsgClose(4); }`), far below the miner's 8 lines. Three ways of merging were tried: two
+    helpers of a worker whose whole bodies are the two foldings (whole
+    corpus: none), a helper whose body is a true folding (169 in the corpus)
+    called with `false` at the worker's false-folding places (`bltz00*`, 16
+    scripts: none), and two helpers aligned statement by statement with
+    every difference a folding pair (`lchb08*`: none; the blitzball pairs,
+    `ShowStatIcon`/`ShowStatIconOfCurrent`, differ by a parameter). It would
+    pay only for hand-written helpers.
+  - 1,621/1,621 round-trip, 0 C# errors, 221 warnings (ATL2006).
+- Not done yet: register and variable names beyond the save, names for
+  function workers, storage 1 names, entry names beyond 0 and 1 (requested
+  entries are `E5Async`).
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
   workers named after their model; 29,136 `Init`/`Main` overrides. The
   corpus still round-trips 1,621/1,621 with 0 C# errors and 0 warnings.
@@ -1475,9 +1555,10 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   that requests itself and a new variable links onto 1,598 scripts (the
   other 23 have no workers or no shared data); each result parses, takes
   itself apart and lays itself out again byte for byte, and keeps its data
-  areas, the other workers' code and the file's other sections. Files grow
-  by 36 KB on average, as the code region moves; laying the code out in two
-  runs is left for later.
+  areas, the other workers' code and the file's other sections. Files grew
+  by 36 KB on average, as the code region moved; since 2026-11-09 unchanged
+  workers stay in place and only new code goes after the block (below,
+  "Laying out unchanged workers in place": 967 bytes on average).
 - **`atel compile-mod <mod dir> --vanilla <dir> -o <out> [--id <id>]`**
   (`ScriptCompiler.CompileMod`): a mod is C# in the namespace of the script
   it changes, next to the decompiled vanilla source (`atel decompile -o`).
@@ -1518,8 +1599,9 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   to a 56,624-byte `m209.bin` (vanilla 55,280). In battle 34 the Larva has
   1234 HP, and its script block in memory equals the linked block byte for
   byte, including the code region the linker moved to the block's end
-  (`+0x30` = `0xa70`) and everything past the vanilla block. Open: laying
-  out unchanged workers in place. (Per-field data edits, `[Inject]` and
+  (`+0x30` = `0xa70`) and everything past the vanilla block. Unchanged
+  workers stay in place since 2026-11-09 ("Laying out unchanged workers in
+  place", below). (Per-field data edits, `[Inject]` and
   private data for new workers: done 2026-11-08, below.)
 - **Hidden locals in private data** (2026-11-02). Hidden locals used to be
   4-byte variables of the shared data (storage 4). FFX.exe
