@@ -178,6 +178,89 @@ Larva's `Init` prints `Larvas met: <n>`:
 10. With F8 (`yuta.atel.cuts`) and F7 (Fahrenheit's settings) open, F6
     still toggles only the lines, and neither window toggles on F6.
 
+### Battle messages and code swaps: steps for the game
+
+Built and unit-tested on 2026-11-09 ([formats/debug.md](../formats/debug.md#message-tables),
+[formats/debug.md](../formats/debug.md#code-swaps-in-memory)); not run in game yet. Set up as for the
+on-screen lines above (the loader from this branch in `<Fahrenheit>/mods/yuta.atel/`, only `yuta.atel`
+in `mods/loadorder` unless a step says otherwise). A runtime injection package is what `atel
+compile-mod <mod dir> --vanilla <decompiled dir> -o <out> --id inject` writes as
+`atel/<archive path>.json`; it goes to `mods/yuta.atel/inject/` (any name ending in `.json`). Copy a
+new version over the old one while the game runs; the loader reacts within a second.
+
+**A. The battle's message table.**
+
+1. Find how many messages `kami00_00` has: `atel text export kami00_00` (or the
+   `new_uspc/battle/btl/kami00_00/kami00_00.bin` table); call it `n`.
+2. Before starting the game, put `inject/kami00_00.json` there:
+   `{ "file": "ffx_ps2/ffx/master/jppc/battle/btl/kami00_00/kami00_00.bin", "script": "kami00_00",
+   "messages": [ { "index": 0, "text": "Atel: battle text 0" }, { "index": <n + 2>, "text": "Atel:
+   added" } ] }` (no code; fields as in [mod-package.md](../formats/mod-package.md)).
+3. Start the game, load a save on the field, start battle 34 (`kami00_00`). The log has "Atel loader:
+   inject: messages for battle kami00_00 (English); set when it runs", then, once the battle runs,
+   "inject: battle kami00_00: 2 message(s) set (<a> -> <b> bytes)".
+4. Memory: `*0x0112a9b8` (rebase it: the game is relocated) points at a table of `n + 3` entries:
+   entry 0 is the new text, `n + 2` the added one, `n` and `n + 1` empty, the rest as in the file
+   (decode with the English charset, as in the Phase 10 check). `*0x023112c4` (`g_BtlFileTextData`) is
+   still the game's own buffer, a different address.
+5. Optional, on screen: a mod on `m209` with a postfix on the Larva's `Init` that calls
+   `Btl.MsgDrawAmes(win, 0, x, y, anchor)` with the arguments of a vanilla call (`atel decompile` a
+   battle script and grep `MsgDrawAmes`) shows "Atel: battle text 0".
+6. Leave the battle, start battle 34 again: the log has the "message(s) set" line again (the game read
+   its table anew, the loader copied it again). Delete the package during the second battle: "inject:
+   battle kami00_00: the game's own message table again", and `*0x0112a9b8` equals `*0x023112c4`.
+7. The same with `system_01` (`.../battle/btl/system_01/system_01.bin`): the line comes at once (its
+   table, `*0x0112a998`, stays loaded from the game's start), outside a battle's read.
+
+**B. Code swaps in memory, battle.** A package for `m209` from a mod with
+`[Postfix(nameof(OnTurn))] void Probe() { Debug.Print("swap v1"); }` in `Ai` (worker 1).
+
+1. Put it in `inject/` before starting; start battle 34 and let the Larva act: "Atel debug: worker 1:
+   swap v1" on each of its turns.
+2. At the party's command menu, change the text to `"swap v2"`, compile, copy over. The log has "m209.bin
+   linked again", then either at once "m209.bin: swapped in memory: <k> work(s), <m> byte(s) of running
+   data kept, old block 0x… -> 0x…", or first "waiting to swap the running script: worker 1 (ctrl work
+   3) level <l>: it is inside worker 1's code 0x…-0x…, which changed" and the swap line within 10 s.
+   The Larva's next turn prints "swap v2" in the same battle. Record any "pointers into the old block
+   left as they are" warning (offsets in the works the loader does not know).
+3. Memory: ctrl work 3's block list (`*(ctrl3 + 0x1f8)`, entry 0) and the Larva work's `+0x04` hold the
+   new address; the old block is unchanged.
+4. Make the swap unsafe: give the probe a local that lives across a wait (`int t = Btl.…;
+   Wait.Frames(1); Debug.Print($"{t}");`), so worker 1's private data grows. The log has "waiting to swap
+   … worker 1's private data grew (… -> … bytes); in battle each work's slice was sized at set-up" and
+   after 10 s "not swapped in memory after 10 s: …; the game reads the new code the next time it loads
+   the script". The rest of this battle prints the old text; the next battle 34 prints the new one.
+5. Field 35 formation 2 (`kami03_02`, two Larvas, one block): one swap line with two works more than in
+   battle 34's line (both Larvas' workers moved together), and both print the new text.
+
+**C. Code swaps in memory, event.** Developer save 51 (`kami0000`, map 140).
+
+1. A package with a postfix on an entry that runs only when asked, for example an NPC's talk entry,
+   printing `"talk v1"`. Talk: "talk v1". Change it to `"talk v2"` while standing on the map: "swapped in
+   memory" (the NPC's levels are idle, at an entry's start or in unchanged code), and talking again
+   prints "talk v2" without leaving the map.
+2. A prefix on Tidus's `Main` (worker 0, which loops for ever), v1 then v2: the log has "waiting to swap
+   … worker 0 (ctrl work 0) level 0: it is inside worker 0's code …, which changed" and after 10 s
+   "not swapped in memory …; the game reads the new code the next time it loads the script". Developer
+   save 51 again: "v2".
+
+**D. The Phase 0 questions, to confirm** (answered from FFX.exe in [corpus.md](../corpus.md#requests);
+these only confirm it). On `kami0000`'s worker 0 (`Tidu`), a new entry `async Task ProbeAsync() {
+Debug.Print("probe"); }`:
+
+1. Higher level (the 77 vanilla sites): `[Prefix(nameof(Main))]` printing "before", then
+   `RequestWaitEnd(1, Link.Worker<Tidu>(), Link.Entry<Tidu>(nameof(ProbeAsync)))`, then "after". Expected:
+   before, probe, after; Tidus walks as usual.
+2. Same level: the same with level 0 (needs `Priority.P0_Main`; ATL2004 reports it, so build with the raw
+   form). Expected: before, after, no probe (Main's own request is still queued at level 0, so the
+   request is refused and nothing waits).
+3. Lower level: a postfix on `Init` (level 7) with level 1. Expected: before, then nothing: Tidus's `Init`
+   never ends and `Main` never starts (the map runs on without him).
+4. `UseCommand` and the command list: on `m209`,
+   `[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand), Occurrence = 3)] void Probe() {
+   Debug.Print($"Ultima queued {Btl.UseCommand(Target.Party1, Command.Ultima)}"); }`. Expected: "Ultima
+   queued 1", and the Larva casts Ultima (not in its command list) at no MP cost before its Thundara.
+
 ## Hidden locals in private data: two Larvas
 
 Checked on 2026-11-02 from the `atel/private-locals` branch (merged
