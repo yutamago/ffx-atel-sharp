@@ -240,14 +240,8 @@ public sealed class LinkerTests {
             """)));
         Assert.Equal(Code("""
             worker 1 type 2
-            e1:
-                end
             e0:
-                pushimm 7
-                popv v0
-                jmp l1
-            l1:
-                pushv v0
+                jmp l3
                 popa_jz l0
                 pushimm 1
                 popv v0
@@ -255,6 +249,22 @@ public sealed class LinkerTests {
             l0:
                 pushimm 2
                 popv v0
+                end
+            e1:
+                end
+            l3:
+                pushimm 7
+                popv v0
+                pushv v0
+                popa_jz l2
+                pushimm 1
+                popv v0
+                jmp l1
+            l2:
+                pushimm 2
+                popv v0
+                jmp l1
+            l1:
                 end
             """), Code(Worker(r.File, 1)));
         AssertVanillaKept(vanilla, r.File, 0, 2);
@@ -268,12 +278,22 @@ public sealed class LinkerTests {
             popv @var:0
             """)));
         // The original's code is copied; each `end` jumps to the postfix, its own jump goes to the copy.
-        // The original stays (unused), moved to the end: a worker's code starts at an entry.
+        // Init starts the worker's code, so it keeps its entry, and its first instruction jumps to the copy (l3).
         Assert.Equal(Code("""
             worker 1 type 2
+            e0:
+                jmp l3
+                popa_jz l0
+                pushimm 1
+                popv v0
+                end
+            l0:
+                pushimm 2
+                popv v0
+                end
             e1:
                 end
-            e0:
+            l3:
                 pushv v0
                 popa_jz l2
                 pushimm 1
@@ -285,15 +305,6 @@ public sealed class LinkerTests {
                 jmp l1
             l1:
                 pushimm 9
-                popv v0
-                end
-                pushv v0
-                popa_jz l0
-                pushimm 1
-                popv v0
-                end
-            l0:
-                pushimm 2
                 popv v0
                 end
             """), Code(Worker(r.File, 1)));
@@ -308,10 +319,12 @@ public sealed class LinkerTests {
             Package(vanilla, Patch(PatchKind.Prefix, "B1", "pushimm 3\npopi0"), Patch(PatchKind.Postfix, "B2", "pushimm 4\npopi0")));
         Assert.Equal(["moda", "modb"], r.Applied);
         string text = Code(Worker(r.File, 1));
-        int from = text.IndexOf("e0:", StringComparison.Ordinal);
+        // e0 jumps to the chain (Init starts the worker's code, so it keeps its entry: the trampoline).
+        Assert.StartsWith("worker 1 type 2\ne0:\n    jmp l3\n", text, StringComparison.Ordinal);
+        int from = text.IndexOf("l3:", StringComparison.Ordinal);
         string chain = text[from..(text.IndexOf("    end\n", from, StringComparison.Ordinal) + "    end\n".Length)];
         Assert.Equal(Code("""
-            e0:
+            l3:
                 pushimm 1
                 popi0
                 pushimm 3
@@ -335,6 +348,45 @@ public sealed class LinkerTests {
     }
 
     [Fact]
+    public void UnchangedCodeStaysInPlaceAndNewCodeIsATail() {
+        byte[] vanilla = VanillaFile();
+        ScriptPackage p = Package(vanilla, Patch(PatchKind.Postfix, "After", "pushimm 9\npopv @var:0"));
+        p.Workers.Add(new NewWorker { Name = "Helper", Type = 0, Code = Frag("nop\nret"), Entries = [1] });
+        LinkResult r = LinkAll(vanilla, p);
+        ScriptBlock vb = ScriptFile.Parse(vanilla).Script, lb = ScriptFile.Parse(r.File).Script;
+        // The code region is the vanilla one, at the same offset and length, byte for byte but for worker 1's first
+        // instruction (pushv, 3 bytes): Init starts the worker's code, so it keeps its entry and jumps to its new code.
+        Assert.Equal(vb.CodeStart, lb.CodeStart);
+        Assert.Equal(vb.CodeLength, lb.CodeLength);
+        byte[] was = vb.Bytes.Slice(vb.CodeStart, vb.CodeLength).ToArray(), now = lb.Bytes.Slice(lb.CodeStart, lb.CodeLength).ToArray();
+        int head = (int)vb.Workers[1].Start;
+        Assert.Equal(Opcodes.Jmp | 0x80, now[head]);
+        Array.Copy(was, head, now, head, 3);
+        Assert.Equal(was, now);
+        // Worker 1 keeps its range and gets a tail past the code length; the new function worker (3, after the vanilla
+        // one) has only a tail, which starts at a label (its entry is at 1).
+        Bytecode.Script.Worker w1 = lb.Workers[1], helper = lb.Workers[3];
+        Assert.Equal((vb.Workers[1].Start, vb.Workers[1].End), (w1.Start, w1.End));
+        Assert.True(w1.HasTail && w1.TailStart >= lb.CodeLength);
+        Assert.True(helper.HasTail && helper.Start == helper.End && helper.TailStart == w1.TailEnd);
+        Assert.Contains(helper.TailStart, helper.Labels);
+        Assert.False(lb.Workers[0].HasTail || lb.Workers[2].HasTail);
+        AssertVanillaKept(vanilla, r.File, 0, 2);
+
+        // The earlier layout lays the whole code region out again, and the file grows by more.
+        LinkResult region = ScriptLinker.Link(vanilla, [new ModScript("moda", p)], layout: CodeLayout.Region);
+        Assert.True(region.Changed, string.Join("\n", region.Messages));
+        ScriptBlock rb = ScriptFile.Parse(region.File).Script;
+        Assert.True(rb.CodeStart >= vb.U32(0x10));
+        Assert.DoesNotContain(rb.Workers, w => w.HasTail);
+        Assert.Equal(Worker(r.File, 0), Worker(region.File, 0));
+        Assert.True(ScriptBlockSize(region.File) > ScriptBlockSize(r.File));
+        AssertVanillaKept(vanilla, region.File, 0, 2);
+    }
+
+    private static int ScriptBlockSize(byte[] file) => (int)ScriptFile.Parse(file).Script.U32(0x10);
+
+    [Fact]
     public void TwoReplacementsConflictAndTheLastWins() {
         byte[] vanilla = VanillaFile();
         LinkResult r = LinkAll(vanilla,
@@ -345,9 +397,19 @@ public sealed class LinkerTests {
         Assert.Contains("moda, modb", conflict.Text, StringComparison.Ordinal);
         Assert.StartsWith(Code("""
             worker 1 type 2
+            e0:
+                jmp l1
+                popa_jz l0
+                pushimm 1
+                popv v0
+                end
+            l0:
+                pushimm 2
+                popv v0
+                end
             e1:
                 end
-            e0:
+            l1:
                 pushimm 2
                 popi0
                 end
@@ -363,9 +425,19 @@ public sealed class LinkerTests {
         // The replacement is placed, then copied with its `end` jumping to the postfix.
         Assert.StartsWith(Code("""
             worker 1 type 2
+            e0:
+                jmp l2
+                popa_jz l0
+                pushimm 1
+                popv v0
+                end
+            l0:
+                pushimm 2
+                popv v0
+                end
             e1:
                 end
-            e0:
+            l2:
                 pushimm 1
                 popi0
                 end

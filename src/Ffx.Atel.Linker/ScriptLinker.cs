@@ -55,10 +55,11 @@ public sealed class LinkResult {
 ///     The layout keeps every vanilla byte of the block where it was: the data areas hold block
 ///     offsets (the "other" area points into the shared data in almost every script), so they must
 ///     not move. What grows goes after the block's end: new tables, new headers, the new variables'
-///     data, and the code. When any code changed, the whole code region is laid out again there, in
-///     worker order, and the block's code offset (<c>+0x30</c>) points at it; the old code stays as
-///     unused bytes. A file whose script grew past its section shifts its later sections
-///     (<see cref="ScriptFile.ReplaceScript"/>).
+///     data, and the new code. By default (<see cref="CodeLayout.InPlace"/>) every vanilla worker's code
+///     stays where it was and each worker's new code goes there as its tail, past the code length at
+///     <c>+0x00</c> but from the same code offset (<c>+0x30</c>); with <see cref="CodeLayout.Region"/> the
+///     whole code region is laid out again there, in worker order, and <c>+0x30</c> points at it. A file
+///     whose script grew past its section shifts its later sections (<see cref="ScriptFile.ReplaceScript"/>).
 /// </remarks>
 public static class ScriptLinker {
     /// <param name="firstMessage">
@@ -67,8 +68,9 @@ public static class ScriptLinker {
     ///     no message table, which leaves out a package with new messages.
     /// </param>
     /// <param name="saved">Where the run's saved fields are (<see cref="SavedLayout"/>); null for none, which leaves out a package that uses one.</param>
+    /// <param name="layout">How the code is laid out when any changed (<see cref="CodeLayout"/>).</param>
     /// <exception cref="ScriptFormatException">The vanilla file is not a script file.</exception>
-    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods, int? firstMessage = null, SavedLayout? saved = null) {
+    public static LinkResult Link(byte[] vanillaFile, IReadOnlyList<ModScript> mods, int? firstMessage = null, SavedLayout? saved = null, CodeLayout layout = CodeLayout.InPlace) {
         ScriptFile file = ScriptFile.Parse(vanillaFile);
         ScriptImage vanilla = ScriptImage.FromBlock(file.Script);
         LinkResult result = new() { File = vanillaFile };
@@ -119,7 +121,7 @@ public static class ScriptLinker {
             vanilla = ScriptImage.FromBlock(file.Script);
         }
 
-        State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0, saved ?? SavedLayout.Empty);
+        State state = new(file.Script, vanilla, result.Messages, firstMessage ?? 0, saved ?? SavedLayout.Empty, layout);
         try {
             state.Apply(accepted);
             byte[] block = state.Write();
@@ -376,7 +378,7 @@ public static class ScriptLinker {
         public Dictionary<int, int> Messages = [];
     }
 
-    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages, int firstMessage, SavedLayout saved) {
+    private sealed class State(ScriptBlock block, ScriptImage vanilla, List<LinkMessage> messages, int firstMessage, SavedLayout saved, CodeLayout layout) {
         public List<LinkedMessage> NewMessages { get; } = [];
         private readonly List<WorkerState> _workers = [];
         private readonly List<VarSlot> _vars = [.. vanilla.Variables.Select(v => new VarSlot(v, null))];
@@ -563,8 +565,11 @@ public static class ScriptLinker {
 
             byte exit = w.Type == 0 ? Opcodes.Ret : Opcodes.End;
             uint start = (uint)w.Code.Count;
+            // In place, a worker's code must still start at an entry (the decompiler's methods run from entry to entry):
+            // the worker's first method keeps its entries and starts with a jump to its new code (Trampoline).
+            int? trampoline = layout == CodeLayout.InPlace && target.Start == 0 ? TrampolineLength(w, target) : null;
             foreach (Patch p in prefixes) Place(p.Mod, w, p.Entry.Code);
-            if (postfixes.Count == 0 && injects.Count == 0) {
+            if (postfixes.Count == 0 && injects.Count == 0 && (replace is not null || trampoline is null)) {
                 if (replace is not null) Place(replace.Mod, w, replace.Entry.Code);
                 else EmitOp(w, Opcodes.Jmp, NewLabel(w, target.Start));
             }
@@ -575,14 +580,26 @@ public static class ScriptLinker {
                     CopyBody(w, s, (uint)w.Code.Count, post, exit, fallThrough: null, where, replace.Mod.Mod.Mod, [], postfixes.Count > 0);
                 }
                 else {
+                    // Also with only prefixes when the method starts with the trampoline: its vanilla code no longer runs.
                     CopyBody(w, target.Start, target.End, post, exit, target.End < w.VanillaCodeLength ? target.End : null, where,
-                        (postfixes.Count > 0 ? postfixes[0] : injects[0]).Mod.Mod.Mod, injects, postfixes.Count > 0);
+                        (postfixes.Count > 0 ? postfixes[0] : injects.Count > 0 ? injects[0] : patches[0]).Mod.Mod.Mod, injects, postfixes.Count > 0);
                 }
                 w.Labels[post] = (uint)w.Code.Count;
                 foreach (Patch p in postfixes) Place(p.Mod, w, p.Entry.Code);
                 EmitOp(w, exit, null);
             }
-            foreach (int e in target.Entries) w.Entries[e] = start;
+            if (trampoline is int length) {
+                // jmp to the new code, then nops to the end of the instruction it overwrote; the entries stay.
+                int label = NewLabel(w, start);
+                if (label > 0xffff) throw new LinkException($"{where}: no label left for its trampoline");
+                w.Code[0] = Opcodes.Jmp | 0x80;
+                Put16(w.Code, 1, label);
+                for (int i = 3; i < length; i++) w.Code[i] = Opcodes.Nop;
+                messages.Add(new(LinkSeverity.Info, "", $"{where} starts the worker's code: its first {length} bytes jump to its new code"));
+            }
+            else {
+                foreach (int e in target.Entries) w.Entries[e] = start;
+            }
             w.CodeChanged = true;
             foreach (Patch p in patches) {
                 string kind = p.Entry.Kind.ToString().ToLowerInvariant();
@@ -680,6 +697,21 @@ public static class ScriptLinker {
             }
         }
 
+        /// <summary>
+        ///     The bytes a trampoline (<c>jmp</c>, 3 bytes) takes at the start of the worker's first method: its first
+        ///     instructions up to 3 bytes or more; null when the method is shorter or a label or entry points inside them.
+        /// </summary>
+        private static int? TrampolineLength(WorkerState w, EntryRef target) {
+            int length = 0;
+            foreach (Instr i in Decode(w.Code, target.Start, target.End)) {
+                if (length >= 3) break;
+                length += (int)i.Length;
+            }
+            if (length < 3) return null;
+            bool Inside(uint o) => o > target.Start && o < target.Start + length;
+            return w.Labels.Any(Inside) || w.Entries.Any(Inside) ? null : length;
+        }
+
         private static bool Unconditional(byte op) =>
             op is Opcodes.Jmp or Opcodes.PopAJmp or Opcodes.End or Opcodes.EndP or Opcodes.End1 or Opcodes.EndP1 or Opcodes.Ret;
 
@@ -773,9 +805,27 @@ public static class ScriptLinker {
             if (head.Count > 0 && !Unconditional(head[^1].Code)) EmitOp(w, Opcodes.Jmp, NewLabel(w, 0));
         }
 
+        /// <summary>
+        ///     In place, a worker's code is two ranges: its vanilla code, where it was, and its tail, the new code. Each
+        ///     starts at the worker's first entry or label in it (<see cref="ScriptBlock.Parse"/>); where no entry is at
+        ///     its start any more (a patch moved the first method's entries to the tail, a new worker's code does not
+        ///     start at an entry), a label marks it.
+        /// </summary>
+        private static void MarkRangeStarts(WorkerState w) {
+            void Mark(uint at) {
+                if (w.Entries.Contains(at) || w.Labels.Contains(at)) return;
+                if (w.Labels.Count >= 0xffff) throw new LinkException($"{w.Name}: no label left to mark where its code starts");
+                NewLabel(w, at);
+            }
+            if (w.VanillaCodeLength > 0) Mark(0);
+            if (w.Code.Count > w.VanillaCodeLength) Mark((uint)w.VanillaCodeLength);
+        }
+
         public byte[] Write() {
             foreach (WorkerState w in _workers) {
-                if (w.CodeChanged) StartAtAnEntry(w);
+                if (!w.CodeChanged) continue;
+                if (layout == CodeLayout.InPlace) MarkRangeStarts(w);
+                else StartAtAnEntry(w);
             }
             return WriteBlock();
         }
@@ -784,8 +834,8 @@ public static class ScriptLinker {
             (HashSet<WorkerState> grown, int start) = PrivateLayout();
             return BlockWriter.Write(block, vanilla, new BlockWriter.Linked(
                 [.. _workers.Select(w => new BlockWriter.LinkedWorker(w.VanillaIndex, w.Type, w.Word0C, w.PrivateLength, [.. w.Code], [.. w.Entries], [.. w.Labels], w.CodeChanged || _callsRewritten,
-                    grown.Contains(w) ? (uint)(start + _private) : null, w.NewPrivate))],
-                [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data], start));
+                    grown.Contains(w) ? (uint)(start + _private) : null, w.NewPrivate, w.VanillaCodeLength))],
+                [.. _vars.Select(v => (v.Entry, v.DataOffset))], _ints, _floats, [.. _data], start), layout);
         }
 
         /// <summary>

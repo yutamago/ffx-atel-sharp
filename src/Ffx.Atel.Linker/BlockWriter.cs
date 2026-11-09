@@ -14,12 +14,16 @@ namespace Ffx.Atel.Linker;
 ///     when they grew, worker headers (new workers', and vanilla ones that sat where the larger
 ///     header table needs room), entry and label tables that grew, the data of new variables, the
 ///     private data of workers whose private data grew (a copy of the vanilla block, then zeros), and
-///     the code region when any code changed. Tables that keep their size are rewritten in place.
+///     the new code. Tables that keep their size are rewritten in place. The code is laid out by
+///     <see cref="CodeLayout"/>: <see cref="CodeLayout.InPlace"/> keeps every vanilla worker's code where it
+///     was and puts each worker's new code in its tail, after the rest; <see cref="CodeLayout.Region"/> lays the
+///     whole code region out again there.
 /// </remarks>
 internal static class BlockWriter {
     /// <param name="GrownPrivate">The worker's new private data length (<c>+0x10</c>), when its private data grew.</param>
     /// <param name="NewPrivate">A new worker's private data's initial bytes (its block is <paramref name="PrivateLength"/> long).</param>
-    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged, uint? GrownPrivate = null, byte[]? NewPrivate = null);
+    /// <param name="VanillaLength">How much of <paramref name="Code"/> is the vanilla worker's code, at its vanilla offsets (the rest is new); 0 for a new worker.</param>
+    public sealed record LinkedWorker(int VanillaIndex, ushort Type, uint Word0C, uint PrivateLength, byte[] Code, uint[] Entries, uint[] Labels, bool CodeChanged, uint? GrownPrivate = null, byte[]? NewPrivate = null, int VanillaLength = 0);
 
     /// <summary>
     ///     The linked parts: workers in their final order, variables (with their offset in <see cref="Data"/>
@@ -30,7 +34,7 @@ internal static class BlockWriter {
 
     private static int Align(int x, int n) => (x + n - 1) / n * n;
 
-    public static byte[] Write(ScriptBlock block, ScriptImage vanilla, Linked l) {
+    public static byte[] Write(ScriptBlock block, ScriptImage vanilla, Linked l, CodeLayout layout = CodeLayout.InPlace) {
         ReadOnlySpan<byte> raw = block.Bytes;
         int length = (int)block.U32(0x10);
         int n0 = block.Workers.Count, n = l.Workers.Count;
@@ -104,18 +108,44 @@ internal static class BlockWriter {
         }
 
         int codeAt = block.CodeStart, codeLength = block.CodeLength;
-        uint[] starts = new uint[n];
-        if (codeChanged) {
+        // Where each worker's code starts (code offsets), and in place: where its tail starts and how much of its code is
+        // in the code region before it.
+        uint[] starts = new uint[n], tails = new uint[n];
+        int[] region = new int[n];
+        if (codeChanged && layout == CodeLayout.InPlace) {
+            int tailsAt = 0, tailsLength = 0;
+            for (int i = 0; i < n; i++) {
+                LinkedWorker w = l.Workers[i];
+                region[i] = w.VanillaIndex >= 0 ? w.VanillaLength : 0;
+                if (w.VanillaIndex >= 0 && region[i] != block.Workers[w.VanillaIndex].End - block.Workers[w.VanillaIndex].Start) {
+                    throw new ScriptLinker.LinkException($"worker {i}: its vanilla code changed its length");
+                }
+                tailsLength += w.Code.Length - region[i];
+            }
+            if (tailsLength > 0) tailsAt = Alloc(tailsLength, 16);
+            uint t = (uint)(tailsAt - codeAt);
+            for (int i = 0; i < n; i++) {
+                LinkedWorker w = l.Workers[i];
+                starts[i] = w.VanillaIndex >= 0 ? block.Workers[w.VanillaIndex].Start : t;
+                tails[i] = t;
+                t += (uint)(w.Code.Length - region[i]);
+            }
+        }
+        else if (codeChanged) {
             codeLength = l.Workers.Sum(w => w.Code.Length);
             codeAt = Alloc(codeLength, 16);
             uint s = 0;
             for (int i = 0; i < n; i++) {
                 starts[i] = s;
+                region[i] = l.Workers[i].Code.Length;
                 s += (uint)l.Workers[i].Code.Length;
             }
         }
         else {
-            for (int i = 0; i < n; i++) starts[i] = block.Workers[l.Workers[i].VanillaIndex].Start;
+            for (int i = 0; i < n; i++) {
+                starts[i] = block.Workers[l.Workers[i].VanillaIndex].Start;
+                region[i] = l.Workers[i].Code.Length;
+            }
         }
         int end = Align(pos, 16);
         while (b.Count < end) b.Add(0);
@@ -193,9 +223,14 @@ internal static class BlockWriter {
             U32(h + 0x1c, (uint)floatsAt);
             U32(h + 0x20, (uint)entriesAt[i]);
             U32(h + 0x24, (uint)labelsAt[i]);
-            for (int e = 0; e < w.Entries.Length; e++) U32(entriesAt[i] + 4 * e, starts[i] + w.Entries[e]);
-            for (int k = 0; k < w.Labels.Length; k++) U32(labelsAt[i] + 4 * k, starts[i] + w.Labels[k]);
-            if (codeChanged) Bytes(codeAt + (int)starts[i], w.Code);
+            // An offset into the worker's code past its part of the code region is in its tail.
+            uint Offset(uint o) => o < region[i] ? starts[i] + o : tails[i] + (o - (uint)region[i]);
+            for (int e = 0; e < w.Entries.Length; e++) U32(entriesAt[i] + 4 * e, Offset(w.Entries[e]));
+            for (int k = 0; k < w.Labels.Length; k++) U32(labelsAt[i] + 4 * k, Offset(w.Labels[k]));
+            if (codeChanged) {
+                Bytes(codeAt + (int)starts[i], w.Code[..region[i]]);
+                if (region[i] < w.Code.Length) Bytes(codeAt + (int)tails[i], w.Code[region[i]..]);
+            }
             U32(0x38 + 4 * i, (uint)h);
         }
         U16(0x34, n);
@@ -205,4 +240,16 @@ internal static class BlockWriter {
         U32(0x10, (uint)end);
         return [.. b];
     }
+}
+
+/// <summary>How a linked script lays out its code when any code changed.</summary>
+public enum CodeLayout {
+    /// <summary>
+    ///     Every vanilla worker's code stays at its vanilla offsets; each worker's new code (and a new worker's code) goes
+    ///     after the block's end, as that worker's tail. A file grows by its new code. The default.
+    /// </summary>
+    InPlace,
+
+    /// <summary>The whole code region is laid out again after the block's end, in worker order (the layout before 2026-11-09).</summary>
+    Region,
 }

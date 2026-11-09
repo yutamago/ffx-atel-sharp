@@ -138,7 +138,8 @@ public static class ModSet {
     ///     Where the mods' saved fields are (<see cref="SavedLayout.Build"/>, over the same mods); null for none, which
     ///     leaves out a package that uses one.
     /// </param>
-    public static List<LinkedFile> Link(IReadOnlyList<AtelMod> mods, Func<string, byte[]?> readVanilla, SavedLayout? saved = null) {
+    /// <param name="layout">How a linked script lays out its code (<see cref="CodeLayout"/>).</param>
+    public static List<LinkedFile> Link(IReadOnlyList<AtelMod> mods, Func<string, byte[]?> readVanilla, SavedLayout? saved = null, CodeLayout layout = CodeLayout.InPlace) {
         List<LinkedFile> results = [];
         IEnumerable<string> paths = mods.SelectMany(m => m.Packages.Keys).Distinct().Order(StringComparer.Ordinal);
         foreach (string path in paths) {
@@ -158,7 +159,7 @@ public static class ModSet {
             LinkResult result;
             try {
                 int? firstMessage = scripts.Any(s => ScriptLinker.NewMessages(s.Package).Any()) ? MessageLinker.FirstFree(path, ReadQuietly) : null;
-                result = ScriptLinker.Link(vanilla, scripts, firstMessage, saved);
+                result = ScriptLinker.Link(vanilla, scripts, firstMessage, saved, layout);
             }
             catch (Bytecode.Script.ScriptFormatException ex) {
                 results.Add(new(path, null, $"not a script file: {ex.Message}"));

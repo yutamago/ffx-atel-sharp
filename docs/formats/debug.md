@@ -244,4 +244,4 @@ with the English files. The loader asks once the first event runs
 
 See [research/loader.md](../research/loader.md#phase-10-debug-text-and-runtime-injection).
 The lines on screen are not checked in game yet; the steps are in
-[research/loader.md](../research/loader.md#on-screen-lines-not-yet-checked-in-game).
+[research/loader.md](../research/loader.md#on-screen-lines-checked-in-game).
