@@ -70,7 +70,7 @@ public static partial class ScriptCompiler {
         List<string> vanillaVarNames = [];
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
             string n = field.Declaration.Variables[0].Identifier.ValueText;
-            variables[n] = new VariableSymbol(vanillaVarNames.Count, Variable(field));
+            variables[n] = new VariableSymbol(vanillaVarNames.Count, Variable(field)) { Bool = IsBoolField(field) };
             vanillaVarNames.Add(n);
         }
         AttributeSyntax workersAttribute = mainParts.SelectMany(Attributes).First(a => NameOf(a) == "Workers");
@@ -130,7 +130,7 @@ public static partial class ScriptCompiler {
                         throw CompileException.At(list, "a variable at a fixed place ([Var]) has no initial value here: its value is the save's or the game's");
                     }
                     byte[]? initial = fixedPlace ? null : edits.Initial(field, entry, constants);
-                    variables[fieldName] = new VariableSymbol(v.Variables.Count + package.Variables.Count, entry);
+                    variables[fieldName] = new VariableSymbol(v.Variables.Count + package.Variables.Count, entry) { Bool = IsBoolField(field) };
                     variableNames.Add(fieldName);
                     package.Variables.Add(new NewVariable {
                         Name = fieldName, Type = entry.Type, Storage = entry.Storage, Offset = fixedPlace ? entry.Offset : null,

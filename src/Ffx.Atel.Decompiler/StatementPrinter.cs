@@ -22,7 +22,8 @@ internal sealed class NotPrintableException(string message) : Exception(message)
 /// <summary>A variable as the source declares it.</summary>
 /// <param name="Domain">The named values the variable holds, when known (the story progress: <see cref="GameNames.Story"/>).</param>
 /// <param name="Bits">The named masks of its bits, when known (<see cref="GameNames.SaveBits"/>): for <c>&amp;</c>, <c>|</c>, <c>^</c>.</param>
-internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength, Domain? Domain = null, Domain? Bits = null);
+/// <param name="Stored">For a <c>bool</c> flag (<see cref="FlagVariables"/>), the integer type it is kept as.</param>
+internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLength, Domain? Domain = null, Domain? Bits = null, CType? Stored = null);
 
 /// <summary>
 ///     Statements as C#, typed so that Roslyn accepts them. ATEL has untyped 32-bit values and no
@@ -38,6 +39,9 @@ internal sealed record VarInfo(string Name, CType Type, bool IsArray, int RowLen
 /// </remarks>
 internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures natives, string[] workerNames, bool functionWorker) {
     private const int PPrimary = 15, PUnary = 14, PMul = 13, PAdd = 12, PShift = 11, PRel = 10, PEq = 9, PAnd = 8, PXor = 7, POr = 6;
+
+    /// <summary>The integer registers declared <c>bool</c>, flags (<see cref="FlagVariables.Registers"/>).</summary>
+    public HashSet<int> BoolRegisters { get; } = [];
 
     /// <summary>Registers the printed statements use: (kind, number) for the integer and float registers.</summary>
     public SortedSet<(RegKind Kind, int Number)> Registers { get; } = [];
@@ -133,7 +137,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     private (string Text, CType Type) Target(Expr t) => t switch {
         VarExpr v => (vars[v.Var].Name, vars[v.Var].Type),
         ElemExpr or Elem2Expr => (Element(t).Text, vars[t is ElemExpr e ? e.Var : ((Elem2Expr)t).Var].Type),
-        RegExpr { Kind: RegKind.Int or RegKind.Float } r => (Reg(r).Text, r.Kind == RegKind.Int ? CType.Int : CType.Float),
+        RegExpr { Kind: RegKind.Int or RegKind.Float } r => (Reg(r).Text, Reg(r).Type),
         RegExpr { Kind: RegKind.A } => ("RegA", CType.Int),
         RegExpr { Kind: RegKind.B } => ("RegB", CType.Int),
         _ => throw No($"cannot assign to {t}"),
@@ -305,7 +309,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         switch (r.Kind) {
             case RegKind.Int:
                 Registers.Add((r.Kind, r.Number));
-                return new E(string.Create(CultureInfo.InvariantCulture, $"I{r.Number}"), CType.Int, PPrimary);
+                return new E(string.Create(CultureInfo.InvariantCulture, $"I{r.Number}"), BoolRegisters.Contains(r.Number) ? CType.Bool : CType.Int, PPrimary);
             case RegKind.Float:
                 Registers.Add((r.Kind, r.Number));
                 return new E(string.Create(CultureInfo.InvariantCulture, $"F{r.Number}"), CType.Float, PPrimary);
@@ -320,7 +324,10 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         if (sig.Argc != args.Count) throw No("argument count");
         Domain?[]? domains = GameNames.NativeParameters.GetValueOrDefault(id);
         IEnumerable<string> texts = args.Select((a, k) => (domains?[k] is Domain d ? Typed(a, d)
-            : sig.ArgKinds[k] == 'f' ? ToNum(Expr(a)) : ToInt(Expr(a))).Text);
+            : sig.ArgKinds[k] == 'f' ? ToNum(Expr(a))
+            // A flag where an overload takes a bool (Btl.DebugPrint(V4)).
+            : Expr(a) is { Type: CType.Bool } flag && a is not IntLit && GameNames.BoolArguments.Contains((id, k)) ? flag
+            : ToInt(Expr(a))).Text);
         return new E($"{sig.Name}({string.Join(", ", texts)})", sig.Result switch { "float" => CType.Float, "bool" => CType.Bool, _ => CType.Int }, PPrimary);
     }
 
@@ -417,6 +424,8 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
 
     /// <summary>The value as a <paramref name="t"/>, for an assignment.</summary>
     private static E ToType(E x, CType t) => t switch {
+        // A flag: `true`, `false` or a condition.
+        CType.Bool => ToBoolOperand(x),
         CType.Float => ToNum(x),
         CType.Int => ToInt(x),
         _ => Fits(x, t) ? x : Convert(x.Type == CType.UInt ? x : ToNum(x), t),

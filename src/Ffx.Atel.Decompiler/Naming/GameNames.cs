@@ -101,6 +101,19 @@ internal static class GameNames {
     /// <summary>The domain of each parameter of each native whose parameters have one (an enum, named constants): by native id.</summary>
     public static IReadOnlyDictionary<ushort, Domain?[]> NativeParameters => s_natives.Value.Parameters;
 
+    /// <summary>
+    ///     The natives' arguments that take a <c>bool</c> as it is, (native id, argument), from an overload of the native
+    ///     with a <c>bool</c> parameter there (<c>Btl.DebugPrint(bool)</c>): a flag is passed without <c>AsInt</c>.
+    /// </summary>
+    public static IReadOnlySet<(ushort Id, int Arg)> BoolArguments => s_boolArguments.Value;
+
+    private static readonly Lazy<HashSet<(ushort, int)>> s_boolArguments = new(() => [
+        .. Game.GetExportedTypes()
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(m => m.GetCustomAttribute<NativeAttribute>() is not null)
+            .SelectMany(m => m.GetParameters().Where(p => p.ParameterType == typeof(bool)).Select(p => ((ushort)m.GetCustomAttribute<NativeAttribute>()!.Id, p.Position))),
+    ]);
+
     /// <summary>The domain of the results of natives that have one (<c>Btl.GetBattleId</c>: <c>Battle</c>), by native id.</summary>
     public static IReadOnlyDictionary<ushort, Domain> NativeResults => s_natives.Value.Results;
 
