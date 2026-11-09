@@ -1671,8 +1671,10 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   evidence). `ScriptBlock.Parse` reads targets at or past `+0x00` as the worker's tail, and `ScriptImage`
   keeps code as range then tail (`TailAt`) and pins moved worker headers. The 1,621 shipped blocks round-trip
   as before. `CodeLayout.Region` (`ScriptLinker.Link`/`ModSet.Link`'s `layout`) keeps the old layout as a
-  fallback. Growth over the corpus tests: package test 967 bytes on average, 16,320 at most (was 36,043 and 4,663,616); inject test 22,463 and 1,085,952 (was 57,506 and 5,720,128). When a worker's first method is patched, it keeps its entries and starts with a `jmp` to the new code (a trampoline), so every worker still starts at an entry, as the decompiler needs. Still to check in game: a linked script with tails
-  runs (the old layout ran; only `+0x00` no longer covers all of the code).
+  fallback. Growth over the corpus tests: package test 967 bytes on average, 16,320 at most (was 36,043 and 4,663,616); inject test 22,463 and 1,085,952 (was 57,506 and 5,720,128). When a worker's first method is patched, it keeps its entries and starts with a `jmp` to the new code (a trampoline), so every worker still starts at an entry, as the decompiler needs. Checked in game 2026-11-09: `m209` linked with four mods (LarvaCount, its reader, ToughLarva,
+  LarvaInject; a trampoline in `Init`, an inject in `OnTurn`, data edits) is 56,112 bytes (vanilla 55,280; the old
+  layout grew it by about 36 KB), and in a Larva battle all four worked: 4,321 HP, HP 1 after its first Thundara,
+  and both mods' `Debug.Print` lines.
 
 ### Phase 10: debug text and runtime packages
 
@@ -1710,8 +1712,10 @@ in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime
   line count; the settings (`enabled`, `lines`, `seconds`) are JSON in the
   loader's Fahrenheit global state file
   ([formats/debug.md](formats/debug.md#on-screen); in-game steps:
-  [research/loader.md](research/loader.md#on-screen-lines-not-yet-checked-in-game)).
-- Open: the in-game check of the on-screen lines; battle message tables (in
+  [research/loader.md](research/loader.md#on-screen-lines-checked-in-game)).
+- The on-screen lines were checked in game on 2026-11-09 (a Larva battle with `examples/LarvaCount`: both
+  mods' lines shown and faded, F6 and Shift+F6, the game kept every input).
+- Open: battle message tables (in
   memory; `Text.New` adds to the battle's table files when linking); in-memory code swaps for a debugger
   (copy the block, patch only methods no worker is in).
 

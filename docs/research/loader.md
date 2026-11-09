@@ -131,10 +131,11 @@ battle 34 are in ctrl work 3, not 2. (Battle 34, `kami00_00`, is a Larva and
 a Gold Element; `kami03_02`, field 35 formation 2, is two Larvas: `ffx
 battle list`.)
 
-### On-screen lines: not yet checked in game
+### On-screen lines: checked in game
 
-Built and unit-tested on 2026-11-09 ([formats/debug.md](../formats/debug.md#on-screen));
-the game was not run. The check, with
+Built and unit-tested on 2026-11-09 ([formats/debug.md](../formats/debug.md#on-screen)), and checked
+in game the same day with the steps below: both mods' lines shown top left and faded, F6 and Shift+F6
+worked, and the game kept every keyboard and pad input. The check, with
 [`examples/LarvaCount`](../../examples/LarvaCount), whose postfix on the
 Larva's `Init` prints `Larvas met: <n>`:
 
