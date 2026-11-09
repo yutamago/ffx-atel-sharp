@@ -3,8 +3,8 @@
 `Debug.Print`, `Debug.Break` and packages loaded into a running game
 (plan: "Text", "Compiler output", Phase 10). Code: `Ffx.Debug`
 (`src/Ffx.Atel.Game/Debug.cs`), `DebugCalls` (compiler), `DebugText`
-(linker), `DebugNatives`, `DebugLines`, `DebugOverlayView`, `Injection`
-and `RuntimeInjector` (loader).
+(linker), `DebugNatives`, `DebugLines`, `DebugOverlayView`, `Injection`,
+`MessageSlot`, `CodeSwap` and `RuntimeInjector` (loader).
 FFX.exe addresses and names are ffx-rust's (`symbols/ffx.sym`).
 
 ## The natives
@@ -177,8 +177,9 @@ two optional additions:
   message table by index, in the game's language, written as `atel text
   export` writes them (control codes in braces). An index past the end
   grows the table (the entries between get an empty text); an existing
-  index gets the new text and keeps its flags. Only for event scripts:
-  their table is ctrl work 0's `+0x34`. A message without an index (from
+  index gets the new text and keeps its flags. For event and battle
+  scripts (`battle/btl/<name>/<name>.bin`, `system_01` included); a
+  monster's texts are its battle's. A message without an index (from
   `Text.New`) gets the index the linker gives it after every mod's
   ([mod-package.md](mod-package.md#messages)) and is set the same way.
 
@@ -186,49 +187,114 @@ The loader watches its own `inject/` folder (`mods/yuta.atel/inject/`,
 every `*.json` under it). At startup the packages there are linked after
 every mod in the load order, so their files are served. While the game
 runs, a package that appears, changes or goes away is handled on a
-background thread, and only the message table is touched on the game
-thread (before each frame's update):
+background thread; game memory is touched only on the game thread, before
+each frame's update, when no worker runs:
 
 | Part | When it takes effect | How |
 |---|---|---|
 | Debug texts | at once | added to the loader's table |
-| Messages | at once, if the event is running; again each time it loads | a copy of the event's table with the messages set, which ctrl work 0 `+0x34` (and `+0x38` where it was the same table) then points at |
-| Code | the next time the game loads the script (the map entered again, the next battle) | the file is linked again (the enabled mods, then the package) and the loader's served copy in `efl/x` rewritten |
+| Messages | at once, if the event or battle is running; again each time it loads | a copy of the script's table with the messages set, which the game's pointer to it then points at ("Message tables" below) |
+| Code | at once where the running script can take it ("Code swaps in memory"); else the next time the game loads the script (the map entered again, the next battle) | the file is linked again (the enabled mods, then the package) and the loader's served copy in `efl/x` rewritten; a running copy of the block is swapped for the new one |
 
-### What is safe to swap
+### Message tables
 
-- **The message table.** `Msg_Text` (`0x0086bf30`) reads ctrl work 0
-  `+0x34` on every call (entry `i` at `+i*8`, no bounds check, offset 0
-  falls back to the `.ebp`'s own table `g_EventEbpMessages`). The game
-  keeps its own pointer to the buffer it read the table into
-  (`0x01327128`, from `TKMallocAndReadEventMessage` in `AtelEventSetUp`)
-  and frees that one, so a table the loader allocates and puts into
-  `+0x34` is never freed by the game, and the game's table stays valid
-  for any window still showing its text. The loader frees its own earlier
-  tables when another event's table appears, and keeps the latest.
-- **Code, only between loads.** A running worker holds absolute pointers
-  into its block: the program counter of each level (`AtelWorkThread`'s
-  `pc`), the worker header (`+0x00`) and the block (`+0x04`); jumps and
-  new entries resolve through the header's label and entry tables, and the
-  script's variables live in the block's data areas (storage 2, 3, 4, 6;
-  `AtelGetRealVarAdrs`). Putting a new block in place under a running
-  worker leaves its levels inside the old code, sends its next jump to the
-  new block's label offsets (the same label is somewhere else once code
-  changed), and loses the variables' current values unless they are
-  copied over at a moment no worker runs. Event workers practically never
-  stop running (`Main` loops, waits inside natives), so there is no safe
-  moment in general. The loader therefore never changes a script in
-  memory: the next load reads the new file.
-- **Which files.** Fahrenheit's file loader builds its index of replacement
-  files once, at startup, and opens a file by that index when the game
-  reads it. Rewriting a file it indexed works; a file that was not served
-  at startup cannot be added later. A package for such a file is reported
-  and linked from the next start.
+The game reads each table through a pointer it reads on every call, and
+frees the buffer through another pointer of its own. So a table the loader
+allocates and puts into the first is never freed by the game, and the
+game's table stays valid for any window still showing its text. The loader
+frees its own earlier copies when the game loads another table, and keeps
+the latest (`MessageSlot`).
 
-A later debugger can do more with the same package: copy the block and
-patch only methods no worker is in (by each level's `pc`), or wait for a
-map change. Battle message tables (the battle's own, `+0x34` of the battle
-ctrl works) are not set yet.
+| Script | The pointer the game reads | Read by | Freed through | The loader sets it |
+|---|---|---|---|---|
+| The event | ctrl work 0 `+0x34` (`+0x38` too where it was the same table) | `Msg_Text` (`0x0086bf30`) and the other `Msg_` lookups, through `g_ScriptContext`; offset 0 falls back to the `.ebp`'s own table `g_EventEbpMessages` | `g_EventMessageBuffer` (`0x01327128`, `AtelEventSetUp`) | while ctrl work 0 is in use (`+0` bit 0), for the event in `g_EventName` |
+| The battle | `g_BtlFileText` (`0x0112a9b8`, the second `g_BtlScriptRecords` record's `+0x14`) | natives `0x7042`, `0x7072`, `0x70b7` (text `k`), `0x70dc` (a name), `MsGetMenuChrInfo` | `g_BtlFileTextData` (`0x023112c4`) | once the battle set it up: `g_BtlStatus` (`0x0112a8e0`) not 0, 4, 5, 6 or 7; for the battle in `g_BtlFileName` (`0x023112e0`) |
+| `system_01` | `g_BtlMessages` (`0x0112a998`, the first record's `+0x14`) | natives `0x7120` (`MsShowBattleMessage`), `0x711f`, `0x7121` | never (read once, by `MsBattleInit`) | outside a battle's read (status 4-7) |
+
+The battle's table, in FFX.exe: `MsBtlReadManage` (`0x00783020`) at status 5
+copies the battle's file name and starts a task (`0x00784500`) that cuts it
+to the folder's name (`kami00_00`), frees the last battle's text through
+`g_BtlFileTextData` (unless that was `system_01`'s) and reads the new one
+with `TKMallocAndReadEventMessage`. At status 7 `MsBtlReadSetScene`
+(`0x00783e20`) sets `0x0112a9b8` to 0 and then to that text. Between status
+5 and 7 the pointer may name freed memory, and after a battle (status 0) it
+names the last battle's text until the next read frees it, so the loader
+reads it only from status 8 on and in the battle (1-3, `0x17`-`0x22`).
+`MsBattleInit` reads `system_01` first and `MsBtlScriptRecordShift`
+(`0x00782670`) copies its record over record 0, so `0x0112a998` is
+`system_01`'s table for the whole game.
+
+The battle ctrl works' `+0x34` is no message table: `AtelBattleSetUp`
+(`0x008756d0`) sets it to 0, so `Msg_Text` gives no text in a battle
+script (`g_MsgNone`). Battle scripts show text only through the natives above.
+
+### Code swaps in memory
+
+A running worker holds absolute pointers into its block: each level's
+program counter (level `+0x18`), the work's header (`+0x00`) and block
+(`+0x04`). Everything else the interpreter keeps is an offset or an index
+that it looks up in the block's tables on each use: a `call`'s return
+offsets (level `+0`, three of them) are code offsets, jumps go through the
+running worker's label table (`Script_Jump`, `0x008726f0`), requests
+through the entry table, variables through the variable table and the
+storage offsets (`AtelGetRealVarAdrs`). So a block can be swapped under its
+workers if each level's code, and every table entry that code names, read
+the same in the new block (`CodeSwap`):
+
+1. **Find the block.** Every work of every ctrl work in use, its block
+   (`+0x04`); the works lie as `AtelGetBasicWork` (`0x0086a830`) finds
+   them. A block is the script's when its header and code bytes are one
+   of the blocks the loader served or swapped for the file (the data
+   areas differ: the game writes them).
+2. **Check.** Not safe, so left to the next load, when: the worker count,
+   a worker's type or the actor count changed (the works were made at
+   set-up); the code start, storage 2, 4 or 6 moved; in battle a worker's
+   private data grew (storage 3 there is a slice of each work, `+0xb8`,
+   sized at set-up). Then each level's program counter and return offset:
+   - at the start of one of its worker's entries that the new block keeps
+     there: it has run nothing of the method, so it runs the new block's
+     code (a worker's patched first method starts with a `jmp` to its new
+     code);
+   - else inside a method (from its entry to the next): safe only when
+     that method's bytes are the same in both blocks and every label,
+     constant and variable its instructions name resolves the same. The
+     linker lays unchanged workers out in place and leaves a patched
+     method's old body where it was, so a level inside a patched method
+     finishes the old body (the log says so) and runs the new one from its
+     next start.
+3. **Wait.** While a level is in code that changed, the loader tries again
+   each frame, for up to 10 seconds; then it logs why and leaves the
+   change to the next load. `Main` loops for ever, so a change inside a
+   running `Main`'s loop always waits for the next load.
+4. **Merge.** The new block, with every byte where the running block
+   differs from the block as loaded (data the game wrote; code and tables
+   are never written at run time): the running values win, also over a
+   data edit of the same byte (logged). A worker's private data that the
+   link moved to the block's end (events) is copied to its new place.
+5. **Swap.** The merged block goes into memory of the loader's own, and
+   the loader points at it: each work's header and block, each level's
+   program counter in the old block (same offset), a work's trigger table
+   (`+0x44`) and, for types 5 and 6, its line table (`+0x2e4`) where they
+   name the old block's data (moved with a moved private area), ctrl work
+   `+0x48` (the event's block), and the battle managers' block lists
+   (`g_AtelManagers`, `0x01134470`, `0x54` bytes each, eight blocks at
+   `+0x14`; a battle ctrl work's `+0x1f8` points at them). Any other
+   word in a work that still points into the old block is logged. The old
+   block is left as it is and never freed by the loader (the game frees
+   its file buffer as before), so a pointer the loader does not know of
+   still reads valid memory, though no longer the running values.
+
+The served file is rewritten either way, so the next load reads the new
+code. A file that was not served at startup can still be swapped in
+memory; the script loads the old file again until the next start.
+
+### Which files
+
+Fahrenheit's file loader builds its index of replacement files once, at
+startup, and opens a file by that index when the game reads it. Rewriting
+a file it indexed works; a file that was not served at startup cannot be
+added later. A package for such a file is reported and linked from the
+next start (and swapped in memory while its script runs).
 
 ### The language
 
@@ -237,11 +303,14 @@ game reads, `TOGetFFXLang()` (`0x006410e0`, which `TKMallocAndReadEventMessage`
 uses to pick `new_<lang>pc/`): 0 Japanese, 1 English, 2 French, 3 Spanish,
 4 German, 5 Italian, 9 Korean, 10 Chinese; another value uses the western
 charset. Not `TkGetLang()` (`g_TkLang`), the PS2 setting, which is 0 on PC
-with the English files. The loader asks once the first event runs
-(`TOGetFFXLang` answers 0 before its localization manager exists).
+with the English files. The loader asks once the first event or battle
+runs (`TOGetFFXLang` answers 0 before its localization manager exists).
 
 ## Checked in game
 
 See [research/loader.md](../research/loader.md#phase-10-debug-text-and-runtime-injection).
-The lines on screen are not checked in game yet; the steps are in
-[research/loader.md](../research/loader.md#on-screen-lines-checked-in-game).
+The lines on screen were checked in game on 2026-11-09
+([research/loader.md](../research/loader.md#on-screen-lines-checked-in-game)).
+Battle message tables and code swaps in memory are not checked in game
+yet; the steps are in
+[research/loader.md](../research/loader.md#battle-messages-and-code-swaps-steps-for-the-game).
