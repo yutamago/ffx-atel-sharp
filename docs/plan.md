@@ -1052,6 +1052,16 @@ replaces and the round trip stays byte for byte.
   3,344 → 3,349. 1,621/1,621 round-trip, 0 C# errors, 0 warnings. What is left
   is mostly variables and bit tests (`AsBool(V3)`, `AsBool(V3 & 4)`) and
   natives that return values.
+- **`uint` variables** (2026-11-09, issue #74): the printer typed a `u32`
+  variable (type 4) as `int` while the declaration said `uint`, so a `uint`
+  stored into an `int` lost its cast (CS0266). No shipped script declares
+  one (0 of the 29,103 variable declarations of the 1,621 scripts), so the vanilla round trip never
+  met it; a linked mod's `[Saved] uint` field did. The printer has a `uint`
+  type now: as an operand it is `(int)x` (the machine's values are signed,
+  and C# makes `uint` with `int` a `long`), a store from another type is
+  cast (`V1 = (uint)V0;`), `+ - * & | ^ <<` on itself stay compound (`V1 +=
+  (uint)V0;`), `/ % >>` do not (`V1 = (uint)((int)V1 >> 2);`: C# does them
+  unsigned on a `uint`). Casts are no code, so the bytes stay.
 - Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register and variable
   names beyond the save, names for function workers, storage 1 names,
   entry names beyond 0 and 1 (requested entries are `E5Async`).

@@ -9,7 +9,12 @@ using Ffx.Atel.Decompiler.Naming;
 namespace Ffx.Atel.Decompiler;
 
 /// <summary>The C# type an expression has in the source.</summary>
-internal enum CType { Bool, Byte, SByte, UShort, Short, Int, Float }
+/// <remarks>
+///     <c>UInt</c> is a <c>u32</c> variable (type 4), which no shipped script declares but a mod's field may.
+///     The machine's values are signed 32-bit, so a <c>uint</c> read as an operand is <c>(int)x</c>: C# gives
+///     <c>uint</c> and <c>int</c> together a <c>long</c>, and has no implicit conversion to <c>int</c> (CS0266).
+/// </remarks>
+internal enum CType { Bool, Byte, SByte, UShort, Short, Int, Float, UInt }
 
 /// <summary>A statement the printer has no C# for; the decompiler keeps its assembly.</summary>
 internal sealed class NotPrintableException(string message) : Exception(message);
@@ -140,8 +145,11 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
             if (a.Target is RegExpr) throw No("a register has no clamped store");
             return $"StoreClamped(ref {target}, {(t == CType.Float ? ToNum(Expr(a.Value)) : ToInt(Expr(a.Value))).Text});";
         }
-        if (a.Target is VarExpr or RegExpr && a.Value is BinaryExpr b && StatementLifter.IsCompound(b.Op) && b.Left == a.Target
-            && CompoundOperand(b.Op, b.Right, t, cast: false) is E rhs) {
+        // `U = (uint)((int)U + x)` is `U += (uint)x` (a cast is no code, and 32-bit sums wrap alike); not `/`, `%`
+        // and `>>`, which C# does unsigned on a uint and the machine signed.
+        bool unsigned = t == CType.UInt && a.Value is BinaryExpr { Op: Opcodes.Div or Opcodes.Mod or Opcodes.Sar };
+        if (a.Target is VarExpr or RegExpr && a.Value is BinaryExpr b && StatementLifter.IsCompound(b.Op) && b.Left == a.Target && !unsigned
+            && CompoundOperand(b.Op, b.Right, t, cast: t == CType.UInt) is E rhs) {
             return $"{target} {Symbol(b.Op)}= {(BitMask(b.Op, a.Target, b.Right) ?? rhs).Text};";
         }
         E value = a.Value is IntLit lit && DomainOf(a.Target) is Domain d ? Lit(lit.Value, d) : Expr(a.Value);
@@ -382,7 +390,7 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     // ----- Conversions ---------------------------------------------------------------------------
 
     /// <summary><c>+x</c>: C#'s promotion of a narrow value to <c>int</c>, no code.</summary>
-    private static E Plus(E x) => new("+" + Wrap(x, PUnary), x.Type is CType.Float ? CType.Float : x.Type is CType.Bool ? CType.Bool : CType.Int, PUnary, x.Const);
+    private static E Plus(E x) => new("+" + Wrap(x, PUnary), x.Type is CType.Float or CType.Bool or CType.UInt ? x.Type : CType.Int, PUnary, x.Const);
 
     /// <summary>
     ///     A condition inside <c>!</c>, <c>&amp;</c> or <c>|</c>: as <see cref="ToBool"/>, but the constants 0 and 1
@@ -393,21 +401,25 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         ? new E(x.Text == "0" ? "false" : "true", CType.Bool, PPrimary)
         : ToBool(x);
 
-    private static E ToBool(E x) => x.Type == CType.Bool ? x : new E($"AsBool({x.Text})", CType.Bool, PPrimary);
+    private static E ToBool(E x) => x.Type == CType.Bool ? x : new E($"AsBool({ToNum(x).Text})", CType.Bool, PPrimary);
 
-    private static E ToNum(E x) => x.Type == CType.Bool ? new E($"AsInt({x.Text})", CType.Int, PPrimary) : x;
+    /// <summary>The value as an operand of arithmetic or a comparison: a <c>bool</c> as <c>AsInt</c>, a <c>uint</c> as <c>(int)</c>.</summary>
+    private static E ToNum(E x) => x.Type switch {
+        CType.Bool => new E($"AsInt({x.Text})", CType.Int, PPrimary),
+        CType.UInt => Cast(CType.Int, x),
+        _ => x,
+    };
 
     private static E ToInt(E x) => x.Type switch {
-        CType.Bool => new E($"AsInt({x.Text})", CType.Int, PPrimary),
         CType.Float => Cast(CType.Int, x),
-        _ => x,
+        _ => ToNum(x),
     };
 
     /// <summary>The value as a <paramref name="t"/>, for an assignment.</summary>
     private static E ToType(E x, CType t) => t switch {
         CType.Float => ToNum(x),
         CType.Int => ToInt(x),
-        _ => Fits(x, t) ? x : Convert(ToNum(x), t),
+        _ => Fits(x, t) ? x : Convert(x.Type == CType.UInt ? x : ToNum(x), t),
     };
 
     /// <summary>A cast; a constant out of the type's range is cast in <c>unchecked</c> (CS0221 otherwise).</summary>
@@ -434,7 +446,9 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         if (x.Type == CType.Float) return false;
         if (x.Const is long v && x.Type == CType.Int) return InRange(v, t);
         return (x.Type, t) switch {
+            (CType.UInt, _) => false,
             (_, CType.Int) => true,
+            (CType.Byte or CType.UShort, CType.UInt) => true,
             (CType.Byte, CType.Short or CType.UShort) => true,
             (CType.SByte, CType.Short) => true,
             _ => false,
@@ -448,18 +462,19 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         CType.SByte => v is >= sbyte.MinValue and <= sbyte.MaxValue,
         CType.UShort => v is >= ushort.MinValue and <= ushort.MaxValue,
         CType.Short => v is >= short.MinValue and <= short.MaxValue,
+        CType.UInt => v is >= uint.MinValue and <= uint.MaxValue,
         _ => v is >= int.MinValue and <= int.MaxValue,
     };
 
     private static long Wrapped(long v, CType t) => t switch {
         CType.Byte => unchecked((byte)v), CType.SByte => unchecked((sbyte)v),
-        CType.UShort => unchecked((ushort)v), CType.Short => unchecked((short)v),
+        CType.UShort => unchecked((ushort)v), CType.Short => unchecked((short)v), CType.UInt => unchecked((uint)v),
         _ => unchecked((int)v),
     };
 
     public static string TypeName(CType t) => t switch {
         CType.Byte => "byte", CType.SByte => "sbyte", CType.UShort => "ushort", CType.Short => "short",
-        CType.Int => "int", CType.Float => "float", _ => "bool",
+        CType.Int => "int", CType.UInt => "uint", CType.Float => "float", _ => "bool",
     };
 
     // ----- Text ----------------------------------------------------------------------------------

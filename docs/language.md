@@ -490,6 +490,9 @@ area and offset:
   (`i32`), `float` (`f32`); arrays of those, 1-D or 2-D. The size is the initializer
   (`new byte[6]`; a 2-D array's second dimension is the row length). `[Var(…, Length = n)]` is the
   alternative for a 1-D array.
+- The machine's values are signed 32-bit, so a `uint` read as an operand is `(int)x`: the decompiler
+  writes `Hp = (int)Kills;`, `if ((int)Kills > 3)`, `Kills += (uint)n;`, and the compiler drops the
+  casts. No shipped script declares a `u32` variable; a mod's `[Saved] uint` field is the usual one.
 - A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
   variable table has a bit for it.
 - Field initializers on a vanilla script's scalars are errors: its initial values are in the data areas

@@ -170,6 +170,111 @@ public sealed class SourceTests {
     }
 
     /// <summary>
+    ///     A <c>u32</c> variable (type 4; no shipped script declares one, a mod's field may) next to the other types
+    ///     (issue #74): read as an operand it is <c>(int)x</c>, stored from another type it is cast, and the source
+    ///     compiles back to the same bytes.
+    /// </summary>
+    [Fact]
+    public void UintVariablesAreCastWhereCSharpNeedsIt() {
+        ScriptImage image = new() {
+            Author = "test"u8.ToArray(), Name = "996"u8.ToArray(), Shared = new byte[0x20], Other = new byte[0x40], Event = new byte[0x10],
+        };
+        image.Variables.Add(new VarEntry(0x5600_0010, 1, 0));                          // V0: int
+        image.Variables.Add(new VarEntry(0x4600_0014, 1, 0));                          // V1: uint
+        image.Variables.Add(new VarEntry(0x0600_0018, 1, 0));                          // V2: byte
+        image.Variables.Add(new VarEntry(0x6600_001c, 1, 0));                          // V3: float
+        image.Variables.Add(new VarEntry(0x4600_0020 | VarEntry.ArrayBit, 2, 0));      // V4: uint[2]
+
+        WorkerAssembler w0 = new();
+        w0.PlaceEntry(0);
+        w0.Add("""
+                pushv v1
+                popv v0
+                pushv v0
+                popv v1
+                pushv v1
+                pushimm 1
+                add
+                popv v1
+                pushv v1
+                pushv v0
+                add
+                popv v1
+                pushv v1
+                pushimm 2
+                sar
+                popv v1
+                pushv v1
+                pushv v0
+                div
+                popv v1
+                pushimm -1
+                popv v1
+                pushv v2
+                popv v1
+                pushv v1
+                popv v2
+                pushv v1
+                popv v3
+                pushimm 1
+                pushv v1
+                popva v4
+                pushimm 0
+                op_2b
+                pushva v4
+                pushv v0
+                add
+                popva v4
+                pushv v1
+                pushimm 3
+                gt
+                popa_jz l0
+                pushv v1
+                popa_jz l0
+                pushv v1
+                pushv v0
+                and
+                popv v0
+            l0:
+                end
+            """);
+        AssembledWorker a0 = w0.Finish();
+        image.Workers.Add(new WorkerImage { Type = 2, Code = a0.Code, Entries = a0.Entries, Labels = a0.Labels });
+        byte[] block = image.Write();
+        byte[] original = new byte[0x40 + (block.Length + 0x3f) / 0x40 * 0x40];
+        BinaryPrimitives.WriteUInt32LittleEndian(original, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(original.AsSpan(4), 0x40);
+        block.CopyTo(original, 0x40);
+
+        ScriptFile file = ScriptFile.Parse(original);
+        DecompiledScript d = ScriptDecompiler.Decompile("ffx_ps2/ffx/master/jppc/battle/mon/_m996/m996.bin", file);
+        string[] expected = [
+            "public static uint V1;",
+            "V0 = (int)V1;",
+            "V1 = (uint)V0;",
+            "V1 += 1;",
+            "V1 += (uint)V0;",
+            "V1 = (uint)((int)V1 >> 2);",
+            "V1 = (uint)((int)V1 / V0);",
+            "V1 = unchecked((uint)-1);",
+            "V1 = V2;",
+            "V2 = (byte)V1;",
+            "V3 = (int)V1;",
+            "V4[1] = V1;",
+            "V4[0] += (uint)V0;",
+            "(int)V1 > 3",
+            "AsBool((int)V1)",
+            "V0 = (int)V1 & V0;",
+        ];
+        foreach (string line in expected) Assert.Contains(line, d.Source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asm(", d.Source, StringComparison.Ordinal);
+
+        SyntaxTree tree = ScriptCompiler.Parse(d.Source, "m996.cs");
+        Assert.Empty(ScriptCompiler.Check([tree]));
+        Assert.Equal(original, ScriptCompiler.Compile([tree]).ApplyTo(file).ToArray());
+    }
+
+    /// <summary>
     ///     Named values (Phase 5, review P7): maps, sound effects in hex, battle ids as constants (also where a
     ///     native returns one), monster-id selectors and the property of <c>SetActorProperty</c>; the source
     ///     compiles back to the same bytes.

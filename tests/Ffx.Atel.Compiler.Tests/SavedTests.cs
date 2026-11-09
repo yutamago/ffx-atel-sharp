@@ -183,13 +183,30 @@ public sealed class SavedTests {
     ///     field's offset, the same in every script; the linked file decompiles to <c>Save.ModArea</c> offsets and compiles back.
     /// </summary>
     [Fact]
-    public void TheLinkerPlacesSavedFieldsFromTheTable() {
-        List<SyntaxTree> trees = ModTrees();
+    public void TheLinkerPlacesSavedFieldsFromTheTable() => LinkAndDecompile(Mod, otherType: 5);
+
+    /// <summary>
+    ///     Issue #74: a <c>uint</c> variable stored into an <c>int</c> one decompiles with its cast
+    ///     (<c>Hp = (int)OtherKills;</c>), else the C# does not compile (CS0266). The shipped scripts declare no
+    ///     <c>u32</c> variable, so only a mod's field meets it.
+    /// </summary>
+    [Fact]
+    public void AUintFieldStoredIntoAnIntKeepsItsCast() {
+        string mod = Mod.Replace("public static int OtherKills;", "public static uint OtherKills;", StringComparison.Ordinal)
+            .Replace("Hp = OtherKills;", "Hp = (int)OtherKills;", StringComparison.Ordinal);
+        string source = LinkAndDecompile(mod, otherType: 4);
+        Assert.Contains("public static uint ", source, StringComparison.Ordinal);
+        // Hp is the worker's private variable, V0 once decompiled; the other mod's field is placed at the area's start.
+        Assert.Contains("V0 = (int)ModArea;", source, StringComparison.Ordinal);
+    }
+
+    private static string LinkAndDecompile(string mod, int otherType) {
+        List<SyntaxTree> trees = ModTrees(mod);
         SavedDeclarations saved = ScriptCompiler.ReadSaved(trees);
-        ScriptPackage p = ScriptPackage.FromJson(CompileMod().Package.ToJson());
+        ScriptPackage p = ScriptPackage.FromJson(CompileMod(mod).Package.ToJson());
         p.File = Path;
         AtelMod other = new() { Id = "yuta.other" };
-        other.Saved.Add(new SavedField { Key = "Other.Stats.Kills", Type = 5 });
+        other.Saved.Add(new SavedField { Key = "Other.Stats.Kills", Type = otherType });
         AtelMod mine = new() { Id = "yuta.larvacount", Manifest = new ModManifest { Requires = ["yuta.other"] } };
         mine.Saved.AddRange(saved.ToFile()!.Fields);
         mine.Packages[Path] = p;
@@ -217,6 +234,7 @@ public sealed class SavedTests {
         List<SyntaxTree> back = [.. d.Files().Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath))];
         Assert.Empty(ScriptCompiler.Check(back));
         Assert.Equal(r.File, ScriptCompiler.Compile(back).ApplyTo(linked).ToArray());
+        return string.Concat(d.Files().Select(f => f.Text));
     }
 
     [Fact]
