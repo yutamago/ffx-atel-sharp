@@ -65,18 +65,52 @@ using (JsonDocument doc = JsonDocument.Parse(Data("native-members.json"))) {
         if (parent is not null && (kind != "static" || !groups.TryGetValue(parent, out Group? p) || p.Kind != "static")) {
             throw new InvalidOperationException($"group {g.Name}: a nested group is static, in a static group listed before it");
         }
+        EnumProps? props = e.TryGetProperty("properties", out JsonElement pe)
+            ? new EnumProps(pe.GetProperty("enum").GetString()!, Hex(pe.GetProperty("get").GetString()!), Hex(pe.GetProperty("set").GetString()!))
+            : null;
+        if (props is not null && kind is not ("indexed" or "component")) throw new InvalidOperationException($"group {g.Name}: properties are for an indexed group or a component");
         groups[g.Name] = new Group(g.Name, kind, e.TryGetProperty("type", out JsonElement t) ? t.GetString()! : g.Name[(dot + 1)..],
-            e.TryGetProperty("item", out JsonElement it) ? it.GetString() : null, e.GetProperty("summary").GetString()!, parent);
+            e.TryGetProperty("item", out JsonElement it) ? it.GetString() : null, e.GetProperty("summary").GetString()!, parent) { Props = props };
     }
     foreach (JsonProperty m in doc.RootElement.GetProperty("members").EnumerateObject()) {
         JsonElement e = m.Value;
         ushort id = Hex(m.Name);
         if (!natives.ContainsKey(id)) throw new InvalidOperationException($"native-members.json: no native {m.Name}");
         specs.Add(new Spec(id, e.GetProperty("member").GetString()!, e.TryGetProperty("as", out JsonElement a) ? a.GetString()! : "method",
-            Flag(e, "worker"), Flag(e, "vector"), Flag(e, "bool")));
+            Flag(e, "worker"), Flag(e, "vector"), Flag(e, "bool")) {
+            Choice = e.TryGetProperty("choice", out JsonElement ch) ? ch.GetInt32() : null,
+            ChoiceType = e.TryGetProperty("choiceType", out JsonElement ct) ? ct.GetString() : null,
+            Params = e.TryGetProperty("params", out JsonElement ps) ? ps.GetString() : null,
+            DocSummary = e.TryGetProperty("doc", out JsonElement d) && d.TryGetProperty("summary", out JsonElement ds) ? ds.GetString() : null,
+            DocParams = e.TryGetProperty("doc", out JsonElement d2) && d2.TryGetProperty("params", out JsonElement dp) ? dp.EnumerateObject().ToDictionary(x => x.Name, x => x.Value.GetString()!) : null,
+        });
     }
 }
 static bool Flag(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.GetBoolean();
+
+// The members of an enum (name, value, summary) from src/Ffx.Atel.Game/Enums.g.cs, for groups with "properties".
+string enumsText = File.ReadAllText(Path.Combine(root, "src", "Ffx.Atel.Game", "Enums.g.cs"));
+List<(string Name, int Value, string Summary)> EnumMembers(string name) {
+    Match block = Regex.Match(enumsText, $@"public enum {name}\b[^{{]*\{{(?<body>.*?)\n\}}", RegexOptions.Singleline);
+    if (!block.Success) throw new InvalidOperationException($"no enum {name} in Enums.g.cs");
+    List<(string, int, string)> members = [];
+    HashSet<int> values = [];
+    foreach (Match m in Regex.Matches(block.Groups["body"].Value, @"///\s*<summary>(?<doc>.*?)</summary>\s*\n\s*(?<name>\w+)\s*=\s*(?<value>-?(0x[0-9a-fA-F]+|\d+)),")) {
+        string v = m.Groups["value"].Value;
+        int value = v.StartsWith("0x", StringComparison.Ordinal) ? int.Parse(v.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture) : int.Parse(v, CultureInfo.InvariantCulture);
+        if (value < 0) throw new InvalidOperationException($"{name}.{m.Groups["name"].Value}: a property's constant is 0 or more");
+        // One property per value: the enum's first name for it, as the decompiler names the constant.
+        if (values.Add(value)) members.Add((m.Groups["name"].Value, value, m.Groups["doc"].Value));
+    }
+    return members;
+}
+foreach (Group g in groups.Values.Where(g => g.Props is not null)) {
+    EnumProps ep = g.Props!;
+    int receivers = g.Kind == "indexed" ? 1 : 0;
+    if (!natives.TryGetValue(ep.Get, out Native? get) || get.Args.Count != receivers + 1) throw new InvalidOperationException($"group {g.Name}: the getter takes {(receivers > 0 ? "the index and " : "")}the property");
+    if (!natives.TryGetValue(ep.Set, out Native? set) || set.Args.Count != receivers + 2) throw new InvalidOperationException($"group {g.Name}: the setter takes {(receivers > 0 ? "the index, " : "")}the property and the value");
+    if (get.Args[receivers].Type != ep.Enum || set.Args[receivers].Type != ep.Enum) throw new InvalidOperationException($"group {g.Name}: the property argument is a {ep.Enum}");
+}
 
 // ----- Containers and their members -----------------------------------------------------------------------
 // "" is the worker itself; a group's name is its container.
@@ -94,6 +128,13 @@ foreach (Spec s in specs) {
     if (s.Worker && indexed) throw new InvalidOperationException($"{s.Member}: a worker and an index");
     if (receivers > 0 && (n.Args.Count == 0 || n.Args[0].Kind != "int")) throw new InvalidOperationException($"0x{s.Id:x4}: the receiver is the first int argument");
     List<Arg> rest = [.. n.Args.Skip(receivers)];
+    if (s.Params is string given) {
+        // The member's own parameters (a choice member's natives differ in names and kinds): "int which, float speed".
+        List<Arg> own = [.. given.Split(',', StringSplitOptions.TrimEntries).Select(x => x.Split(' ')).Select(w => new Arg(w[1], w[0] == "float" ? "float" : "int", w[0] is "int" or "float" ? null : w[0]))];
+        if (own.Count != rest.Count) throw new InvalidOperationException($"0x{s.Id:x4}: \"params\" gives {own.Count} parameters, the native takes {rest.Count}");
+        rest = own;
+    }
+    if ((s.Choice is null) != (s.ChoiceType is null) || s.Choice is not null && s.As != "method") throw new InvalidOperationException($"0x{s.Id:x4}: a choice is a method's, with its choiceType");
     if (groups.TryGetValue(s.Member, out Group? root0)) {
         // The group's own property: a component root that takes an assignment (Motion = 0x71050).
         if (root0.Kind != "component" || path.Length != 1 || s.As != "set") throw new InvalidOperationException($"{s.Member}: only a component takes a value");
@@ -193,18 +234,21 @@ foreach (Group g in groups.Values) {
                 cs.Append(CultureInfo.InvariantCulture, $"        public static implicit operator {g.Type}({valueType} {assign.Values[0].Name}) => throw Atel.Runtime.NotRunnable();\n");
             }
             WriteMembers(c, "        ", "public ", "Atel.");
+            if (g.Props is not null) WriteEnumProperties(g, "        ");
             cs.Append("    }\n");
             break;
         }
         case "indexed": {
             cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{g.Summary}</summary>\n");
             cs.Append(CultureInfo.InvariantCulture, $"    public sealed partial class {g.Type}\n    {{\n        private {g.Type}() {{ }}\n\n");
-            string index = c.Methods.Values.SelectMany(m => m).Select(m => m.Native.Args[0].Name).FirstOrDefault() ?? "index";
+            Arg? indexArg = g.Props is not null ? natives[g.Props.Get].Args[0] : c.Methods.Values.SelectMany(m => m).Select(m => m.Native.Args[0]).FirstOrDefault();
+            string index = indexArg?.Name ?? "index", indexType = indexArg is null ? "int" : CsType(indexArg);
             cs.Append(CultureInfo.InvariantCulture, $"        /// <summary>The one at <paramref name=\"{index}\"/>.</summary>\n");
-            cs.Append(CultureInfo.InvariantCulture, $"        public {g.Item} this[int {index}] => throw Atel.Runtime.NotRunnable();\n    }}\n");
+            cs.Append(CultureInfo.InvariantCulture, $"        public {g.Item} this[{indexType} {index}] => throw Atel.Runtime.NotRunnable();\n    }}\n");
             cs.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>One of <c>{g.Name}</c>: <c>{g.Name}[{index}].…</c>.</summary>\n");
             cs.Append(CultureInfo.InvariantCulture, $"    public sealed class {g.Item}\n    {{\n        private {g.Item}() {{ }}\n");
             WriteMembers(c, "        ", "public ", "Atel.");
+            if (g.Props is not null) WriteEnumProperties(g, "        ");
             cs.Append("    }\n");
             break;
         }
@@ -252,11 +296,28 @@ foreach (Group g in groups.Values) {
 cs.Append("}\n");
 
 File.WriteAllText(Path.Combine(root, "src", "Ffx.Atel.Game", "Members.g.cs"), cs.ToString());
-long covered = specs.Sum(s => natives[s.Id].Calls), total = natives.Values.Sum(n => n.Calls);
+List<ushort> propertyNatives = [.. groups.Values.Where(g => g.Props is not null).SelectMany(g => new[] { g.Props!.Get, g.Props.Set })];
+nativeCount += propertyNatives.Count;
+long covered = specs.Sum(s => natives[s.Id].Calls) + propertyNatives.Sum(id => natives[id].Calls), total = natives.Values.Sum(n => n.Calls);
 Console.WriteLine($"{nativeCount} natives as {memberCount} members; {covered} of {total} calls in the shipped scripts ({100.0 * covered / total:F1} %)");
 return 0;
 
 // ----- Writing members -------------------------------------------------------------------------------------
+// A group's properties, one per member of its enum: read by its "get" native, written by its "set" one, the member
+// the argument after the receiver ([NativeMember(…, Constant = n)]).
+void WriteEnumProperties(Group g, string indent) {
+    EnumProps ep = g.Props!;
+    Native get = natives[ep.Get], set = natives[ep.Set];
+    string of = g.Kind == "indexed" ? "the picked actors" : "the worker's own actor";
+    cs.Append(CultureInfo.InvariantCulture, $"\n{indent}// One property per {ep.Enum} member: reading calls native 0x{get.Id:x4} ({get.Class}.{get.Method}, {get.Calls} calls in the shipped scripts),\n");
+    cs.Append(CultureInfo.InvariantCulture, $"{indent}// assigning calls 0x{set.Id:x4} ({set.Class}.{set.Method}, {set.Calls} calls), with the member as the property argument.\n");
+    foreach ((string name, int value, string doc) in EnumMembers(ep.Enum)) {
+        memberCount++;
+        cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{doc} of {of} (<see cref=\"{ep.Enum}.{name}\"/>).</summary>\n");
+        cs.Append(CultureInfo.InvariantCulture, $"{indent}public int {name} {{ [Atel.NativeMember(0x{get.Id:x4}, Constant = 0x{value:x4})] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x{set.Id:x4}, Constant = 0x{value:x4})] set => throw Atel.Runtime.NotRunnable(); }}\n");
+    }
+}
+
 // A static group's class, its members and then its nested groups' classes.
 void WriteStatic(Group g, string indent) {
     cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{g.Summary}</summary>\n");
@@ -297,13 +358,16 @@ void WriteMembers(Container c, string indent, string modifiers, string atel, boo
         foreach (IGrouping<string, MethodDecl> overload in ms.GroupBy(m => string.Join(",", m.Params.Select(CsType)))) {
             if (count) memberCount++;
             MethodDecl first = overload.First();
-            // The method's parameters: the native's without the receiver; a self and a worker native share them.
-            List<Arg> ps = first.Params;
+            // The method's parameters: the native's without the receiver; a self and a worker native share them. A choice
+            // member's first parameter picks the native (Camera.Eye.Shake(ShakeKind kind, …)).
+            List<Arg> ps = first.Spec.ChoiceType is string choiceType ? [new Arg("kind", "int", choiceType), .. first.Params] : first.Params;
+            Spec? documented = overload.Select(m => m.Spec).FirstOrDefault(x => x.DocSummary is not null);
             string ret = overload.Select(m => ResultType(m.Native, method: true)).Distinct().Single();
             HashSet<string> names = [.. ps.Select(a => a.Name)];
-            cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{Summary(first.Spec, first.Native, names: names)}</summary>\n");
+            cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{documented?.DocSummary ?? Summary(first.Spec, first.Native, names: names)}</summary>\n");
             foreach (Arg a in ps) {
-                string text = hand.TryGetValue(first.Native.Id, out var h) && h.Params.TryGetValue(a.Name, out string? d) ? Rewrite(d, first.Native, names) : "";
+                string text = documented?.DocParams?.GetValueOrDefault(a.Name)
+                    ?? (hand.TryGetValue(first.Native.Id, out var h) && h.Params.TryGetValue(a.Name, out string? d) ? Rewrite(d, first.Native, names) : "");
                 cs.Append(CultureInfo.InvariantCulture, $"{indent}/// <param name=\"{a.Name}\">{text}</param>\n");
             }
             cs.Append(Remarks(indent, [.. overload.Select(m => (m.Spec, m.Native, "call"))]));
@@ -319,6 +383,7 @@ string Attr(Spec s, Native n, string? component, string atel) {
     if (n.Polls) a.Append(", Polls = true");
     if (s.Worker) a.Append(", Worker = true");
     if (component is not null) a.Append(CultureInfo.InvariantCulture, $", Component = \"{component}\"");
+    if (s.Choice is int choice) a.Append(CultureInfo.InvariantCulture, $", Choice = {choice}");
     return a.Append(")] ").ToString().TrimEnd() + " ";
 }
 
@@ -326,6 +391,7 @@ string Remarks(string indent, IReadOnlyList<(Spec Spec, Native Native, string Wh
     StringBuilder r = new();
     foreach ((Spec s, Native n, string what) in uses) {
         string how = what switch {
+            "call" when s.Choice is int choice => $"Kind {choice} calls",
             "call" => "Calls",
             "set" => "Setting it calls",
             _ => $"Reading {(what.StartsWith("get ", StringComparison.Ordinal) ? $"<c>{what[4..]}</c>" : "it")} calls",
@@ -379,9 +445,28 @@ internal sealed record Native(ushort Id, string Class, string Method, List<Arg> 
 /// <param name="Name">The group's path: <c>Turn</c>, <c>Camera</c>, <c>Camera.Eye</c> (nested in <c>Camera</c>).</param>
 /// <param name="Type">The class's name: the component's (<c>TurnControl</c>), else the path's last part.</param>
 /// <param name="Parent">The static group a nested group is in.</param>
-internal sealed record Group(string Name, string Kind, string Type, string? Item, string Summary, string? Parent);
+internal sealed record Group(string Name, string Kind, string Type, string? Item, string Summary, string? Parent) {
+    /// <summary>A property per member of an enum (<c>Actors[Target.AllPly].Hp</c>): its getter and setter natives.</summary>
+    public EnumProps? Props { get; init; }
+}
 
-internal sealed record Spec(ushort Id, string Member, string As, bool Worker, bool Vector, bool Bool);
+/// <param name="Enum">The enum whose members name the properties (<c>ActorProperty</c>).</param>
+internal sealed record EnumProps(string Enum, ushort Get, ushort Set);
+
+internal sealed record Spec(ushort Id, string Member, string As, bool Worker, bool Vector, bool Bool) {
+    /// <summary>The value of the member's first argument that picks this native (<c>ShakeKind.SineFadeOut</c> is 1).</summary>
+    public int? Choice { get; init; }
+
+    /// <summary>The enum of that argument (<c>ShakeKind</c>).</summary>
+    public string? ChoiceType { get; init; }
+
+    /// <summary>The member's parameters after the choice, where the natives' own differ.</summary>
+    public string? Params { get; init; }
+
+    public string? DocSummary { get; init; }
+
+    public Dictionary<string, string>? DocParams { get; init; }
+}
 
 internal sealed record Accessor(string Kind, Spec Spec, Native Native, string? Component);
 

@@ -130,7 +130,7 @@ public sealed class MemberTests {
         Camera.Focus.Position = new(4f, 5f, 6f);
         Camera.Eye.AimAt(1f, 2f, 3f, 4f, 5f, 6f);
         Camera.Focus.FollowSpline(V0, 0f, 1f, 0);
-        Camera.Eye.ShakeKind1(0, 2f, 3, 4, 5);
+        Camera.Eye.Shake(ShakeKind.SineFadeOut, 0, 2f, 3, 4, 5);
         Camera.Blur = 3;
         Camera.ScreenDepth = Camera.ScreenDepth + 1f;
         Camera.Eye.MoveEased(20, 30, 20, 0);
@@ -168,7 +168,7 @@ public sealed class MemberTests {
             "Sprites[V0 + 1].SetColor(255, 128, 0);", "Camera.Roll = 5f;", "Model = Model.Rikk;", "Sound.Play((Sfx)0x80000017, 64, 127);",
             "Move.Target = new Vector3(1f, 2f, 3f);", ".Turn.Stop();",
             "Camera.Eye.Position = new Vector3(1f, 2f, 3f);", "Camera.Focus.Position = new Vector3(4f, 5f, 6f);",
-            "Camera.Eye.AimAt(1f, 2f, 3f, 4f, 5f, 6f);", "Camera.Focus.FollowSpline(V0, 0f, 1f, 0);", "Camera.Eye.ShakeKind1(0, 2f, 3, 4, 5);",
+            "Camera.Eye.AimAt(1f, 2f, 3f, 4f, 5f, 6f);", "Camera.Focus.FollowSpline(V0, 0f, 1f, 0);", "Camera.Eye.Shake(ShakeKind.SineFadeOut, 0, 2f, 3, 4, 5);",
             "Camera.Blur = 3;", "Camera.ScreenDepth = Camera.ScreenDepth + 1f;", "Camera.Eye.MoveEased(20, 30, 20, 0);", "Camera.Eye.Wait();",
             "Camera.Focus.Wait();", "Camera.Screen.WaitShake(1);", "Voice.Stop();",
         }) {
@@ -216,7 +216,15 @@ public sealed class NativeMembersTests {
                 case MemberUse.Set: Assert.True(values == (m.Vector ? 3 : 1), $"{m.Path}: a setter takes its value"); break;
             }
             if (m.Receiver != MemberReceiver.None) Assert.True(sig.ArgKinds[0] == 'i', $"{m.Path}: the receiver is an int");
-            Assert.Same(m, members[m.Id]);
+            if (m.Constant is int constant) {
+                // Picked by its constant: Actors[Target.Own].Hp is GetActorProperty(Own, ActorProperty.Hp).
+                List<Bytecode.Code.Expr> args = [.. Enumerable.Repeat<Bytecode.Code.Expr>(new Bytecode.Code.IntLit(0), m.Receiver == MemberReceiver.None ? 0 : 1), new Bytecode.Code.IntLit(constant)];
+                Assert.Same(m, members.Of(m.Id, args));
+                Assert.Null(members[m.Id]);
+            }
+            else {
+                Assert.Same(m, members[m.Id]);
+            }
             Assert.Contains(m, members.Find(m.Path, m.Use));
         }
         Assert.Contains("Wait", members.StaticRoots);
@@ -226,6 +234,10 @@ public sealed class NativeMembersTests {
         Assert.Equal((ushort)0x6007, Assert.Single(members.Find("Camera.Eye.AimAt", MemberUse.Call)).Id);
         Assert.Contains("Turn", members.WorkerRoots);
         Assert.Contains("Sprites", members.IndexedRoots);
+        Assert.Contains("Actors", members.IndexedRoots);
+        Assert.Contains("Self", members.WorkerRoots);
+        Assert.Equal((ushort)0x7018, Assert.Single(members.Find("Actors.Hp", MemberUse.Set)).Id);
+        Assert.Equal((ushort)0x70aa, Assert.Single(members.Find("Self.Hp", MemberUse.Get)).Id);
     }
 
     /// <summary>An inline helper may be written with members: it expands to the natives' calls.</summary>
