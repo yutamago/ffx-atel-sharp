@@ -107,7 +107,7 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
         foreach ((int callerLevel, string what) in KnownLevels(model, caller, i.Syntax)) {
             string? outcome = entry == 0 ? "a request to entry 0 never registers, so it gives 0 at once and the entry does not run"
                 : level == callerLevel ? "this level's own request is still queued, so the request is refused: it gives 0 at once and the entry never runs"
-                : level < callerLevel ? "it never starts below the running level, and this code waits for ever"
+                : level < callerLevel ? "below the running level it never starts, and this code waits for ever (or gets 0 at once, if that level has a request queued)"
                 : null;
             if (outcome is not null) {
                 c.ReportDiagnostic(Diagnostic.Create(Rules.SelfRequestDeadlock, i.Syntax.GetLocation(), entry, level, callerLevel, what, outcome));

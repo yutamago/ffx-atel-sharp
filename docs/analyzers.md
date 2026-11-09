@@ -243,8 +243,8 @@ request (`reqe0`) to the worker's own entry does, from FFX.exe ([corpus.md](corp
 | The request's level | What happens |
 |---|---|
 | above the caller's | it runs at once and the caller waits for its end: a call (not reported) |
-| the caller's | refused, as that level's own request is still queued: `reqe0` gives 0 at once, the entry never runs and nothing waits |
-| below the caller's | it never starts, and the caller waits for ever (the worker stays at that level; its `Main` never runs again) |
+| the caller's | refused, as that level's own request is still queued (always so in `Init`, `Main` and a requested entry): `reqe0` gives 0 at once, the entry never runs and nothing waits. Only after `end1`/`endp1` reset the level does it register, and then never starts while the caller waits for ever |
+| below the caller's | refused (0 at once) if that level has a request queued already; else it never starts, and the caller waits for ever (the worker stays at that level; its `Main` never runs again) |
 | any, to entry 0 | it never registers: 0 at once, the entry does not run |
 
 All but the first are bugs, so all are errors; the message says which. (Before 2026-11-09 this rule

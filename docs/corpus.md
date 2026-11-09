@@ -330,8 +330,9 @@ times, `reqe0` at level 1 77 times.
   ends, so the worker stays at that level for ever: its `Main` (level 0)
   never runs again. Requests above it still run.
 
-The analyzers' ATL2004 (an error for the same or a lower level) holds;
-"waits for ever" is "never runs, and may wait for ever". An optional
+The analyzers' ATL2004 (an error for the same or a lower level, and for
+entry 0) holds; since 2026-11-09 its message says which of these happens
+instead of "waits for ever". An optional
 in-game confirmation is in [research/loader.md](research/loader.md#battle-messages-and-code-swaps-steps-for-the-game) (D).
 
 **Whether `UseCommand` checks the monster's command list** (FFX.exe,
