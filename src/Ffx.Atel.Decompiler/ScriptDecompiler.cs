@@ -151,6 +151,8 @@ public static class ScriptDecompiler {
         (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions(), handlers);
         EntryNaming.Apply(workers, workerNames, overlay);
         HandlerNaming.AssignEntries(names.Category, handlers, workers, workerNames, WorkerNaming.ReservedWith(varNames));
+        // The rest by what triggers them or what their code does (OnTalk, Say12, Hide).
+        EntryRoles.Assign(names.Category, workers, workerNames, WorkerNaming.ReservedWith([.. varNames, names.ClassName]));
         RequestNaming.Assign(workers, workerNames);
 
         // The pools follow the rules unless the original differs, or assembly names them by index.

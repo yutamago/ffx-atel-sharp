@@ -138,8 +138,8 @@ internal static class WorkerNaming {
         reserved.UnionWith(names);
         string?[] roles = new string?[workers.Length];
         for (int w = 0; w < workers.Length; w++) {
-            if (names[w] != defaults[w] || workers[w].Type == 0) continue;
-            roles[w] = Role(workers[w], category, maps);
+            if (names[w] != defaults[w]) continue;
+            roles[w] = workers[w].Type == 0 ? FunctionRole(workers[w]) : Role(workers[w], category, maps);
         }
         foreach (IGrouping<string, int> g in Enumerable.Range(0, workers.Length).Where(w => roles[w] is not null).GroupBy(w => roles[w]!)) {
             foreach (int w in g) {
@@ -148,6 +148,27 @@ internal static class WorkerNaming {
             }
         }
     }
+
+    /// <summary>
+    ///     A function worker's role, from the natives it calls on its caller: <c>SetMoveTalkDefaults</c> (only the
+    ///     caller's move, turn and talk parameters, by its worker type), <c>AttachEquipment</c> (attaches the
+    ///     equipment models of the caller's party member, <c>ChrAttachModel(slot, ChrGetEquipModel(kind), bone)</c>),
+    ///     <c>DetachEquipment</c> (only detaches them).
+    /// </summary>
+    private static string? FunctionRole(WorkerDecompiler worker) {
+        if (!worker.IsRunFunction) return null;
+        HashSet<string> natives = [.. worker.NativeIds().Select(id => ScriptDecompiler.Natives[id]?.Name ?? "?")];
+        if (natives.Contains("Common.ChrAttachModel") && natives.Contains("Common.ChrGetEquipModel")) return "AttachEquipment";
+        if (natives.Contains("Common.ChrDetachModel") && !natives.Contains("Common.ChrAttachModel")) return "DetachEquipment";
+        if (natives.Contains("Common.GetOwnWorkerType") && natives.All(n => n == "Common.GetOwnWorkerType" || IsMoveTalkSetter(n))) return "SetMoveTalkDefaults";
+        return null;
+    }
+
+    /// <summary>A native that sets one of the worker's move, turn or talk parameters.</summary>
+    private static bool IsMoveTalkSetter(string name) =>
+        name.StartsWith("Common.Set", StringComparison.Ordinal)
+        && (name.Contains("Move", StringComparison.Ordinal) || name.Contains("Turn", StringComparison.Ordinal) || name.Contains("Talk", StringComparison.Ordinal)
+            || name.Contains("Touch", StringComparison.Ordinal) || name.Contains("Radius", StringComparison.Ordinal) || name.Contains("Angle", StringComparison.Ordinal));
 
     private static string? Role(WorkerDecompiler worker, ScriptCategory category, Domain maps) {
         int type = worker.Type;
