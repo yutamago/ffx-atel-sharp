@@ -1,0 +1,1362 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Yutamago",
+  "classifications": [
+    "Atel",
+    "FFX",
+    "Mod"
+  ],
+  "identity": "Ffx.Atel.Templates.Mod",
+  "name": "Atel mod",
+  "shortName": "atel-mod",
+  "description": "An Atel mod for Final Fantasy X: a project of the Ffx.Atel.Sdk that changes one script (--script), with global.json, nuget.config for a local package folder and a README.",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "ModTemplateName",
+  "preferNameDirectory": true,
+  "symbols": {
+    "script": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "m209",
+      "description": "The script the mod changes, by its file name: m209 (a monster), kami0000 (an event), kami00_00 (a battle)."
+    },
+    "scriptName": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "script",
+        "toLower": true
+      },
+      "replaces": "atel-script-name"
+    },
+    "scriptNamespace": {
+      "type": "generated",
+      "generator": "regex",
+      "description": "The script's namespace, as atel decompile names it (written by tools/gen-template.cs from data/areas.json).",
+      "parameters": {
+        "source": "scriptName",
+        "steps": [
+          {
+            "regex": "[^a-z0-9]",
+            "replacement": "_"
+          },
+          {
+            "regex": "^m([0-9]+)$",
+            "replacement": "Monsters||m$1"
+          },
+          {
+            "regex": "^([a-z]+)([0-9]*_[0-9]+)$",
+            "replacement": "Battles|$1|$1$2"
+          },
+          {
+            "regex": "^([a-z0-9]+_)([a-z][a-z0-9])([a-z0-9]*)$",
+            "replacement": "Events|$2|$1$2$3"
+          },
+          {
+            "regex": "^([a-z][a-z0-9])([a-z0-9_]*)$",
+            "replacement": "Events|$1|$1$2"
+          },
+          {
+            "regex": "^Battles[|]azit[|]",
+            "replacement": "Battles|azit_Home|"
+          },
+          {
+            "regex": "^Battles[|]bika[|]",
+            "replacement": "Battles|bika_SanubiaDesert|"
+          },
+          {
+            "regex": "^Battles[|]bjyt[|]",
+            "replacement": "Battles|bjyt_BaajTemple|"
+          },
+          {
+            "regex": "^Battles[|]bsil[|]",
+            "replacement": "Battles|bsil_Besaid|"
+          },
+          {
+            "regex": "^Battles[|]bvyt[|]",
+            "replacement": "Battles|bvyt_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]cdsp[|]",
+            "replacement": "Battles|cdsp_SalvageShip|"
+          },
+          {
+            "regex": "^Battles[|]dome[|]",
+            "replacement": "Battles|dome_Dome|"
+          },
+          {
+            "regex": "^Battles[|]genk[|]",
+            "replacement": "Battles|genk_Moonflow|"
+          },
+          {
+            "regex": "^Battles[|]hiku[|]",
+            "replacement": "Battles|hiku_Airship|"
+          },
+          {
+            "regex": "^Battles[|]kami[|]",
+            "replacement": "Battles|kami_ThunderPlains|"
+          },
+          {
+            "regex": "^Battles[|]kino[|]",
+            "replacement": "Battles|kino_MushroomRock|"
+          },
+          {
+            "regex": "^Battles[|]klyt[|]",
+            "replacement": "Battles|klyt_KilikaTemple|"
+          },
+          {
+            "regex": "^Battles[|]lchb[|]",
+            "replacement": "Battles|lchb_Luca|"
+          },
+          {
+            "regex": "^Battles[|]lmyt[|]",
+            "replacement": "Battles|lmyt_Remiem|"
+          },
+          {
+            "regex": "^Battles[|]maca[|]",
+            "replacement": "Battles|maca_LakeMacalania|"
+          },
+          {
+            "regex": "^Battles[|]mcfr[|]",
+            "replacement": "Battles|mcfr_MacalaniaWoods|"
+          },
+          {
+            "regex": "^Battles[|]mcyt[|]",
+            "replacement": "Battles|mcyt_Macalania|"
+          },
+          {
+            "regex": "^Battles[|]mihn[|]",
+            "replacement": "Battles|mihn_Highroad|"
+          },
+          {
+            "regex": "^Battles[|]mtgz[|]",
+            "replacement": "Battles|mtgz_Gagazet|"
+          },
+          {
+            "regex": "^Battles[|]nagi[|]",
+            "replacement": "Battles|nagi_CalmLands|"
+          },
+          {
+            "regex": "^Battles[|]omeg[|]",
+            "replacement": "Battles|omeg_OmegaRuins|"
+          },
+          {
+            "regex": "^Battles[|]sins[|]",
+            "replacement": "Battles|sins_Sin|"
+          },
+          {
+            "regex": "^Battles[|]slik[|]",
+            "replacement": "Battles|slik_SSLiki|"
+          },
+          {
+            "regex": "^Battles[|]ssbt[|]",
+            "replacement": "Battles|ssbt_Airship|"
+          },
+          {
+            "regex": "^Battles[|]stbv[|]",
+            "replacement": "Battles|stbv_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]zkrn[|]",
+            "replacement": "Battles|zkrn_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Battles[|]znkd[|]",
+            "replacement": "Battles|znkd_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]az[|]",
+            "replacement": "Events|az_Home|"
+          },
+          {
+            "regex": "^Events[|]bi[|]",
+            "replacement": "Events|bi_SanubiaDesert|"
+          },
+          {
+            "regex": "^Events[|]bj[|]",
+            "replacement": "Events|bj_BaajTemple|"
+          },
+          {
+            "regex": "^Events[|]bl[|]",
+            "replacement": "Events|bl_Blitzball|"
+          },
+          {
+            "regex": "^Events[|]bs[|]",
+            "replacement": "Events|bs_Besaid|"
+          },
+          {
+            "regex": "^Events[|]bv[|]",
+            "replacement": "Events|bv_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]cd[|]",
+            "replacement": "Events|cd_SalvageShip|"
+          },
+          {
+            "regex": "^Events[|]dj[|]",
+            "replacement": "Events|dj_Djose|"
+          },
+          {
+            "regex": "^Events[|]do[|]",
+            "replacement": "Events|do_Dome|"
+          },
+          {
+            "regex": "^Events[|]ge[|]",
+            "replacement": "Events|ge_Moonflow|"
+          },
+          {
+            "regex": "^Events[|]gu[|]",
+            "replacement": "Events|gu_Guadosalam|"
+          },
+          {
+            "regex": "^Events[|]hi[|]",
+            "replacement": "Events|hi_Airship|"
+          },
+          {
+            "regex": "^Events[|]ik[|]",
+            "replacement": "Events|ik_Farplane|"
+          },
+          {
+            "regex": "^Events[|]is[|]",
+            "replacement": "Events|is_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ka[|]",
+            "replacement": "Events|ka_ThunderPlains|"
+          },
+          {
+            "regex": "^Events[|]ki[|]",
+            "replacement": "Events|ki_MushroomRock|"
+          },
+          {
+            "regex": "^Events[|]kl[|]",
+            "replacement": "Events|kl_KilikaTemple|"
+          },
+          {
+            "regex": "^Events[|]lc[|]",
+            "replacement": "Events|lc_Luca|"
+          },
+          {
+            "regex": "^Events[|]lm[|]",
+            "replacement": "Events|lm_Remiem|"
+          },
+          {
+            "regex": "^Events[|]lu[|]",
+            "replacement": "Events|lu_Luca|"
+          },
+          {
+            "regex": "^Events[|]ma[|]",
+            "replacement": "Events|ma_LakeMacalania|"
+          },
+          {
+            "regex": "^Events[|]mc[|]",
+            "replacement": "Events|mc_Macalania|"
+          },
+          {
+            "regex": "^Events[|]mi[|]",
+            "replacement": "Events|mi_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ms[|]",
+            "replacement": "Events|ms_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]mt[|]",
+            "replacement": "Events|mt_Gagazet|"
+          },
+          {
+            "regex": "^Events[|]na[|]",
+            "replacement": "Events|na_CalmLands|"
+          },
+          {
+            "regex": "^Events[|]om[|]",
+            "replacement": "Events|om_OmegaRuins|"
+          },
+          {
+            "regex": "^Events[|]pt[|]",
+            "replacement": "Events|pt_KilikaPort|"
+          },
+          {
+            "regex": "^Events[|]si[|]",
+            "replacement": "Events|si_Sin|"
+          },
+          {
+            "regex": "^Events[|]sl[|]",
+            "replacement": "Events|sl_SSLiki|"
+          },
+          {
+            "regex": "^Events[|]ss[|]",
+            "replacement": "Events|ss_Airship|"
+          },
+          {
+            "regex": "^Events[|]st[|]",
+            "replacement": "Events|st_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]sw[|]",
+            "replacement": "Events|sw_SSWinno|"
+          },
+          {
+            "regex": "^Events[|]zk[|]",
+            "replacement": "Events|zk_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Events[|]zn[|]",
+            "replacement": "Events|zn_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]zo[|]",
+            "replacement": "Events|zo_Zanarkand|"
+          },
+          {
+            "regex": "[|]a",
+            "replacement": "|A"
+          },
+          {
+            "regex": "[|]b",
+            "replacement": "|B"
+          },
+          {
+            "regex": "[|]c",
+            "replacement": "|C"
+          },
+          {
+            "regex": "[|]d",
+            "replacement": "|D"
+          },
+          {
+            "regex": "[|]e",
+            "replacement": "|E"
+          },
+          {
+            "regex": "[|]f",
+            "replacement": "|F"
+          },
+          {
+            "regex": "[|]g",
+            "replacement": "|G"
+          },
+          {
+            "regex": "[|]h",
+            "replacement": "|H"
+          },
+          {
+            "regex": "[|]i",
+            "replacement": "|I"
+          },
+          {
+            "regex": "[|]j",
+            "replacement": "|J"
+          },
+          {
+            "regex": "[|]k",
+            "replacement": "|K"
+          },
+          {
+            "regex": "[|]l",
+            "replacement": "|L"
+          },
+          {
+            "regex": "[|]m",
+            "replacement": "|M"
+          },
+          {
+            "regex": "[|]n",
+            "replacement": "|N"
+          },
+          {
+            "regex": "[|]o",
+            "replacement": "|O"
+          },
+          {
+            "regex": "[|]p",
+            "replacement": "|P"
+          },
+          {
+            "regex": "[|]q",
+            "replacement": "|Q"
+          },
+          {
+            "regex": "[|]r",
+            "replacement": "|R"
+          },
+          {
+            "regex": "[|]s",
+            "replacement": "|S"
+          },
+          {
+            "regex": "[|]t",
+            "replacement": "|T"
+          },
+          {
+            "regex": "[|]u",
+            "replacement": "|U"
+          },
+          {
+            "regex": "[|]v",
+            "replacement": "|V"
+          },
+          {
+            "regex": "[|]w",
+            "replacement": "|W"
+          },
+          {
+            "regex": "[|]x",
+            "replacement": "|X"
+          },
+          {
+            "regex": "[|]y",
+            "replacement": "|Y"
+          },
+          {
+            "regex": "[|]z",
+            "replacement": "|Z"
+          },
+          {
+            "regex": "[|]([0-9][^|]*)$",
+            "replacement": "|_$1"
+          },
+          {
+            "regex": "[|][|]",
+            "replacement": "."
+          },
+          {
+            "regex": "[|]",
+            "replacement": "."
+          }
+        ]
+      },
+      "replaces": "AtelScriptNamespace"
+    },
+    "scriptClass": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "scriptName",
+        "steps": [
+          {
+            "regex": "[^a-z0-9]",
+            "replacement": "_"
+          },
+          {
+            "regex": "^m([0-9]+)$",
+            "replacement": "Monsters||m$1"
+          },
+          {
+            "regex": "^([a-z]+)([0-9]*_[0-9]+)$",
+            "replacement": "Battles|$1|$1$2"
+          },
+          {
+            "regex": "^([a-z0-9]+_)([a-z][a-z0-9])([a-z0-9]*)$",
+            "replacement": "Events|$2|$1$2$3"
+          },
+          {
+            "regex": "^([a-z][a-z0-9])([a-z0-9_]*)$",
+            "replacement": "Events|$1|$1$2"
+          },
+          {
+            "regex": "^Battles[|]azit[|]",
+            "replacement": "Battles|azit_Home|"
+          },
+          {
+            "regex": "^Battles[|]bika[|]",
+            "replacement": "Battles|bika_SanubiaDesert|"
+          },
+          {
+            "regex": "^Battles[|]bjyt[|]",
+            "replacement": "Battles|bjyt_BaajTemple|"
+          },
+          {
+            "regex": "^Battles[|]bsil[|]",
+            "replacement": "Battles|bsil_Besaid|"
+          },
+          {
+            "regex": "^Battles[|]bvyt[|]",
+            "replacement": "Battles|bvyt_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]cdsp[|]",
+            "replacement": "Battles|cdsp_SalvageShip|"
+          },
+          {
+            "regex": "^Battles[|]dome[|]",
+            "replacement": "Battles|dome_Dome|"
+          },
+          {
+            "regex": "^Battles[|]genk[|]",
+            "replacement": "Battles|genk_Moonflow|"
+          },
+          {
+            "regex": "^Battles[|]hiku[|]",
+            "replacement": "Battles|hiku_Airship|"
+          },
+          {
+            "regex": "^Battles[|]kami[|]",
+            "replacement": "Battles|kami_ThunderPlains|"
+          },
+          {
+            "regex": "^Battles[|]kino[|]",
+            "replacement": "Battles|kino_MushroomRock|"
+          },
+          {
+            "regex": "^Battles[|]klyt[|]",
+            "replacement": "Battles|klyt_KilikaTemple|"
+          },
+          {
+            "regex": "^Battles[|]lchb[|]",
+            "replacement": "Battles|lchb_Luca|"
+          },
+          {
+            "regex": "^Battles[|]lmyt[|]",
+            "replacement": "Battles|lmyt_Remiem|"
+          },
+          {
+            "regex": "^Battles[|]maca[|]",
+            "replacement": "Battles|maca_LakeMacalania|"
+          },
+          {
+            "regex": "^Battles[|]mcfr[|]",
+            "replacement": "Battles|mcfr_MacalaniaWoods|"
+          },
+          {
+            "regex": "^Battles[|]mcyt[|]",
+            "replacement": "Battles|mcyt_Macalania|"
+          },
+          {
+            "regex": "^Battles[|]mihn[|]",
+            "replacement": "Battles|mihn_Highroad|"
+          },
+          {
+            "regex": "^Battles[|]mtgz[|]",
+            "replacement": "Battles|mtgz_Gagazet|"
+          },
+          {
+            "regex": "^Battles[|]nagi[|]",
+            "replacement": "Battles|nagi_CalmLands|"
+          },
+          {
+            "regex": "^Battles[|]omeg[|]",
+            "replacement": "Battles|omeg_OmegaRuins|"
+          },
+          {
+            "regex": "^Battles[|]sins[|]",
+            "replacement": "Battles|sins_Sin|"
+          },
+          {
+            "regex": "^Battles[|]slik[|]",
+            "replacement": "Battles|slik_SSLiki|"
+          },
+          {
+            "regex": "^Battles[|]ssbt[|]",
+            "replacement": "Battles|ssbt_Airship|"
+          },
+          {
+            "regex": "^Battles[|]stbv[|]",
+            "replacement": "Battles|stbv_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]zkrn[|]",
+            "replacement": "Battles|zkrn_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Battles[|]znkd[|]",
+            "replacement": "Battles|znkd_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]az[|]",
+            "replacement": "Events|az_Home|"
+          },
+          {
+            "regex": "^Events[|]bi[|]",
+            "replacement": "Events|bi_SanubiaDesert|"
+          },
+          {
+            "regex": "^Events[|]bj[|]",
+            "replacement": "Events|bj_BaajTemple|"
+          },
+          {
+            "regex": "^Events[|]bl[|]",
+            "replacement": "Events|bl_Blitzball|"
+          },
+          {
+            "regex": "^Events[|]bs[|]",
+            "replacement": "Events|bs_Besaid|"
+          },
+          {
+            "regex": "^Events[|]bv[|]",
+            "replacement": "Events|bv_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]cd[|]",
+            "replacement": "Events|cd_SalvageShip|"
+          },
+          {
+            "regex": "^Events[|]dj[|]",
+            "replacement": "Events|dj_Djose|"
+          },
+          {
+            "regex": "^Events[|]do[|]",
+            "replacement": "Events|do_Dome|"
+          },
+          {
+            "regex": "^Events[|]ge[|]",
+            "replacement": "Events|ge_Moonflow|"
+          },
+          {
+            "regex": "^Events[|]gu[|]",
+            "replacement": "Events|gu_Guadosalam|"
+          },
+          {
+            "regex": "^Events[|]hi[|]",
+            "replacement": "Events|hi_Airship|"
+          },
+          {
+            "regex": "^Events[|]ik[|]",
+            "replacement": "Events|ik_Farplane|"
+          },
+          {
+            "regex": "^Events[|]is[|]",
+            "replacement": "Events|is_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ka[|]",
+            "replacement": "Events|ka_ThunderPlains|"
+          },
+          {
+            "regex": "^Events[|]ki[|]",
+            "replacement": "Events|ki_MushroomRock|"
+          },
+          {
+            "regex": "^Events[|]kl[|]",
+            "replacement": "Events|kl_KilikaTemple|"
+          },
+          {
+            "regex": "^Events[|]lc[|]",
+            "replacement": "Events|lc_Luca|"
+          },
+          {
+            "regex": "^Events[|]lm[|]",
+            "replacement": "Events|lm_Remiem|"
+          },
+          {
+            "regex": "^Events[|]lu[|]",
+            "replacement": "Events|lu_Luca|"
+          },
+          {
+            "regex": "^Events[|]ma[|]",
+            "replacement": "Events|ma_LakeMacalania|"
+          },
+          {
+            "regex": "^Events[|]mc[|]",
+            "replacement": "Events|mc_Macalania|"
+          },
+          {
+            "regex": "^Events[|]mi[|]",
+            "replacement": "Events|mi_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ms[|]",
+            "replacement": "Events|ms_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]mt[|]",
+            "replacement": "Events|mt_Gagazet|"
+          },
+          {
+            "regex": "^Events[|]na[|]",
+            "replacement": "Events|na_CalmLands|"
+          },
+          {
+            "regex": "^Events[|]om[|]",
+            "replacement": "Events|om_OmegaRuins|"
+          },
+          {
+            "regex": "^Events[|]pt[|]",
+            "replacement": "Events|pt_KilikaPort|"
+          },
+          {
+            "regex": "^Events[|]si[|]",
+            "replacement": "Events|si_Sin|"
+          },
+          {
+            "regex": "^Events[|]sl[|]",
+            "replacement": "Events|sl_SSLiki|"
+          },
+          {
+            "regex": "^Events[|]ss[|]",
+            "replacement": "Events|ss_Airship|"
+          },
+          {
+            "regex": "^Events[|]st[|]",
+            "replacement": "Events|st_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]sw[|]",
+            "replacement": "Events|sw_SSWinno|"
+          },
+          {
+            "regex": "^Events[|]zk[|]",
+            "replacement": "Events|zk_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Events[|]zn[|]",
+            "replacement": "Events|zn_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]zo[|]",
+            "replacement": "Events|zo_Zanarkand|"
+          },
+          {
+            "regex": "[|]a",
+            "replacement": "|A"
+          },
+          {
+            "regex": "[|]b",
+            "replacement": "|B"
+          },
+          {
+            "regex": "[|]c",
+            "replacement": "|C"
+          },
+          {
+            "regex": "[|]d",
+            "replacement": "|D"
+          },
+          {
+            "regex": "[|]e",
+            "replacement": "|E"
+          },
+          {
+            "regex": "[|]f",
+            "replacement": "|F"
+          },
+          {
+            "regex": "[|]g",
+            "replacement": "|G"
+          },
+          {
+            "regex": "[|]h",
+            "replacement": "|H"
+          },
+          {
+            "regex": "[|]i",
+            "replacement": "|I"
+          },
+          {
+            "regex": "[|]j",
+            "replacement": "|J"
+          },
+          {
+            "regex": "[|]k",
+            "replacement": "|K"
+          },
+          {
+            "regex": "[|]l",
+            "replacement": "|L"
+          },
+          {
+            "regex": "[|]m",
+            "replacement": "|M"
+          },
+          {
+            "regex": "[|]n",
+            "replacement": "|N"
+          },
+          {
+            "regex": "[|]o",
+            "replacement": "|O"
+          },
+          {
+            "regex": "[|]p",
+            "replacement": "|P"
+          },
+          {
+            "regex": "[|]q",
+            "replacement": "|Q"
+          },
+          {
+            "regex": "[|]r",
+            "replacement": "|R"
+          },
+          {
+            "regex": "[|]s",
+            "replacement": "|S"
+          },
+          {
+            "regex": "[|]t",
+            "replacement": "|T"
+          },
+          {
+            "regex": "[|]u",
+            "replacement": "|U"
+          },
+          {
+            "regex": "[|]v",
+            "replacement": "|V"
+          },
+          {
+            "regex": "[|]w",
+            "replacement": "|W"
+          },
+          {
+            "regex": "[|]x",
+            "replacement": "|X"
+          },
+          {
+            "regex": "[|]y",
+            "replacement": "|Y"
+          },
+          {
+            "regex": "[|]z",
+            "replacement": "|Z"
+          },
+          {
+            "regex": "[|]([0-9][^|]*)$",
+            "replacement": "|_$1"
+          },
+          {
+            "regex": "^.*[|]",
+            "replacement": ""
+          }
+        ]
+      },
+      "replaces": "AtelScriptClass",
+      "fileRename": "AtelScriptClass"
+    },
+    "scriptFolder": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "scriptName",
+        "steps": [
+          {
+            "regex": "[^a-z0-9]",
+            "replacement": "_"
+          },
+          {
+            "regex": "^m([0-9]+)$",
+            "replacement": "Monsters||m$1"
+          },
+          {
+            "regex": "^([a-z]+)([0-9]*_[0-9]+)$",
+            "replacement": "Battles|$1|$1$2"
+          },
+          {
+            "regex": "^([a-z0-9]+_)([a-z][a-z0-9])([a-z0-9]*)$",
+            "replacement": "Events|$2|$1$2$3"
+          },
+          {
+            "regex": "^([a-z][a-z0-9])([a-z0-9_]*)$",
+            "replacement": "Events|$1|$1$2"
+          },
+          {
+            "regex": "^Battles[|]azit[|]",
+            "replacement": "Battles|azit_Home|"
+          },
+          {
+            "regex": "^Battles[|]bika[|]",
+            "replacement": "Battles|bika_SanubiaDesert|"
+          },
+          {
+            "regex": "^Battles[|]bjyt[|]",
+            "replacement": "Battles|bjyt_BaajTemple|"
+          },
+          {
+            "regex": "^Battles[|]bsil[|]",
+            "replacement": "Battles|bsil_Besaid|"
+          },
+          {
+            "regex": "^Battles[|]bvyt[|]",
+            "replacement": "Battles|bvyt_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]cdsp[|]",
+            "replacement": "Battles|cdsp_SalvageShip|"
+          },
+          {
+            "regex": "^Battles[|]dome[|]",
+            "replacement": "Battles|dome_Dome|"
+          },
+          {
+            "regex": "^Battles[|]genk[|]",
+            "replacement": "Battles|genk_Moonflow|"
+          },
+          {
+            "regex": "^Battles[|]hiku[|]",
+            "replacement": "Battles|hiku_Airship|"
+          },
+          {
+            "regex": "^Battles[|]kami[|]",
+            "replacement": "Battles|kami_ThunderPlains|"
+          },
+          {
+            "regex": "^Battles[|]kino[|]",
+            "replacement": "Battles|kino_MushroomRock|"
+          },
+          {
+            "regex": "^Battles[|]klyt[|]",
+            "replacement": "Battles|klyt_KilikaTemple|"
+          },
+          {
+            "regex": "^Battles[|]lchb[|]",
+            "replacement": "Battles|lchb_Luca|"
+          },
+          {
+            "regex": "^Battles[|]lmyt[|]",
+            "replacement": "Battles|lmyt_Remiem|"
+          },
+          {
+            "regex": "^Battles[|]maca[|]",
+            "replacement": "Battles|maca_LakeMacalania|"
+          },
+          {
+            "regex": "^Battles[|]mcfr[|]",
+            "replacement": "Battles|mcfr_MacalaniaWoods|"
+          },
+          {
+            "regex": "^Battles[|]mcyt[|]",
+            "replacement": "Battles|mcyt_Macalania|"
+          },
+          {
+            "regex": "^Battles[|]mihn[|]",
+            "replacement": "Battles|mihn_Highroad|"
+          },
+          {
+            "regex": "^Battles[|]mtgz[|]",
+            "replacement": "Battles|mtgz_Gagazet|"
+          },
+          {
+            "regex": "^Battles[|]nagi[|]",
+            "replacement": "Battles|nagi_CalmLands|"
+          },
+          {
+            "regex": "^Battles[|]omeg[|]",
+            "replacement": "Battles|omeg_OmegaRuins|"
+          },
+          {
+            "regex": "^Battles[|]sins[|]",
+            "replacement": "Battles|sins_Sin|"
+          },
+          {
+            "regex": "^Battles[|]slik[|]",
+            "replacement": "Battles|slik_SSLiki|"
+          },
+          {
+            "regex": "^Battles[|]ssbt[|]",
+            "replacement": "Battles|ssbt_Airship|"
+          },
+          {
+            "regex": "^Battles[|]stbv[|]",
+            "replacement": "Battles|stbv_Bevelle|"
+          },
+          {
+            "regex": "^Battles[|]zkrn[|]",
+            "replacement": "Battles|zkrn_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Battles[|]znkd[|]",
+            "replacement": "Battles|znkd_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]az[|]",
+            "replacement": "Events|az_Home|"
+          },
+          {
+            "regex": "^Events[|]bi[|]",
+            "replacement": "Events|bi_SanubiaDesert|"
+          },
+          {
+            "regex": "^Events[|]bj[|]",
+            "replacement": "Events|bj_BaajTemple|"
+          },
+          {
+            "regex": "^Events[|]bl[|]",
+            "replacement": "Events|bl_Blitzball|"
+          },
+          {
+            "regex": "^Events[|]bs[|]",
+            "replacement": "Events|bs_Besaid|"
+          },
+          {
+            "regex": "^Events[|]bv[|]",
+            "replacement": "Events|bv_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]cd[|]",
+            "replacement": "Events|cd_SalvageShip|"
+          },
+          {
+            "regex": "^Events[|]dj[|]",
+            "replacement": "Events|dj_Djose|"
+          },
+          {
+            "regex": "^Events[|]do[|]",
+            "replacement": "Events|do_Dome|"
+          },
+          {
+            "regex": "^Events[|]ge[|]",
+            "replacement": "Events|ge_Moonflow|"
+          },
+          {
+            "regex": "^Events[|]gu[|]",
+            "replacement": "Events|gu_Guadosalam|"
+          },
+          {
+            "regex": "^Events[|]hi[|]",
+            "replacement": "Events|hi_Airship|"
+          },
+          {
+            "regex": "^Events[|]ik[|]",
+            "replacement": "Events|ik_Farplane|"
+          },
+          {
+            "regex": "^Events[|]is[|]",
+            "replacement": "Events|is_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ka[|]",
+            "replacement": "Events|ka_ThunderPlains|"
+          },
+          {
+            "regex": "^Events[|]ki[|]",
+            "replacement": "Events|ki_MushroomRock|"
+          },
+          {
+            "regex": "^Events[|]kl[|]",
+            "replacement": "Events|kl_KilikaTemple|"
+          },
+          {
+            "regex": "^Events[|]lc[|]",
+            "replacement": "Events|lc_Luca|"
+          },
+          {
+            "regex": "^Events[|]lm[|]",
+            "replacement": "Events|lm_Remiem|"
+          },
+          {
+            "regex": "^Events[|]lu[|]",
+            "replacement": "Events|lu_Luca|"
+          },
+          {
+            "regex": "^Events[|]ma[|]",
+            "replacement": "Events|ma_LakeMacalania|"
+          },
+          {
+            "regex": "^Events[|]mc[|]",
+            "replacement": "Events|mc_Macalania|"
+          },
+          {
+            "regex": "^Events[|]mi[|]",
+            "replacement": "Events|mi_Highroad|"
+          },
+          {
+            "regex": "^Events[|]ms[|]",
+            "replacement": "Events|ms_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]mt[|]",
+            "replacement": "Events|mt_Gagazet|"
+          },
+          {
+            "regex": "^Events[|]na[|]",
+            "replacement": "Events|na_CalmLands|"
+          },
+          {
+            "regex": "^Events[|]om[|]",
+            "replacement": "Events|om_OmegaRuins|"
+          },
+          {
+            "regex": "^Events[|]pt[|]",
+            "replacement": "Events|pt_KilikaPort|"
+          },
+          {
+            "regex": "^Events[|]si[|]",
+            "replacement": "Events|si_Sin|"
+          },
+          {
+            "regex": "^Events[|]sl[|]",
+            "replacement": "Events|sl_SSLiki|"
+          },
+          {
+            "regex": "^Events[|]ss[|]",
+            "replacement": "Events|ss_Airship|"
+          },
+          {
+            "regex": "^Events[|]st[|]",
+            "replacement": "Events|st_Bevelle|"
+          },
+          {
+            "regex": "^Events[|]sw[|]",
+            "replacement": "Events|sw_SSWinno|"
+          },
+          {
+            "regex": "^Events[|]zk[|]",
+            "replacement": "Events|zk_ZanarkandRuins|"
+          },
+          {
+            "regex": "^Events[|]zn[|]",
+            "replacement": "Events|zn_Zanarkand|"
+          },
+          {
+            "regex": "^Events[|]zo[|]",
+            "replacement": "Events|zo_Zanarkand|"
+          },
+          {
+            "regex": "[|]a",
+            "replacement": "|A"
+          },
+          {
+            "regex": "[|]b",
+            "replacement": "|B"
+          },
+          {
+            "regex": "[|]c",
+            "replacement": "|C"
+          },
+          {
+            "regex": "[|]d",
+            "replacement": "|D"
+          },
+          {
+            "regex": "[|]e",
+            "replacement": "|E"
+          },
+          {
+            "regex": "[|]f",
+            "replacement": "|F"
+          },
+          {
+            "regex": "[|]g",
+            "replacement": "|G"
+          },
+          {
+            "regex": "[|]h",
+            "replacement": "|H"
+          },
+          {
+            "regex": "[|]i",
+            "replacement": "|I"
+          },
+          {
+            "regex": "[|]j",
+            "replacement": "|J"
+          },
+          {
+            "regex": "[|]k",
+            "replacement": "|K"
+          },
+          {
+            "regex": "[|]l",
+            "replacement": "|L"
+          },
+          {
+            "regex": "[|]m",
+            "replacement": "|M"
+          },
+          {
+            "regex": "[|]n",
+            "replacement": "|N"
+          },
+          {
+            "regex": "[|]o",
+            "replacement": "|O"
+          },
+          {
+            "regex": "[|]p",
+            "replacement": "|P"
+          },
+          {
+            "regex": "[|]q",
+            "replacement": "|Q"
+          },
+          {
+            "regex": "[|]r",
+            "replacement": "|R"
+          },
+          {
+            "regex": "[|]s",
+            "replacement": "|S"
+          },
+          {
+            "regex": "[|]t",
+            "replacement": "|T"
+          },
+          {
+            "regex": "[|]u",
+            "replacement": "|U"
+          },
+          {
+            "regex": "[|]v",
+            "replacement": "|V"
+          },
+          {
+            "regex": "[|]w",
+            "replacement": "|W"
+          },
+          {
+            "regex": "[|]x",
+            "replacement": "|X"
+          },
+          {
+            "regex": "[|]y",
+            "replacement": "|Y"
+          },
+          {
+            "regex": "[|]z",
+            "replacement": "|Z"
+          },
+          {
+            "regex": "[|]([0-9][^|]*)$",
+            "replacement": "|_$1"
+          },
+          {
+            "regex": "[|][|]",
+            "replacement": "/"
+          },
+          {
+            "regex": "[|]",
+            "replacement": "/"
+          }
+        ]
+      },
+      "replaces": "AtelScriptFolder"
+    },
+    "nameIdentifier": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "name",
+        "steps": [
+          {
+            "regex": "[^A-Za-z0-9_]",
+            "replacement": "_"
+          },
+          {
+            "regex": "^([0-9])",
+            "replacement": "_$1"
+          }
+        ]
+      },
+      "replaces": "AtelModIdentifier"
+    },
+    "modName": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "name",
+        "steps": [
+          {
+            "regex": "^[ ]+|[ ]+$",
+            "replacement": ""
+          }
+        ]
+      },
+      "replaces": "atel-mod-name"
+    },
+    "authors": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "you",
+      "description": "The mod's authors (Authors), and the first part of the default mod id.",
+      "replaces": "atel-mod-author"
+    },
+    "authorLower": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "authors",
+        "toLower": true
+      }
+    },
+    "authorId": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "authorLower",
+        "steps": [
+          {
+            "regex": "[^a-z0-9_-]",
+            "replacement": ""
+          }
+        ]
+      }
+    },
+    "nameLower": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "name",
+        "toLower": true
+      }
+    },
+    "nameId": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "nameLower",
+        "steps": [
+          {
+            "regex": "[^a-z0-9_-]",
+            "replacement": ""
+          }
+        ]
+      }
+    },
+    "defaultModId": {
+      "type": "generated",
+      "generator": "join",
+      "parameters": {
+        "symbols": [
+          {
+            "type": "ref",
+            "value": "authorId"
+          },
+          {
+            "type": "ref",
+            "value": "nameId"
+          }
+        ],
+        "separator": "."
+      }
+    },
+    "modId": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "description": "The Fahrenheit mod id (AtelModId). Default: <authors>.<name>, lower case, letters, digits, - and _ only."
+    },
+    "modIdValue": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": {
+        "sourceVariableName": "modId",
+        "fallbackVariableName": "defaultModId"
+      },
+      "replaces": "atel-mod-id"
+    },
+    "vanilla": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "../atel-vanilla",
+      "description": "The vanilla source (AtelVanillaSource): where atel decompile writes the script, relative to the project or absolute. Outside the project.",
+      "replaces": "atel-vanilla-dir"
+    },
+    "feed": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "../atel-feed",
+      "description": "The local folder with the Ffx.Atel.Sdk package, written into nuget.config (relative to the project or absolute).",
+      "replaces": "atel-feed-dir"
+    },
+    "sdkVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "@AtelSdkVersion@",
+      "description": "The Ffx.Atel.Sdk version written into global.json. Default: the version this template was packed with.",
+      "replaces": "atel-sdk-version"
+    }
+  }
+}
