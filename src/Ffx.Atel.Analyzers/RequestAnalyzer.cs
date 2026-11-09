@@ -94,7 +94,10 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
     /// <summary>
     ///     ATL2004 for the raw forms the decompiler writes: <c>RequestWaitEnd(level, worker, entry)</c>
     ///     with constant operands, to the caller's own worker, from code whose level is known (entry 0,
-    ///     <c>Init</c>, level 7; entry 1, <c>Main</c>, level 0).
+    ///     <c>Init</c>, level 7; entry 1, <c>Main</c>, level 0). From FFX.exe (docs/corpus.md, "Requests"):
+    ///     <c>reqe0</c> registers "without the same level", so at the caller's level (whose request is
+    ///     still queued) it is refused and gives 0 at once; below it, it registers but never starts, as only
+    ///     a level above the running one starts, and the caller waits for ever; entry 0 never registers.
     /// </summary>
     private static void SelfRequest(OperationAnalysisContext c, AtelModel model, IInvocationOperation i) {
         if (c.ContainingSymbol is not IMethodSymbol caller || caller.ContainingType is not INamedTypeSymbol type) return;
@@ -102,8 +105,12 @@ public sealed class RequestAnalyzer : DiagnosticAnalyzer {
         if (Constant(i, "level") is not int level || Constant(i, "worker") is not int worker || Constant(i, "entry") is not int entry) return;
         if (worker != own) return;
         foreach ((int callerLevel, string what) in KnownLevels(model, caller, i.Syntax)) {
-            if (level <= callerLevel) {
-                c.ReportDiagnostic(Diagnostic.Create(Rules.SelfRequestDeadlock, i.Syntax.GetLocation(), entry, level, callerLevel, what));
+            string? outcome = entry == 0 ? "a request to entry 0 never registers, so it gives 0 at once and the entry does not run"
+                : level == callerLevel ? "this level's own request is still queued, so the request is refused: it gives 0 at once and the entry never runs"
+                : level < callerLevel ? "it never starts below the running level, and this code waits for ever"
+                : null;
+            if (outcome is not null) {
+                c.ReportDiagnostic(Diagnostic.Create(Rules.SelfRequestDeadlock, i.Syntax.GetLocation(), entry, level, callerLevel, what, outcome));
                 return;
             }
         }

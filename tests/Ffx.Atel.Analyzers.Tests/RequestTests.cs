@@ -69,7 +69,11 @@ public sealed class RequestTests {
         public sealed class W01 : Worker1 { }
         """, "", "CS1998");
 
-    /// <summary>Entry 0 (Init) runs at level 7, entry 1 (Main) at 0: an awaited request to the worker's own entry at or below that waits for ever.</summary>
+    /// <summary>
+    ///     Entry 0 (Init) runs at level 7, entry 1 (Main) at 0. An awaited request to the worker's own entry at that
+    ///     level is refused (0 at once), below it the caller waits for ever, and entry 0 never registers: in each the
+    ///     entry never runs.
+    /// </summary>
     [Fact]
     public void AwaitedSelfRequestAtTheSameOrALowerLevel() => Verify(Script + """
         public sealed class W00 : Worker1
@@ -87,6 +91,8 @@ public sealed class RequestTests {
             {
                 RequestWaitEnd(1, 0, 3);
                 RequestWaitEnd(7, 0, 3);
+                {|ATL2004:RequestWaitEnd({|ATL2006:0|}, 0, 3)|};
+                {|ATL2004:RequestWaitEnd(1, 0, 0)|};
             }
             [Entry(2)]
             void E2()
