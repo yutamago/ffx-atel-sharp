@@ -294,9 +294,64 @@ levels 1 to 7 only, never 0 or 8:
 `req0`, `reqw0` and `reqe0` register "without the same level" (ffx-rust `signal.rs`, `register`); `req2` ("without the same tag") occurs 32 times, all
 at level 1; the party request `op_39` 3 times. 743 requests go to the
 worker's own entries, 464 of them from entry 1: `req0` at level 1 431
-times, `reqe0` at level 1 77 times. Whether a `reqe0` at the caller's own
-level waits for ever is for the in-game check (the plan's question); level
-1 from entry 1 is the case to try.
+times, `reqe0` at level 1 77 times.
+
+**What an awaited request to the worker's own entry does** (FFX.exe,
+2026-11-09; ffx-rust `crates/ffx-script/src/vm/bridge/signal.rs` and
+`run.rs`, which port these functions with parity tests):
+
+- Where entries run. A worker's set-up queues two requests to itself,
+  entry 0 at level 7 and entry 1 at level 0 (`AtelInitBasicWork`,
+  `0x0086cb00`), and starts the first; when `Init` ends, `AtelExecReturn`
+  (`0x008691d0`) starts the next, so **`Main` runs at level 0**, as a
+  started request whose node stays in the worker's queue (state 2) while it
+  runs. A request runs at the level it names; `AtelDecodeSignal`
+  (`0x008653f0`) starts the head of the queue only when its level is
+  **above** the running one (the queue is sorted by level, replies last).
+- `reqe0` is `Script_OpReqEw` (`0x008673d0`): it pops entry, worker and
+  level, registers through `AtelRegistSignalWithoutSameLevel2`
+  (`0x0086ebe0`), which refuses when the receiver has any request at that
+  level in its queue (queued or running), pushes 1 or 0, and only when it
+  registered sets the level waiting for the reply (level `+0x1f` = 1). An
+  entry of 0 registers nothing (pushes 0).
+- **Above the caller's level** (the 77 sites: level 1 from `Main` at level
+  0): the request starts at the next decode, runs at level 1 while level 0
+  waits, and its end (`AtelExecReturn`) replies to level 0 and switches
+  back to it (its node is still queued, state 2): a synchronous call.
+- **At the caller's level**: from an entry started by a request (`Main`,
+  `Init`, any requested entry) that level's own node is still queued, so
+  the request is refused: `reqe0` gives 0, nothing runs and nothing waits.
+  Only a level without a node (after `end1`/`endp1` put it back to entry 1,
+  `AtelExecReturn` with reset) registers it; then the request never starts
+  (not above the running level) and the caller waits for ever.
+- **Below the caller's level** (for example level 1 from `Init` at level 7):
+  registered unless that level has a request queued already (then 0, no
+  wait); then it never starts while the caller waits, and the caller never
+  ends, so the worker stays at that level for ever: its `Main` (level 0)
+  never runs again. Requests above it still run.
+
+The analyzers' ATL2004 (an error for the same or a lower level) holds;
+"waits for ever" is "never runs, and may wait for ever". An optional
+in-game confirmation is in [research/loader.md](research/loader.md#battle-messages-and-code-swaps-steps-for-the-game) (D).
+
+**Whether `UseCommand` checks the monster's command list** (FFX.exe,
+2026-11-09): no. `Native_BtlUseCommand` (`0x700b`, `0x007a44b0`) pops the
+command and the target selector and returns 0 unless the actor can act
+(`MsAutoCommandStatusCheck`, `0x007b24a0`: not stopped by status bits
+`0x300`/`0x400`/`0x800` at `+0x606`, `+0x608` or `+0x617` bit 1) and
+`0x0112a8fa` is 0; then `Battle_QueueCommand` (`0x007ac9c0`) adds it to the
+acting actor's queue (four entries at `0x01136a80`) when that actor is the
+one acting (`0x01136a78`), the command exists and a target is valid.
+`MsGetCommand` (`0x0078ce50`) only looks the id up in the kernel's tables
+by its kind (`id >> 12`: 2 items, 3 player commands, 4 and 6 monster
+commands), not in the monster's list. `MsCheckUseCommand` (`0x0078c690`,
+also used by the menu and natives `0x70f4`, `0x70f5`, `0x70fb`) is not
+called there; when the command runs, `MsCalcMagic` (`0x0078ab20`) calls it,
+and it checks only the cost: the command's gauge cost (`+0x26`) against
+actor `+0x5bc`, its `+0x1c` bit `0x20000` against actor `+0x609`, and MP,
+which a monster does not pay (`MsGetRamChrMonster` is 1). None of these
+looks at a command list. So a script can make a monster use any command,
+as the Larva's Thundara (`0x3047`, a player command) shows.
 
 The worker and the entry operand are constants in 98.6 % of requests each.
 
