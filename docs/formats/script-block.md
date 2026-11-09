@@ -135,14 +135,21 @@ differs only in that `+0x00` no longer covers all of the code.
 (entries and labels) below `+0x00` make up its range as before; those at or
 past it make up its **tail**, which runs from the first of them to the next
 worker's tail, or to the block's end (`+0x10`). A range starts at the
-worker's first target in it, so the linker puts a label where no entry is
-(the first method's entries moved to the tail, a new worker's first byte).
-A new worker has only a tail. `ScriptImage` keeps a worker's code as its
-range followed by its tail (`WorkerImage.TailAt`), lays the ranges out in
+worker's first target in it. A worker's code still starts at an entry, as
+in every shipped script (the decompiler cuts methods from entry to entry):
+when a mod patches the method there, it keeps its entries and its first
+instructions become a jump to its new code (mod-package.md, "Linking").
+Where that cannot be done, and at a tail's or new worker's first byte when
+no entry is there, the linker puts a label. A new worker has only a tail. `ScriptImage` keeps a worker's code as its
+range followed by its tail (`ScriptImage.TailAt`, kept as the pin `w{n}.split`
+so that it goes through the decompiled source's `[Pin]`s), lays the ranges out in
 worker order as before, and the tails after the per-worker tables (pinned
-where the linker put them). The last tail runs to the block's end, so it
-ends in the zeros of the 16-byte alignment (`nop`s). Shipped scripts have no
-tails: the 1,621 blocks come back byte for byte as before.
+where the linker put them), and pins worker headers that are not back to
+back (a linked script moves some). The last tail ends at the block's end
+less the zeros of its 16-byte alignment (never before a target or inside
+an instruction); `ScriptImage` writes those zeros as padding. Shipped
+scripts have no tails and no moved headers: the 1,621 blocks come back byte
+for byte with the same pins as before.
 
 ## The data areas
 

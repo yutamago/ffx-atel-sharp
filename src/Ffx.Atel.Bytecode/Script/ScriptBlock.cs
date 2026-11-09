@@ -277,13 +277,15 @@ public sealed class ScriptBlock {
             if (entries[w].Concat(labels[w]).Any(t => t >= Math.Max(length, 1u))) {
                 throw new ScriptFormatException($"worker {w}: an entry or label points past its code");
             }
-            uint original = worker.End - worker.Start;
+            // A worker with only a tail (one an earlier rebuild or the linker put past the code) is rewritten there.
+            (uint from, uint to) = worker.Start == worker.End && worker.HasTail ? (worker.TailStart, worker.TailEnd) : (worker.Start, worker.End);
+            uint original = to - from;
             uint baseOffset;
             if (length <= original) {
-                int at = CodeStart + (int)worker.Start;
+                int at = CodeStart + (int)from;
                 for (int i = 0; i < original; i++) bytes[at + i] = 0;
                 for (int i = 0; i < length; i++) bytes[at + i] = code[w][i];
-                baseOffset = worker.Start;
+                baseOffset = from;
             }
             else {
                 while (bytes.Count % 4 != 0) bytes.Add(0);

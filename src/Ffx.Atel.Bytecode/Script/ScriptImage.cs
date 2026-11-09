@@ -45,20 +45,10 @@ public sealed class WorkerImage {
     public uint PrivateLength { get; set; }
 
     /// <summary>
-    ///     The worker's code, from its first entry to the next worker's; with a tail (<see cref="TailAt"/>), its code in
-    ///     the code region and then its tail.
+    ///     The worker's code, from its first entry to the next worker's; with a tail (<see cref="ScriptImage.TailAt"/>),
+    ///     its code in the code region and then its tail.
     /// </summary>
     public byte[] Code { get; set; } = [];
-
-    /// <summary>
-    ///     Where in <see cref="Code"/> the worker's tail starts, the code it has past the code region (a linked
-    ///     script's new code; <see cref="Worker.TailStart"/>); null when it has none (every shipped script). The bytes
-    ///     before it are the worker's part of the code region, 0 bytes for a worker that has only a tail.
-    /// </summary>
-    public int? TailAt { get; set; }
-
-    /// <summary>The worker's part of the code region: <see cref="Code"/> up to its tail.</summary>
-    public int RegionLength => TailAt ?? Code.Length;
 
     /// <summary>Entry points, as offsets into <see cref="Code"/>.</summary>
     public uint[] Entries { get; set; } = [];
@@ -133,6 +123,28 @@ public sealed class ScriptImage {
 
     private static int Align(int x, int n) => (x + n - 1) / n * n;
 
+    // ----- Tails ----------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Where in worker <paramref name="w"/>'s <see cref="WorkerImage.Code"/> its tail starts, the code it has past the
+    ///     code region (a linked script's new code; <see cref="Worker.TailStart"/>); null when it has none (every shipped
+    ///     script). The bytes before it are the worker's part of the code region, none for a worker that has only a tail.
+    ///     Kept as the pin <c>w{n}.split</c>, so that it goes through the decompiled source's <c>[Pin]</c>s like the
+    ///     tail's offset (<c>w{n}.tail</c>).
+    /// </summary>
+    public int? TailAt(int w) => Pins.TryGetValue($"w{w}.split", out int at) ? at : null;
+
+    /// <summary>Sets or clears (null) where worker <paramref name="w"/>'s tail starts (<see cref="TailAt"/>).</summary>
+    public void SetTailAt(int w, int? at) {
+        if (at is int a) Pins[$"w{w}.split"] = a;
+        else Pins.Remove($"w{w}.split");
+    }
+
+    /// <summary>Worker <paramref name="w"/>'s part of the code region: its code up to its tail.</summary>
+    public int RegionLength(int w) => TailAt(w) ?? Workers[w].Code.Length;
+
+    private int CodeRegionLength => Enumerable.Range(0, Workers.Count).Sum(RegionLength);
+
     // ----- Layout ---------------------------------------------------------------------------
 
     /// <summary>Region offsets, computed by the rules unless pinned.</summary>
@@ -171,7 +183,7 @@ public sealed class ScriptImage {
         pos = Put("vars", Align(pos, 4)) + 8 * Variables.Count;
         pos = Put("ints", pos) + 4 * IntConstants.Count;
         pos = Put("floats", pos) + 4 * FloatConstants.Count;
-        pos = Put("code", pos) + Workers.Sum(w => w.RegionLength);
+        pos = Put("code", pos) + CodeRegionLength;
         if (Shared is not null) pos = Put("shared", Align(pos, 32)) + Shared.Length;
         if (Other is not null) pos = Put("other", pos) + Other.Length;
         if (Event is not null) pos = Put("event", pos) + Event.Length;
@@ -186,7 +198,7 @@ public sealed class ScriptImage {
         bool firstTail = true;
         for (int w = 0; w < Workers.Count; w++) {
             WorkerImage wi = Workers[w];
-            if (wi.TailAt is not int t) continue;
+            if (TailAt(w) is not int t) continue;
             pos = Put($"w{w}.tail", firstTail ? Align(pos, 16) : pos) + wi.Code.Length - t;
             firstTail = false;
         }
@@ -207,7 +219,7 @@ public sealed class ScriptImage {
         int At(string name) => l.At.TryGetValue(name, out int v) ? v : 0;
 
         int code = At("code");
-        int codeLength = Workers.Sum(w => w.RegionLength);
+        int codeLength = CodeRegionLength;
         U32(0x00, (uint)codeLength);
         U32(0x04, (uint)At("map"));
         U32(0x08, (uint)At("author"));
@@ -261,11 +273,12 @@ public sealed class ScriptImage {
             U32(h + 0x24, (uint)labels);
             U32(h + 0x2c, (uint)At($"w{w}.private"));
             U32(h + 0x30, (uint)At("shared"));
-            int region = wi.RegionLength;
+            int region = RegionLength(w);
             Bytes(code + workerStart, wi.Code[..region]);
             // A tail's offsets count from the code start too; the image's offsets past the region are in the tail.
-            int tail = wi.TailAt is null ? 0 : At($"w{w}.tail");
-            if (wi.TailAt is not null) Bytes(tail, wi.Code[region..]);
+            bool hasTail = TailAt(w) is not null;
+            int tail = hasTail ? At($"w{w}.tail") : 0;
+            if (hasTail) Bytes(tail, wi.Code[region..]);
             uint Offset(uint o) => o < region ? (uint)workerStart + o : (uint)(tail - code) + (o - (uint)region);
             for (int i = 0; i < wi.Entries.Length; i++) U32(entries + 4 * i, Offset(wi.Entries[i]));
             for (int i = 0; i < wi.Labels.Length; i++) U32(labels + 4 * i, Offset(wi.Labels[i]));
@@ -382,7 +395,7 @@ public sealed class ScriptImage {
                 Labels = wk.Labels.Select(Offset).ToArray(),
             };
             if (wk.HasTail) {
-                wi.TailAt = (int)region;
+                img.SetTailAt(w, (int)region);
                 wi.Code = [.. wi.Code, .. Slice(block.CodeStart + (int)wk.TailStart, block.CodeStart + (int)wk.TailEnd)];
                 actual[$"w{w}.tail"] = block.CodeStart + (int)wk.TailStart;
             }
