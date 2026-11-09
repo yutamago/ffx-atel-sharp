@@ -3,14 +3,15 @@
 `Debug.Print`, `Debug.Break` and packages loaded into a running game
 (plan: "Text", "Compiler output", Phase 10). Code: `Ffx.Debug`
 (`src/Ffx.Atel.Game/Debug.cs`), `DebugCalls` (compiler), `DebugText`
-(linker), `DebugNatives`, `Injection` and `RuntimeInjector` (loader).
+(linker), `DebugNatives`, `DebugLines`, `DebugOverlayView`, `Injection`
+and `RuntimeInjector` (loader).
 FFX.exe addresses and names are ffx-rust's (`symbols/ffx.sym`).
 
 ## The natives
 
 ```csharp
-Debug.Print($"hp {Hp,5} speed {Speed:F2}");   // to Fahrenheit's log
-Debug.Break();                                // the registers to the log, then an attached .NET debugger
+Debug.Print($"hp {Hp,5} speed {Speed:F2}");   // to Fahrenheit's log and the screen
+Debug.Break();                                // the registers to the log and the screen, then an attached .NET debugger
 ```
 
 The game does not have these: the loader adds them as native group `F`.
@@ -29,7 +30,58 @@ slot's type (1 integer, 2 float), so a hole prints as what the script
 pushed. It writes `Atel debug: worker <n>: <text>` to the loader's log.
 `Break` writes the worker's registers (`i0`-`i3`, `f0`-`f9`) and the stack
 depth, and calls `Debugger.Break()` when a .NET debugger is attached to
-the game.
+the game. Both lines also go to the screen ("On screen" below).
+
+### On screen
+
+The loader draws the last `Debug.*` lines top left, over the game:
+
+```
+12:04:31 w1  Larvas met: 3
+12:04:31 w2  Larvas met: 4
+```
+
+the wall-clock time, `w` and the worker's index (`worker_idx`, as in the
+log), then the text on one line (line breaks and tabs as spaces, cut at
+160 characters). A line stays fully visible for three quarters of its
+time, then fades out over the last quarter. The loader keeps the last 32
+lines and shows the newest few that have not faded.
+
+| Key | Does |
+|---|---|
+| F6 | shows or hides the lines (they are kept while hidden) |
+| Shift+F6 | the line count: 3, 6, 10, 16, then 3 again (and shows them) |
+
+F7 is Fahrenheit's settings window, F8 `yuta.atel.cuts` and ffx-mods'
+window, F9 (with Alt or Ctrl too) FPS unlock. F10 is left alone: Windows
+gives it to the window's menu bar.
+
+The lines are drawn on ImGui's foreground draw list through Fahrenheit's
+`render_imgui`, not in an ImGui window, so there is nothing to focus,
+hover or click: the game keeps the keyboard, the pad and the mouse, in
+battle, on the field and in menus. The keys are only looked at
+(`ImGui.IsKeyPressed`). The natives add lines on the game thread; the
+overlay reads them on the render thread under a lock (`DebugLines`).
+
+The settings are JSON in the loader's Fahrenheit global state file,
+`<Fahrenheit>/state/global/yuta.atel/Ffx.Atel.Loader.AtelLoaderModule`
+(the loader kept nothing there before; `yuta.atel.cuts` keeps its switches
+the same way):
+
+```json
+{ "debugOverlay": { "enabled": true, "lines": 6, "seconds": 8 } }
+```
+
+| Key | Default | Range |
+|---|---|---|
+| `enabled` | `true` | F6 sets it |
+| `lines` | 6 | 1-32; Shift+F6 sets it |
+| `seconds` | 8 | 1-600: how long a line stays, the fade included |
+
+An empty or missing file is the defaults, a missing value keeps its
+default, and a value out of range is clamped. A file the loader cannot
+read is logged and the defaults are used. The loader writes the file
+when a key changes a setting, so edit it while the game is closed.
 
 ### Why group F
 
@@ -191,3 +243,5 @@ with the English files. The loader asks once the first event runs
 ## Checked in game
 
 See [research/loader.md](../research/loader.md#phase-10-debug-text-and-runtime-injection).
+The lines on screen are not checked in game yet; the steps are in
+[research/loader.md](../research/loader.md#on-screen-lines-not-yet-checked-in-game).

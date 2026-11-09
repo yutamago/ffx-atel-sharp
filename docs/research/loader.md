@@ -131,6 +131,52 @@ battle 34 are in ctrl work 3, not 2. (Battle 34, `kami00_00`, is a Larva and
 a Gold Element; `kami03_02`, field 35 formation 2, is two Larvas: `ffx
 battle list`.)
 
+### On-screen lines: not yet checked in game
+
+Built and unit-tested on 2026-11-09 ([formats/debug.md](../formats/debug.md#on-screen));
+the game was not run. The check, with
+[`examples/LarvaCount`](../../examples/LarvaCount), whose postfix on the
+Larva's `Init` prints `Larvas met: <n>`:
+
+1. Build and install: `dotnet build -c Release src/Ffx.Atel.Loader`, copy
+   `artifacts/deploy/release/mods/yuta.atel/` to `<Fahrenheit>/mods/`;
+   build `examples/LarvaCount` with the SDK (`dotnet build`, as in the
+   tutorial) and copy `bin/Debug/net10.0/mods/yuta.larvacount/` to
+   `<Fahrenheit>/mods/`. `mods/loadorder`: `yuta.atel`, then
+   `yuta.larvacount`. Delete
+   `<Fahrenheit>/state/global/yuta.atel/Ffx.Atel.Loader.AtelLoaderModule`
+   if it exists, to start from the defaults.
+2. Start the game through Fahrenheit. The loader's log has "debug overlay
+   on (6 line(s), 8 s); F6 shows or hides it, Shift+F6 changes the line
+   count." Nothing is drawn yet: there are no lines.
+3. Battle 34 (`kami00_00`, one Larva and a Gold Element) or field 35
+   formation 2 (`kami03_02`, two Larvas). As the battle starts, top left:
+   `hh:mm:ss w1  Larvas met: <n>`, one line per Larva (two Larvas: `n` and
+   `n+1`, both `w1`, the Larva's worker in its own script), the same text
+   as the log's `Atel debug: worker 1: Larvas met: <n>`. The time is the
+   PC's clock.
+4. Fade: the lines stay fully visible about 6 s, fade out over about 2 s,
+   and are gone 8 s after they were printed.
+5. Focus, in battle: while the lines show, choose commands with the
+   keyboard and the pad, and move the mouse over the lines; the game takes
+   every input as without the loader, and no ImGui window appears.
+6. F6 (in battle, while a line shows): the lines go; the log has "debug
+   overlay off, 6 line(s), 8 s". F6 again: "Atel debug overlay on (F6
+   hides, …)" shows top left, with any earlier line not yet faded. Neither
+   press does anything in the game (no menu, no command).
+7. Shift+F6 three times: the note shows 10, 16, then 3 lines. In the next
+   battle with a Larva, at most that many lines show.
+8. Field: walk on the Thunder Plains with the lines shown (step 6 makes
+   one): the party walks and the camera turns as usual. Menus: open the
+   main menu while a line shows and move through it;
+   the lines draw over the menu and the menu takes every key.
+9. Settings kept: F6 to hide, quit the game. The state file holds
+   `"enabled": false` and the last line count. Start again: the log says
+   "debug overlay off (3 line(s), …)", and a Larva battle shows no
+   lines while the log still has them. F6 shows the ones not yet faded.
+10. With F8 (`yuta.atel.cuts`) and F7 (Fahrenheit's settings) open, F6
+    still toggles only the lines, and neither window toggles on F6.
+
 ## Hidden locals in private data: two Larvas
 
 Checked on 2026-11-02 from the `atel/private-locals` branch (merged

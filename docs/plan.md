@@ -1621,7 +1621,15 @@ in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime
   block, and event workers never stop.
 - Also fixed: `atel compile-mod` failed on a script with a function worker
   (`Run()` was not read as entry 0 in the vanilla method map).
-- Open: an on-screen line for `Debug.Print`; battle message tables (in
+- On screen (2026-11-09, not yet checked in game): the last `Debug.*`
+  lines top left over the game, with the time and the worker, fading out
+  (`DebugLines`, `DebugOverlayView`; ImGui's foreground draw list, no
+  window, so nothing takes focus). F6 shows or hides them, Shift+F6 the
+  line count; the settings (`enabled`, `lines`, `seconds`) are JSON in the
+  loader's Fahrenheit global state file
+  ([formats/debug.md](formats/debug.md#on-screen); in-game steps:
+  [research/loader.md](research/loader.md#on-screen-lines-not-yet-checked-in-game)).
+- Open: the in-game check of the on-screen lines; battle message tables (in
   memory; `Text.New` adds to the battle's table files when linking); in-memory code swaps for a debugger
   (copy the block, patch only methods no worker is in).
 

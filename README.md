@@ -118,9 +118,11 @@ Phases 0-4, 6, 7, 10 and 11 are done; 5 (names), 8 (tooling) and 9 (mods) are un
   [`docs/research/dead-code.md`](docs/research/dead-code.md). In game, the separate mod
   `yuta.atel.cuts` switches each name on and off from a menu (F8) in the loaded scripts
   ([`src/Ffx.Atel.Cuts/README.md`](src/Ffx.Atel.Cuts/README.md)).
-- `Debug.Print(…)` and the other `Debug.*` natives write to the loader's log, and a package dropped into the
+- `Debug.Print(…)` and the other `Debug.*` natives write to the loader's log and to the screen (the last
+  few lines top left, with the time and the worker, fading out; F6 shows or hides them, Shift+F6 changes
+  how many: [`docs/formats/debug.md`](docs/formats/debug.md#on-screen)), and a package dropped into the
   loader's `inject/` folder while the game runs takes effect at the script's next load, its messages at
-  once (Phase 10). Not done yet: an on-screen line for `Debug.Print`.
+  once (Phase 10).
 
 ## Projects
 

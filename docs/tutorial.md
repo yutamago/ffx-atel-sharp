@@ -310,6 +310,10 @@ If something is wrong, the log says what:
   nameof(Btl.UseCommand), Occurrence = 3)]` runs after the statement with `OnTurn`'s third
   `Btl.UseCommand` call ([language.md](language.md#injecting-code); the example is
   [`examples/LarvaInject`](../examples/LarvaInject)).
+- See what your code does while the game runs: `Debug.Print($"Larvas met: {Progress.LarvasMet}");` (from
+  [`examples/LarvaCount`](../examples/LarvaCount)) writes a line to the log (`Atel debug: worker 1: …`) and
+  shows it top left in the game for a few seconds; F6 hides or shows those lines, Shift+F6 changes how many
+  ([formats/debug.md](formats/debug.md#on-screen)).
 - Keep a value with the save game: `[Saved] public static ushort LarvasMet;` in a static class of the mod is a
   variable the loader keeps with each save, by name, whatever other mods are installed
   ([language.md](language.md#saved-fields); the example is [`examples/LarvaCount`](../examples/LarvaCount), and
