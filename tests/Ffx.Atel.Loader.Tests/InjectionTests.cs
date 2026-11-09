@@ -93,6 +93,20 @@ public sealed class InjectionTests : IDisposable {
         Assert.Single(injected.Errors);
     }
 
+    [Fact]
+    public void AMessagesOnlyPackageForABattleLinks() {
+        // As in docs/research/loader.md's in-game steps: texts for battle kami00_00's table, no code.
+        byte[] vanilla = Vanilla();
+        const string battle = "ffx_ps2/ffx/master/jppc/battle/btl/kami00_00/kami00_00.bin";
+        ScriptPackage p = ScriptPackage.FromJson($$"""{ "file": "{{battle}}", "script": "kami00_00", "messages": [ { "index": 0, "text": "Atel" } ] }""");
+        Assert.Equal((Ffx.Atel.Bytecode.ScriptCategory.Battle, "kami00_00"), Ffx.Atel.Bytecode.GameData.Identify(p.File));
+        AtelMod injected = new() { Id = Injection.ModId };
+        injected.Packages[battle] = p;
+        LinkedFile linked = Assert.Single(Injection.Relink([], injected, battle, path => path == battle ? vanilla : null));
+        Assert.Null(linked.Error);
+        Assert.Equal(vanilla, linked.Result!.File);
+    }
+
     private static byte[] Table() => new MessageTable([
         new Message([0x30, 0x31], 0x0100),
         new Message(null, 0),

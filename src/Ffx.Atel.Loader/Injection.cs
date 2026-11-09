@@ -18,9 +18,9 @@ namespace Ffx.Atel.Loader;
 /// <remarks>
 ///     What is swapped, and when: a package's code is linked onto its file after every enabled mod and the
 ///     file the loader serves is rewritten, so the game reads it the next time it loads the script (the map
-///     entered again, the next battle); a running script is never changed in memory. Its debug texts count
-///     at once. Its messages are set in the running event's message table at once (ctrl work 0
-///     <c>+0x34</c>), and again whenever that event loads.
+///     entered again, the next battle); a running copy of the script gets the new block at once where that is
+///     safe (<see cref="CodeSwap"/>). Its debug texts count at once. Its messages are set in the running
+///     event's or battle's message table at once (<see cref="MessageSlot"/>), and again whenever it loads.
 /// </remarks>
 public static class Injection {
     /// <summary>The folder in the loader's own folder that it watches.</summary>

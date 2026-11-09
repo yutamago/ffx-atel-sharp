@@ -327,8 +327,12 @@ carries only entry, worker and priority. The compiler provides both:
 - A worker can request its own entries (641 `req`, 130 `reqe` in the
   shipped scripts). Awaiting one works only at a priority above the one
   the worker runs at: it interrupts, runs, and the caller continues. At the
-  same or a lower priority it cannot start while the caller waits (to
-  confirm in Phase 0); the analyzer reports that as an error where it
+  same or a lower priority it never runs (FFX.exe, 2026-11-09,
+  [corpus.md](corpus.md#requests)): `reqe` registers "without the same
+  level", so where the level already has a request queued (the caller's
+  own, at its own level) it is refused and returns 0 without waiting;
+  otherwise it is queued below the running level, which only starts
+  higher ones, and the caller waits for ever. The analyzer reports that as an error where it
   knows the caller's priority (`Main` P0, `Init` P7) and warns elsewhere.
   A helper method is usually the better choice.
 - Priorities: `Priority.P0_Main`, `P1` … `P6`, `P7_Init`, `P8`, an enum,
@@ -1572,7 +1576,8 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   `efl/x` like the scripts; `atel link` writes them too. A monster (no
   table of its own) and a script compiled whole reject `Text.New`. A
   runtime injection package's new messages are numbered after every mod's
-  and set in the running event's table.
+  and set in the running event's or battle's table (the battle's since
+  2026-11-09, Phase 10).
 
 - **Inline methods; dialogue as one call** (2026-11-03, Phase 1: byte-identical;
   [language.md](language.md#inline-methods), [encoding.md](encoding.md#inline-methods)).
@@ -1716,9 +1721,8 @@ in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime
 - **Runtime injection.** A mod package (plus `messages`) in the loader's
   `inject/` folder. Code takes effect at the script's next load (the file
   is linked again and served), messages at once in the running event's
-  table (ctrl work 0 `+0x34`), debug texts at once. A running script is
-  never changed in memory: its workers hold absolute pointers into the
-  block, and event workers never stop.
+  table (ctrl work 0 `+0x34`), debug texts at once. (Until 2026-11-09 a
+  running script was never changed in memory; see the code swaps below.)
 - Also fixed: `atel compile-mod` failed on a script with a function worker
   (`Run()` was not read as entry 0 in the vanilla method map).
 - On screen (2026-11-09, not yet checked in game): the last `Debug.*`
@@ -1731,9 +1735,29 @@ in game: [research/loader.md](research/loader.md#phase-10-debug-text-and-runtime
   [research/loader.md](research/loader.md#on-screen-lines-checked-in-game)).
 - The on-screen lines were checked in game on 2026-11-09 (a Larva battle with `examples/LarvaCount`: both
   mods' lines shown and faded, F6 and Shift+F6, the game kept every input).
-- Open: battle message tables (in
-  memory; `Text.New` adds to the battle's table files when linking); in-memory code swaps for a debugger
-  (copy the block, patch only methods no worker is in).
+- **Battle message tables in memory** (2026-11-09, [formats/debug.md](formats/debug.md#message-tables);
+  not run in game yet). A battle script's text natives (`0x7042`, `0x7072`, `0x70b7`, `0x70dc`) read
+  `g_BtlFileText` (`0x0112a9b8`) on every call; `system_01`'s (`0x7120`, `0x711f`, `0x7121`) read
+  `g_BtlMessages` (`0x0112a998`). The battle ctrl works' `+0x34` is 0 (`AtelBattleSetUp`), not a table.
+  The game frees the battle's text through `g_BtlFileTextData` (`0x023112c4`), so the loader puts a copy
+  with the injection package's messages (explicit and `Text.New`) into `0x0112a9b8` as it does into ctrl
+  work 0 `+0x34`, for the battle in `g_BtlFileName`, and only while `g_BtlStatus` says the battle set its
+  table up (not 0, 4-7: status 5 frees the last battle's text, 7 sets the pointer). `system_01`'s table
+  stays loaded for the whole game. The logic is `MessageSlot`, one for each of the three tables.
+- **Code swaps in memory** (2026-11-09, [formats/debug.md](formats/debug.md#code-swaps-in-memory); not run
+  in game yet). When the injection package's code changes, the loader also looks for the running copies
+  of the script's block (every work of every ctrl work in use, matched to a served block by its code) and
+  swaps each for the new one where that is safe (`CodeSwap`): a level's program counter is the only
+  absolute address the interpreter keeps in a level (return offsets, labels, entries and variables are
+  resolved through the block's tables), so each level must be at an entry's start or in a method whose
+  bytes and named labels, constants and variables are the same in both blocks; workers, types, the actor
+  count, storage 2, 4 and 6 must stay, and in battle private data must not grow (each work's slice is
+  sized at set-up). The new block keeps every byte the game wrote (and a moved private area's values),
+  goes into the loader's own memory, and the works' header, block and program counters, their trigger
+  and line tables, ctrl work `+0x48` and the battle managers' block lists point at it; the old block is
+  left allocated. While a level is in changed code the loader retries for 10 s, then logs why and leaves
+  it to the next load (a change inside a running `Main` loop always waits). The in-game steps are in
+  [research/loader.md](research/loader.md#battle-messages-and-code-swaps-steps-for-the-game).
 
 ## Phases
 
@@ -1742,10 +1766,16 @@ and numbers: scripts that round-trip, instructions inside `Asm`, `goto`
 count, names placed.
 
 0. **Measure the corpus** (2–3 days). Done 2026-11-02, see
-   [corpus.md](corpus.md) and `atel survey`; left for the game: what an
-   awaited request to the worker's own entry does at the same or a lower
-   priority (`reqe0` at level 1 from entry 1 is the common case, 77
-   sites), and whether `UseCommand` checks the monster's command list.
+   [corpus.md](corpus.md) and `atel survey`. The two questions left for
+   the game were answered from FFX.exe on 2026-11-09
+   ([corpus.md](corpus.md#requests)): an awaited request to the worker's
+   own entry at the same level is refused (0, no wait) while that level's
+   own request is queued and otherwise waits for ever, at a lower level it
+   waits for ever; the 77 `reqe0` at level 1 from entry 1 are above
+   `Main`'s level 0 and run as a call. `UseCommand` does not check the
+   monster's command list (only that the monster can act and the targets;
+   running it checks the cost, and monsters pay no MP). Optional in-game
+   confirmation: [research/loader.md](research/loader.md#battle-messages-and-code-swaps-steps-for-the-game), D.
    Stack depth at labels and jumps; jump
    shapes; encoding choices (immediate vs pool, `func` vs `func_facc`,
    store modes, end variants); table and label order against code order;

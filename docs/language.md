@@ -423,8 +423,9 @@ calls of the entry's method:
 - `await` only takes a request. Awaiting a native is a C# error (natives return `int`, `bool` or
   `float`); a native that waits does so by itself.
 - Requests within one worker: awaiting a worker's own entry only works when the request's level is
-  above the level the caller runs at, else the caller waits for ever
-  ([ATL2004](analyzers.md#atl2004), [ATL2005](analyzers.md#atl2005)).
+  above the level the caller runs at; else the entry never runs, and the caller either gets 0 at once
+  (its own level's request is still queued) or waits for ever ([corpus.md](corpus.md#requests),
+  [ATL2004](analyzers.md#atl2004), [ATL2005](analyzers.md#atl2005)).
 - **The fallback form** for requests the call form cannot express, written by the decompiler:
   `Request(level, worker, entry)`, `RequestWaitStart(…)`, `RequestWaitEnd(…)` (`req0`, `reqw0`,
   `reqe0`; `variant: n` for `req1` … `req5`), and `RequestParty(level, slot, entry)` (`op_39`, a
