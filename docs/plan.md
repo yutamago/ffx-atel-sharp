@@ -1663,12 +1663,16 @@ Started 2026-11-02. Format: [formats/mod-package.md](formats/mod-package.md).
   manual save left the file's tail all zero and wrote the state (`LarvasMet` = 1) beside the slot; after a restart
   the load took both fields from the state ("2 from the save's state") and the next Larva printed 2. A mod
   switched off and on, a save made without the loader and a state of another save are covered by unit tests only.
-- **Not done: laying out unchanged workers in place.** A linked script still moves the whole code region
-  (36-57 KB per file on average in the corpus tests). Keeping unchanged workers where they are means
-  entries of changed workers past the vanilla code region under one `+0x30` base, so `ScriptBlock.Parse`
-  and `ScriptImage` (Bytecode, shared with the decompiler's round trip) must take worker ranges that are
-  not in order, and what the game does with the code length at `+0x00` must be checked in game. Left
-  for a change of its own.
+- **Laying out unchanged workers in place** (done 2026-11-09). Every vanilla worker's code stays at its
+  vanilla offsets. A worker's new code goes after the block's end as its tail, and a new worker has only a
+  tail. `+0x30` and `+0x00` keep their values, so tails lie past the code length. FFX.exe bounds code offsets
+  by neither `+0x00` nor `+0x10`, and nothing reads `+0x00`
+  ([formats/script-block.md](formats/script-block.md#code-past-the-code-length); ffx-rust PR #27, static
+  evidence). `ScriptBlock.Parse` reads targets at or past `+0x00` as the worker's tail, and `ScriptImage`
+  keeps code as range then tail (`TailAt`) and pins moved worker headers. The 1,621 shipped blocks round-trip
+  as before. `CodeLayout.Region` (`ScriptLinker.Link`/`ModSet.Link`'s `layout`) keeps the old layout as a
+  fallback. Growth over the corpus tests: package test 967 bytes on average, 16,320 at most (was 36,043 and 4,663,616); inject test 22,463 and 1,085,952 (was 57,506 and 5,720,128). When a worker's first method is patched, it keeps its entries and starts with a `jmp` to the new code (a trampoline), so every worker still starts at an entry, as the decompiler needs. Still to check in game: a linked script with tails
+  runs (the old layout ran; only `+0x00` no longer covers all of the code).
 
 ### Phase 10: debug text and runtime packages
 

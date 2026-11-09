@@ -192,15 +192,30 @@ loader runs it for every file any enabled mod has a package for.
    when they grew, worker headers (new ones, and vanilla ones that sit
    where the larger header table at `+0x38` needs room), entry and label
    tables that grew, the new variables' data (their offsets reach past the
-   vanilla area from the storage's base), grown private data (below), and,
-   when any code changed, the
-   whole code region in worker order (`+0x30` points at it, `+0x00` is its
-   length); the old code stays as unused bytes. Tables that kept their size
-   are rewritten in place. A worker whose code no longer starts at an entry
-   (its first method was patched) gets that head moved to its end, with a
-   jump back, so that every worker starts at an entry as in the shipped
-   scripts. The file's later sections shift when the script outgrows its
-   section (`ScriptFile.ReplaceScript`).
+   vanilla area from the storage's base), grown private data (below), and
+   the new code. Tables that kept their size are rewritten in place. The
+   code (`CodeLayout.InPlace`, the default): every vanilla worker's code
+   stays at its vanilla offsets, and each worker's new code, in worker
+   order, goes last, as that worker's **tail**; a new worker has only a
+   tail. The only vanilla code bytes that change are the renumbered `call`
+   operands and the trampolines (below). `+0x30` and `+0x00` keep their vanilla values, so the tails' offsets
+   reach past the code length, which the game does not bound
+   ([script-block.md](script-block.md#code-past-the-code-length)). A
+   worker's code still starts at an entry: when the patched method is the
+   worker's first, its entries stay, and its first instructions (3 bytes or
+   more, whole instructions) become `jmp` to its new code and `nop`s. Its
+   vanilla code no longer runs then, so a method with only prefixes is
+   copied as with a postfix. A jump from elsewhere to the method's start runs
+   the patched method. When a label points inside those first bytes, the
+   entries go to the new code instead and a label marks the start (the game
+   runs it; the decompiler cannot cut it into methods). A label also marks a
+   tail's or new worker's first byte when no entry is there.
+   `CodeLayout.Region` (`ScriptLinker.Link`'s and `ModSet.Link`'s `layout`)
+   is the earlier layout: the whole code region laid out again in worker
+   order (`+0x30` points at it, `+0x00` is its length), the old code left
+   as unused bytes, and a worker whose first method was patched gets that
+   head moved to its end, with a jump back. The file's later sections shift
+   when the script outgrows its section (`ScriptFile.ReplaceScript`).
 
 **Private data.** New storage-3 variables (the hidden locals) form one
 area, in load order. Storage 3 is resolved through the worker that runs
@@ -217,11 +232,14 @@ vanilla worker without private data gets one. In battle the game sizes
 each actor's private buffer from `+0x10` and clears it, so a grown worker
 also gets the room there.
 
-The cost: a linked script grows by its whole code region (about 1 KB for a
-monster, up to tens of KB for an event) plus what the mods add. Laying the
-code out in two runs, unchanged workers in place, needs `ScriptBlock` and
-`ScriptImage` to accept a worker range that is not after the previous
-one; left for later.
+The cost: a linked script grows by the mods' new code, tables that grew,
+new data and grown private data. Over the corpus tests below (2026-11-09):
+with a prefix, a postfix, a new entry and two new variables on the first
+worker (`EveryScriptTakesAPackage`), files grow by 967 bytes on average and
+16,320 at most (`bltz0000`), against 36,043 and 4,663,616 when the code
+region is laid out again (`CodeLayout.Region`); with injects in the first
+six methods of every worker (`EveryScriptTakesInjects`), 22,463 and
+1,085,952 (`bltz0201`), against 57,506 and 5,720,128.
 
 ## Messages
 
@@ -304,8 +322,8 @@ Corpus for injects (`CorpusTests.EveryScriptTakesInjects`): in the first six
 methods of every worker, code before and after a statement in the middle
 of the method (from an empty stack to the next): 1,598 scripts, 67,851
 methods. Each result parses and lays itself out again byte for byte,
-keeps its data areas, its other workers' code and the file's later
-sections, and each patched method's new code is its vanilla code
+keeps its data areas, its other workers' code, the code region in place
+(every byte but the trampolines) and the file's later sections, and each patched method's new code is its vanilla code
 instruction for instruction with the injects at their points. Five
 methods are left out: blitzball's 53,203-label method in the five scripts
 that have it, which cannot be copied.

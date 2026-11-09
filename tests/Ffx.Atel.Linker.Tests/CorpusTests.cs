@@ -25,7 +25,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         object read = new();
         ConcurrentBag<string> failures = [];
         int linked = 0, skipped = 0;
-        long growth = 0;
+        Growth growth = new(), regionGrowth = new();
         Parallel.ForEach(paths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, path => {
             (string Path, byte[] Bytes) f;
             lock (read) f = (path, archive.Read(path));
@@ -61,6 +61,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 ScriptBlock b = result.Script;
                 ScriptImage again = ScriptImage.FromBlock(b);
                 if (!again.Write().AsSpan().SequenceEqual(b.Bytes[..(int)b.U32(0x10)])) failures.Add($"{f.Path}: does not lay itself out again");
+                if (KeptInPlace(vanilla.Script, b, image, again, [0]) is string moved) failures.Add($"{f.Path}: {moved}");
+                regionGrowth.Add(f.Path, LinkRegion(f.Bytes, [new ModScript("test", p)], failures, f.Path) - f.Bytes.Length);
                 // Every data area keeps its bytes at its vanilla offset, and the pointers to it.
                 ScriptBlock vb = vanilla.Script;
                 int vh0 = vb.Workers[0].Header, lh0 = b.Workers[0].Header;
@@ -92,13 +94,13 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 int tail = vanilla.Bytes.Length - (vanilla.SectionStart + vanilla.SectionLength);
                 if (!vanilla.Bytes[^tail..].SequenceEqual(result.Bytes[^tail..])) failures.Add($"{f.Path}: the later sections changed");
                 Interlocked.Increment(ref linked);
-                Interlocked.Add(ref growth, r.File.Length - f.Bytes.Length);
+                growth.Add(f.Path, r.File.Length - f.Bytes.Length);
             }
             catch (Exception ex) when (ex is ScriptFormatException or ArgumentException) {
                 failures.Add($"{f.Path}: {ex.Message}");
             }
         });
-        output.WriteLine($"{linked} scripts linked, {skipped} without workers or shared data; files grew by {growth / Math.Max(linked, 1)} bytes on average");
+        output.WriteLine($"{linked} scripts linked, {skipped} without workers or shared data; files grew by {growth} (code region laid out again: {regionGrowth})");
         foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
         Assert.Empty(failures);
         Assert.Equal(paths.Count, linked + skipped);
@@ -180,7 +182,7 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         object read = new();
         ConcurrentBag<string> failures = [];
         int linked = 0, skipped = 0, methods = 0, tooLarge = 0;
-        long growth = 0;
+        Growth growth = new(), regionGrowth = new();
         const int MethodsPerWorker = 6;
         Parallel.ForEach(paths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, path => {
             byte[] bytes;
@@ -228,6 +230,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 ScriptImage again = ScriptImage.FromBlock(b);
                 if (!again.Write().AsSpan().SequenceEqual(b.Bytes[..(int)b.U32(0x10)])) failures.Add($"{path}: does not lay itself out again");
                 ScriptBlock vb = vanilla.Script;
+                if (KeptInPlace(vb, b, image, again, [.. targets.Select(t => t.Worker).Distinct()]) is string moved) failures.Add($"{path}: {moved}");
+                regionGrowth.Add(path, LinkRegion(bytes, [new ModScript("test", ScriptPackage.FromJson(p.ToJson()))], failures, path) - bytes.Length);
                 foreach ((string name, int at, int linkedAt, byte[]? area) in new[] {
                     ("other", (int)vb.U32(0x2c), (int)b.U32(0x2c), image.Other),
                     ("event", (int)vb.U32(0x20), (int)b.U32(0x20), image.Event),
@@ -250,16 +254,73 @@ public sealed class CorpusTests(ITestOutputHelper output) {
                 if (!vanilla.Bytes[^tail..].SequenceEqual(result.Bytes[^tail..])) failures.Add($"{path}: the later sections changed");
                 Interlocked.Increment(ref linked);
                 Interlocked.Add(ref methods, targets.Count);
-                Interlocked.Add(ref growth, r.File.Length - bytes.Length);
+                growth.Add(path, r.File.Length - bytes.Length);
             }
             catch (Exception ex) when (ex is ScriptFormatException or ArgumentException or InvalidOperationException) {
                 failures.Add($"{path}: {ex.GetType().Name}: {ex.Message}");
             }
         });
-        output.WriteLine($"{linked} scripts linked with injects in {methods} methods, {skipped} without a method to inject into, {tooLarge} method(s) with too many labels to copy; files grew by {growth / Math.Max(linked, 1)} bytes on average");
+        output.WriteLine($"{linked} scripts linked with injects in {methods} methods, {skipped} without a method to inject into, {tooLarge} method(s) with too many labels to copy; files grew by {growth} (code region laid out again: {regionGrowth})");
         foreach (string f in failures.Order(StringComparer.Ordinal).Take(40)) output.WriteLine(f);
         Assert.Empty(failures);
         Assert.Equal(paths.Count, linked + skipped);
+    }
+
+    /// <summary>How much linked files grew: the average and the largest, with its file.</summary>
+    private sealed class Growth {
+        private readonly object _lock = new();
+        private long _sum;
+        private int _count;
+        private (long Bytes, string Path) _max = (long.MinValue, "");
+
+        public void Add(string path, long bytes) {
+            lock (_lock) {
+                _sum += bytes;
+                _count++;
+                if (bytes > _max.Bytes) _max = (bytes, path);
+            }
+        }
+
+        public override string ToString() =>
+            _count == 0 ? "nothing" : $"{_sum / _count} bytes on average, at most {_max.Bytes} ({Path.GetFileName(_max.Path)})";
+    }
+
+    /// <summary>
+    ///     Whether the code region is the vanilla one, in place (<see cref="CodeLayout.InPlace"/>): the same code offset and
+    ///     length, every worker's code at its vanilla offsets with its vanilla bytes, the patched workers' too (their new
+    ///     code is in their tails) but for the trampoline where their first method was patched (a <c>jmp</c> to its new
+    ///     code, then <c>nop</c>s to the end of the instructions it took); a problem when not.
+    /// </summary>
+    private static string? KeptInPlace(ScriptBlock vanilla, ScriptBlock linked, ScriptImage vanillaImage, ScriptImage linkedImage, int[] patched) {
+        if (linked.CodeStart != vanilla.CodeStart || linked.CodeLength != vanilla.CodeLength) return "the code region moved";
+        for (int w = 0; w < vanilla.Workers.Count; w++) {
+            Bytecode.Script.Worker v = vanilla.Workers[w], l = linked.Workers[w];
+            if (l.Start != v.Start || l.End != v.End) return $"worker {w}'s code moved";
+            if (patched.Contains(w) != l.HasTail) return $"worker {w} {(l.HasTail ? "has" : "has no")} tail";
+            byte[] was = vanillaImage.Workers[w].Code;
+            ReadOnlySpan<byte> now = linkedImage.Workers[w].Code.AsSpan(0, linkedImage.RegionLength(w));
+            int kept = 0;
+            if (patched.Contains(w) && now.Length >= 3 && now[0] == (Opcodes.Jmp | 0x80) && !now[..3].SequenceEqual(was.AsSpan(0, 3))) {
+                while (kept < 3) kept += (was[kept] & 0x80) != 0 ? 3 : 1;
+                for (int i = 3; i < kept; i++) {
+                    if (now[i] != Opcodes.Nop) return $"worker {w}'s trampoline is not a jmp and nops";
+                }
+            }
+            if (!now[kept..].SequenceEqual(was.AsSpan(kept))) return $"worker {w}'s vanilla code changed";
+        }
+        return null;
+    }
+
+    /// <summary>Links with the code region laid out again (<see cref="CodeLayout.Region"/>), checks that it lays itself out again, and returns the file's length.</summary>
+    private static int LinkRegion(byte[] bytes, List<ModScript> mods, ConcurrentBag<string> failures, string path) {
+        LinkResult r = ScriptLinker.Link(bytes, mods, layout: CodeLayout.Region);
+        if (!r.Changed) {
+            failures.Add($"{path}: region layout: {string.Join("; ", r.Messages.Where(m => m.Severity == LinkSeverity.Error))}");
+            return bytes.Length;
+        }
+        ScriptBlock b = ScriptFile.Parse(r.File).Script;
+        if (!ScriptImage.FromBlock(b).Write().AsSpan().SequenceEqual(b.Bytes[..(int)b.U32(0x10)])) failures.Add($"{path}: region layout: does not lay itself out again");
+        return r.File.Length;
     }
 
     /// <summary>
@@ -309,6 +370,10 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         }
         expected.Add((exit, null, 1));
         uint at = linked.Entries[entry];
+        // The worker's first method keeps its entries and jumps to its new code (the trampoline).
+        if (at == start && linked.Code[at] == (Opcodes.Jmp | 0x80) && !vanilla.Code.AsSpan((int)at, 3).SequenceEqual(linked.Code.AsSpan((int)at, 3))) {
+            at = linked.Labels[linked.Code[at + 1] | linked.Code[at + 2] << 8];
+        }
         int expectedBytes = (int)expected.Sum(e => e.Length);
         if (at + expectedBytes > linked.Code.Length) return "the copy runs past the code";
         List<Instr> copy = Decode(linked.Code, at, at + (uint)expectedBytes);
