@@ -297,10 +297,10 @@ How to check it again: `atel text export system_01 -o <dir>` (the texts), the
 `{u32 id, u32 offset}`, then the zero-terminated names), and the sample names
 and lengths in the FSB5 bank's sample headers and name table.
 
-### Superseded copies: the `AlwaysTrue_0260` gates
+### Superseded copies: the `AlwaysTrueOf` gates
 
 Seven event scripts have the same shape in a trigger entry: the live code
-runs a map exit or a scene start inside `if (Common.AlwaysTrue_0260(n) == 1)`
+runs a map exit or a scene start inside `if (Common.AlwaysTrueOf(n) == 1)`
 (on PC the native drops its argument and returns 1; FFX.exe, see
 `data/natives.json`) with a request in the `else` (mostly to Tidus), and the
 same code once more under `if (false)` after it:

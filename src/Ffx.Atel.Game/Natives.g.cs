@@ -76,20 +76,20 @@ public static partial class Common
     [Atel.Native(0x000c)]
     public static int SgSetPlayer(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x000d: jumps to 0x0086bc70; ported in native_mods (script round 19); name from jmp chain: 0x0086bc70 -&gt; 0x0088d600 TkGetLastEventJumpId</summary>
-    /// <remarks>Native <c>0x000d</c>, <c>Native_000d_GetLastEventJumpId</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="GetLastEventJumpId"/> (<c>0x0089</c>), under another id.</summary>
+    /// <remarks>Native <c>0x000d</c>, <c>Native_000d_GetLastEventJumpId</c>; 0 calls in the shipped scripts. Reverse engineering: 0x000d: jumps to 0x0086bc70; ported in native_mods (script round 19); name from jmp chain: 0x0086bc70 -&gt; 0x0088d600 TkGetLastEventJumpId Verified for Atel#: handler 0x008565f0 is jmp 0x0086bc70 (TkGetLastEventJumpId), as 0x0089's; no shipped script calls it.</remarks>
     [Atel.Native(0x000d)]
-    public static int GetLastEventJumpId() => throw Atel.Runtime.NotRunnable();
+    public static int GetLastEventJumpIdAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x000e: jumps to 0x0086bc80; ported in native_mods (script round 19); name from jmp chain: 0x0086bc80 -&gt; 0x0088d610 TkGetLastEventJumpIndex</summary>
     /// <remarks>Native <c>0x000e</c>, <c>Native_000e_GetLastEventJumpIndex</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0x000e)]
     public static int GetLastEventJumpIndex() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x000f: jumps to 0x0086c1c0; ported in native_mods (script round 19); name from jmp chain: 0x0086c1c0 -&gt; 0x0088d660 TkGetNowEventJumpId</summary>
-    /// <remarks>Native <c>0x000f</c>, <c>Native_000f_GetNowEventJumpId</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="GetNowEventJumpId"/> (<c>0x0087</c>), under another id.</summary>
+    /// <remarks>Native <c>0x000f</c>, <c>Native_000f_GetNowEventJumpId</c>; 0 calls in the shipped scripts. Reverse engineering: 0x000f: jumps to 0x0086c1c0; ported in native_mods (script round 19); name from jmp chain: 0x0086c1c0 -&gt; 0x0088d660 TkGetNowEventJumpId Verified for Atel#: handler 0x00856790 is jmp 0x0086c1c0 (TkGetNowEventJumpId), as 0x0087's; no shipped script calls it.</remarks>
     [Atel.Native(0x000f)]
-    public static int GetNowEventJumpId() => throw Atel.Runtime.NotRunnable();
+    public static int GetNowEventJumpIdAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0010: jumps to 0x0086c1d0; ported in native_move (script round 11); name from jmp chain: 0x0086c1d0 -&gt; 0x0088d670 TkGetNowEventJumpIndex</summary>
     /// <remarks>Native <c>0x0010</c>, <c>Native_0010_GetNowEventJumpIndex</c>; 76 calls in the shipped scripts.</remarks>
@@ -455,15 +455,18 @@ public static partial class Common
     [Atel.Native(0x0057)]
     public static int TriggerSetPoint(float x, float y, float z) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0058: pushes the float at 0x00b92340, then runs 0x00855cd0 (Native_0059_TriggerSetPoint) on the same stack; ported in native_btl/native_move (script round 10); name from pushes the float at 0x00b92340, then runs 0x00855cd0 (Native_0059_TriggerSetPoint)</summary>
-    /// <remarks>Native <c>0x0058</c>, <c>Native_0058_TriggerSetPointDefault</c>; 427 calls in the shipped scripts.</remarks>
+    /// <summary><see cref="TriggerSetBoxSize"/> without a height limit (height -1). Was <c>TriggerSetPointDefault</c>.</summary>
+    /// <remarks>Native <c>0x0058</c>, <c>Native_0058_TriggerSetPointDefault</c>; 427 calls in the shipped scripts. Reverse engineering: 0x0058: pushes the float at 0x00b92340, then runs 0x00855cd0 (Native_0059_TriggerSetPoint) on the same stack; ported in native_btl/native_move (script round 10); name from pushes the float at 0x00b92340, then runs 0x00855cd0 (Native_0059_TriggerSetPoint) Verified for Atel#: handler 0x00855f80 pushes -1.0 (0xbf800000) and runs 0x00855cd0 (0x0059) on the same stack.</remarks>
     [Atel.Native(0x0058)]
-    public static int TriggerSetPointDefault(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int TriggerSetBoxSizeNoHeight(int a, int b) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0059: (r, h, z1): for point triggers (types 3, 6) the position&apos;s +0x30 = z1, +0x38 = h, +0x1c = r; 1, else 0; ported in native_move (script round 11); name from point triggers (types 3, 6): +0x30 = z1, +0x38 = h, +0x1c = r</summary>
-    /// <remarks>Native <c>0x0059</c>, <c>Native_0059_TriggerSetPoint</c>; 440 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the size of a box trigger (worker types 3 and 6): two horizontal half-extents and the half-height; 0 or less for <paramref name="height"/> checks no height. Returns 1, or 0 for another worker type.</summary>
+    /// <param name="a">Half the box's extent along one horizontal axis (+0x30).</param>
+    /// <param name="b">Half its extent along the other (+0x38).</param>
+    /// <param name="height">Half its height; 0 or less for none.</param>
+    /// <remarks>Native <c>0x0059</c>, <c>Native_0059_TriggerSetPoint</c>; 440 calls in the shipped scripts. Reverse engineering: 0x0059: (r, h, z1): for point triggers (types 3, 6) the position&apos;s +0x30 = z1, +0x38 = h, +0x1c = r; 1, else 0; ported in native_move (script round 11); name from point triggers (types 3, 6): +0x30 = z1, +0x38 = h, +0x1c = r Verified for Atel#: handler 0x00855cd0 pops height, b, a (floats); for worker type 3 or 6 the position block's +0x30 = a, +0x38 = b, +0x1c = height, +0x36 bit 0 set. Atel_CheckBoxTrigger_00866cc0 compares the turned offsets with +-(+0x30), +-(+0x38) and, when positive, +-(+0x1c). TriggerSetBoxSizeNoHeight (0x0058) pushes -1.0 and runs this handler.</remarks>
     [Atel.Native(0x0059)]
-    public static int TriggerSetPoint_0059(float a0, float a1, float a2) => throw Atel.Runtime.NotRunnable();
+    public static int TriggerSetBoxSize(float a, float b, float height) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x005a: (yaw): for point triggers (types 3, 6) the position&apos;s +0x34; 0; ported in native_move (script round 11); name from point triggers (types 3, 6): position +0x34 = yaw</summary>
     /// <remarks>Native <c>0x005a</c>, <c>Native_005a_TriggerSetPointYaw</c>; 137 calls in the shipped scripts.</remarks>
@@ -702,20 +705,20 @@ public static partial class Common
     [Atel.Native(0x0086)]
     public static int GetEventJumpMap() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>The same as <see cref="GetNowEventJumpId"/> (<c>0x000f</c>).</summary>
-    /// <remarks>Native <c>0x0087</c>, <c>Native_0087_GetNowEventJumpId</c>; 523 calls in the shipped scripts. Reverse engineering: 0x0087: jumps to 0x0086c1c0; ported in native_move (script round 11); name from jmp chain: 0x0086c1c0 -&gt; TkGetNowEventJumpId (0x0088d660) Verified for Atel#: both handlers (0x0085cf90, 0x00856790) are jmp 0x0086c1c0.</remarks>
+    /// <summary>The id of the event jump that led to the current map (save event <c>+0</c>).</summary>
+    /// <remarks>Native <c>0x0087</c>, <c>Native_0087_GetNowEventJumpId</c>; 523 calls in the shipped scripts. Reverse engineering: 0x0087: jumps to 0x0086c1c0; ported in native_move (script round 11); name from jmp chain: 0x0086c1c0 -&gt; TkGetNowEventJumpId (0x0088d660) Verified for Atel#: handler 0x0085cf90 is jmp 0x0086c1c0, a thunk of TkGetNowEventJumpId (0x0088d660: u16 at MsGetSaveEventAddress() +0); 0x000f (0x00856790) jumps to the same thunk. The plain name is this id's, the one the shipped scripts call (523 calls, 0x000f none).</remarks>
     [Atel.Native(0x0087)]
-    public static int GetNowEventJumpId_0087() => throw Atel.Runtime.NotRunnable();
+    public static int GetNowEventJumpId() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0088: jumps to 0x0086bca0; ported in native_move (script round 11); name from jmp chain: 0x0086bca0 -&gt; 0x0088d630 TkGetLastEventJumpMapNo</summary>
     /// <remarks>Native <c>0x0088</c>, <c>Native_0088_GetLastEventJumpMapNo</c>; 231 calls in the shipped scripts.</remarks>
     [Atel.Native(0x0088)]
     public static int GetLastEventJumpMapNo() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0089: jumps to 0x0086bc70; ported in native_move (script round 11); name from jmp chain: 0x0086bc70 -&gt; 0x0088d600 TkGetLastEventJumpId</summary>
-    /// <remarks>Native <c>0x0089</c>, <c>Native_0089_GetLastEventJumpId</c>; 68 calls in the shipped scripts.</remarks>
+    /// <summary>The id of the event jump before the current one (save event <c>+2</c>).</summary>
+    /// <remarks>Native <c>0x0089</c>, <c>Native_0089_GetLastEventJumpId</c>; 68 calls in the shipped scripts. Reverse engineering: 0x0089: jumps to 0x0086bc70; ported in native_move (script round 11); name from jmp chain: 0x0086bc70 -&gt; 0x0088d600 TkGetLastEventJumpId Verified for Atel#: handler 0x0085d280 is jmp 0x0086bc70, a thunk of TkGetLastEventJumpId (0x0088d600: u16 at save event +2); 0x000d (0x008565f0) jumps to the same thunk. The plain name is this id's (68 calls, 0x000d none).</remarks>
     [Atel.Native(0x0089)]
-    public static int GetLastEventJumpId_0089() => throw Atel.Runtime.NotRunnable();
+    public static int GetLastEventJumpId() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x008a: jumps to AtelGetEventMapCameraId (0x0086b5d0); ported in native_mods (script round 19); name ours; name from &quot;jumps to AtelGetEventMapCameraId&quot; (fh exact)</summary>
     /// <remarks>Native <c>0x008a</c>, <c>Native_008a_GetMapCameraId</c>; 0 calls in the shipped scripts.</remarks>
@@ -890,10 +893,10 @@ public static partial class Common
     [Atel.Native(0x00aa)]
     public static int SetBattleStatus(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x00ab: (map, entrance): AtelSetEventJump2(map, entrance, 1); 0; ported in native_move (script round 11); name from AtelSetEventJump2(map, entrance, 1), the same call as MapChange 0x0011</summary>
-    /// <remarks>Native <c>0x00ab</c>, <c>Native_00ab_MapChange</c>; 21 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="MapChange"/> (<c>0x0011</c>), under another id.</summary>
+    /// <remarks>Native <c>0x00ab</c>, <c>Native_00ab_MapChange</c>; 21 calls in the shipped scripts. Reverse engineering: 0x00ab: (map, entrance): AtelSetEventJump2(map, entrance, 1); 0; ported in native_move (script round 11); name from AtelSetEventJump2(map, entrance, 1), the same call as MapChange 0x0011 Verified for Atel#: handlers 0x00858330 and 0x008581c0 are the same code: pop entrance, map; AtelSetEventJump2(map, entrance, 1); 0.</remarks>
     [Atel.Native(0x00ab)]
-    public static int MapChange_00ab(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
+    public static int MapChangeAlias(Map map, int entrance) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x00ac: 0x00870ed0(v); v; ported in native_move (script round 11); name from Atel_SetSaveDicIndexValue(v)</summary>
     /// <remarks>Native <c>0x00ac</c>, <c>Native_00ac_SetSaveDicValue</c>; 2 calls in the shipped scripts.</remarks>
@@ -1506,20 +1509,20 @@ public static partial class Common
     [Atel.Native(0x0122)]
     public static int PadGetAnalog(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0123: (v) -&gt; v (popped and returned); ported in native_mods (script round 19); name from pops v and returns it</summary>
-    /// <remarks>Native <c>0x0123</c>, <c>Native_0123_Echo</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="Echo"/> (<c>0x0079</c>), under another id. Returns its argument.</summary>
+    /// <remarks>Native <c>0x0123</c>, <c>Native_0123_Echo</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0123: (v) -&gt; v (popped and returned); ported in native_mods (script round 19); name from pops v and returns it Verified for Atel#: handlers 0x0085d440 and 0x0085c040 are the same code: AtelPopStackInteger, the value returned.</remarks>
     [Atel.Native(0x0123)]
-    public static int Echo_0123(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int EchoAlias(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0124: (v) -&gt; v (popped and returned); ported in native_mods (script round 19); name from pops v and returns it</summary>
-    /// <remarks>Native <c>0x0124</c>, <c>Native_0124_Echo</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="Echo"/> (<c>0x0079</c>), under another id. Returns its argument.</summary>
+    /// <remarks>Native <c>0x0124</c>, <c>Native_0124_Echo</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0124: (v) -&gt; v (popped and returned); ported in native_mods (script round 19); name from pops v and returns it Verified for Atel#: handlers 0x0085d530 and 0x0085c040 are the same code.</remarks>
     [Atel.Native(0x0124)]
-    public static int Echo_0124(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int EchoAlias2(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0125: (b f, a f): 0x00870970(worker, b, a, 1); 0; ported in native_mods (script round 19); name ours; name from &quot;0x00870970(worker, b, a, 1)&quot; = Atel_SetWorkerPosXZ, as 0x0012 with the last arg 1</summary>
-    /// <remarks>Native <c>0x0125</c>, <c>Native_0125_SetPosXZ</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the worker's position to (x, 0, z) as <see cref="SetPosXZ"/>, and also its last position, so it does not move from the old one.</summary>
+    /// <remarks>Native <c>0x0125</c>, <c>Native_0125_SetPosXZ</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0125: (b f, a f): 0x00870970(worker, b, a, 1); 0; ported in native_mods (script round 19); name ours; name from &quot;0x00870970(worker, b, a, 1)&quot; = Atel_SetWorkerPosXZ, as 0x0012 with the last arg 1 Verified for Atel#: handler 0x0085fc50 pops z, x; Atel_SetWorkerPosXZ_00870970(worker, x, z, 1); 0x0012 passes 0. With the flag (or worker +0x34 bit 4 clear) the position block's +0x10..+0x18 and, for the player, the ctx target +0x228 take the new position too.</remarks>
     [Atel.Native(0x0125)]
-    public static int SetPosXZ_0125(float a0, float a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetPosXZResetLast(float x, float z) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Moves the worker (and its model) to (x, y, z) at once.</summary>
     /// <param name="x">x.</param>
@@ -1593,10 +1596,10 @@ public static partial class Common
     [Atel.Native(0x0132)]
     public static int WorkerTriggerSetActive(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>The same as <see cref="WorkerTriggerSetActive"/> (<c>0x0132</c>).</summary>
+    /// <summary>The same code as <see cref="WorkerTriggerSetActive"/> (<c>0x0132</c>), under another id.</summary>
     /// <remarks>Native <c>0x0133</c>, <c>Native_0133_WorkerTriggerSetActive</c>; 359 calls in the shipped scripts. Reverse engineering: 0x0133: jmp 0x0085fe30 (same handler); ported in native_btl/native_move (script round 10); name from &quot;jmp 0x0085fe30 (same handler)&quot; = Native_0132_WorkerTriggerSetActive Verified for Atel#: handler 0x00860290 jumps to 0x0132's (0x0085fe30).</remarks>
     [Atel.Native(0x0133)]
-    public static int WorkerTriggerSetActive_0133(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int WorkerTriggerSetActiveAlias(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0134 (chr id): tail call to Native_ChrLoad 0x0085d000</summary>
     /// <remarks>Native <c>0x0134</c>, <c>Native_ChrLoadAlias</c>; 7580 calls in the shipped scripts.</remarks>
@@ -1900,10 +1903,10 @@ public static partial class Common
     [Atel.Native(0x016f)]
     public static int BackupEventJump(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0170: (b, a): the save block&apos;s (0x0088c830()) +0xb8 = a, +0xba = b (u16s), TkBackupEventJump(block) (0x0088e800); a; ported in native_mods (script round 19); name ours; name from &quot;+0xb8 = a, +0xba = b ... TkBackupEventJump(block)&quot;; two-arg form of 0x016f</summary>
-    /// <remarks>Native <c>0x0170</c>, <c>Native_0170_BackupEventJump</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Backs up the event jump as <see cref="BackupEventJump"/>, with the jump id given instead of the current one. Returns <paramref name="value"/>.</summary>
+    /// <remarks>Native <c>0x0170</c>, <c>Native_0170_BackupEventJump</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0170: (b, a): the save block&apos;s (0x0088c830()) +0xb8 = a, +0xba = b (u16s), TkBackupEventJump(block) (0x0088e800); a; ported in native_mods (script round 19); name ours; name from &quot;+0xb8 = a, +0xba = b ... TkBackupEventJump(block)&quot;; two-arg form of 0x016f Verified for Atel#: handler 0x0085c530 pops value, jumpId; save event +0xb8 = value, +0xba = jumpId (u16), TkBackupEventJump(block) (0x0088e800). 0x016f stores TkGetNowEventJumpId() at +0xba.</remarks>
     [Atel.Native(0x0170)]
-    public static int BackupEventJump_0170(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int BackupEventJumpWithId(int jumpId, int value) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0171 (chr) -&gt; HP; Party_GetChar(chr): +0x1c = max(+0x1c, +0x24), clears +0x3d; ?HP fields</summary>
     /// <remarks>Native <c>0x0171</c>, <c>Native_CharRestoreHp</c>; 2666 calls in the shipped scripts.</remarks>
@@ -1965,10 +1968,10 @@ public static partial class Common
     [Atel.Native(0x017c)]
     public static int MusicMultiStart(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x017d: (id): SndMusicMultiStart(id) (0x008868b0), AtelRegistMusicNumber(id) (0x00873d00); 1; ported in native_mods (script round 19); name ours; name from &quot;SndMusicMultiStart(id) (0x008868b0), AtelRegistMusicNumber(id)&quot;</summary>
-    /// <remarks>Native <c>0x017d</c>, <c>Native_017d_MusicMultiStart</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Starts music <paramref name="track"/> as <see cref="MusicMultiStart"/> without clearing its replay point. Returns 1.</summary>
+    /// <remarks>Native <c>0x017d</c>, <c>Native_017d_MusicMultiStart</c>; 0 calls in the shipped scripts. Reverse engineering: 0x017d: (id): SndMusicMultiStart(id) (0x008868b0), AtelRegistMusicNumber(id) (0x00873d00); 1; ported in native_mods (script round 19); name ours; name from &quot;SndMusicMultiStart(id) (0x008868b0), AtelRegistMusicNumber(id)&quot; Verified for Atel#: handler 0x0085d680: SndMusicMultiStart(track), AtelRegistMusicNumber(track); 0x017c (0x0085d480) calls iMusicReplayPointClear(track) first.</remarks>
     [Atel.Native(0x017d)]
-    public static int MusicMultiStart_017d(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int MusicMultiStartKeepPoint(int track) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x017e: (track, v): 0x00886830(track, v) when 0x008863f0() is not negative, else 0x008869e0 and 0x00886a20; current music = track; 1; ported in native_move (script round 11); name from &quot;0x00886830(track, v) when 0x008863f0() is not negative, else ... 0x00886a20&quot; = SndMusicCrossStart/Start</summary>
     /// <remarks>Native <c>0x017e</c>, <c>Native_017e_MusicCrossStart</c>; 244 calls in the shipped scripts.</remarks>
@@ -2394,10 +2397,10 @@ public static partial class Common
     [Atel.Native(0x01d2)]
     public static int MsgTextMatchesSave(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x01d3: 1 (mov eax, 1; ret); ported in native_mods (script round 19); name ours; name from &quot;1 (mov eax, 1; ret)&quot;; FFX.exe bytes b8 01 00 00 00 c3; constant 1 with no effect, same shape as Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0x01d3</c>, <c>Native_01d3_AlwaysTrue</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 1. The same machine code as <see cref="AlwaysTrue019c"/> (<c>0x019c</c>).</summary>
+    /// <remarks>Native <c>0x01d3</c>, <c>Native_01d3_AlwaysTrue</c>; 0 calls in the shipped scripts. Reverse engineering: 0x01d3: 1 (mov eax, 1; ret); ported in native_mods (script round 19); name ours; name from &quot;1 (mov eax, 1; ret)&quot;; FFX.exe bytes b8 01 00 00 00 c3; constant 1 with no effect, same shape as Native_AlwaysTrue019c Verified for Atel#: handler 0x00860720 is mov eax, 1; ret (b8 01 00 00 00 c3), as 0x019c, 0x0262, 0x0263 and 0xc04f. AlwaysTrue (0x00f9) also returns 1 but checks a debug flag first.</remarks>
     [Atel.Native(0x01d3)]
-    public static int AlwaysTrue_01d3() => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x01d4: (slot, on): 0x0082aa30 on the slot&apos;s model, bit 0; ported in native_move (script round 11); BSim review: Ch_EnClip sets bit 11 of model +0x194; nothing shows it is clipping; name from 0x0082aa30 = Ch_EnClip on the slot&apos;s model, bit 0 (slot, on)</summary>
     /// <remarks>Native <c>0x01d4</c>, <c>Native_01d4_ChrSetEnClip</c>; 45 calls in the shipped scripts.</remarks>
@@ -2740,30 +2743,30 @@ public static partial class Common
     [Atel.Native(0x0217)]
     public static int BtlGetInit() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0218: (i) -&gt; MsGetMonsterCapture(i) (0x00790af0); ported in native_mods (script round 19); the same code as Native_01ac_GetMonsterCapture (0x00858950; call targets equal), a copy the compiler kept; own name; name from &quot;MsGetMonsterCapture(i) (0x00790af0)&quot;; same code as 0x01ac, own slot</summary>
-    /// <remarks>Native <c>0x0218</c>, <c>Native_0218_GetMonsterCapture</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="GetMonsterCapture"/> (<c>0x01ac</c>), under another id.</summary>
+    /// <remarks>Native <c>0x0218</c>, <c>Native_0218_GetMonsterCapture</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0218: (i) -&gt; MsGetMonsterCapture(i) (0x00790af0); ported in native_mods (script round 19); the same code as Native_01ac_GetMonsterCapture (0x00858950; call targets equal), a copy the compiler kept; own name; name from &quot;MsGetMonsterCapture(i) (0x00790af0)&quot;; same code as 0x01ac, own slot Verified for Atel#: handlers 0x0085d3f0 and 0x00858950 call the same targets: MsGetMonsterCapture(i) (0x00790af0).</remarks>
     [Atel.Native(0x0218)]
-    public static int GetMonsterCapture_0218(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int GetMonsterCaptureAlias(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0219: (b, a) -&gt; AddMonsterCapture(b, a) (0x00790b90); ported in native_mods (script round 19); the same code as Native_01af_AddMonsterCaptureN (0x00858e70; call targets equal), a copy the compiler kept; own name; name from &quot;AddMonsterCapture(b, a) (0x00790b90)&quot;; same code as 0x01af, own slot</summary>
-    /// <remarks>Native <c>0x0219</c>, <c>Native_0219_AddMonsterCaptureN</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="AddMonsterCaptureN"/> (<c>0x01af</c>), under another id.</summary>
+    /// <remarks>Native <c>0x0219</c>, <c>Native_0219_AddMonsterCaptureN</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0219: (b, a) -&gt; AddMonsterCapture(b, a) (0x00790b90); ported in native_mods (script round 19); the same code as Native_01af_AddMonsterCaptureN (0x00858e70; call targets equal), a copy the compiler kept; own name; name from &quot;AddMonsterCapture(b, a) (0x00790b90)&quot;; same code as 0x01af, own slot Verified for Atel#: handlers 0x0085d500 and 0x00858e70 call the same targets: AddMonsterCapture(b, a) (0x00790b90).</remarks>
     [Atel.Native(0x0219)]
-    public static int AddMonsterCaptureN_0219(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int AddMonsterCaptureNAlias(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x021a: (b, a) -&gt; 0x00872aa0(0, b, a, 0); ported in native_move (script round 11); name from &quot;0x00872aa0(0, b, a, 0)&quot; = AtelCheckCaptMonster mode 0</summary>
-    /// <remarks>Native <c>0x021a</c>, <c>Native_021a_CheckCaptMonster</c>; 104 calls in the shipped scripts.</remarks>
+    /// <summary>How many fiends of species <paramref name="species"/> have been captured at least <paramref name="count"/> times (the monster arena's list).</summary>
+    /// <remarks>Native <c>0x021a</c>, <c>Native_021a_CheckCaptMonster</c>; 104 calls in the shipped scripts. Reverse engineering: 0x021a: (b, a) -&gt; 0x00872aa0(0, b, a, 0); ported in native_move (script round 11); name from &quot;0x00872aa0(0, b, a, 0)&quot; = AtelCheckCaptMonster mode 0 Verified for Atel#: handler 0x0085d780: AtelCheckCaptMonster(0, species, count) (0x00872aa0): over the NkzGetMonsterListNum() 8-byte entries at 0x00c86708, those whose u16 +2 equals species and MsGetMonsterCapture(i) >= count. +2 takes 15 values (1001-1015, 1000 for 38 entries) and the list runs in groups of it; +4 takes 13 (2-14), the arena's areas. See CheckCaptMonsterArea (mode 1) and CheckCaptMonsterAll (mode 2).</remarks>
     [Atel.Native(0x021a)]
-    public static int CheckCaptMonster(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int CheckCaptMonster(int species, int count) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x021b: (b, a) -&gt; 0x00872aa0(1, b, a, 0); ported in native_move (script round 11); name from &quot;0x00872aa0(1, b, a, 0)&quot; = AtelCheckCaptMonster mode 1</summary>
-    /// <remarks>Native <c>0x021b</c>, <c>Native_021b_CheckCaptMonster</c>; 218 calls in the shipped scripts.</remarks>
+    /// <summary>How many fiends of area <paramref name="area"/> have been captured at least <paramref name="count"/> times.</summary>
+    /// <remarks>Native <c>0x021b</c>, <c>Native_021b_CheckCaptMonster</c>; 218 calls in the shipped scripts. Reverse engineering: 0x021b: (b, a) -&gt; 0x00872aa0(1, b, a, 0); ported in native_move (script round 11); name from &quot;0x00872aa0(1, b, a, 0)&quot; = AtelCheckCaptMonster mode 1 Verified for Atel#: handler 0x0085d8c0: AtelCheckCaptMonster(1, area, count) (0x00872aa0): the entries whose u16 +4 equals area (13 values, 2-14). Its one caller (the CheckAreaCaptures helper, Nagi0700) compares the count with an area's number of fiend kinds.</remarks>
     [Atel.Native(0x021b)]
-    public static int CheckCaptMonster_021b(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int CheckCaptMonsterArea(int area, int count) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x021c: (id) -&gt; AtelCheckCaptMonster(2, 0, id, 0) (0x00872aa0); ported in native_mods (script round 19); name ours; name from &quot;AtelCheckCaptMonster(2, 0, id, 0) (0x00872aa0)&quot; mode 2</summary>
-    /// <remarks>Native <c>0x021c</c>, <c>Native_021c_CheckCaptMonster</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>How many fiends have been captured at least <paramref name="count"/> times.</summary>
+    /// <remarks>Native <c>0x021c</c>, <c>Native_021c_CheckCaptMonster</c>; 0 calls in the shipped scripts. Reverse engineering: 0x021c: (id) -&gt; AtelCheckCaptMonster(2, 0, id, 0) (0x00872aa0); ported in native_mods (script round 19); name ours; name from &quot;AtelCheckCaptMonster(2, 0, id, 0) (0x00872aa0)&quot; mode 2 Verified for Atel#: handler 0x0085db90: AtelCheckCaptMonster(2, 0, count) (0x00872aa0): every entry of the list.</remarks>
     [Atel.Native(0x021c)]
-    public static int CheckCaptMonster_021c(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int CheckCaptMonsterAll(int count) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x021d: every primer (0x007abd10(0, 0, 0, &amp;n)) whose record (0x007abbd0) has +3 bit 3 gets 0x007ab970(0, 0, it) and 0x008c30d0(); 1 when any did; ported in native_move (script round 11); name from every primer (0x007abd10) whose record has +3 bit 3 gets 0x007ab970 and 0x008c30d0; 1 when one was handed out</summary>
     /// <remarks>Native <c>0x021d</c>, <c>Native_021d_PrimerHandOut</c>; 2 calls in the shipped scripts.</remarks>
@@ -2815,10 +2818,10 @@ public static partial class Common
     [Atel.Native(0x0226)]
     public static int FpSetDisp(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0227: (on): 0x00873dd0(on != 0); on != 0; ported in native_mods (script round 19); the same code as Native_01c4_SaveEventE8Set (0x0085a840; call targets equal), a copy the compiler kept; own name; name from 0x00873dd0 = Atel_SetSaveEventE8 (on != 0); the same code as 01c4</summary>
-    /// <remarks>Native <c>0x0227</c>, <c>Native_0227_SaveEventE8Set</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="SaveEventE8Set"/> (<c>0x01c4</c>), under another id.</summary>
+    /// <remarks>Native <c>0x0227</c>, <c>Native_0227_SaveEventE8Set</c>; 0 calls in the shipped scripts. Reverse engineering: 0x0227: (on): 0x00873dd0(on != 0); on != 0; ported in native_mods (script round 19); the same code as Native_01c4_SaveEventE8Set (0x0085a840; call targets equal), a copy the compiler kept; own name; name from 0x00873dd0 = Atel_SetSaveEventE8 (on != 0); the same code as 01c4 Verified for Atel#: handlers 0x0085ac20 and 0x0085a840 call the same targets: 0x00873dd0(on != 0).</remarks>
     [Atel.Native(0x0227)]
-    public static int SaveEventE8Set_0227(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SaveEventE8SetAlias(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0228: (flags, b, a): how far the current level&apos;s turn target (+0x884 + level * 0x44) is from the position block&apos;s yaw (+0x34), wrapped (Math_WrapAngle) and ; ported in native_mods (script round 19); name from how far the level&apos;s turn target is from the position&apos;s yaw (+0x34), wrapped by Math_WrapAngle, times a or b</summary>
     /// <remarks>Native <c>0x0228</c>, <c>Native_0228_TurnTargetDistance</c>; 0 calls in the shipped scripts.</remarks>
@@ -2890,10 +2893,10 @@ public static partial class Common
     [Atel.Native(0x0235)]
     public static int GetGlobal01325b8c() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0236: (msg) -&gt; its text: 0x0086b170 when 0x0086bbc0() is set, else 0x0086bf30; ported in native_btl/native_move (script round 10); name from &quot;(msg) -&gt; its text: 0x0086b170 ... else 0x0086bf30&quot; = Msg_Text1/Msg_Text</summary>
-    /// <remarks>Native <c>0x0236</c>, <c>Native_0236_MsgGetText</c>; 777 calls in the shipped scripts.</remarks>
+    /// <summary>The text of message <paramref name="msg"/> (its address), for natives that take a text.</summary>
+    /// <remarks>Native <c>0x0236</c>, <c>Native_0236_MsgGetText</c>; 777 calls in the shipped scripts. Reverse engineering: 0x0236: (msg) -&gt; its text: 0x0086b170 when 0x0086bbc0() is set, else 0x0086bf30; ported in native_btl/native_move (script round 10); name from &quot;(msg) -&gt; its text: 0x0086b170 ... else 0x0086bf30&quot; = Msg_Text1/Msg_Text Verified for Atel#: handler 0x00860350 pops msg; Msg_Text1() when MsGetSaveConfigEnglish() is set, else Msg_Text(msg); that value is the result. MsgGetText (0x007b) runs the same and returns ReturnConst_008b7cc0() (0x640064) on PC. The scripts store the result in arrays of texts.</remarks>
     [Atel.Native(0x0236)]
-    public static int MsgGetText_0236(TextId msg) => throw Atel.Runtime.NotRunnable();
+    public static int MsgGetTextAddress(TextId msg) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0237: (dst, list, mask, n): builds a choice text into the string variable dst from the n string pointers of the variable list: a header (0x00b5b9f8), each entry (separated by 0x00b5b9f0) with the enabled/disabled colour (0x00b5b9e8/0x00b5b9ec) where the mask bit changes and a choice code (0x10, &apos;0&apos; + k) before the enabled ones, a trailer (0x00b5b9f4), then the text copied again after its terminator; the choice count k &lt;&lt; 8; ported in native_move (script round 11); name from &quot;builds a choice text into the string variable dst from the n string pointers&quot;</summary>
     /// <remarks>Native <c>0x0237</c>, <c>Native_0237_BuildChoiceText</c>; 51 calls in the shipped scripts.</remarks>
@@ -2925,10 +2928,10 @@ public static partial class Common
     [Atel.Native(0x023c)]
     public static bool AllHelpEventFlags(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x023d: 0x00647e40(), a pending [0x025d5ebc] cleared after 0x00642390(7), then 0x00786b00(), 0x00782050(), 0x0088d1c0(0), 0x00643e70(); 1; ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x023d</c>, <c>Native_023d</c>; 3 calls in the shipped scripts.</remarks>
+    /// <summary>Sets up a new game: clears the save data and reads the starting party and battle data. Returns 1.</summary>
+    /// <remarks>Native <c>0x023d</c>, <c>Native_023d</c>; 3 calls in the shipped scripts. Reverse engineering: 0x023d: 0x00647e40(), a pending [0x025d5ebc] cleared after 0x00642390(7), then 0x00786b00(), 0x00782050(), 0x0088d1c0(0), 0x00643e70(); 1; ported in native_move (script round 11) Verified for Atel#: handler 0x00856520: SaveDataManager_MarkAlbhedLoaded (0x00647e40); a pending [0x025d5ebc] cleared after graphicMenuUnloadSpecialTexture(7); MsSetSaveStartGame (0x00786b00: g_SaveData cleared, menu, party, weapon and ply_save read); MsBattleReadData (0x00782050); TkCdReadSync(0); graphicSwitchGPUMode; 1. 3 calls, in the new game flow next to the save menu.</remarks>
     [Atel.Native(0x023d)]
-    public static int N023d() => throw Atel.Runtime.NotRunnable();
+    public static int StartNewGame() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x023e: args (id int) -&gt; id: SndSepLock(id); ported in native_sys (script round 18); name ours; name from &quot;SndSepLock(id)&quot;</summary>
     /// <remarks>Native <c>0x023e</c>, <c>Native_023e_SepLock</c>; 0 calls in the shipped scripts.</remarks>
@@ -2960,10 +2963,10 @@ public static partial class Common
     [Atel.Native(0x0243)]
     public static int GetHddWord518() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0244: 0x007fb690(); 1; ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x0244</c>, <c>Native_0244</c>; 3 calls in the shipped scripts.</remarks>
+    /// <summary>Refreshes the field mode of the effect characters. Returns 1.</summary>
+    /// <remarks>Native <c>0x0244</c>, <c>Native_0244</c>; 3 calls in the shipped scripts. Reverse engineering: 0x0244: 0x007fb690(); 1; ported in native_move (script round 11) Verified for Atel#: handler 0x008574b0: op_et_chr_field_mode_update_007fb690 (g_EtBindDefault &amp;= 0xf7ff, each of the first 0xd0 g_EtChr records with a handle gets Ch_GetFieldMode(handle) at +0x16); 1.</remarks>
     [Atel.Native(0x0244)]
-    public static int N0244() => throw Atel.Runtime.NotRunnable();
+    public static int EffectChrRefreshFieldMode() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0245: 0x007fb680(); 1; ported in native_move (script round 11); name from 0x007fb680: or [0x011a0080], 0x800; a flag word bit set, the result dropped; 1</summary>
     /// <remarks>Native <c>0x0245</c>, <c>Native_0245_SetGlobal011a0080Bit11</c>; 3 calls in the shipped scripts.</remarks>
@@ -3080,45 +3083,45 @@ public static partial class Common
     [Atel.Native(0x025b)]
     public static int UnlockAchievement(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x025c: jumps to 0x0086c270; ported in native_move (script round 11); name from 0x0086c270 is xor eax, eax; ret</summary>
-    /// <remarks>Native <c>0x025c</c>, <c>Native_025c_NoOp</c>; 86 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 0; does nothing. The same result as <see cref="NoOp"/> (<c>0x0008</c>).</summary>
+    /// <remarks>Native <c>0x025c</c>, <c>Native_025c_NoOp</c>; 86 calls in the shipped scripts. Reverse engineering: 0x025c: jumps to 0x0086c270; ported in native_move (script round 11); name from 0x0086c270 is xor eax, eax; ret Verified for Atel#: handler 0x00859400 jumps to 0x0086c270, xor eax, eax; ret, the code of 0x0008 (0x0085eef0). The scripts compare the result with 0 and 1; what the PS2 version returned is not known.</remarks>
     [Atel.Native(0x025c)]
-    public static int NoOp_025c() => throw Atel.Runtime.NotRunnable();
+    public static int NoOpAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x025d: (v) into [0x01325ac4]; v; ported in native_move (script round 11); name from [0x01325ac4] = v; v</summary>
     /// <remarks>Native <c>0x025d</c>, <c>Native_025d_SetGlobal01325ac4</c>; 5 calls in the shipped scripts.</remarks>
     [Atel.Native(0x025d)]
     public static int SetGlobal01325ac4(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x025e: (v) -&gt; 0x00643e80(v); ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x025e</c>, <c>Native_025e</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Resets the shadows (<paramref name="v"/> 1 or 0 in the scripts). Returns 1.</summary>
+    /// <remarks>Native <c>0x025e</c>, <c>Native_025e</c>; 2 calls in the shipped scripts. Reverse engineering: 0x025e: (v) -&gt; 0x00643e80(v); ported in native_move (script round 11) Verified for Atel#: handler 0x00859d50 pops v; graphicShadowReset_00643e80(v) (ShadowManager_resetIfSolution_006ce0c0(ShadowManager_getInstance(), v)).</remarks>
     [Atel.Native(0x025e)]
-    public static int N025e(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ShadowReset(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x025f: (b, a): 0x00643500(b, a); 0; ported in native_move (script round 11)</summary>
-    /// <remarks>Native <c>0x025f</c>, <c>Native_025f</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Shows (<paramref name="on"/> 1) or hides the loading screen in mode <paramref name="mode"/> (the scripts pass 2). Returns 0.</summary>
+    /// <remarks>Native <c>0x025f</c>, <c>Native_025f</c>; 2 calls in the shipped scripts. Reverse engineering: 0x025f: (b, a): 0x00643500(b, a); 0; ported in native_move (script round 11) Verified for Atel#: handler 0x00859e20 pops mode, on; graphicSetLoadingScreen_00643500(on, mode); 0.</remarks>
     [Atel.Native(0x025f)]
-    public static int N025f(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetLoadingScreen(int on, int mode) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0260: one value dropped; 1; ported in native_move (script round 11); name from &quot;one value dropped; 1&quot;; dump: AtelPopStackInteger, return 1; constant 1 after one dropped value, same role as Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0x0260</c>, <c>Native_0260_AlwaysTrue</c>; 12 calls in the shipped scripts.</remarks>
+    /// <summary>Drops its argument and returns 1.</summary>
+    /// <remarks>Native <c>0x0260</c>, <c>Native_0260_AlwaysTrue</c>; 12 calls in the shipped scripts. Reverse engineering: 0x0260: one value dropped; 1; ported in native_move (script round 11); name from &quot;one value dropped; 1&quot;; dump: AtelPopStackInteger, return 1; constant 1 after one dropped value, same role as Native_AlwaysTrue019c Verified for Atel#: handler 0x00859f10: AtelPopStackInteger, return 1. The scripts pass 2 or 11 and compare with 1; 0x0261 (the same code) is called with the same arguments and its result taken % 60, so the PS2 version may have read a clock. Not verified, so the name says what PC does.</remarks>
     [Atel.Native(0x0260)]
-    public static int AlwaysTrue_0260(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueOf(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0261: one value dropped; 1; ported in native_move (script round 11); name from &quot;one value dropped; 1&quot;; dump: AtelPopStackInteger, return 1; constant 1 after one dropped value, same role as Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0x0261</c>, <c>Native_0261_AlwaysTrue</c>; 11 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="AlwaysTrueOf"/> (<c>0x0260</c>), under another id. Drops its argument and returns 1.</summary>
+    /// <remarks>Native <c>0x0261</c>, <c>Native_0261_AlwaysTrue</c>; 11 calls in the shipped scripts. Reverse engineering: 0x0261: one value dropped; 1; ported in native_move (script round 11); name from &quot;one value dropped; 1&quot;; dump: AtelPopStackInteger, return 1; constant 1 after one dropped value, same role as Native_AlwaysTrue019c Verified for Atel#: handlers 0x0085a090 and 0x00859f10 are the same code. Called with 2 or 11, the result taken % 60.</remarks>
     [Atel.Native(0x0261)]
-    public static int AlwaysTrue_0261(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueOfAlias(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0262: 1; ported in native_move (script round 11); name from &quot;1&quot;; FFX.exe bytes b8 01 00 00 00 c3 (mov eax, 1; ret); constant 1 (mov eax, 1; ret), same shape as Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0x0262</c>, <c>Native_0262_AlwaysTrue</c>; 3 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 1. The same machine code as <see cref="AlwaysTrue019c"/> (<c>0x019c</c>).</summary>
+    /// <remarks>Native <c>0x0262</c>, <c>Native_0262_AlwaysTrue</c>; 3 calls in the shipped scripts. Reverse engineering: 0x0262: 1; ported in native_move (script round 11); name from &quot;1&quot;; FFX.exe bytes b8 01 00 00 00 c3 (mov eax, 1; ret); constant 1 (mov eax, 1; ret), same shape as Native_AlwaysTrue019c Verified for Atel#: handler 0x0085a110 is mov eax, 1; ret. The 3 calls stand before a game over (JumpToMap(Map.Gameover, …), Halt()); what the PS2 version did there is not known.</remarks>
     [Atel.Native(0x0262)]
-    public static int AlwaysTrue_0262() => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueAlias2() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0263: 1; ported in native_move (script round 11); name from &quot;1&quot;; FFX.exe bytes b8 01 00 00 00 c3 (mov eax, 1; ret); constant 1 (mov eax, 1; ret), same shape as Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0x0263</c>, <c>Native_0263_AlwaysTrue</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 1. The same machine code as <see cref="AlwaysTrue019c"/> (<c>0x019c</c>).</summary>
+    /// <remarks>Native <c>0x0263</c>, <c>Native_0263_AlwaysTrue</c>; 2 calls in the shipped scripts. Reverse engineering: 0x0263: 1; ported in native_move (script round 11); name from &quot;1&quot;; FFX.exe bytes b8 01 00 00 00 c3 (mov eax, 1; ret); constant 1 (mov eax, 1; ret), same shape as Native_AlwaysTrue019c Verified for Atel#: handler 0x0085a120 is mov eax, 1; ret. The 2 calls stand next to the ending (StoryProgress = S10000, a movie); what the PS2 version did there is not known.</remarks>
     [Atel.Native(0x0263)]
-    public static int AlwaysTrue_0263() => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueAlias3() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0264: 0x008cc150(v); 0; ported in native_move (script round 11); name from &quot;0x008cc150(v)&quot; = SndSetBgmTypeSave</summary>
     /// <remarks>Native <c>0x0264</c>, <c>Native_0264_SetBgmType</c>; 1 calls in the shipped scripts.</remarks>
@@ -3290,10 +3293,10 @@ public static partial class Calc
     [Atel.Native(0x101c)]
     public static int SetVarSlot(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x101d: 0x00878140&apos;s record +4 = 1; 0; ported in native_mods (script round 19); name ours; name from 0x00878140=Atel_SetVarSlot (ctrl work +0x1a4 slot = var address); &quot;record +4 = 1&quot;</summary>
-    /// <remarks>Native <c>0x101d</c>, <c>Native_101d_SetVarSlot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Points slot <paramref name="slot"/> (0-7) of the current control at a variable, as <see cref="SetVarSlot"/>, and sets the slot record's flag word to 1 (0x101c sets 0).</summary>
+    /// <remarks>Native <c>0x101d</c>, <c>Native_101d_SetVarSlot</c>; 0 calls in the shipped scripts. Reverse engineering: 0x101d: 0x00878140&apos;s record +4 = 1; 0; ported in native_mods (script round 19); name ours; name from 0x00878140=Atel_SetVarSlot (ctrl work +0x1a4 slot = var address); &quot;record +4 = 1&quot; Verified for Atel#: handler 0x00878110: Atel_SetVarSlot_00878140 (ctrl work +0x1a4 + slot*8 = AtelGetRealVarAdrs(worker, word)), then the record +4 = 1. What reads the flag is not known.</remarks>
     [Atel.Native(0x101d)]
-    public static int SetVarSlot_101d(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetVarSlotWithFlag(int slot, int variable) => throw Atel.Runtime.NotRunnable();
 }
 
 /// <summary>Natives of group 4 (<c>0x4000</c>–).</summary>
@@ -3680,10 +3683,10 @@ public static partial class Chr
     [Atel.Native(0x5003, Polls = true)]
     public static int WaitMotion() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5004/0x404b: () -&gt; model +0x736 != 0; ported in native_mods (script round 19); the same code as Native_501f_ChrMotionActive (0x00a79450; call targets equal), a copy the compiler kept; own name</summary>
-    /// <remarks>Native <c>0x5004</c>, <c>Native_501f_copy_00a788d0</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="MotionActive"/> (<c>0x501f</c>), under another id.</summary>
+    /// <remarks>Native <c>0x5004</c>, <c>Native_501f_copy_00a788d0</c>; 0 calls in the shipped scripts. Reverse engineering: 0x5004/0x404b: () -&gt; model +0x736 != 0; ported in native_mods (script round 19); the same code as Native_501f_ChrMotionActive (0x00a79450; call targets equal), a copy the compiler kept; own name Verified for Atel#: handlers 0x00a788d0 and 0x00a79450 are the same code: the worker's model +0x736 != 0.</remarks>
     [Atel.Native(0x5004)]
-    public static int N5004501fCopy00a788d0() => throw Atel.Runtime.NotRunnable();
+    public static int MotionActiveAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Ends the scripted motion, so that the model's own stand, walk and run motions take over.</summary>
     /// <remarks>Native <c>0x5005</c>, <c>Native_ChrReleaseMotion</c>; 6376 calls in the shipped scripts. Reverse engineering: 0x5005: no args -&gt; 0; Chr_ReleaseMotion: ends the scripted motion so the automatic stand/walk/run motions (0x75c table, 0x00835d30) take over</remarks>
@@ -3791,21 +3794,21 @@ public static partial class Chr
     [Atel.Native(0x501a)]
     public static int PlayMotion(int motion, int unused, int loops, int startFrame, int endFrame) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>The same as <see cref="SetMotion"/> (<c>0x5000</c>): sets the worker's model to motion <paramref name="motion"/>. Returns 0.</summary>
+    /// <summary>The same code as <see cref="SetMotion"/> (<c>0x5000</c>), under another id. Sets the worker's model to motion <paramref name="motion"/>. Returns 0.</summary>
     /// <param name="motion">The motion id.</param>
-    /// <remarks>Native <c>0x501b</c>, <c>Native_ChrSetMotion_501b</c>; 5195 calls in the shipped scripts. Reverse engineering: 0x501b: args (motion) -&gt; 0; SG_SetMotion on the worker&apos;s chr Verified for Atel#: handlers 0x00a792d0 and 0x00a78770 are the same code: AtelPopStackInteger, AtelGetCharHandle, Ch_SetSequence(chr, motion) (0x00837ac0), 0.</remarks>
+    /// <remarks>Native <c>0x501b</c>, <c>Native_ChrSetMotion_501b</c>; 5195 calls in the shipped scripts. Reverse engineering: 0x501b: args (motion) -&gt; 0; SG_SetMotion on the worker&apos;s chr Verified for Atel#: handlers 0x00a792d0 and 0x00a78770 are the same code: AtelPopStackInteger, AtelGetCharHandle, Ch_SetSequence(chr, motion) (0x00837ac0), 0. As a member: Motion.Set(motion), next to Motion = motion (0x5000).</remarks>
     [Atel.Native(0x501b)]
-    public static int SetMotion_501b(int motion) => throw Atel.Runtime.NotRunnable();
+    public static int SetMotionAlias(int motion) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x501d/0x4064: (seq): Ch_SetSequence(model, seq); 0 (a copy of 0x5002&apos;s); ported in native_mods (script round 19); name ours; name from Ch_SetSequence(model, seq) &quot;(a copy of 0x5002&apos;s)&quot;</summary>
-    /// <remarks>Native <c>0x501d</c>, <c>Native_501d_ChrSetSequence</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="SetSequence"/> (<c>0x5002</c>), under another id.</summary>
+    /// <remarks>Native <c>0x501d</c>, <c>Native_501d_ChrSetSequence</c>; 0 calls in the shipped scripts. Reverse engineering: 0x501d/0x4064: (seq): Ch_SetSequence(model, seq); 0 (a copy of 0x5002&apos;s); ported in native_mods (script round 19); name ours; name from Ch_SetSequence(model, seq) &quot;(a copy of 0x5002&apos;s)&quot; Verified for Atel#: handlers 0x00a79310 and 0x00a787a0 are the same code: Ch_SetSequence(model, seq).</remarks>
     [Atel.Native(0x501d)]
-    public static int SetSequence_501d(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SetSequenceAlias(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Waits until the worker's model has finished its motion, as <see cref="WaitMotion"/>; in the game's debug mode it also counts the frames it waited.</summary>
-    /// <remarks>Native <c>0x501e</c>, <c>Native_ChrWaitMotion_501e</c>; 3657 calls in the shipped scripts. Reverse engineering: 0x501e start slot: empty (ret) Verified for Atel#: poll 0x00a793c0 ends (5) when chr +0x736 is 0, as WaitMotion's (0x5003, 0x00a788a0); with g_DebugMode (0x012fb80c) 1 it counts frames in 0x022fb4d8. Its start slot is a bare ret.</remarks>
+    /// <remarks>Native <c>0x501e</c>, <c>Native_ChrWaitMotion_501e</c>; 3657 calls in the shipped scripts. Reverse engineering: 0x501e start slot: empty (ret) Verified for Atel#: poll 0x00a793c0 ends (5) when chr +0x736 is 0, as WaitMotion's (0x5003, 0x00a788a0); with g_DebugMode (0x012fb80c) 1 it counts frames in g_ChrWaitMotionFrames (0x022fb4d8), else clears it when done. Its start slot (0x00a79370) is a bare ret. As a member: Motion.WaitCounted().</remarks>
     [Atel.Native(0x501e, Polls = true)]
-    public static int WaitMotion_501e() => throw Atel.Runtime.NotRunnable();
+    public static int WaitMotionCounted() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x501f: no args -&gt; 1 while the worker&apos;s model has +0x736 set; ported in native_chr (script round 12); name from bare: &quot;1 while the worker&apos;s model has +0x736 set&quot; (scripted motion flag, Ch_ResetMotion); copy slot not named</summary>
     /// <remarks>Native <c>0x501f</c>, <c>Native_501f_ChrMotionActive</c>; 15 calls in the shipped scripts.</remarks>
@@ -3817,10 +3820,10 @@ public static partial class Chr
     [Atel.Native(0x5020)]
     public static int ReleaseMotion2() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>The same as <see cref="SetMotionSpeed"/> (<c>0x5018</c>): sets the speed of the worker's model's motion. Returns 0.</summary>
-    /// <remarks>Native <c>0x5021</c>, <c>Native_ChrSetMotionSpeed</c>; 1660 calls in the shipped scripts. Reverse engineering: 0x5021: args (speed, 8.8 fixed, 256 = 1x) -&gt; 0; chr +0x750, multiplies the clip speed +0x754 in the frame step (0x00836f..: speed * [0x750] &gt;&gt; 8) Verified for Atel#: handlers 0x00a79510 and 0x00a791e0 are the same code: Ch_SetMotionSpeed(chr, speed) (0x0082b380), 0.</remarks>
+    /// <summary>The same code as <see cref="SetMotionSpeed"/> (<c>0x5018</c>), under another id. Sets the speed of the worker's model's motion. Returns 0.</summary>
+    /// <remarks>Native <c>0x5021</c>, <c>Native_ChrSetMotionSpeed</c>; 1660 calls in the shipped scripts. Reverse engineering: 0x5021: args (speed, 8.8 fixed, 256 = 1x) -&gt; 0; chr +0x750, multiplies the clip speed +0x754 in the frame step (0x00836f..: speed * [0x750] &gt;&gt; 8) Verified for Atel#: handlers 0x00a79510 and 0x00a791e0 are the same code: Ch_SetMotionSpeed(chr, speed) (0x0082b380), 0. As a member: Motion.SetSpeed(speed), next to Motion.Speed = speed (0x5018).</remarks>
     [Atel.Native(0x5021)]
-    public static int SetMotionSpeed_5021(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int SetMotionSpeedAlias(int speed) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5022: args (n) -&gt; 0; chr +0x737, compared by motion sequence opcode 6 (SG_SeqStep, branch when operand &lt;= n); ?meaning; scripts push 0/1</summary>
     /// <remarks>Native <c>0x5022</c>, <c>Native_ChrSetMotionSeqLevel</c>; 1544 calls in the shipped scripts.</remarks>
@@ -3832,10 +3835,10 @@ public static partial class Chr
     [Atel.Native(0x5023)]
     public static int NoOp(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5024/0x406b: (v) popped; 0; ported in native_mods (script round 19); name ours; name from &quot;(v) popped; 0&quot;; dump: AtelGetCharHandle + pop only, returns 0</summary>
-    /// <remarks>Native <c>0x5024</c>, <c>Native_5024_NoOp</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="NoOp"/> (<c>0x5023</c>), under another id. Drops its argument; returns 0.</summary>
+    /// <remarks>Native <c>0x5024</c>, <c>Native_5024_NoOp</c>; 0 calls in the shipped scripts. Reverse engineering: 0x5024/0x406b: (v) popped; 0; ported in native_mods (script round 19); name ours; name from &quot;(v) popped; 0&quot;; dump: AtelGetCharHandle + pop only, returns 0 Verified for Atel#: handlers 0x00a79620 and 0x00a795b0 are the same code: AtelGetCharHandle, a pop, 0.</remarks>
     [Atel.Native(0x5024)]
-    public static int NoOp_5024(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int NoOpAlias(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Sets the motion the model plays by itself in <paramref name="slot"/> (stand, walk, run) when no scripted motion plays; -1 is the default.</summary>
     /// <remarks>Native <c>0x5025</c>, <c>Native_ChrSetAutoMotion</c>; 23505 calls in the shipped scripts. Reverse engineering: 0x5025: args (slot, motion; -1 = default) -&gt; 0; Chr_SetAutoMotion, chr +0x75c[slot]: the motions used for stand/walk/run when no scripted motion plays</remarks>
@@ -3867,10 +3870,10 @@ public static partial class Chr
     [Atel.Native(0x502a)]
     public static int SetDistanceCull(int on) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x502b/0x4072: 0; ported in native_mods (script round 19); name ours; name from &quot;0&quot;; dump: only AtelGetCharHandle(worker), return 0</summary>
-    /// <remarks>Native <c>0x502b</c>, <c>Native_502b_NoOp</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 0; does nothing (no argument, unlike <see cref="NoOp"/>).</summary>
+    /// <remarks>Native <c>0x502b</c>, <c>Native_502b_NoOp</c>; 0 calls in the shipped scripts. Reverse engineering: 0x502b/0x4072: 0; ported in native_mods (script round 19); name ours; name from &quot;0&quot;; dump: only AtelGetCharHandle(worker), return 0 Verified for Atel#: handler 0x00a79b70: AtelGetCharHandle(worker), 0.</remarks>
     [Atel.Native(0x502b)]
-    public static int NoOp_502b() => throw Atel.Runtime.NotRunnable();
+    public static int NoOpNoArg() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x502c: args (worker, point) -&gt; as Native_ChrAttach with Ch_BindToElemDirect (0x00832680); ported in native_chr (script round 12); name from &quot;as Native_ChrAttach with Ch_BindToElemDirect&quot;</summary>
     /// <remarks>Native <c>0x502c</c>, <c>Native_502c_ChrAttachDirect</c>; 16 calls in the shipped scripts.</remarks>
@@ -3948,10 +3951,10 @@ public static partial class Chr
     [Atel.Native(0x503a)]
     public static float SetClipZ(float zF) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x503b: args (b, a) -&gt; ChN_DisposeSystemMGRP(b, a) (0x00836830) when the worker has a model; ported in native_chr (script round 12); name from ChN_DisposeSystemMGRP(b, a)</summary>
-    /// <remarks>Native <c>0x503b</c>, <c>Native_503b_ChrDisposeSystemMgrp</c>; 91 calls in the shipped scripts.</remarks>
+    /// <summary>Frees system motion group <paramref name="group"/> of model <paramref name="model"/>, as <see cref="DisposeSystemMgrp"/> does for the worker's own model. Returns 0.</summary>
+    /// <remarks>Native <c>0x503b</c>, <c>Native_503b_ChrDisposeSystemMgrp</c>; 91 calls in the shipped scripts. Reverse engineering: 0x503b: args (b, a) -&gt; ChN_DisposeSystemMGRP(b, a) (0x00836830) when the worker has a model; ported in native_chr (script round 12); name from ChN_DisposeSystemMGRP(b, a) Verified for Atel#: handler 0x00a7a450 pops group, model; when the worker has a model, ChN_DisposeSystemMGRP(model, group) (0x00836830); 0x5011 passes the worker's model id (+0).</remarks>
     [Atel.Native(0x503b)]
-    public static int DisposeSystemMgrp_503b(int b, int a) => throw Atel.Runtime.NotRunnable();
+    public static int DisposeSystemMgrpOfModel(int model, int group) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x503c: args (v int) -&gt; 0: Ch_DisposeMGRP(v) (0x00836ad0); ported in native_chr (script round 12); name from Ch_DisposeMGRP(v)</summary>
     /// <remarks>Native <c>0x503c</c>, <c>Native_503c_ChrDisposeMgrp</c>; 139 calls in the shipped scripts.</remarks>
@@ -3963,25 +3966,25 @@ public static partial class Chr
     [Atel.Native(0x503d)]
     public static int DisposeData(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x503e: args (b int, a int) -&gt; 0: ChN_DataDispose(b, a) (0x00824f00); ported in native_chr (script round 12); name from ChN_DataDispose(b, a)</summary>
-    /// <remarks>Native <c>0x503e</c>, <c>Native_503e_ChrDisposeData</c>; 367 calls in the shipped scripts.</remarks>
+    /// <summary>Frees the character data of model <paramref name="model"/> as <see cref="DisposeData"/>; <paramref name="check"/> 1 reports a model still in use (0x503d always passes 1). Returns 0.</summary>
+    /// <remarks>Native <c>0x503e</c>, <c>Native_503e_ChrDisposeData</c>; 367 calls in the shipped scripts. Reverse engineering: 0x503e: args (b int, a int) -&gt; 0: ChN_DataDispose(b, a) (0x00824f00); ported in native_chr (script round 12); name from ChN_DataDispose(b, a) Verified for Atel#: handler 0x00a7a570 pops check, model; ChN_DataDispose(model, check) (0x00824f00: a character of that id in use -> -1, with an assert naming it when check is set; else the block disposed).</remarks>
     [Atel.Native(0x503e)]
-    public static int DisposeData_503e(int b, int a) => throw Atel.Runtime.NotRunnable();
+    public static int DisposeDataWithCheck(int model, int check) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x503f: args (v) -&gt; Ch_SetSequence(model, v) (0x00837ac0); ported in native_chr (script round 12); name from Ch_SetSequence(model, v)</summary>
-    /// <remarks>Native <c>0x503f</c>, <c>Native_503f_ChrSetSequence</c>; 35 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="SetSequence"/> (<c>0x5002</c>), under another id.</summary>
+    /// <remarks>Native <c>0x503f</c>, <c>Native_503f_ChrSetSequence</c>; 35 calls in the shipped scripts. Reverse engineering: 0x503f: args (v) -&gt; Ch_SetSequence(model, v) (0x00837ac0); ported in native_chr (script round 12); name from Ch_SetSequence(model, v) Verified for Atel#: handlers 0x00a7a5a0 and 0x00a787a0 are the same code.</remarks>
     [Atel.Native(0x503f)]
-    public static int SetSequence_503f(int v) => throw Atel.Runtime.NotRunnable();
+    public static int SetSequenceAlias2(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5040: same body as 0x501b (SG_SetMotion)</summary>
     /// <remarks>Native <c>0x5040</c>, <c>Native_ChrSetMotion2</c>; 1569 calls in the shipped scripts.</remarks>
     [Atel.Native(0x5040)]
     public static int SetMotion2(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5041/0x4088: Native_PlayMotionCommon(worker, stack, 0, 0); 0; ported in native_mods (script round 19); the same code as Native_5019_ChrPlayMotionMarks (0x00a79220; call targets equal), a copy the compiler kept; own name</summary>
-    /// <remarks>Native <c>0x5041</c>, <c>Native_5019_copy_00a7a740</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="PlayMotionMarks"/> (<c>0x5019</c>), under another id.</summary>
+    /// <remarks>Native <c>0x5041</c>, <c>Native_5019_copy_00a7a740</c>; 0 calls in the shipped scripts. Reverse engineering: 0x5041/0x4088: Native_PlayMotionCommon(worker, stack, 0, 0); 0; ported in native_mods (script round 19); the same code as Native_5019_ChrPlayMotionMarks (0x00a79220; call targets equal), a copy the compiler kept; own name Verified for Atel#: handlers 0x00a7a740 and 0x00a79220 are the same code: Native_PlayMotionCommon(worker, stack, 0, 0).</remarks>
     [Atel.Native(0x5041)]
-    public static int N50415019Copy00a7a740(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int PlayMotionMarksAlias(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5042: same body as 0x501a (Native_PlayMotionCommon mode 1)</summary>
     /// <remarks>Native <c>0x5042</c>, <c>Native_ChrPlayMotion2</c>; 1116 calls in the shipped scripts.</remarks>
@@ -3998,25 +4001,25 @@ public static partial class Chr
     [Atel.Native(0x5044)]
     public static int PlayMotionOf(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5045/0x408c: Native_PlayMotionCommon(worker, stack, 0, 1); 0; ported in native_mods (script round 19); name ours; name from PlayMotionCommon(.., 0, 1): mode 0 = Chr_PlayMotionMarks, other worker</summary>
-    /// <remarks>Native <c>0x5045</c>, <c>Native_5045_ChrPlayMarksOf</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="PlayMarksOf"/> (<c>0x5043</c>), under another id.</summary>
+    /// <remarks>Native <c>0x5045</c>, <c>Native_5045_ChrPlayMarksOf</c>; 0 calls in the shipped scripts. Reverse engineering: 0x5045/0x408c: Native_PlayMotionCommon(worker, stack, 0, 1); 0; ported in native_mods (script round 19); name ours; name from PlayMotionCommon(.., 0, 1): mode 0 = Chr_PlayMotionMarks, other worker Verified for Atel#: handlers 0x00a7a830 and 0x00a7a7c0 are the same code: Native_PlayMotionCommon(worker, stack, 0, 1).</remarks>
     [Atel.Native(0x5045)]
-    public static int PlayMarksOf_5045(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int PlayMarksOfAlias(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5046: no args -&gt; Native_PlayMotionCommon(worker, stack, 1, 1); ported in native_chr (script round 12); name from PlayMotionCommon(.., 1, 1): mode 1 = Chr_PlayMotion, other worker</summary>
-    /// <remarks>Native <c>0x5046</c>, <c>Native_5046_ChrPlayMotionOf</c>; 12 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="PlayMotionOf"/> (<c>0x5044</c>), under another id.</summary>
+    /// <remarks>Native <c>0x5046</c>, <c>Native_5046_ChrPlayMotionOf</c>; 12 calls in the shipped scripts. Reverse engineering: 0x5046: no args -&gt; Native_PlayMotionCommon(worker, stack, 1, 1); ported in native_chr (script round 12); name from PlayMotionCommon(.., 1, 1): mode 1 = Chr_PlayMotion, other worker Verified for Atel#: handlers 0x00a7a880 and 0x00a7a810 are the same code: Native_PlayMotionCommon(worker, stack, 1, 1).</remarks>
     [Atel.Native(0x5046)]
-    public static int PlayMotionOf_5046(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int PlayMotionOfAlias(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5047: args (worker int, v int) -&gt; 0: Ch_SetSequence(that worker&apos;s model, v) (0x00837ac0); ported in native_chr (script round 12); name from Ch_SetSequence(that worker&apos;s model, v)</summary>
     /// <remarks>Native <c>0x5047</c>, <c>Native_5047_ChrSetSequenceOf</c>; 332 calls in the shipped scripts.</remarks>
     [Atel.Native(0x5047)]
     public static int SetSequenceOf(int worker, int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5048: no args -&gt; as 0x5047; ported in native_chr (script round 12); name from &quot;as 0x5047&quot; (Ch_SetSequence on that worker&apos;s model)</summary>
-    /// <remarks>Native <c>0x5048</c>, <c>Native_5048_ChrSetSequenceOf</c>; 18 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="SetSequenceOf"/> (<c>0x5047</c>), under another id.</summary>
+    /// <remarks>Native <c>0x5048</c>, <c>Native_5048_ChrSetSequenceOf</c>; 18 calls in the shipped scripts. Reverse engineering: 0x5048: no args -&gt; as 0x5047; ported in native_chr (script round 12); name from &quot;as 0x5047&quot; (Ch_SetSequence on that worker&apos;s model) Verified for Atel#: handlers 0x00a7a940 and 0x00a7a900 are the same code.</remarks>
     [Atel.Native(0x5048)]
-    public static int SetSequenceOf_5048(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int SetSequenceOfAlias(int worker, int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5049 (start): args (worker) -&gt; start: the args word = that worker&apos;s model, also EAX; poll: 0 while the model in the args word has +0x736 set (or there is none), else 5; ported in native_chr (script round 12); name from poll: 0 while that worker&apos;s model has +0x736 set, else 5 (as ChrWaitMotion_5003)</summary>
     /// <remarks>Native <c>0x5049</c>, <c>Native_5049_ChrWaitMotionOf</c>; 64 calls in the shipped scripts.</remarks>
@@ -4353,15 +4356,15 @@ public static partial class Chr
     [Atel.Native(0x508a)]
     public static int PlayInclOf(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x508b: no args -&gt; the same as 0x5089; ported in native_chr (script round 12); name from &quot;the same as 0x5089&quot; (PlayMotionCommon mode 2 = Chr_PlayMotionInclEnd)</summary>
-    /// <remarks>Native <c>0x508b</c>, <c>Native_508b_ChrPlayMotionIncl</c>; 5 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="PlayMotionIncl"/> (<c>0x5089</c>), under another id.</summary>
+    /// <remarks>Native <c>0x508b</c>, <c>Native_508b_ChrPlayMotionIncl</c>; 5 calls in the shipped scripts. Reverse engineering: 0x508b: no args -&gt; the same as 0x5089; ported in native_chr (script round 12); name from &quot;the same as 0x5089&quot; (PlayMotionCommon mode 2 = Chr_PlayMotionInclEnd) Verified for Atel#: handlers 0x00a7a760 and 0x00a7a700 are the same code: Native_PlayMotionCommon mode 2.</remarks>
     [Atel.Native(0x508b)]
-    public static int PlayMotionIncl_508b(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int PlayMotionInclAlias(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x508c/0x40d3: Native_PlayMotionCommon(worker, stack, 2, 1); 0; ported in native_mods (script round 19); name ours; name from PlayMotionCommon(.., 2, 1): mode 2 = Chr_PlayMotionInclEnd, other worker</summary>
-    /// <remarks>Native <c>0x508c</c>, <c>Native_508c_ChrPlayInclOf</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="PlayInclOf"/> (<c>0x508a</c>), under another id.</summary>
+    /// <remarks>Native <c>0x508c</c>, <c>Native_508c_ChrPlayInclOf</c>; 0 calls in the shipped scripts. Reverse engineering: 0x508c/0x40d3: Native_PlayMotionCommon(worker, stack, 2, 1); 0; ported in native_mods (script round 19); name ours; name from PlayMotionCommon(.., 2, 1): mode 2 = Chr_PlayMotionInclEnd, other worker Verified for Atel#: handlers 0x00a7a7a0 and 0x00a7a720 are the same code: Native_PlayMotionCommon(worker, stack, 2, 1).</remarks>
     [Atel.Native(0x508c)]
-    public static int PlayInclOf_508c(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+    public static int PlayInclOfAlias(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x508d: args (v) -&gt; Ch_TextureSetAnimTimer(model, v) (0x0083d070); ported in native_chr (script round 12); name from Ch_TextureSetAnimTimer(model, v)</summary>
     /// <remarks>Native <c>0x508d</c>, <c>Native_508d_ChrTexAnimTimer</c>; 1 calls in the shipped scripts.</remarks>
@@ -4453,15 +4456,15 @@ public static partial class Cam
     [Atel.Native(0x600b)]
     public static int AddLineArea(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x600c: MsAtelCameraRefAddCircleArea_007bb370(worker, args, stack, 1, 0); 0; ported in native_mods (script round 19); name from 0x007bb370 = MsAtelCameraRefAddCircleArea (worker, args, stack, 1, 0): the eye half (1); 0</summary>
-    /// <remarks>Native <c>0x600c</c>, <c>Native_600c_CamEyeAddCircleArea</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Keeps the camera's eye between heights <paramref name="low"/> and <paramref name="high"/>, pulling it back softly. Returns 0. Was <c>EyeAddCircleArea</c>.</summary>
+    /// <remarks>Native <c>0x600c</c>, <c>Native_600c_CamEyeAddCircleArea</c>; 0 calls in the shipped scripts. Reverse engineering: 0x600c: MsAtelCameraRefAddCircleArea_007bb370(worker, args, stack, 1, 0); 0; ported in native_mods (script round 19); name from 0x007bb370 = MsAtelCameraRefAddCircleArea (worker, args, stack, 1, 0): the eye half (1); 0 Verified for Atel#: handler calls 0x007bb370 with side 1, kind 0. MsAtelCameraRefAddCircleArea_007bb370 (worker, _, stack, side, kind) pops c, b, a and calls MsCameraRefAddCircleArea_007bf1f0(cam, side, kind, a, b, c): one of the channel's five limits, +0x18 = low, +0x1c = high, +0xc = keep, kind 1 (kind 0) or 3 (else). ms_camera_limits (ffx-rust crates/ffx-battle/src/camera.rs) treats kinds 1 and 3 as limits on the side's height (position y): kind 1 pulls it back softly (atan), kind 3 keeps that share of the overshoot past them (y = low + (y - low) * keep above low, and alike below high). Was named a circle area: the scripts pass low = high nearly always (Camera.Focus.AddCircleArea(-62.8f, -62.8f, 0.83f)), with keep from 0 (pinned) to 1.</remarks>
     [Atel.Native(0x600c)]
-    public static int EyeAddCircleArea(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int EyeAddHeightLimitSoft(int low, int high, int keep) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x600d: MsAtelCameraRefAddCircleArea_007bb370(worker, args, stack, 1, 1); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraRefAddCircleArea(side 1, kind 1): eye twin of Native_CamRefAddCircleArea (0, 1)</summary>
-    /// <remarks>Native <c>0x600d</c>, <c>Native_600d_CamAddCircleArea</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Keeps the camera's eye between heights <paramref name="low"/> and <paramref name="high"/>, keeping the share <paramref name="keep"/> of the overshoot (0 pins it there, 1 leaves it free). Returns 0. Was <c>AddCircleArea</c>.</summary>
+    /// <remarks>Native <c>0x600d</c>, <c>Native_600d_CamAddCircleArea</c>; 0 calls in the shipped scripts. Reverse engineering: 0x600d: MsAtelCameraRefAddCircleArea_007bb370(worker, args, stack, 1, 1); 0; ported in native_mods (script round 19); name ours; name from MsAtelCameraRefAddCircleArea(side 1, kind 1): eye twin of Native_CamRefAddCircleArea (0, 1) Verified for Atel#: handler calls 0x007bb370 with side 1, kind 1. MsAtelCameraRefAddCircleArea_007bb370 (worker, _, stack, side, kind) pops c, b, a and calls MsCameraRefAddCircleArea_007bf1f0(cam, side, kind, a, b, c): one of the channel's five limits, +0x18 = low, +0x1c = high, +0xc = keep, kind 1 (kind 0) or 3 (else). ms_camera_limits (ffx-rust crates/ffx-battle/src/camera.rs) treats kinds 1 and 3 as limits on the side's height (position y): kind 1 pulls it back softly (atan), kind 3 keeps that share of the overshoot past them (y = low + (y - low) * keep above low, and alike below high). Was named a circle area: the scripts pass low = high nearly always (Camera.Focus.AddCircleArea(-62.8f, -62.8f, 0.83f)), with keep from 0 (pinned) to 1.</remarks>
     [Atel.Native(0x600d)]
-    public static int AddCircleArea(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int EyeAddHeightLimitScaled(int low, int high, int keep) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x600e: (on): 0x007bf1a0(cam, 1, on &amp; 1); the camera handle; ported in native_mods (script round 19); name from 0x007bf1a0 = MsCameraSetChannelFlagF5 (cam, 1, on &amp; 1): the eye half (1); the camera handle</summary>
     /// <remarks>Native <c>0x600e</c>, <c>Native_600e_CamEyeSetChannelFlagF5</c>; 0 calls in the shipped scripts.</remarks>
@@ -4609,15 +4612,15 @@ public static partial class Cam
     [Atel.Native(0x6029)]
     public static int RefAddLineArea(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x602a: no args -&gt; 0x007bb370(..., 0, 0); 0; ported in native_chr (script round 12); name from 0x007bb370 = MsAtelCameraRefAddCircleArea (worker, args, stack, 0, 0): the ref half (0); 0</summary>
-    /// <remarks>Native <c>0x602a</c>, <c>Native_602a_CamRefAddCircleArea</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Keeps the camera's focus point between heights <paramref name="low"/> and <paramref name="high"/>, pulling it back softly. Returns 0. Was <c>RefAddCircleArea</c>.</summary>
+    /// <remarks>Native <c>0x602a</c>, <c>Native_602a_CamRefAddCircleArea</c>; 2 calls in the shipped scripts. Reverse engineering: 0x602a: no args -&gt; 0x007bb370(..., 0, 0); 0; ported in native_chr (script round 12); name from 0x007bb370 = MsAtelCameraRefAddCircleArea (worker, args, stack, 0, 0): the ref half (0); 0 Verified for Atel#: handler calls 0x007bb370 with side 0, kind 0. MsAtelCameraRefAddCircleArea_007bb370 (worker, _, stack, side, kind) pops c, b, a and calls MsCameraRefAddCircleArea_007bf1f0(cam, side, kind, a, b, c): one of the channel's five limits, +0x18 = low, +0x1c = high, +0xc = keep, kind 1 (kind 0) or 3 (else). ms_camera_limits (ffx-rust crates/ffx-battle/src/camera.rs) treats kinds 1 and 3 as limits on the side's height (position y): kind 1 pulls it back softly (atan), kind 3 keeps that share of the overshoot past them (y = low + (y - low) * keep above low, and alike below high). Was named a circle area: the scripts pass low = high nearly always (Camera.Focus.AddCircleArea(-62.8f, -62.8f, 0.83f)), with keep from 0 (pinned) to 1.</remarks>
     [Atel.Native(0x602a)]
-    public static int RefAddCircleArea(float a0, float a1, float a2) => throw Atel.Runtime.NotRunnable();
+    public static int FocusAddHeightLimitSoft(float low, float high, float keep) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x602b: args (x, z, r) -&gt; 0; adds a circle constraint (type 3) to the ref&apos;s list (0x007bf1f0); ?keeps the ref inside/around the circle</summary>
-    /// <remarks>Native <c>0x602b</c>, <c>Native_CamRefAddCircleArea</c>; 985 calls in the shipped scripts.</remarks>
+    /// <summary>Keeps the camera's focus point between heights <paramref name="low"/> and <paramref name="high"/>, keeping the share <paramref name="keep"/> of the overshoot (0 pins it there, 1 leaves it free). Returns 0. Was <c>RefAddCircleArea_602b</c>.</summary>
+    /// <remarks>Native <c>0x602b</c>, <c>Native_CamRefAddCircleArea</c>; 985 calls in the shipped scripts. Reverse engineering: 0x602b: args (x, z, r) -&gt; 0; adds a circle constraint (type 3) to the ref&apos;s list (0x007bf1f0); ?keeps the ref inside/around the circle Verified for Atel#: handler calls 0x007bb370 with side 0, kind 1. MsAtelCameraRefAddCircleArea_007bb370 (worker, _, stack, side, kind) pops c, b, a and calls MsCameraRefAddCircleArea_007bf1f0(cam, side, kind, a, b, c): one of the channel's five limits, +0x18 = low, +0x1c = high, +0xc = keep, kind 1 (kind 0) or 3 (else). ms_camera_limits (ffx-rust crates/ffx-battle/src/camera.rs) treats kinds 1 and 3 as limits on the side's height (position y): kind 1 pulls it back softly (atan), kind 3 keeps that share of the overshoot past them (y = low + (y - low) * keep above low, and alike below high). Was named a circle area: the scripts pass low = high nearly always (Camera.Focus.AddCircleArea(-62.8f, -62.8f, 0.83f)), with keep from 0 (pinned) to 1.</remarks>
     [Atel.Native(0x602b)]
-    public static int RefAddCircleArea_602b(float x, float z, float r) => throw Atel.Runtime.NotRunnable();
+    public static int FocusAddHeightLimitScaled(float low, float high, float keep) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x602c: (on): 0x007bf1a0(cam, 0, on &amp; 1); the camera handle; ported in native_mods (script round 19); name from 0x007bf1a0 = MsCameraSetChannelFlagF5 (cam, 0, on &amp; 1): the ref half (0); the camera handle</summary>
     /// <remarks>Native <c>0x602c</c>, <c>Native_602c_CamRefSetChannelFlagF5</c>; 0 calls in the shipped scripts.</remarks>
@@ -5125,10 +5128,10 @@ public static partial class Btl
     [Atel.Native(0x7005)]
     public static int IsUnderwater() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7006: (a, b): with actor +0x41d set, 0x00795eb0(actor, 1, 0, -1, b, a); 0; ported in native_btl/native_msg (script round 8); name from &quot;with actor +0x41d set, 0x00795eb0(actor, 1, ...)&quot; MsSetChrDirTarget</summary>
-    /// <remarks>Native <c>0x7006</c>, <c>Native_7006_ChrSetDirTarget</c>; 358 calls in the shipped scripts.</remarks>
+    /// <summary>Turns the worker's actor to its battle direction (direction mode 1), when the actor allows it (<c>+0x41d</c>). Returns 0.</summary>
+    /// <remarks>Native <c>0x7006</c>, <c>Native_7006_ChrSetDirTarget</c>; 358 calls in the shipped scripts. Reverse engineering: 0x7006: (a, b): with actor +0x41d set, 0x00795eb0(actor, 1, 0, -1, b, a); 0; ported in native_btl/native_msg (script round 8); name from &quot;with actor +0x41d set, 0x00795eb0(actor, 1, ...)&quot; MsSetChrDirTarget Verified for Atel#: handler 0x007a3f50: with actor +0x41d set, MsSetChrDirTarget(actor, 1, 0, -1, a, b) (0x00795eb0); mode 1 faces +0x514[+0x511] (MsGetDirMode, ffx-rust target.rs). ChrSetDirTarget (0x7003) passes mode 2, its targets' centre.</remarks>
     [Atel.Native(0x7006)]
-    public static int ChrSetDirTarget_7006(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrFaceBattleDir(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7007: args (motion; bit 0x8000 = no blend) -&gt; length in frames &lt;&lt; 8 / speed; plays a motion on the script&apos;s battle actor (0x007a8fc0, 0x00837d00)</summary>
     /// <remarks>Native <c>0x7007</c>, <c>Native_ActorPlayMotion</c>; 2188 calls in the shipped scripts.</remarks>
@@ -5481,10 +5484,10 @@ public static partial class Btl
     [Atel.Native(0x704c, Polls = true)]
     public static int ChrWaitMotionBit(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x704d: 0 (xor eax, eax; ret); ported in native_mods (script round 21); name ours; name from &quot;0 (xor eax, eax; ret)&quot;</summary>
-    /// <remarks>Native <c>0x704d</c>, <c>Native_704d_NoOp</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 0; does nothing, as <see cref="NoOp"/> (<c>0x7041</c>).</summary>
+    /// <remarks>Native <c>0x704d</c>, <c>Native_704d_NoOp</c>; 0 calls in the shipped scripts. Reverse engineering: 0x704d: 0 (xor eax, eax; ret); ported in native_mods (script round 21); name ours; name from &quot;0 (xor eax, eax; ret)&quot; Verified for Atel#: handler 0x007a74e0 is xor eax, eax; ret; 0x7041 calls AtelGetBattleIdAdrs2 first, also returning 0.</remarks>
     [Atel.Native(0x704d)]
-    public static int NoOp_704d() => throw Atel.Runtime.NotRunnable();
+    public static int NoOpAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x704e: args (v int) -&gt; 0; actor +0x3f5 = +0x3f6 = v; ported in native_btl2 (script round 18); name from actor +0x3f5 = +0x3f6 = v; 0</summary>
     /// <remarks>Native <c>0x704e</c>, <c>Native_704e_ActorSetField3f5</c>; 0 calls in the shipped scripts.</remarks>
@@ -5511,10 +5514,10 @@ public static partial class Btl
     [Atel.Native(0x7052)]
     public static int ActorSetTargetActor(int a0, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7053: args (f f) -&gt; 0: 0x007a9150(worker, args, stack, f); ported in native_btl (script round 12); name from &quot;0x007a9150(worker, args, stack, f)&quot; Atel_BtlMoveTargetDist</summary>
-    /// <remarks>Native <c>0x7053</c>, <c>Native_7053_BtlMoveTargetDist</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="MoveTargetDist"/>, with a gravity for the move (the last argument; 0x700c passes 0). Returns 0.</summary>
+    /// <remarks>Native <c>0x7053</c>, <c>Native_7053_BtlMoveTargetDist</c>; 2 calls in the shipped scripts. Reverse engineering: 0x7053: args (f f) -&gt; 0: 0x007a9150(worker, args, stack, f); ported in native_btl (script round 12); name from &quot;0x007a9150(worker, args, stack, f)&quot; Atel_BtlMoveTargetDist Verified for Atel#: handler 0x007a4470 pops the float and calls Atel_BtlMoveTargetDist (0x007a9150) with it as gravity; 0x700c passes 0.0.</remarks>
     [Atel.Native(0x7053)]
-    public static int MoveTargetDist_7053(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8) => throw Atel.Runtime.NotRunnable();
+    public static int MoveTargetDistGravity(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7054: args (to int, from int, point int) -&gt; 0: the from actor&apos;s model point (Ch_OptposGet 0x008354f0) through 0x0079e1b0(0, &amp;v) into MsSetChrPosReset(to, &amp;v) (0x00796220); ported in native_btl (script round 12); name from &quot;from actor&apos;s model point (Ch_OptposGet) ... into MsSetChrPosReset(to, &amp;v)&quot;</summary>
     /// <remarks>Native <c>0x7054</c>, <c>Native_7054_ChrSetPosOptpos</c>; 3 calls in the shipped scripts.</remarks>
@@ -5531,20 +5534,20 @@ public static partial class Btl
     [Atel.Native(0x7056)]
     public static int SpecialInit(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7057: args (target int, f f (dropped), b int, a int) -&gt; 0: MsSetChrDirTarget(actor, target, 0, -1, b, a) (0x00795eb0); ported in native_btl (script round 12); name from &quot;MsSetChrDirTarget(actor, target, 0, -1, b, a)&quot;</summary>
-    /// <remarks>Native <c>0x7057</c>, <c>Native_7057_ChrSetDirTarget</c>; 38 calls in the shipped scripts.</remarks>
+    /// <summary>Turns the worker's actor by direction mode <paramref name="mode"/> (1 its battle direction, 2 its targets, 3-13 other points; ffx-rust MsGetDirMode). The float is not used. Returns 0.</summary>
+    /// <remarks>Native <c>0x7057</c>, <c>Native_7057_ChrSetDirTarget</c>; 38 calls in the shipped scripts. Reverse engineering: 0x7057: args (target int, f f (dropped), b int, a int) -&gt; 0: MsSetChrDirTarget(actor, target, 0, -1, b, a) (0x00795eb0); ported in native_btl (script round 12); name from &quot;MsSetChrDirTarget(actor, target, 0, -1, b, a)&quot; Verified for Atel#: handler 0x007a4220 pops b, a, a float (dropped), mode; MsSetChrDirTarget(actor, mode, 0, -1, a, b).</remarks>
     [Atel.Native(0x7057)]
-    public static int ChrSetDirTarget_7057(int target, float fF, int b, int a) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetDirMode(int mode, float unused, int b, int a) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7058: (selector, motion): 0 when the picked actor motion +0x3f0 is 0x007a8c80(it, motion), else -1; ported in native_btl/native_move (script round 9); name from &quot;0 when the picked actor motion +0x3f0 is 0x007a8c80(it, motion), else -1&quot; ms_motion_trans</summary>
     /// <remarks>Native <c>0x7058</c>, <c>Native_7058_ChrCheckMotion</c>; 175 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7058)]
     public static int ChrCheckMotion(Target selector, int a1) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7059 (float): MsGetTargetDist(actor, v, 1); ported in native_btl/native_move (script round 9); name from &quot;MsGetTargetDist(actor, v, 1)&quot; float</summary>
-    /// <remarks>Native <c>0x7059</c>, <c>Native_7059_GetTargetDist</c>; 66 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="GetTargetDist"/>, measured flat (heights ignored).</summary>
+    /// <remarks>Native <c>0x7059</c>, <c>Native_7059_GetTargetDist</c>; 66 calls in the shipped scripts. Reverse engineering: 0x7059 (float): MsGetTargetDist(actor, v, 1); ported in native_btl/native_move (script round 9); name from &quot;MsGetTargetDist(actor, v, 1)&quot; float Verified for Atel#: handler 0x007a6e40: MsGetTargetDist(actor, v, 1) (0x007a9a40); flat 1 zeroes y of the difference (ffx-rust predict.rs). 0x702e passes 0.</remarks>
     [Atel.Native(0x7059)]
-    public static float GetTargetDist_7059(int a0) => throw Atel.Runtime.NotRunnable();
+    public static float GetTargetDistFlat(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x705a: (targets, command): 0x007ac9c0(actor, command, MsGetChrBit(.., 0, 1, 1, -1)); 1; ported in native_btl/native_move (script round 9); name from &quot;0x007ac9c0(actor, command, MsGetChrBit(...))&quot; Battle_QueueCommand</summary>
     /// <remarks>Native <c>0x705a</c>, <c>Native_705a_BtlQueueCommand</c>; 68 calls in the shipped scripts.</remarks>
@@ -5571,10 +5574,10 @@ public static partial class Btl
     [Atel.Native(0x705e)]
     public static int ResetBindEffect() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x705f: args (v f) -&gt; 0: dbgPrintf(0x00b54e84, (double)v, actor), a bare ret in this build; debug native, not ported (script round 18); name ours; name from &quot;dbgPrintf(0x00b54e84, (double)v, actor), a bare ret in this build; debug native&quot;</summary>
-    /// <remarks>Native <c>0x705f</c>, <c>Native_705f_DebugPrint</c>; 9 calls in the shipped scripts.</remarks>
+    /// <summary>Logs a float with the actor's number (<c>***** %f : c%02d *****</c>) through dbgPrintf, which is empty on PC. Returns 0.</summary>
+    /// <remarks>Native <c>0x705f</c>, <c>Native_705f_DebugPrint</c>; 9 calls in the shipped scripts. Reverse engineering: 0x705f: args (v f) -&gt; 0: dbgPrintf(0x00b54e84, (double)v, actor), a bare ret in this build; debug native, not ported (script round 18); name ours; name from &quot;dbgPrintf(0x00b54e84, (double)v, actor), a bare ret in this build; debug native&quot; Verified for Atel#: handler 0x007a4c30; DebugPrint (0x7015) logs an int.</remarks>
     [Atel.Native(0x705f)]
-    public static int DebugPrint_705f(float vF) => throw Atel.Runtime.NotRunnable();
+    public static int DebugPrintFloat(float vF) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7060: () -&gt; 0: 0x0079eff0(actor) with an actor; ported in native_btl2 (script round 18); name ours; name from &quot;0x0079eff0(actor)&quot; MsStatusEffectCheck</summary>
     /// <remarks>Native <c>0x7060</c>, <c>Native_7060_StatusEffectCheck</c>; 0 calls in the shipped scripts.</remarks>
@@ -5651,10 +5654,10 @@ public static partial class Btl
     [Atel.Native(0x706e, Polls = true)]
     public static int ChrSetVoice(Target selector, int voice) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x706f: 0x007a8fc0(worker, args, stack, 1); ported in native_btl/native_msg (script round 8); name from &quot;0x007a8fc0(worker, args, stack, 1)&quot; Battle_ScriptPlayMotion (core of 0x7007)</summary>
-    /// <remarks>Native <c>0x706f</c>, <c>Native_706f_ActorPlayMotion</c>; 58 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a motion on the worker's actor as <see cref="ActorPlayMotion"/>, and marks it (<c>+0x40a</c>) so that the running command waits for it.</summary>
+    /// <remarks>Native <c>0x706f</c>, <c>Native_706f_ActorPlayMotion</c>; 58 calls in the shipped scripts. Reverse engineering: 0x706f: 0x007a8fc0(worker, args, stack, 1); ported in native_btl/native_msg (script round 8); name from &quot;0x007a8fc0(worker, args, stack, 1)&quot; Battle_ScriptPlayMotion (core of 0x7007) Verified for Atel#: handler 0x007a36c0: Battle_ScriptPlayMotion(worker, args, stack, 1) (0x007a8fc0), which stores the flag at +0x40a; 0x7007 passes 0. MsCountChrReady (0x00792880) counts actors with +0x40a and +0x40b, and the command cue stays in its state 2 while any is counted (ffx-rust parse.rs).</remarks>
     [Atel.Native(0x706f)]
-    public static int ActorPlayMotion_706f(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ActorPlayMotionHoldCommand(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7070: SetByte_00c58ef4(1) (0x0089bc60); 0; ported in native_mods (script round 21); name from 0x0089bc60 = SetByte_00c58ef4 (1); 0</summary>
     /// <remarks>Native <c>0x7070</c>, <c>Native_7070_SetByte00c58ef4</c>; 218 calls in the shipped scripts.</remarks>
@@ -5836,10 +5839,10 @@ public static partial class Btl
     [Atel.Native(0x7093)]
     public static bool CheckRestMotion() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7094: (b f, a f, v): MsSetChrTransparentVisible(actor, b, a, v, record +0x423) (0x00796550) for an actor; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrTransparentVisible(actor, b, a, v, record +0x423)&quot;</summary>
-    /// <remarks>Native <c>0x7094</c>, <c>Native_7094_ChrSetTransparent</c>; 9 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrSetTransparent"/>, but only for an actor still waiting to appear (<c>+0x423</c> bit 0). Returns 0.</summary>
+    /// <remarks>Native <c>0x7094</c>, <c>Native_7094_ChrSetTransparent</c>; 9 calls in the shipped scripts. Reverse engineering: 0x7094: (b f, a f, v): MsSetChrTransparentVisible(actor, b, a, v, record +0x423) (0x00796550) for an actor; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrTransparentVisible(actor, b, a, v, record +0x423)&quot; Verified for Atel#: handler 0x007a72c0 passes actor +0x423 as the flags of MsSetChrTransparentVisible (0x00796550), which acts only with flags &amp; 1; 0x7036 passes 1. MsBtlChrRegist sets +0x423 bit 0 for an actor registered without appearing.</remarks>
     [Atel.Native(0x7094)]
-    public static int ChrSetTransparent_7094(float a0, float a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetTransparentIfPending(float a0, float a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7095: MsGetChrMoveFrameRest(actor) (0x007a9320), 0 without an actor; ported in native_mods (script round 21); name ours; name from &quot;MsGetChrMoveFrameRest(actor) (0x007a9320)&quot;</summary>
     /// <remarks>Native <c>0x7095</c>, <c>Native_7095_GetMoveFrameRest</c>; 2 calls in the shipped scripts.</remarks>
@@ -5851,10 +5854,10 @@ public static partial class Btl
     [Atel.Native(0x7096)]
     public static int GetReflected() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7097 start: (v): once at a time (0x0112a8e4) 0x007981e0(v, 2, worker, &amp;out); out into args; ported in native_btl/native_msg (script round 8); name from start &quot;0x007981e0(v, 2, worker, &amp;out)&quot; MsAtelRequestSystem; poll waits</summary>
-    /// <remarks>Native <c>0x7097</c>, <c>Native_7097_AtelRequestSystem</c>; 237 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="AtelRequestSystem"/>, but other script cameras may still run meanwhile.</summary>
+    /// <remarks>Native <c>0x7097</c>, <c>Native_7097_AtelRequestSystem</c>; 237 calls in the shipped scripts. Reverse engineering: 0x7097 start: (v): once at a time (0x0112a8e4) 0x007981e0(v, 2, worker, &amp;out); out into args; ported in native_btl/native_msg (script round 8); name from start &quot;0x007981e0(v, 2, worker, &amp;out)&quot; MsAtelRequestSystem; poll waits Verified for Atel#: start 0x007a5780 sets g_BtlCameraState (0x0112a8e4) to 1 for the request; 0x703c sets 2, with which MsAtelRequestCamera refuses actor-less camera requests (ffx-rust atel.rs). The polls (0x007a58c0, 0x007a5680) are the same code.</remarks>
     [Atel.Native(0x7097, Polls = true)]
-    public static int AtelRequestSystem_7097(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int AtelRequestSystemAllowCameras(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7098: MsCheckDefenseMotion(MsGetChr(actor)) (0x007af2f0), 0 without an actor; ported in native_mods (script round 21); name ours; name from &quot;MsCheckDefenseMotion(MsGetChr(actor)) (0x007af2f0)&quot;</summary>
     /// <remarks>Native <c>0x7098</c>, <c>Native_7098_CheckDefenseMotion</c>; 2 calls in the shipped scripts.</remarks>
@@ -5911,10 +5914,10 @@ public static partial class Btl
     [Atel.Native(0x70a2, Polls = true)]
     public static int RegMotionRead(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70a3: Battle_ScriptPlayMotion(worker, args, stack, 0) (0x007a8fc0) with the actor&apos;s +0x38 byte set to 1 for the call and put back; +0x3f3 = 1 when +0x434 is; ported in native_mods (script round 21); name ours; name from &quot;Battle_ScriptPlayMotion(worker, args, stack, 0)&quot; with +0x38 set for the call</summary>
-    /// <remarks>Native <c>0x70a3</c>, <c>Native_70a3_ActorPlayMotion</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a motion on the worker's actor as <see cref="ActorPlayMotion"/>, also while its model is hidden.</summary>
+    /// <remarks>Native <c>0x70a3</c>, <c>Native_70a3_ActorPlayMotion</c>; 2 calls in the shipped scripts. Reverse engineering: 0x70a3: Battle_ScriptPlayMotion(worker, args, stack, 0) (0x007a8fc0) with the actor&apos;s +0x38 byte set to 1 for the call and put back; +0x3f3 = 1 when +0x434 is; ported in native_mods (script round 21); name ours; name from &quot;Battle_ScriptPlayMotion(worker, args, stack, 0)&quot; with +0x38 set for the call Verified for Atel#: handler 0x007a3730 sets the actor's +0x38 (shown) to 1 for the call of Battle_ScriptPlayMotion(…, 0) and puts it back; Battle_ScriptPlayMotion plays only on a shown model (ffx-rust motion.rs).</remarks>
     [Atel.Native(0x70a3)]
-    public static int ActorPlayMotion_70a3(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int ActorPlayMotionEvenIfHidden(int a0) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70a4: no args -&gt; 0: 0x0079cca0(); ported in native_btl (script round 12); name from 0x0079cca0 clears byte 0x0112c9cf; when [0x0113606c] is set and ChN_SystemMgrpLoaded (0x00837710) holds, clears it; then jumps to 0x00837690; 0</summary>
     /// <remarks>Native <c>0x70a4</c>, <c>Native_70a4_ChnSystemMgrpReset</c>; 13 calls in the shipped scripts.</remarks>
@@ -5956,10 +5959,10 @@ public static partial class Btl
     [Atel.Native(0x70ab)]
     public static int SetActorProperty(ActorProperty property, int value) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70ac (float): (i) -&gt; 0x007b2c90(actor, i); ported in native_btl/native_msg (script round 8); name from &quot;(i) -&gt; 0x007b2c90(actor, i)&quot; MsGetChrMotionInfo_007b2c90</summary>
-    /// <remarks>Native <c>0x70ac</c>, <c>Native_70ac_ChrGetMotionInfo</c>; 472 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrGetMotionInfo"/>, for the worker's own actor.</summary>
+    /// <remarks>Native <c>0x70ac</c>, <c>Native_70ac_ChrGetMotionInfo</c>; 472 calls in the shipped scripts. Reverse engineering: 0x70ac (float): (i) -&gt; 0x007b2c90(actor, i); ported in native_btl/native_msg (script round 8); name from &quot;(i) -&gt; 0x007b2c90(actor, i)&quot; MsGetChrMotionInfo_007b2c90 Verified for Atel#: handler 0x007a5650: 0x007b2c90(actor, i); 0x70a7 takes a selector first (Battle_FirstSelectedActor).</remarks>
     [Atel.Native(0x70ac)]
-    public static float ChrGetMotionInfo_70ac(int a0) => throw Atel.Runtime.NotRunnable();
+    public static float ActorGetMotionInfo(int info) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ad: jumps to 0x007ad6e0; ported in native_mods (script round 21); name ours; name from &quot;jumps to 0x007ad6e0&quot; MsEquipmentHasUnmarked_007ad6e0</summary>
     /// <remarks>Native <c>0x70ad</c>, <c>Native_70ad_EquipmentHasUnmarked</c>; 1 calls in the shipped scripts.</remarks>
@@ -5981,10 +5984,10 @@ public static partial class Btl
     [Atel.Native(0x70b0)]
     public static int ChrGetMoveSteps(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70b1: args (v int) -&gt; debug (mod-tool candidate): dbgPrintf(&quot;##### %d : %x : c%02d #####&quot;, v, v, actor) (a bare ret in this build); 0; debug, not ported (mod-tool candidate); name from &quot;dbgPrintf(&quot; %d : %x : c%02d &quot;, v, v, actor) (a bare ret in this build)&quot;</summary>
-    /// <remarks>Native <c>0x70b1</c>, <c>Native_70b1_DebugPrint</c>; 15 calls in the shipped scripts.</remarks>
+    /// <summary>Logs a value as <see cref="DebugPrint"/> does, between <c>#####</c> instead of <c>*****</c>; dbgPrintf is empty on PC. Returns 0.</summary>
+    /// <remarks>Native <c>0x70b1</c>, <c>Native_70b1_DebugPrint</c>; 15 calls in the shipped scripts. Reverse engineering: 0x70b1: args (v int) -&gt; debug (mod-tool candidate): dbgPrintf(&quot;##### %d : %x : c%02d #####&quot;, v, v, actor) (a bare ret in this build); 0; debug, not ported (mod-tool candidate); name from &quot;dbgPrintf(&quot; %d : %x : c%02d &quot;, v, v, actor) (a bare ret in this build)&quot; Verified for Atel#: handler 0x007a4a60: dbgPrintf("##### %d : %x : c%02d #####", v, v, actor).</remarks>
     [Atel.Native(0x70b1)]
-    public static int DebugPrint_70b1(int v) => throw Atel.Runtime.NotRunnable();
+    public static int DebugPrintHashes(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70b2: args (property 0-9, float value) -&gt; 0; 0x007b4a90 sets self actor float fields (+0x4bc..; 9 also sets the model&apos;s +0x4e4 through 0x0082b880)</summary>
     /// <remarks>Native <c>0x70b2</c>, <c>Native_SetSelfFloatProperty</c>; 2840 calls in the shipped scripts.</remarks>
@@ -6151,15 +6154,15 @@ public static partial class Btl
     [Atel.Native(0x70d2)]
     public static int ChrGetEffect8Count(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70d3: (sel, b, a): MsSetChrEffect_0079eb10(x, b, 7, a, 1) for the first actor x of sel, whose +0xe12 counts up when it starts; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrEffect_0079eb10(x, b, 7, a, 1) ... +0xe12 counts up&quot;</summary>
-    /// <remarks>Native <c>0x70d3</c>, <c>Native_70d3_ChrSetEffect7</c>; 6 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrSetEffect7"/>, for the first actor <paramref name="selector"/> picks.</summary>
+    /// <remarks>Native <c>0x70d3</c>, <c>Native_70d3_ChrSetEffect7</c>; 6 calls in the shipped scripts. Reverse engineering: 0x70d3: (sel, b, a): MsSetChrEffect_0079eb10(x, b, 7, a, 1) for the first actor x of sel, whose +0xe12 counts up when it starts; 0; ported in native_mods (script round 21); name ours; name from &quot;MsSetChrEffect_0079eb10(x, b, 7, a, 1) ... +0xe12 counts up&quot; Verified for Atel#: handler 0x007a4a90: Battle_FirstSelectedActor(actor, selector, 0, 1), then MsSetChrEffect_0079eb10(x, b, 7, a, 1) and +0xe12 += 1 once started, as 0x7017 on the worker's actor.</remarks>
     [Atel.Native(0x70d3)]
-    public static int ChrSetEffect7_70d3(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SelSetEffect7(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70d4: (sel, b, a) -&gt; 0x0079eba0(first of sel, b, a, 1); ported in native_mods (script round 21); name ours; name from &quot;0x0079eba0(first of sel, b, a, 1)&quot; MsSetChrEffect8_0079eba0</summary>
-    /// <remarks>Native <c>0x70d4</c>, <c>Native_70d4_ChrSetEffect8</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrSetEffect8"/>, for the first actor <paramref name="selector"/> picks.</summary>
+    /// <remarks>Native <c>0x70d4</c>, <c>Native_70d4_ChrSetEffect8</c>; 0 calls in the shipped scripts. Reverse engineering: 0x70d4: (sel, b, a) -&gt; 0x0079eba0(first of sel, b, a, 1); ported in native_mods (script round 21); name ours; name from &quot;0x0079eba0(first of sel, b, a, 1)&quot; MsSetChrEffect8_0079eba0 Verified for Atel#: handler 0x007a4f20: Battle_FirstSelectedActor, then MsSetChrEffect8_0079eba0(x, b, a, 1), as 0x7062 on the worker's actor.</remarks>
     [Atel.Native(0x70d4)]
-    public static int ChrSetEffect8_70d4(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
+    public static int SelSetEffect8(Target selector, int a1, int a2) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70d5: (selector): actor +0x6d1 = picked; picked; ported in native_btl/native_move (script round 9); name from selected actors&apos; +0x6d1 = picked; +0x6d1 is STAT_SUMMONER (property 0x106; fh: Chr.summoned_by_id)</summary>
     /// <remarks>Native <c>0x70d5</c>, <c>Native_70d5_SelSetField6d1</c>; 25 calls in the shipped scripts.</remarks>
@@ -6276,10 +6279,10 @@ public static partial class Btl
     [Atel.Native(0x70eb)]
     public static int Random() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70ec: args (v int) -&gt; 0x007904b0(v); the same code as Native_01b2_GetItemCount (0x00859360; call targets equal), a copy the compiler kept, and the Rust handler is Native_01b2_GetItemCount&apos;s; ported in native_btl2 (script round 18); own name</summary>
-    /// <remarks>Native <c>0x70ec</c>, <c>Native_01b2_copy_007a2c50</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>How many of item <paramref name="item"/> the party has: the same code as <c>Common.GetItemCount</c> (<c>0x01b2</c>).</summary>
+    /// <remarks>Native <c>0x70ec</c>, <c>Native_01b2_copy_007a2c50</c>; 0 calls in the shipped scripts. Reverse engineering: 0x70ec: args (v int) -&gt; 0x007904b0(v); the same code as Native_01b2_GetItemCount (0x00859360; call targets equal), a copy the compiler kept, and the Rust handler is Native_01b2_GetItemCount&apos;s; ported in native_btl2 (script round 18); own name Verified for Atel#: handlers 0x007a2c50 and 0x00859360 call the same targets: 0x007904b0(item).</remarks>
     [Atel.Native(0x70ec)]
-    public static int N70ec01b2Copy007a2c50(int v) => throw Atel.Runtime.NotRunnable();
+    public static int GetItemCount(int item) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70ed: args (b int, a int) -&gt; int: MsSaveItemUse(b, a) (0x00790550); ported in native_btl (script round 12); name from &quot;MsSaveItemUse(b, a) (0x00790550)&quot;</summary>
     /// <remarks>Native <c>0x70ed</c>, <c>Native_70ed_SaveItemUse</c>; 8 calls in the shipped scripts.</remarks>
@@ -6351,10 +6354,10 @@ public static partial class Btl
     [Atel.Native(0x70fa)]
     public static int SetRandFixed(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x70fb: (p5, p4, p3, p2, p1) -&gt; 0x007a8f60(actor, p5, -16, p3, 0, p2) when 0x007a8b40(actor, p5, p4) and 0x007a8ad0(p5, p1) both hold, else (or for 0xff) 0xff; ported in native_mods (script round 21); name from 0x007a8f60 = MsSearchScriptTarget (actor, p5, -16, p3, 0, p2) when 0x007a8b40 and 0x007a8ad0 hold; else 0xff</summary>
-    /// <remarks>Native <c>0x70fb</c>, <c>Native_70fb_SearchScriptTarget</c>; 54 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="SearchScriptTarget"/>, when the command can be used and a random check passes; else 0xff.</summary>
+    /// <remarks>Native <c>0x70fb</c>, <c>Native_70fb_SearchScriptTarget</c>; 54 calls in the shipped scripts. Reverse engineering: 0x70fb: (p5, p4, p3, p2, p1) -&gt; 0x007a8f60(actor, p5, -16, p3, 0, p2) when 0x007a8b40(actor, p5, p4) and 0x007a8ad0(p5, p1) both hold, else (or for 0xff) 0xff; ported in native_mods (script round 21); name from 0x007a8f60 = MsSearchScriptTarget (actor, p5, -16, p3, 0, p2) when 0x007a8b40 and 0x007a8ad0 hold; else 0xff Verified for Atel#: handler 0x007a37e0: MsSetCommandScriptTarget_007a8b40(actor, id, flags) and MsRandCheck_007a8ad0(id, n) both hold, then MsSearchScriptTarget_007a8f60(actor, id, -16, kind, 0, mode); 0xff otherwise or when it finds none. 0x70f9 searches unconditionally.</remarks>
     [Atel.Native(0x70fb)]
-    public static int SearchScriptTarget_70fb(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int TrySearchScriptTarget(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x70fc: the u16 at 0x01136410; ported in native_mods (script round 21); name from u16 at 0x01136410 (g_BtlRandFixed)</summary>
     /// <remarks>Native <c>0x70fc</c>, <c>Native_70fc_BtlGetRandFixed</c>; 5 calls in the shipped scripts.</remarks>
@@ -6416,10 +6419,10 @@ public static partial class Btl
     [Atel.Native(0x7107)]
     public static int ChrDirTurnSteps(int n) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7108: (a, b): MsSetChrDirTarget(actor, 1, 1, -1, b, a) with +0x41d; 0; ported in native_btl/native_move (script round 9); name from &quot;MsSetChrDirTarget(actor, 1, 1, -1, b, a) with +0x41d&quot;</summary>
-    /// <remarks>Native <c>0x7108</c>, <c>Native_7108_ChrSetDirTarget</c>; 36 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrFaceBattleDir"/>, keeping a turn already under way going the same way round. Returns 0.</summary>
+    /// <remarks>Native <c>0x7108</c>, <c>Native_7108_ChrSetDirTarget</c>; 36 calls in the shipped scripts. Reverse engineering: 0x7108: (a, b): MsSetChrDirTarget(actor, 1, 1, -1, b, a) with +0x41d; 0; ported in native_btl/native_move (script round 9); name from &quot;MsSetChrDirTarget(actor, 1, 1, -1, b, a) with +0x41d&quot; Verified for Atel#: handler 0x007a40a0: with +0x41d, MsSetChrDirTarget(actor, 1, 1, -1, a, b): turn (+0x42c) 1, so MsGetDirMode's result goes through MsDirTurn (0x007a9650), which keeps the remaining turn's side.</remarks>
     [Atel.Native(0x7108)]
-    public static int ChrSetDirTarget_7108(int a0, int a1) => throw Atel.Runtime.NotRunnable();
+    public static int ChrFaceBattleDirKeepTurn(int a0, int a1) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7109: args (selector int, reset int, f f) -&gt; int: the number of picked actors; each with a model: +0x407 = 1, with reset 0x00796070(i, 0), +0x505 = 1, +0x50c = 0; +0x43d = 0, +0x538 = f; ported in native_btl (script round 12); name from the number of picked actors; each with a model: +0x407 = 1, MsSetChrGravMode (0x00796070)</summary>
     /// <remarks>Native <c>0x7109</c>, <c>Native_7109_SelSetGravMode</c>; 7 calls in the shipped scripts.</remarks>
@@ -6466,20 +6469,20 @@ public static partial class Btl
     [Atel.Native(0x7111)]
     public static int ChrClearMouthAutoTalk(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7112: args (c int, _ f, b int, a int) -&gt; 0: 0x00795eb0(actor, c, 1, -1, b, a); ported in native_btl2 (script round 18); name ours; name from &quot;0x00795eb0(actor, c, 1, -1, b, a)&quot; MsSetChrDirTarget</summary>
-    /// <remarks>Native <c>0x7112</c>, <c>Native_7112_ChrSetDirTarget</c>; 1 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="ChrSetDirMode"/>, keeping a turn already under way going the same way round. Returns 0.</summary>
+    /// <remarks>Native <c>0x7112</c>, <c>Native_7112_ChrSetDirTarget</c>; 1 calls in the shipped scripts. Reverse engineering: 0x7112: args (c int, _ f, b int, a int) -&gt; 0: 0x00795eb0(actor, c, 1, -1, b, a); ported in native_btl2 (script round 18); name ours; name from &quot;0x00795eb0(actor, c, 1, -1, b, a)&quot; MsSetChrDirTarget Verified for Atel#: handler 0x007a43d0: MsSetChrDirTarget(actor, mode, 1, -1, a, b).</remarks>
     [Atel.Native(0x7112)]
-    public static int ChrSetDirTarget_7112(int c, float f, int b, int a) => throw Atel.Runtime.NotRunnable();
+    public static int ChrSetDirModeKeepTurn(int mode, float unused, int b, int a) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7113: the byte 0x0112c9e5 = 1; 0; ported in native_mods (script round 21); name from g_BtlStealRule (0x0112c9e5) = 1; 0</summary>
-    /// <remarks>Native <c>0x7113</c>, <c>Native_7113_BtlSetStealRule</c>; 144 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the battle type to 1: no fiend can be captured in this battle. Was <c>SetStealRule</c>.</summary>
+    /// <remarks>Native <c>0x7113</c>, <c>Native_7113_BtlSetStealRule</c>; 144 calls in the shipped scripts. Reverse engineering: 0x7113: the byte 0x0112c9e5 = 1; 0; ported in native_mods (script round 21); name from g_BtlStealRule (0x0112c9e5) = 1; 0 Verified for Atel#: handler 0x007a8090: g_BtlBattleType (0x0112c9e5) = 1; capturing works only in type 0 (MsCalcCommand).</remarks>
     [Atel.Native(0x7113)]
-    public static int SetStealRule() => throw Atel.Runtime.NotRunnable();
+    public static int SetBattleTypeNoCapture() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7114: the byte 0x0112c9e5 = 2; 0; ported in native_mods (script round 21); name from g_BtlStealRule (0x0112c9e5) = 2; 0</summary>
-    /// <remarks>Native <c>0x7114</c>, <c>Native_7114_BtlSetStealRule</c>; 16 calls in the shipped scripts.</remarks>
+    /// <summary>Sets the battle type to 2: no capture, nothing can be stolen or mugged, no battle records, no overdrive learning for Tidus.</summary>
+    /// <remarks>Native <c>0x7114</c>, <c>Native_7114_BtlSetStealRule</c>; 16 calls in the shipped scripts. Reverse engineering: 0x7114: the byte 0x0112c9e5 = 2; 0; ported in native_mods (script round 21); name from g_BtlStealRule (0x0112c9e5) = 2; 0 Verified for Atel#: handler 0x007a80a0: g_BtlBattleType (0x0112c9e5) = 2: Battle_Steal, Battle_StealGil, MsSaveAddInfoData, MsLimitTidusLearn skip; also read by MsBtlReadManage, MsSetRamChr, MsLimitTypeExpGet.</remarks>
     [Atel.Native(0x7114)]
-    public static int SetStealRule_7114() => throw Atel.Runtime.NotRunnable();
+    public static int SetBattleTypeNoSteal() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7115: no args -&gt; 0: MsSetChrDirLeave(actor) (0x00795e70); ported in native_btl (script round 12); name from &quot;MsSetChrDirLeave(actor) (0x00795e70)&quot;</summary>
     /// <remarks>Native <c>0x7115</c>, <c>Native_7115_ChrSetDirLeave</c>; 4 calls in the shipped scripts.</remarks>
@@ -6491,10 +6494,10 @@ public static partial class Btl
     [Atel.Native(0x7116)]
     public static int EffectSetGuard() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7117: args (targets int, command int) -&gt; 1: Battle_QueueCommand(actor, command, MsGetChrBit(actor, targets, 0, 1, 1, 0x40)) after MsMotionPosCheck when +0x3f9 is set; 0 without an actor; ported in native_btl (script round 12); name from &quot;Battle_QueueCommand(actor, command, MsGetChrBit(...)) after MsMotionPosCheck&quot;</summary>
-    /// <remarks>Native <c>0x7117</c>, <c>Native_7117_BtlQueueCommand</c>; 20 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="QueueCommand"/>, first marking the actor busy while it is off its battle place.</summary>
+    /// <remarks>Native <c>0x7117</c>, <c>Native_7117_BtlQueueCommand</c>; 20 calls in the shipped scripts. Reverse engineering: 0x7117: args (targets int, command int) -&gt; 1: Battle_QueueCommand(actor, command, MsGetChrBit(actor, targets, 0, 1, 1, 0x40)) after MsMotionPosCheck when +0x3f9 is set; 0 without an actor; ported in native_btl (script round 12); name from &quot;Battle_QueueCommand(actor, command, MsGetChrBit(...)) after MsMotionPosCheck&quot; Verified for Atel#: handler 0x007a4b00: with actor +0x3f9, MsMotionPosCheck(actor) (a moving actor is busy, +0x508, while off its battle place, ffx-rust process.rs); then Battle_QueueCommand as 0x705a.</remarks>
     [Atel.Native(0x7117)]
-    public static int QueueCommand_7117(Target targets, Command command) => throw Atel.Runtime.NotRunnable();
+    public static int QueueCommandWhenInPlace(Target targets, Command command) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7118: args (v int) -&gt; int: v; the byte 0x0112ca11 = v; ported in native_btl (script round 12); name from g_BtlNoSummonReturn (0x0112ca11) = v; v</summary>
     /// <remarks>Native <c>0x7118</c>, <c>Native_7118_BtlSetNoSummonReturn</c>; 1 calls in the shipped scripts.</remarks>
@@ -6531,10 +6534,10 @@ public static partial class Btl
     [Atel.Native(0x711e)]
     public static int GetCommand3029Count() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x711f: as 0x7042 from the table at *0x0112a998, only when MsGetBattleMessageFlag() (0x00784e40) is set and the word at 0x01841d20 is not 0; 0; ported in native_mods (script round 21); name ours; name from &quot;as 0x7042 from *0x0112a998, only when MsGetBattleMessageFlag()&quot; (TODrawAMES)</summary>
-    /// <remarks>Native <c>0x711f</c>, <c>Native_711f_BtlMsgDrawAmes</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="MsgDrawAmes"/>, with a text of the game's battle message table instead of the battle file's, when battle messages are shown.</summary>
+    /// <remarks>Native <c>0x711f</c>, <c>Native_711f_BtlMsgDrawAmes</c>; 0 calls in the shipped scripts. Reverse engineering: 0x711f: as 0x7042 from the table at *0x0112a998, only when MsGetBattleMessageFlag() (0x00784e40) is set and the word at 0x01841d20 is not 0; 0; ported in native_mods (script round 21); name ours; name from &quot;as 0x7042 from *0x0112a998, only when MsGetBattleMessageFlag()&quot; (TODrawAMES) Verified for Atel#: handler 0x007a6200 reads g_BtlMessages (0x0112a998) where 0x7042 reads g_BtlFileText (0x0112a9b8), and draws only when MsGetBattleMessageFlag() and the word at 0x01841d20 are set.</remarks>
     [Atel.Native(0x711f)]
-    public static int MsgDrawAmes_711f(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+    public static int MsgDrawAmesBattleMessage(int a0, int a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7120: (b, a): 0x0079d090(a), b dropped; 0; ported in native_mods (script round 21); name ours; name from &quot;0x0079d090(a)&quot; MsShowBattleMessage_0079d090</summary>
     /// <remarks>Native <c>0x7120</c>, <c>Native_7120_BtlMsgShow</c>; 9 calls in the shipped scripts.</remarks>
@@ -6551,20 +6554,20 @@ public static partial class Btl
     [Atel.Native(0x7122)]
     public static int ChrSetField4d4(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7123: args (weapon int) -&gt; MsAttachWeapon(5, weapon) (0x00793330); ported in native_btl2 (script round 18); name ours; name from &quot;MsAttachWeapon(5, weapon) (0x00793330)&quot;</summary>
-    /// <remarks>Native <c>0x7123</c>, <c>Native_7123_ChrAttachWeapon</c>; 2 calls in the shipped scripts.</remarks>
+    /// <summary>Puts weapon <paramref name="weapon"/> in Lulu's hand (actor 5).</summary>
+    /// <remarks>Native <c>0x7123</c>, <c>Native_7123_ChrAttachWeapon</c>; 2 calls in the shipped scripts. Reverse engineering: 0x7123: args (weapon int) -&gt; MsAttachWeapon(5, weapon) (0x00793330); ported in native_btl2 (script round 18); name ours; name from &quot;MsAttachWeapon(5, weapon) (0x00793330)&quot; Verified for Atel#: handler 0x007a2980: MsAttachWeapon(5, weapon) (0x00793330); actor 5 is Lulu (Target.Lulu). For actor 5 MsAttachWeapon also turns her special weapon to its target.</remarks>
     [Atel.Native(0x7123)]
-    public static int ChrAttachWeapon_7123(int weapon) => throw Atel.Runtime.NotRunnable();
+    public static int LuluAttachWeapon(int weapon) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7124: (id): 0x0112c250 = id; MsSetVoiceId(id) (0x007b2b50) when MsGetBattleMessageFlag(); id; ported in native_mods (script round 21); name ours; name from &quot;MsSetVoiceId(id) (0x007b2b50) when MsGetBattleMessageFlag()&quot;</summary>
     /// <remarks>Native <c>0x7124</c>, <c>Native_7124_SetVoiceId</c>; 38 calls in the shipped scripts.</remarks>
     [Atel.Native(0x7124)]
     public static int SetVoiceId(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x7125: () -&gt; 0; MsAttachWeapon(4, 0) for actor 4; ported in native_btl2 (script round 18); name ours; name from &quot;MsAttachWeapon(4, 0) for actor 4&quot;</summary>
-    /// <remarks>Native <c>0x7125</c>, <c>Native_7125_ChrAttachWeapon</c>; 5 calls in the shipped scripts.</remarks>
+    /// <summary>Puts Wakka's weapon 0 back in his hand, when the worker's actor is Wakka (actor 4). Returns 0.</summary>
+    /// <remarks>Native <c>0x7125</c>, <c>Native_7125_ChrAttachWeapon</c>; 5 calls in the shipped scripts. Reverse engineering: 0x7125: () -&gt; 0; MsAttachWeapon(4, 0) for actor 4; ported in native_btl2 (script round 18); name ours; name from &quot;MsAttachWeapon(4, 0) for actor 4&quot; Verified for Atel#: handler 0x007a8650: with the worker's actor 4 (Target.Wakka), MsAttachWeapon(4, 0).</remarks>
     [Atel.Native(0x7125)]
-    public static int ChrAttachWeapon_7125() => throw Atel.Runtime.NotRunnable();
+    public static int WakkaAttachWeapon() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x7126: args (i int) -&gt; i (0xff when negative); actor i and both parts (0x00795b10) +0x3e = 1; ported in native_btl2 (script round 18); name from actor i and both weapon parts (0x00795b10 MsGetWeapon) +0x3e = 1; i (0xff when negative)</summary>
     /// <remarks>Native <c>0x7126</c>, <c>Native_7126_ActorSetField3eWeapons</c>; 23 calls in the shipped scripts.</remarks>
@@ -6615,15 +6618,15 @@ public static partial class Fx
     [Atel.Native(0x8006, Polls = true)]
     public static int MapJumpToEntrance(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x8007: `0x00729740()`; 1. (ffx_script::vm::bridge::native_map)</summary>
-    /// <remarks>Native <c>0x8007</c>, <c>Native_8007</c>; 1 calls in the shipped scripts.</remarks>
+    /// <summary>Resets the runs of every loaded field effect. Returns 1.</summary>
+    /// <remarks>Native <c>0x8007</c>, <c>Native_8007</c>; 1 calls in the shipped scripts. Reverse engineering: 0x8007: `0x00729740()`; 1. (ffx_script::vm::bridge::native_map) Verified for Atel#: handler 0x0091b050: pppFpResetSameIds_00729740 (each g_FpData entry with an id: every run with that id gets +0 = 0, +0x1d = 0); 1.</remarks>
     [Atel.Native(0x8007)]
-    public static int N8007() => throw Atel.Runtime.NotRunnable();
+    public static int FpResetRuns() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x8008: `0x007296a0()`; 1. (ffx_script::vm::bridge::native_map)</summary>
-    /// <remarks>Native <c>0x8008</c>, <c>Native_8008</c>; 16 calls in the shipped scripts.</remarks>
+    /// <summary>Frees every running field effect. Returns 1.</summary>
+    /// <remarks>Native <c>0x8008</c>, <c>Native_8008</c>; 16 calls in the shipped scripts. Reverse engineering: 0x8008: `0x007296a0()`; 1. (ffx_script::vm::bridge::native_map) Verified for Atel#: handler 0x0091b060: pppFpFreeAll_007296a0 (each g_FpData entry with an id: pppAllFreePObject on its run, the frame counter -0x1000); 1.</remarks>
     [Atel.Native(0x8008)]
-    public static int N8008() => throw Atel.Runtime.NotRunnable();
+    public static int FpFreeAll() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>Attaches map effect <paramref name="fpId"/> to a bone of the worker's model.</summary>
     /// <remarks>Native <c>0x8009</c>, <c>Native_FpBind</c>; 7719 calls in the shipped scripts. Reverse engineering: 0x8009: args (fp id, bone) -&gt; 1; Fp_BindToWorker(worker, id, bone); bone often from func 0x0213</remarks>
@@ -7143,10 +7146,10 @@ public static partial class Movie
     [Atel.Native(0xb001, Polls = true)]
     public static int WaitResult() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb002: no args -&gt; debug (mod-tool candidate): a dbgPrintf line only; 0; debug, not ported (mod-tool candidate); name from &quot;a dbgPrintf line only; 0&quot; (movie native)</summary>
-    /// <remarks>Native <c>0xb002</c>, <c>Native_b002_DebugPrint</c>; 5 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_status_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb002</c>, <c>Native_b002_DebugPrint</c>; 5 calls in the shipped scripts. Reverse engineering: 0xb002: no args -&gt; debug (mod-tool candidate): a dbgPrintf line only; 0; debug, not ported (mod-tool candidate); name from &quot;a dbgPrintf line only; 0&quot; (movie native) Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_status_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb002)]
-    public static int DebugPrint() => throw Atel.Runtime.NotRunnable();
+    public static int Status() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xb003: no args -&gt; int: graphicGetCurrentFrame() (0x006410d0, a jump); ported in native_chr (script round 12); name from &quot;graphicGetCurrentFrame()&quot; (0x006410d0)</summary>
     /// <remarks>Native <c>0xb003</c>, <c>Native_b003_MovieGetFrame</c>; 219 calls in the shipped scripts.</remarks>
@@ -7158,25 +7161,25 @@ public static partial class Movie
     [Atel.Native(0xb004, Polls = true)]
     public static int CloseResult() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb005: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb005</c>, <c>Native_b005_DebugPrint</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_pause_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb005</c>, <c>Native_b005_DebugPrint</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb005: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_pause_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb005)]
-    public static int DebugPrint_b005() => throw Atel.Runtime.NotRunnable();
+    public static int Pause() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb006: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb006</c>, <c>Native_b006_DebugPrint</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_ch_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb006</c>, <c>Native_b006_DebugPrint</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb006: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_ch_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb006)]
-    public static int DebugPrint_b006() => throw Atel.Runtime.NotRunnable();
+    public static int Channel() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb007: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb007</c>, <c>Native_b007_DebugPrint</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_vol_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb007</c>, <c>Native_b007_DebugPrint</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb007: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_vol_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb007)]
-    public static int DebugPrint_b007() => throw Atel.Runtime.NotRunnable();
+    public static int Volume() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb008: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from all slots: &quot;the same warning&quot; / &quot;Virtuos Warning&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb008</c>, <c>Native_b008_DebugPrint_Result</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_start_debug_init</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb008</c>, <c>Native_b008_DebugPrint_Result</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb008: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from all slots: &quot;the same warning&quot; / &quot;Virtuos Warning&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_start_debug_init" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb008, Polls = true)]
-    public static int DebugPrintResult() => throw Atel.Runtime.NotRunnable();
+    public static int StartDebugInitResult() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xb009: no args -&gt; int: 0; g_WaitFramesByTime 1, 0x006427c0(0), 0x0076edc0(); ported in native_chr (script round 12); name from g_WaitFramesByTime 1, 0x006427c0(0), 0x0076edc0 = MovieCameraFrame; int 0 (start, poll and result)</summary>
     /// <remarks>Native <c>0xb009</c>, <c>Native_b009_MovieCameraWait_Result</c>; 116 calls in the shipped scripts.</remarks>
@@ -7203,15 +7206,15 @@ public static partial class Movie
     [Atel.Native(0xb00d)]
     public static int ClearDone() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb00e: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb00e</c>, <c>Native_b00e_DebugPrint</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_op_frame_draw_acc_path3_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb00e</c>, <c>Native_b00e_DebugPrint</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb00e: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_op_frame_draw_acc_path3_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb00e)]
-    public static int DebugPrint_b00e() => throw Atel.Runtime.NotRunnable();
+    public static int FrameDrawPath3() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xb00f: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf</summary>
-    /// <remarks>Native <c>0xb00f</c>, <c>Native_b00f_DebugPrint</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Not on PC: logs that the movie callback <c>movie_frame_pal_resulti</c> is not implemented, and returns 0.</summary>
+    /// <remarks>Native <c>0xb00f</c>, <c>Native_b00f_DebugPrint</c>; 0 calls in the shipped scripts. Reverse engineering: 0xb00f: a &quot;Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet!&quot; line naming the PS2 callback through the empty dbgPrintf; 0 (the poll ke; ported in native_mods (script round 21); name ours; name from &quot;Virtuos Warning: Movie ... not impelemented yet!&quot; line through the empty dbgPrintf Verified for Atel#: the handler pushes "Virtuos Warning: Movie on Windows, PS3 &amp; PS Vita is not impelemented yet! Call back by the movie_frame_pal_resulti" for dbgPrintf, which is empty on PC; the name is the PS2 callback's.</remarks>
     [Atel.Native(0xb00f)]
-    public static int DebugPrint_b00f() => throw Atel.Runtime.NotRunnable();
+    public static int FramePal() => throw Atel.Runtime.NotRunnable();
 }
 
 /// <summary>Natives of group c (<c>0xc000</c>–).</summary>
@@ -7342,45 +7345,45 @@ public static partial class GroupC
     [Atel.Native(0xc019)]
     public static int MapLoadNoCache(int a0) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01a: args (party, kick, variation) -&gt; 1: SndKickFoot(1, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(1, ...)&quot; (0x008866b0: a footstep sound of kind 1)</summary>
-    /// <remarks>Native <c>0xc01a</c>, <c>Native_c01a_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 1 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01a</c>, <c>Native_c01a_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01a: args (party, kick, variation) -&gt; 1: SndKickFoot(1, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(1, ...)&quot; (0x008866b0: a footstep sound of kind 1) Verified for Atel#: SndKickFoot(1, …) (0x008866b0: a footstep of g_SndFoot work kind 1, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01a)]
-    public static int SndKickFoot(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind1(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01b: args (party, kick, variation) -&gt; 1: SndKickFoot(0, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(0, ...)&quot; (0x008866b0: a footstep sound of kind 0)</summary>
-    /// <remarks>Native <c>0xc01b</c>, <c>Native_c01b_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 0 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01b</c>, <c>Native_c01b_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01b: args (party, kick, variation) -&gt; 1: SndKickFoot(0, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(0, ...)&quot; (0x008866b0: a footstep sound of kind 0) Verified for Atel#: SndKickFoot(0, …) (0x008866b0: a footstep of g_SndFoot work kind 0, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01b)]
-    public static int SndKickFoot_c01b(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind0(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01c: args (party, kick) -&gt; 1: SndKickFoot(5, party, kick, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(5, party, kick, 0)&quot; (0x008866b0: a footstep sound of kind 5)</summary>
-    /// <remarks>Native <c>0xc01c</c>, <c>Native_c01c_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 5 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01c</c>, <c>Native_c01c_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01c: args (party, kick) -&gt; 1: SndKickFoot(5, party, kick, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(5, party, kick, 0)&quot; (0x008866b0: a footstep sound of kind 5) Verified for Atel#: SndKickFoot(5, …) (0x008866b0: a footstep of g_SndFoot work kind 5, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01c)]
-    public static int SndKickFoot_c01c(int party, int kick) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind5(int party, int kick) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01d: args (party, kick, variation) -&gt; 1: SndKickFoot(2, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(2, ...)&quot; (0x008866b0: a footstep sound of kind 2)</summary>
-    /// <remarks>Native <c>0xc01d</c>, <c>Native_c01d_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 2 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01d</c>, <c>Native_c01d_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01d: args (party, kick, variation) -&gt; 1: SndKickFoot(2, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(2, ...)&quot; (0x008866b0: a footstep sound of kind 2) Verified for Atel#: SndKickFoot(2, …) (0x008866b0: a footstep of g_SndFoot work kind 2, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01d)]
-    public static int SndKickFoot_c01d(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind2(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01e: args (party, kick, variation) -&gt; 1: SndKickFoot(3, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(3, ...)&quot; (0x008866b0: a footstep sound of kind 3)</summary>
-    /// <remarks>Native <c>0xc01e</c>, <c>Native_c01e_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 3 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01e</c>, <c>Native_c01e_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01e: args (party, kick, variation) -&gt; 1: SndKickFoot(3, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(3, ...)&quot; (0x008866b0: a footstep sound of kind 3) Verified for Atel#: SndKickFoot(3, …) (0x008866b0: a footstep of g_SndFoot work kind 3, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01e)]
-    public static int SndKickFoot_c01e(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind3(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc01f: args (party, kick, variation) -&gt; 1: SndKickFoot(4, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(4, ...)&quot; (0x008866b0: a footstep sound of kind 4)</summary>
-    /// <remarks>Native <c>0xc01f</c>, <c>Native_c01f_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 4 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc01f</c>, <c>Native_c01f_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc01f: args (party, kick, variation) -&gt; 1: SndKickFoot(4, ...); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(4, ...)&quot; (0x008866b0: a footstep sound of kind 4) Verified for Atel#: SndKickFoot(4, …) (0x008866b0: a footstep of g_SndFoot work kind 4, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc01f)]
-    public static int SndKickFoot_c01f(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind4(int party, int kick, int variation) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc020: args (v int) -&gt; v; ported in native_sys (script round 18); name from pops v and returns it (the same code as 0xc021)</summary>
     /// <remarks>Native <c>0xc020</c>, <c>Native_c020_Echo</c>; 0 calls in the shipped scripts.</remarks>
     [Atel.Native(0xc020)]
     public static int Echo(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc021: args (v int) -&gt; v (the same code as 0xc020); ported in native_sys (script round 18); name from pops v and returns it (the same code as 0xc020)</summary>
-    /// <remarks>Native <c>0xc021</c>, <c>Native_c021_Echo</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="Echo"/> (<c>0xc020</c>), under another id. Returns its argument.</summary>
+    /// <remarks>Native <c>0xc021</c>, <c>Native_c021_Echo</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc021: args (v int) -&gt; v (the same code as 0xc020); ported in native_sys (script round 18); name from pops v and returns it (the same code as 0xc020) Verified for Atel#: handlers 0x00878ae0 and 0x00878ac0 are the same code.</remarks>
     [Atel.Native(0xc021)]
-    public static int Echo_c021(int v) => throw Atel.Runtime.NotRunnable();
+    public static int EchoAlias(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc022: no args -&gt; debug (mod-tool candidate): in a debug build Sg_EnableDrawGui(v); 1 in release; debug, not ported (mod-tool candidate); name from &quot;in a debug build Sg_EnableDrawGui(v)&quot; (0x00820420)</summary>
     /// <remarks>Native <c>0xc022</c>, <c>Native_c022_EnableDrawGui</c>; 1 calls in the shipped scripts.</remarks>
@@ -7432,20 +7435,20 @@ public static partial class GroupC
     [Atel.Native(0xc02b)]
     public static int NoOp() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc02c: args (v int) -&gt; int: the popped value; int: the popped value; ported in native_chr (script round 12); name from pops v and returns it (the popped value)</summary>
-    /// <remarks>Native <c>0xc02c</c>, <c>Native_c02c_Echo</c>; 20 calls in the shipped scripts.</remarks>
+    /// <summary>The same code as <see cref="Echo"/> (<c>0xc020</c>), under another id. Returns its argument; the scripts call it with 0 and drop the result.</summary>
+    /// <remarks>Native <c>0xc02c</c>, <c>Native_c02c_Echo</c>; 20 calls in the shipped scripts. Reverse engineering: 0xc02c: args (v int) -&gt; int: the popped value; int: the popped value; ported in native_chr (script round 12); name from pops v and returns it (the popped value) Verified for Atel#: handlers 0x00878e60 and 0x00878ac0 are the same code.</remarks>
     [Atel.Native(0xc02c)]
-    public static int Echo_c02c(int v) => throw Atel.Runtime.NotRunnable();
+    public static int EchoAlias2(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc02d: args (party int) -&gt; 1: SndKickFoot(6, party, 0, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(6, party, 0, 0)&quot; (0x008866b0: a footstep sound of kind 6)</summary>
-    /// <remarks>Native <c>0xc02d</c>, <c>Native_c02d_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 6 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc02d</c>, <c>Native_c02d_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc02d: args (party int) -&gt; 1: SndKickFoot(6, party, 0, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(6, party, 0, 0)&quot; (0x008866b0: a footstep sound of kind 6) Verified for Atel#: SndKickFoot(6, …) (0x008866b0: a footstep of g_SndFoot work kind 6, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc02d)]
-    public static int SndKickFoot_c02d(int party) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind6(int party) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc02e: args (party int) -&gt; 1: SndKickFoot(7, party, 0, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(7, party, 0, 0)&quot; (0x008866b0: a footstep sound of kind 7)</summary>
-    /// <remarks>Native <c>0xc02e</c>, <c>Native_c02e_SndKickFoot</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Plays a footstep sound of kind 7 for party member <paramref name="party"/>. Returns 1.</summary>
+    /// <remarks>Native <c>0xc02e</c>, <c>Native_c02e_SndKickFoot</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc02e: args (party int) -&gt; 1: SndKickFoot(7, party, 0, 0); ported in native_sys (script round 18); name ours; name from &quot;SndKickFoot(7, party, 0, 0)&quot; (0x008866b0: a footstep sound of kind 7) Verified for Atel#: SndKickFoot(7, …) (0x008866b0: a footstep of g_SndFoot work kind 7, through Snd3dFootRequest when the party slot is in the 3D mask); the kinds have no known names.</remarks>
     [Atel.Native(0xc02e)]
-    public static int SndKickFoot_c02e(int party) => throw Atel.Runtime.NotRunnable();
+    public static int SndKickFootKind7(int party) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc02f: args (on, v f) -&gt; the current ctrl work&apos;s +0x208 = v and +2 bit 0 = on != 0; EAX on != 0; ported in native_chr (script round 12); name from the current ctrl work&apos;s +0x208 = v (float) and +2 bit 0 = on != 0; EAX on != 0</summary>
     /// <remarks>Native <c>0xc02f</c>, <c>Native_c02f_CtrlSetField208F</c>; 29 calls in the shipped scripts.</remarks>
@@ -7607,10 +7610,10 @@ public static partial class GroupC
     [Atel.Native(0xc04e)]
     public static int SaveEventSetU8(int offset, float vF) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc04f: 1 (mov eax, 1; ret); ported in native_mods (script round 21); name ours; name from &quot;1 (mov eax, 1; ret)&quot;; style of Native_AlwaysTrue019c</summary>
-    /// <remarks>Native <c>0xc04f</c>, <c>Native_c04f_AlwaysTrue</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>Returns 1, as <see cref="AlwaysTrue"/> (<c>0xc032</c>).</summary>
+    /// <remarks>Native <c>0xc04f</c>, <c>Native_c04f_AlwaysTrue</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc04f: 1 (mov eax, 1; ret); ported in native_mods (script round 21); name ours; name from &quot;1 (mov eax, 1; ret)&quot;; style of Native_AlwaysTrue019c Verified for Atel#: handler 0x00879380 is mov eax, 1; ret; 0xc032 calls Script_WorkerLevel first (unused) and returns 1.</remarks>
     [Atel.Native(0xc04f)]
-    public static int AlwaysTrue_c04f() => throw Atel.Runtime.NotRunnable();
+    public static int AlwaysTrueAlias() => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc050: movie_stop_prog() (0x0076f090) when movie_run_check() (0x0076f060); 1; ported in native_mods (script round 21); name ours; name from &quot;movie_stop_prog() (0x0076f090) when movie_run_check()&quot;</summary>
     /// <remarks>Native <c>0xc050</c>, <c>Native_c050_MovieStop</c>; 0 calls in the shipped scripts.</remarks>
@@ -7672,10 +7675,10 @@ public static partial class GroupC
     [Atel.Native(0xc05b)]
     public static int DebugPs2String(int v) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0xc05c: AtelPs2DebugString2(sprintf(&quot;DEBUG:%d/0x%x&quot;, worker id, v)); v; debug native, not ported (script round 18); name from debug native: AtelPs2DebugString2 (sprintf &quot;DEBUG:%d/0x%x&quot;, worker id, v); v; ported M5 r4 mbs2 b3 (native_m5::native_c05c): as c05b with 0x00b5c100</summary>
-    /// <remarks>Native <c>0xc05c</c>, <c>Native_c05c_DebugPs2String</c>; 0 calls in the shipped scripts.</remarks>
+    /// <summary>As <see cref="DebugPs2String"/>, the value in hex (<c>DEBUG:%d/0x%x</c>). Returns its argument.</summary>
+    /// <remarks>Native <c>0xc05c</c>, <c>Native_c05c_DebugPs2String</c>; 0 calls in the shipped scripts. Reverse engineering: 0xc05c: AtelPs2DebugString2(sprintf(&quot;DEBUG:%d/0x%x&quot;, worker id, v)); v; debug native, not ported (script round 18); name from debug native: AtelPs2DebugString2 (sprintf &quot;DEBUG:%d/0x%x&quot;, worker id, v); v; ported M5 r4 mbs2 b3 (native_m5::native_c05c): as c05b with 0x00b5c100 Verified for Atel#: handler 0x008783c0: sprintf("DEBUG:%d/0x%x", worker id, v), AtelPs2DebugString2; 0xc05b writes %d.</remarks>
     [Atel.Native(0xc05c)]
-    public static int DebugPs2String_c05c(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int DebugPs2StringHex(int v) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0xc05d: args (v int) -&gt; v: 0x00887ca0(v); ported in native_sys (script round 18); name from 0x00887ca0 jumps to FFXSetLang (0x00887d20) with v; v</summary>
     /// <remarks>Native <c>0xc05d</c>, <c>Native_c05d_SetLang</c>; 0 calls in the shipped scripts.</remarks>

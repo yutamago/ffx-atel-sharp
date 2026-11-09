@@ -136,7 +136,7 @@ they serve: the signal the battle asks for, and each entry after the value `k` t
 | `Cameras` | a battle camera | `OnCamera24` |
 | `Motions`, `DefaultMotions` (monsters), `Motions`, `TidusMotions`, … (battles) | an actor's motion | `OnMotion39` |
 | `CommandCameras`, `ItemCameras`, `MonsterCommandCameras`, `BossCommandCameras` | a command's camera | the command: `OnDelayAttack`, `OnPotion` |
-| `SystemRequests`, `SystemRequests2` | a script's `Btl.AtelRequestSystem_7097(k)` | `OnRequest0` |
+| `SystemRequests`, `SystemRequests2` | a script's `Btl.AtelRequestSystemAllowCameras(k)` | `OnRequest0` |
 | `BattleEvents`, `BattleEvents2` | the battle's start and end | `OnBattleStart`, `OnBattleEnd`, `OnPartyDefeated` |
 | `PartyVoices`, `MonsterVoices`, `TidusVoices`, …; `TidusVoiceCues`, … | a voice line; a voice cue | `OnLine3`; the action names |
 

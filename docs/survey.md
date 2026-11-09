@@ -377,7 +377,7 @@ Per worker type, with the natives most typical of it (share of the type's calls 
 | event type 3 | 486 | 130 | 8–17 (median 10) | 49.29 % | 1.23 % | `Common.SetLegendAbility`, `Common.TriggerSetActive2`, `Common.PosSetYaw`, `Common.TriggerSetPointYaw`, `Common.TriggerSetPoint` |
 | event type 4 | 1,944 | 374 | 2–289 (median 6) | 24.56 % | 60.24 % | `Common.PadGetAnalog`, `Fx.GuideSetMapNo`, `Common.SpriteSet13`, `Fx.MapPartSetAlpha`, `Common.SetMapMarkerPos` |
 | event type 5 | 1,382 | 188 | 3–7 (median 3) | 0.42 % | 0.65 % | `Common.LineGetCrossSide`, `Common.PosSetField28`, `Common.TriggerSetActive`, `Common.LineExtend`, `Common.TriggerSetLine` |
-| event type 6 | 116 | 43 | 4–6 (median 4) | 9.69 % | 0 % | `Fx.MapSpriteWaitEnd`, `Common.TriggerSetPoint_0059`, `Common.TriggerSetPointDefault`, `Common.TriggerSetPoint`, `Common.TriggerSetRadius` |
+| event type 6 | 116 | 43 | 4–6 (median 4) | 9.69 % | 0 % | `Fx.MapSpriteWaitEnd`, `Common.TriggerSetBoxSize`, `Common.TriggerSetBoxSizeNoHeight`, `Common.TriggerSetPoint`, `Common.TriggerSetRadius` |
 | monster type 2 | 898 | 346 | 2–21 (median 5) | 29.73 % | 57.8 % | `Btl.ActorPartnerReady`, `Btl.ActorSetFlag36`, `Btl.QueueCommand`, `Btl.GetComInfo`, `Btl.ChrSetEffect7` |
 
 ### Worker order

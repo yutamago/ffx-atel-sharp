@@ -80,7 +80,7 @@ internal static class WorkerNaming {
         return names;
     }
 
-    /// <summary>The natives that change the map, their first argument the <see cref="Ffx.Map"/>: <c>MapChange</c>, <c>MapJump</c>, <c>MapChangeDefault</c>, <c>MapChange_00ab</c>.</summary>
+    /// <summary>The natives that change the map, their first argument the <see cref="Ffx.Map"/>: <c>MapChange</c>, <c>MapJump</c>, <c>MapChangeDefault</c>, <c>MapChangeAlias</c>.</summary>
     private static readonly HashSet<ushort> MapChanges = [0x0011, 0x010b, 0x010c, 0x00ab];
 
     /// <summary><c>MapJumpToEntrance</c> (<c>0x8006</c>): a jump within the map, by entrance only.</summary>

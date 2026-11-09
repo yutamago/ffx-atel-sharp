@@ -364,7 +364,7 @@
     {
       "id": "0x000d",
       "class": "Common",
-      "method": "GetLastEventJumpId",
+      "method": "GetLastEventJumpIdAlias",
       "symbol": "Native_000d_GetLastEventJumpId",
       "slots": {
         "start": null,
@@ -408,7 +408,7 @@
     {
       "id": "0x000f",
       "class": "Common",
-      "method": "GetNowEventJumpId",
+      "method": "GetNowEventJumpIdAlias",
       "symbol": "Native_000f_GetNowEventJumpId",
       "slots": {
         "start": null,
@@ -2429,7 +2429,7 @@
     {
       "id": "0x0058",
       "class": "Common",
-      "method": "TriggerSetPointDefault",
+      "method": "TriggerSetBoxSizeNoHeight",
       "symbol": "Native_0058_TriggerSetPointDefault",
       "slots": {
         "start": null,
@@ -2439,11 +2439,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "a",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "b",
           "kind": "int"
         }
       ],
@@ -2462,7 +2462,7 @@
     {
       "id": "0x0059",
       "class": "Common",
-      "method": "TriggerSetPoint_0059",
+      "method": "TriggerSetBoxSize",
       "symbol": "Native_0059_TriggerSetPoint",
       "slots": {
         "start": null,
@@ -2472,15 +2472,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "a",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "b",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "height",
           "kind": "float"
         }
       ],
@@ -3777,7 +3777,7 @@
     {
       "id": "0x0087",
       "class": "Common",
-      "method": "GetNowEventJumpId_0087",
+      "method": "GetNowEventJumpId",
       "symbol": "Native_0087_GetNowEventJumpId",
       "slots": {
         "start": null,
@@ -3821,7 +3821,7 @@
     {
       "id": "0x0089",
       "class": "Common",
-      "method": "GetLastEventJumpId_0089",
+      "method": "GetLastEventJumpId",
       "symbol": "Native_0089_GetLastEventJumpId",
       "slots": {
         "start": null,
@@ -4820,7 +4820,7 @@
     {
       "id": "0x00ab",
       "class": "Common",
-      "method": "MapChange_00ab",
+      "method": "MapChangeAlias",
       "symbol": "Native_00ab_MapChange",
       "slots": {
         "start": null,
@@ -8229,7 +8229,7 @@
     {
       "id": "0x0123",
       "class": "Common",
-      "method": "Echo_0123",
+      "method": "EchoAlias",
       "symbol": "Native_0123_Echo",
       "slots": {
         "start": null,
@@ -8256,7 +8256,7 @@
     {
       "id": "0x0124",
       "class": "Common",
-      "method": "Echo_0124",
+      "method": "EchoAlias2",
       "symbol": "Native_0124_Echo",
       "slots": {
         "start": null,
@@ -8283,7 +8283,7 @@
     {
       "id": "0x0125",
       "class": "Common",
-      "method": "SetPosXZ_0125",
+      "method": "SetPosXZResetLast",
       "symbol": "Native_0125_SetPosXZ",
       "slots": {
         "start": null,
@@ -8293,11 +8293,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "x",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "z",
           "kind": "float"
         }
       ],
@@ -8729,7 +8729,7 @@
     {
       "id": "0x0133",
       "class": "Common",
-      "method": "WorkerTriggerSetActive_0133",
+      "method": "WorkerTriggerSetActiveAlias",
       "symbol": "Native_0133_WorkerTriggerSetActive",
       "slots": {
         "start": null,
@@ -10618,7 +10618,7 @@
     {
       "id": "0x0170",
       "class": "Common",
-      "method": "BackupEventJump_0170",
+      "method": "BackupEventJumpWithId",
       "symbol": "Native_0170_BackupEventJump",
       "slots": {
         "start": null,
@@ -10628,11 +10628,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "jumpId",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "value",
           "kind": "int"
         }
       ],
@@ -10977,7 +10977,7 @@
     {
       "id": "0x017d",
       "class": "Common",
-      "method": "MusicMultiStart_017d",
+      "method": "MusicMultiStartKeepPoint",
       "symbol": "Native_017d_MusicMultiStart",
       "slots": {
         "start": null,
@@ -10987,7 +10987,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "track",
           "kind": "int"
         }
       ],
@@ -13389,7 +13389,7 @@
     {
       "id": "0x01d3",
       "class": "Common",
-      "method": "AlwaysTrue_01d3",
+      "method": "AlwaysTrueAlias",
       "symbol": "Native_01d3_AlwaysTrue",
       "slots": {
         "start": null,
@@ -15333,7 +15333,7 @@
     {
       "id": "0x0218",
       "class": "Common",
-      "method": "GetMonsterCapture_0218",
+      "method": "GetMonsterCaptureAlias",
       "symbol": "Native_0218_GetMonsterCapture",
       "slots": {
         "start": null,
@@ -15360,7 +15360,7 @@
     {
       "id": "0x0219",
       "class": "Common",
-      "method": "AddMonsterCaptureN_0219",
+      "method": "AddMonsterCaptureNAlias",
       "symbol": "Native_0219_AddMonsterCaptureN",
       "slots": {
         "start": null,
@@ -15401,11 +15401,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "species",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "count",
           "kind": "int"
         }
       ],
@@ -15422,7 +15422,7 @@
     {
       "id": "0x021b",
       "class": "Common",
-      "method": "CheckCaptMonster_021b",
+      "method": "CheckCaptMonsterArea",
       "symbol": "Native_021b_CheckCaptMonster",
       "slots": {
         "start": null,
@@ -15432,11 +15432,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "area",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "count",
           "kind": "int"
         }
       ],
@@ -15453,7 +15453,7 @@
     {
       "id": "0x021c",
       "class": "Common",
-      "method": "CheckCaptMonster_021c",
+      "method": "CheckCaptMonsterAll",
       "symbol": "Native_021c_CheckCaptMonster",
       "slots": {
         "start": null,
@@ -15463,7 +15463,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "count",
           "kind": "int"
         }
       ],
@@ -15745,7 +15745,7 @@
     {
       "id": "0x0227",
       "class": "Common",
-      "method": "SaveEventE8Set_0227",
+      "method": "SaveEventE8SetAlias",
       "symbol": "Native_0227_SaveEventE8Set",
       "slots": {
         "start": null,
@@ -16156,7 +16156,7 @@
     {
       "id": "0x0236",
       "class": "Common",
-      "method": "MsgGetText_0236",
+      "method": "MsgGetTextAddress",
       "symbol": "Native_0236_MsgGetText",
       "slots": {
         "start": null,
@@ -16368,7 +16368,7 @@
     {
       "id": "0x023d",
       "class": "Common",
-      "method": "N023d",
+      "method": "StartNewGame",
       "symbol": "Native_023d",
       "slots": {
         "start": null,
@@ -16554,7 +16554,7 @@
     {
       "id": "0x0244",
       "class": "Common",
-      "method": "N0244",
+      "method": "EffectChrRefreshFieldMode",
       "symbol": "Native_0244",
       "slots": {
         "start": null,
@@ -17170,7 +17170,7 @@
     {
       "id": "0x025c",
       "class": "Common",
-      "method": "NoOp_025c",
+      "method": "NoOpAlias",
       "symbol": "Native_025c_NoOp",
       "slots": {
         "start": null,
@@ -17221,7 +17221,7 @@
     {
       "id": "0x025e",
       "class": "Common",
-      "method": "N025e",
+      "method": "ShadowReset",
       "symbol": "Native_025e",
       "slots": {
         "start": null,
@@ -17231,7 +17231,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "v",
           "kind": "int"
         }
       ],
@@ -17250,7 +17250,7 @@
     {
       "id": "0x025f",
       "class": "Common",
-      "method": "N025f",
+      "method": "SetLoadingScreen",
       "symbol": "Native_025f",
       "slots": {
         "start": null,
@@ -17260,11 +17260,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "on",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "mode",
           "kind": "int"
         }
       ],
@@ -17283,7 +17283,7 @@
     {
       "id": "0x0260",
       "class": "Common",
-      "method": "AlwaysTrue_0260",
+      "method": "AlwaysTrueOf",
       "symbol": "Native_0260_AlwaysTrue",
       "slots": {
         "start": null,
@@ -17293,7 +17293,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "v",
           "kind": "int"
         }
       ],
@@ -17310,7 +17310,7 @@
     {
       "id": "0x0261",
       "class": "Common",
-      "method": "AlwaysTrue_0261",
+      "method": "AlwaysTrueOfAlias",
       "symbol": "Native_0261_AlwaysTrue",
       "slots": {
         "start": null,
@@ -17320,7 +17320,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "v",
           "kind": "int"
         }
       ],
@@ -17337,7 +17337,7 @@
     {
       "id": "0x0262",
       "class": "Common",
-      "method": "AlwaysTrue_0262",
+      "method": "AlwaysTrueAlias2",
       "symbol": "Native_0262_AlwaysTrue",
       "slots": {
         "start": null,
@@ -17361,7 +17361,7 @@
     {
       "id": "0x0263",
       "class": "Common",
-      "method": "AlwaysTrue_0263",
+      "method": "AlwaysTrueAlias3",
       "symbol": "Native_0263_AlwaysTrue",
       "slots": {
         "start": null,
@@ -18467,7 +18467,7 @@
     {
       "id": "0x101d",
       "class": "Calc",
-      "method": "SetVarSlot_101d",
+      "method": "SetVarSlotWithFlag",
       "symbol": "Native_101d_SetVarSlot",
       "slots": {
         "start": null,
@@ -18477,11 +18477,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "slot",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "variable",
           "kind": "int"
         }
       ],
@@ -20772,7 +20772,7 @@
     {
       "id": "0x5004",
       "class": "Chr",
-      "method": "N5004501fCopy00a788d0",
+      "method": "MotionActiveAlias",
       "symbol": "Native_501f_copy_00a788d0",
       "slots": {
         "start": null,
@@ -21466,7 +21466,7 @@
     {
       "id": "0x501b",
       "class": "Chr",
-      "method": "SetMotion_501b",
+      "method": "SetMotionAlias",
       "symbol": "Native_ChrSetMotion_501b",
       "slots": {
         "start": null,
@@ -21495,7 +21495,7 @@
     {
       "id": "0x501d",
       "class": "Chr",
-      "method": "SetSequence_501d",
+      "method": "SetSequenceAlias",
       "symbol": "Native_501d_ChrSetSequence",
       "slots": {
         "start": null,
@@ -21522,7 +21522,7 @@
     {
       "id": "0x501e",
       "class": "Chr",
-      "method": "WaitMotion_501e",
+      "method": "WaitMotionCounted",
       "symbol": "Native_ChrWaitMotion_501e",
       "slots": {
         "start": "0x00a79370",
@@ -21594,7 +21594,7 @@
     {
       "id": "0x5021",
       "class": "Chr",
-      "method": "SetMotionSpeed_5021",
+      "method": "SetMotionSpeedAlias",
       "symbol": "Native_ChrSetMotionSpeed",
       "slots": {
         "start": null,
@@ -21604,7 +21604,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "speed",
           "kind": "int"
         }
       ],
@@ -21679,7 +21679,7 @@
     {
       "id": "0x5024",
       "class": "Chr",
-      "method": "NoOp_5024",
+      "method": "NoOpAlias",
       "symbol": "Native_5024_NoOp",
       "slots": {
         "start": null,
@@ -21926,7 +21926,7 @@
     {
       "id": "0x502b",
       "class": "Chr",
-      "method": "NoOp_502b",
+      "method": "NoOpNoArg",
       "symbol": "Native_502b_NoOp",
       "slots": {
         "start": null,
@@ -22403,7 +22403,7 @@
     {
       "id": "0x503b",
       "class": "Chr",
-      "method": "DisposeSystemMgrp_503b",
+      "method": "DisposeSystemMgrpOfModel",
       "symbol": "Native_503b_ChrDisposeSystemMgrp",
       "slots": {
         "start": null,
@@ -22413,11 +22413,11 @@
       },
       "args": [
         {
-          "name": "b",
+          "name": "model",
           "kind": "int"
         },
         {
-          "name": "a",
+          "name": "group",
           "kind": "int"
         }
       ],
@@ -22494,7 +22494,7 @@
     {
       "id": "0x503e",
       "class": "Chr",
-      "method": "DisposeData_503e",
+      "method": "DisposeDataWithCheck",
       "symbol": "Native_503e_ChrDisposeData",
       "slots": {
         "start": null,
@@ -22504,11 +22504,11 @@
       },
       "args": [
         {
-          "name": "b",
+          "name": "model",
           "kind": "int"
         },
         {
-          "name": "a",
+          "name": "check",
           "kind": "int"
         }
       ],
@@ -22527,7 +22527,7 @@
     {
       "id": "0x503f",
       "class": "Chr",
-      "method": "SetSequence_503f",
+      "method": "SetSequenceAlias2",
       "symbol": "Native_503f_ChrSetSequence",
       "slots": {
         "start": null,
@@ -22585,7 +22585,7 @@
     {
       "id": "0x5041",
       "class": "Chr",
-      "method": "N50415019Copy00a7a740",
+      "method": "PlayMotionMarksAlias",
       "symbol": "Native_5019_copy_00a7a740",
       "slots": {
         "start": null,
@@ -22773,7 +22773,7 @@
     {
       "id": "0x5045",
       "class": "Chr",
-      "method": "PlayMarksOf_5045",
+      "method": "PlayMarksOfAlias",
       "symbol": "Native_5045_ChrPlayMarksOf",
       "slots": {
         "start": null,
@@ -22820,7 +22820,7 @@
     {
       "id": "0x5046",
       "class": "Chr",
-      "method": "PlayMotionOf_5046",
+      "method": "PlayMotionOfAlias",
       "symbol": "Native_5046_ChrPlayMotionOf",
       "slots": {
         "start": null,
@@ -22902,7 +22902,7 @@
     {
       "id": "0x5048",
       "class": "Chr",
-      "method": "SetSequenceOf_5048",
+      "method": "SetSequenceOfAlias",
       "symbol": "Native_5048_ChrSetSequenceOf",
       "slots": {
         "start": null,
@@ -22912,11 +22912,11 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "worker",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "v",
           "kind": "int"
         }
       ],
@@ -24893,7 +24893,7 @@
     {
       "id": "0x508b",
       "class": "Chr",
-      "method": "PlayMotionIncl_508b",
+      "method": "PlayMotionInclAlias",
       "symbol": "Native_508b_ChrPlayMotionIncl",
       "slots": {
         "start": null,
@@ -24938,7 +24938,7 @@
     {
       "id": "0x508c",
       "class": "Chr",
-      "method": "PlayInclOf_508c",
+      "method": "PlayInclOfAlias",
       "symbol": "Native_508c_ChrPlayInclOf",
       "slots": {
         "start": null,
@@ -25577,7 +25577,7 @@
     {
       "id": "0x600c",
       "class": "Cam",
-      "method": "EyeAddCircleArea",
+      "method": "EyeAddHeightLimitSoft",
       "symbol": "Native_600c_CamEyeAddCircleArea",
       "slots": {
         "start": null,
@@ -25587,15 +25587,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "low",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "high",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "keep",
           "kind": "int"
         }
       ],
@@ -25612,7 +25612,7 @@
     {
       "id": "0x600d",
       "class": "Cam",
-      "method": "AddCircleArea",
+      "method": "EyeAddHeightLimitScaled",
       "symbol": "Native_600d_CamAddCircleArea",
       "slots": {
         "start": null,
@@ -25622,15 +25622,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "low",
           "kind": "int"
         },
         {
-          "name": "a1",
+          "name": "high",
           "kind": "int"
         },
         {
-          "name": "a2",
+          "name": "keep",
           "kind": "int"
         }
       ],
@@ -26626,7 +26626,7 @@
     {
       "id": "0x602a",
       "class": "Cam",
-      "method": "RefAddCircleArea",
+      "method": "FocusAddHeightLimitSoft",
       "symbol": "Native_602a_CamRefAddCircleArea",
       "slots": {
         "start": null,
@@ -26636,15 +26636,15 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "low",
           "kind": "float"
         },
         {
-          "name": "a1",
+          "name": "high",
           "kind": "float"
         },
         {
-          "name": "a2",
+          "name": "keep",
           "kind": "float"
         }
       ],
@@ -26663,7 +26663,7 @@
     {
       "id": "0x602b",
       "class": "Cam",
-      "method": "RefAddCircleArea_602b",
+      "method": "FocusAddHeightLimitScaled",
       "symbol": "Native_CamRefAddCircleArea",
       "slots": {
         "start": null,
@@ -26673,15 +26673,15 @@
       },
       "args": [
         {
-          "name": "x",
+          "name": "low",
           "kind": "float"
         },
         {
-          "name": "z",
+          "name": "high",
           "kind": "float"
         },
         {
-          "name": "r",
+          "name": "keep",
           "kind": "float"
         }
       ],
@@ -30205,7 +30205,7 @@
     {
       "id": "0x7006",
       "class": "Btl",
-      "method": "ChrSetDirTarget_7006",
+      "method": "ChrFaceBattleDir",
       "symbol": "Native_7006_ChrSetDirTarget",
       "slots": {
         "start": null,
@@ -32378,7 +32378,7 @@
     {
       "id": "0x704d",
       "class": "Btl",
-      "method": "NoOp_704d",
+      "method": "NoOpAlias",
       "symbol": "Native_704d_NoOp",
       "slots": {
         "start": null,
@@ -32550,7 +32550,7 @@
     {
       "id": "0x7053",
       "class": "Btl",
-      "method": "MoveTargetDist_7053",
+      "method": "MoveTargetDistGravity",
       "symbol": "Native_7053_BtlMoveTargetDist",
       "slots": {
         "start": null,
@@ -32704,7 +32704,7 @@
     {
       "id": "0x7057",
       "class": "Btl",
-      "method": "ChrSetDirTarget_7057",
+      "method": "ChrSetDirMode",
       "symbol": "Native_7057_ChrSetDirTarget",
       "slots": {
         "start": null,
@@ -32714,11 +32714,11 @@
       },
       "args": [
         {
-          "name": "target",
+          "name": "mode",
           "kind": "int"
         },
         {
-          "name": "fF",
+          "name": "unused",
           "kind": "float"
         },
         {
@@ -32777,7 +32777,7 @@
     {
       "id": "0x7059",
       "class": "Btl",
-      "method": "GetTargetDist_7059",
+      "method": "GetTargetDistFlat",
       "symbol": "Native_7059_GetTargetDist",
       "slots": {
         "start": null,
@@ -32950,7 +32950,7 @@
     {
       "id": "0x705f",
       "class": "Btl",
-      "method": "DebugPrint_705f",
+      "method": "DebugPrintFloat",
       "symbol": "Native_705f_DebugPrint",
       "slots": {
         "start": null,
@@ -33410,7 +33410,7 @@
     {
       "id": "0x706f",
       "class": "Btl",
-      "method": "ActorPlayMotion_706f",
+      "method": "ActorPlayMotionHoldCommand",
       "symbol": "Native_706f_ActorPlayMotion",
       "slots": {
         "start": null,
@@ -34525,7 +34525,7 @@
     {
       "id": "0x7094",
       "class": "Btl",
-      "method": "ChrSetTransparent_7094",
+      "method": "ChrSetTransparentIfPending",
       "symbol": "Native_7094_ChrSetTransparent",
       "slots": {
         "start": null,
@@ -34606,7 +34606,7 @@
     {
       "id": "0x7097",
       "class": "Btl",
-      "method": "AtelRequestSystem_7097",
+      "method": "AtelRequestSystemAllowCameras",
       "symbol": "Native_7097_AtelRequestSystem",
       "slots": {
         "start": "0x007a5780",
@@ -34944,7 +34944,7 @@
     {
       "id": "0x70a3",
       "class": "Btl",
-      "method": "ActorPlayMotion_70a3",
+      "method": "ActorPlayMotionEvenIfHidden",
       "symbol": "Native_70a3_ActorPlayMotion",
       "slots": {
         "start": null,
@@ -35224,7 +35224,7 @@
     {
       "id": "0x70ac",
       "class": "Btl",
-      "method": "ChrGetMotionInfo_70ac",
+      "method": "ActorGetMotionInfo",
       "symbol": "Native_70ac_ChrGetMotionInfo",
       "slots": {
         "start": null,
@@ -35234,7 +35234,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "info",
           "kind": "int"
         }
       ],
@@ -35346,7 +35346,7 @@
     {
       "id": "0x70b1",
       "class": "Btl",
-      "method": "DebugPrint_70b1",
+      "method": "DebugPrintHashes",
       "symbol": "Native_70b1_DebugPrint",
       "slots": {
         "start": null,
@@ -36325,7 +36325,7 @@
     {
       "id": "0x70d3",
       "class": "Btl",
-      "method": "ChrSetEffect7_70d3",
+      "method": "SelSetEffect7",
       "symbol": "Native_70d3_ChrSetEffect7",
       "slots": {
         "start": null,
@@ -36363,7 +36363,7 @@
     {
       "id": "0x70d4",
       "class": "Btl",
-      "method": "ChrSetEffect8_70d4",
+      "method": "SelSetEffect8",
       "symbol": "Native_70d4_ChrSetEffect8",
       "slots": {
         "start": null,
@@ -37041,7 +37041,7 @@
     {
       "id": "0x70ec",
       "class": "Btl",
-      "method": "N70ec01b2Copy007a2c50",
+      "method": "GetItemCount",
       "symbol": "Native_01b2_copy_007a2c50",
       "slots": {
         "start": null,
@@ -37051,7 +37051,7 @@
       },
       "args": [
         {
-          "name": "v",
+          "name": "item",
           "kind": "int"
         }
       ],
@@ -37480,7 +37480,7 @@
     {
       "id": "0x70fb",
       "class": "Btl",
-      "method": "SearchScriptTarget_70fb",
+      "method": "TrySearchScriptTarget",
       "symbol": "Native_70fb_SearchScriptTarget",
       "slots": {
         "start": null,
@@ -37888,7 +37888,7 @@
     {
       "id": "0x7108",
       "class": "Btl",
-      "method": "ChrSetDirTarget_7108",
+      "method": "ChrFaceBattleDirKeepTurn",
       "symbol": "Native_7108_ChrSetDirTarget",
       "slots": {
         "start": null,
@@ -38159,7 +38159,7 @@
     {
       "id": "0x7112",
       "class": "Btl",
-      "method": "ChrSetDirTarget_7112",
+      "method": "ChrSetDirModeKeepTurn",
       "symbol": "Native_7112_ChrSetDirTarget",
       "slots": {
         "start": null,
@@ -38169,11 +38169,11 @@
       },
       "args": [
         {
-          "name": "c",
+          "name": "mode",
           "kind": "int"
         },
         {
-          "name": "f",
+          "name": "unused",
           "kind": "float"
         },
         {
@@ -38200,7 +38200,7 @@
     {
       "id": "0x7113",
       "class": "Btl",
-      "method": "SetStealRule",
+      "method": "SetBattleTypeNoCapture",
       "symbol": "Native_7113_BtlSetStealRule",
       "slots": {
         "start": null,
@@ -38224,7 +38224,7 @@
     {
       "id": "0x7114",
       "class": "Btl",
-      "method": "SetStealRule_7114",
+      "method": "SetBattleTypeNoSteal",
       "symbol": "Native_7114_BtlSetStealRule",
       "slots": {
         "start": null,
@@ -38296,7 +38296,7 @@
     {
       "id": "0x7117",
       "class": "Btl",
-      "method": "QueueCommand_7117",
+      "method": "QueueCommandWhenInPlace",
       "symbol": "Native_7117_BtlQueueCommand",
       "slots": {
         "start": null,
@@ -38538,7 +38538,7 @@
     {
       "id": "0x711f",
       "class": "Btl",
-      "method": "MsgDrawAmes_711f",
+      "method": "MsgDrawAmesBattleMessage",
       "symbol": "Native_711f_BtlMsgDrawAmes",
       "slots": {
         "start": null,
@@ -38673,7 +38673,7 @@
     {
       "id": "0x7123",
       "class": "Btl",
-      "method": "ChrAttachWeapon_7123",
+      "method": "LuluAttachWeapon",
       "symbol": "Native_7123_ChrAttachWeapon",
       "slots": {
         "start": null,
@@ -38731,7 +38731,7 @@
     {
       "id": "0x7125",
       "class": "Btl",
-      "method": "ChrAttachWeapon_7125",
+      "method": "WakkaAttachWeapon",
       "symbol": "Native_7125_ChrAttachWeapon",
       "slots": {
         "start": null,
@@ -39032,7 +39032,7 @@
     {
       "id": "0x8007",
       "class": "Fx",
-      "method": "N8007",
+      "method": "FpResetRuns",
       "symbol": "Native_8007",
       "slots": {
         "start": null,
@@ -39056,7 +39056,7 @@
     {
       "id": "0x8008",
       "class": "Fx",
-      "method": "N8008",
+      "method": "FpFreeAll",
       "symbol": "Native_8008",
       "slots": {
         "start": null,
@@ -42060,7 +42060,7 @@
     {
       "id": "0xb002",
       "class": "Movie",
-      "method": "DebugPrint",
+      "method": "Status",
       "symbol": "Native_b002_DebugPrint",
       "slots": {
         "start": null,
@@ -42128,7 +42128,7 @@
     {
       "id": "0xb005",
       "class": "Movie",
-      "method": "DebugPrint_b005",
+      "method": "Pause",
       "symbol": "Native_b005_DebugPrint",
       "slots": {
         "start": null,
@@ -42150,7 +42150,7 @@
     {
       "id": "0xb006",
       "class": "Movie",
-      "method": "DebugPrint_b006",
+      "method": "Channel",
       "symbol": "Native_b006_DebugPrint",
       "slots": {
         "start": null,
@@ -42172,7 +42172,7 @@
     {
       "id": "0xb007",
       "class": "Movie",
-      "method": "DebugPrint_b007",
+      "method": "Volume",
       "symbol": "Native_b007_DebugPrint",
       "slots": {
         "start": null,
@@ -42194,7 +42194,7 @@
     {
       "id": "0xb008",
       "class": "Movie",
-      "method": "DebugPrintResult",
+      "method": "StartDebugInitResult",
       "symbol": "Native_b008_DebugPrint_Result",
       "slots": {
         "start": "0x0076eb00",
@@ -42343,7 +42343,7 @@
     {
       "id": "0xb00e",
       "class": "Movie",
-      "method": "DebugPrint_b00e",
+      "method": "FrameDrawPath3",
       "symbol": "Native_b00e_DebugPrint",
       "slots": {
         "start": null,
@@ -42365,7 +42365,7 @@
     {
       "id": "0xb00f",
       "class": "Movie",
-      "method": "DebugPrint_b00f",
+      "method": "FramePal",
       "symbol": "Native_b00f_DebugPrint",
       "slots": {
         "start": null,
@@ -43060,7 +43060,7 @@
     {
       "id": "0xc01a",
       "class": "GroupC",
-      "method": "SndKickFoot",
+      "method": "SndKickFootKind1",
       "symbol": "Native_c01a_SndKickFoot",
       "slots": {
         "start": null,
@@ -43095,7 +43095,7 @@
     {
       "id": "0xc01b",
       "class": "GroupC",
-      "method": "SndKickFoot_c01b",
+      "method": "SndKickFootKind0",
       "symbol": "Native_c01b_SndKickFoot",
       "slots": {
         "start": null,
@@ -43130,7 +43130,7 @@
     {
       "id": "0xc01c",
       "class": "GroupC",
-      "method": "SndKickFoot_c01c",
+      "method": "SndKickFootKind5",
       "symbol": "Native_c01c_SndKickFoot",
       "slots": {
         "start": null,
@@ -43161,7 +43161,7 @@
     {
       "id": "0xc01d",
       "class": "GroupC",
-      "method": "SndKickFoot_c01d",
+      "method": "SndKickFootKind2",
       "symbol": "Native_c01d_SndKickFoot",
       "slots": {
         "start": null,
@@ -43196,7 +43196,7 @@
     {
       "id": "0xc01e",
       "class": "GroupC",
-      "method": "SndKickFoot_c01e",
+      "method": "SndKickFootKind3",
       "symbol": "Native_c01e_SndKickFoot",
       "slots": {
         "start": null,
@@ -43231,7 +43231,7 @@
     {
       "id": "0xc01f",
       "class": "GroupC",
-      "method": "SndKickFoot_c01f",
+      "method": "SndKickFootKind4",
       "symbol": "Native_c01f_SndKickFoot",
       "slots": {
         "start": null,
@@ -43293,7 +43293,7 @@
     {
       "id": "0xc021",
       "class": "GroupC",
-      "method": "Echo_c021",
+      "method": "EchoAlias",
       "symbol": "Native_c021_Echo",
       "slots": {
         "start": null,
@@ -43611,7 +43611,7 @@
     {
       "id": "0xc02c",
       "class": "GroupC",
-      "method": "Echo_c02c",
+      "method": "EchoAlias2",
       "symbol": "Native_c02c_Echo",
       "slots": {
         "start": null,
@@ -43640,7 +43640,7 @@
     {
       "id": "0xc02d",
       "class": "GroupC",
-      "method": "SndKickFoot_c02d",
+      "method": "SndKickFootKind6",
       "symbol": "Native_c02d_SndKickFoot",
       "slots": {
         "start": null,
@@ -43667,7 +43667,7 @@
     {
       "id": "0xc02e",
       "class": "GroupC",
-      "method": "SndKickFoot_c02e",
+      "method": "SndKickFootKind7",
       "symbol": "Native_c02e_SndKickFoot",
       "slots": {
         "start": null,
@@ -44570,7 +44570,7 @@
     {
       "id": "0xc04f",
       "class": "GroupC",
-      "method": "AlwaysTrue_c04f",
+      "method": "AlwaysTrueAlias",
       "symbol": "Native_c04f_AlwaysTrue",
       "slots": {
         "start": null,
@@ -44944,7 +44944,7 @@
     {
       "id": "0xc05c",
       "class": "GroupC",
-      "method": "DebugPs2String_c05c",
+      "method": "DebugPs2StringHex",
       "symbol": "Native_c05c_DebugPs2String",
       "slots": {
         "start": null,
@@ -44954,7 +44954,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "v",
           "kind": "int"
         }
       ],
