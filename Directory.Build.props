@@ -11,6 +11,10 @@
         <Copyright>Copyright (c) 2026 Yutamago</Copyright>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/yutamago/ffx-atel-sharp</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <!-- The packages' page and notes (docs/release.md, "Package metadata"). -->
+        <PackageProjectUrl>https://github.com/yutamago/ffx-atel-sharp</PackageProjectUrl>
+        <PackageReleaseNotes>https://github.com/yutamago/ffx-atel-sharp/blob/main/CHANGELOG.md</PackageReleaseNotes>
         <!-- Every commit builds its own version, 0.1.0-alpha.0.<commits>.g<commit> (Directory.Build.targets,
              docs/sdk.md "Versions"); -p:Version=<version> overrides it (the release workflow). -->
         <AtelVersionBase>0.1.0-alpha.0</AtelVersionBase>

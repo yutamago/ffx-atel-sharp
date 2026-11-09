@@ -1,19 +1,32 @@
 # SPDX-License-Identifier: MIT
-# Publishes the SDK package to nuget.org when a tag such as sdk-v0.1.0-alpha.1 is pushed. The version is
-# the tag without "sdk-v", given with -p:Version, which replaces the per-commit version of other builds. Needs the repository secret NUGET_API_KEY (a nuget.org API key scoped to
-# push Ffx.Atel.Sdk); without it the job stops before pushing anything. See docs/sdk.md, "Publishing".
+# The release of the SDK packages (docs/release.md). Runs only when the user pushes a tag v<version>
+# (git tag v0.1.0-alpha.1 && git push origin v0.1.0-alpha.1); nothing else starts it, and no other workflow publishes.
+#
+# It packs Ffx.Atel.Sdk and Ffx.Atel.Templates with the tag's version (-p:Version, instead of the per-commit
+# version of every other build), checks them, keeps them as an artifact, and pushes them only when the repository
+# variable ATEL_NUGET_TARGET names where:
+#   nuget.org   needs the secret NUGET_API_KEY (an API key limited to pushing these package ids);
+#   github      GitHub Packages of this repository's owner, with the job's GITHUB_TOKEN.
+# Unset (as now), the job stops before pushing. Ffx.Atel.Templates is pushed only with the variable
+# ATEL_PUBLISH_TEMPLATES=true. Both are decisions the user makes before the first release (docs/release.md).
 name: Release SDK
 
 on:
   push:
-    tags: [ "sdk-v*" ]
+    tags: [ "v*" ]
+
+permissions:
+  contents: read
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-    # The whole history, as for every build (Directory.Build.targets); the version here is the tag's.
+    # The whole history: the release must be on main, and the build reads git (Directory.Build.targets).
     - name: Checkout
       uses: actions/checkout@v7
       with:
@@ -24,25 +37,83 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
+    # v0.1.0-alpha.1 -> 0.1.0-alpha.1: a SemVer 2 version, which must sort above every per-commit build before it
+    # (0.1.0-alpha.0.<commits>.g<commit>; docs/release.md, "Versions").
     - name: Version from the tag
       shell: bash
-      run: echo "VERSION=${GITHUB_REF_NAME#sdk-v}" >> "$GITHUB_ENV"
+      run: |
+        version="${GITHUB_REF_NAME#v}"
+        if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+          echo "the tag $GITHUB_REF_NAME is not v<SemVer version>"; exit 1
+        fi
+        echo "VERSION=$version" >> "$GITHUB_ENV"
 
-    - name: Pack
-      run: dotnet pack -c Release src/Ffx.Atel.Sdk -p:Version=${{ env.VERSION }} -o artifacts/sdk-feed
-
-    - name: No checkout path in the package
+    - name: The tag is on main
       shell: bash
       run: |
-        pkg=$(ls artifacts/sdk-feed/Ffx.Atel.Sdk.*.nupkg)
-        if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then
-          echo "the SDK package names the checkout's path"; exit 1
+        git fetch origin main
+        if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+          echo "$GITHUB_REF_NAME is not a commit of main"; exit 1
         fi
 
-    - name: Push to nuget.org
+    - name: The changelog has the version
+      shell: bash
+      run: |
+        if ! grep -qE "^## \[$(printf '%s' "$VERSION" | sed 's/[.]/\\./g')\]" CHANGELOG.md; then
+          echo "CHANGELOG.md has no section ## [$VERSION]"; exit 1
+        fi
+
+    - name: Build
+      run: dotnet build -c Release ffx-atel-sharp.slnx -p:Version=${{ env.VERSION }}
+
+    - name: Test
+      run: dotnet test -c Release --no-build ffx-atel-sharp.slnx
+
+    - name: Pack
+      run: |
+        dotnet pack -c Release src/Ffx.Atel.Sdk -p:Version=${{ env.VERSION }} -o artifacts/release
+        dotnet pack -c Release src/Ffx.Atel.Templates -p:Version=${{ env.VERSION }} -o artifacts/release
+
+    - name: Check the packages
+      shell: bash
+      run: |
+        for id in Ffx.Atel.Sdk Ffx.Atel.Templates; do
+          test -f "artifacts/release/$id.$VERSION.nupkg" || { echo "no $id.$VERSION.nupkg"; exit 1; }
+        done
+        for pkg in artifacts/release/*.nupkg; do
+          if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then echo "$pkg names the checkout's path"; exit 1; fi
+        done
+        # The template pins the SDK of the release's version.
+        unzip -p "artifacts/release/Ffx.Atel.Templates.$VERSION.nupkg" content/atel-mod/.template.config/template.json \
+          | grep -qF "\"defaultValue\": \"$VERSION\"" || { echo "the template does not pin $VERSION"; exit 1; }
+
+    - name: Keep the packages
+      uses: actions/upload-artifact@v6
+      with:
+        name: packages-${{ env.VERSION }}
+        path: artifacts/release/*.nupkg
+
+    - name: Push
       shell: bash
       env:
+        TARGET: ${{ vars.ATEL_NUGET_TARGET }}
+        TEMPLATES: ${{ vars.ATEL_PUBLISH_TEMPLATES }}
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if [ -z "$NUGET_API_KEY" ]; then echo "the NUGET_API_KEY secret is not set"; exit 1; fi
-        dotnet nuget push artifacts/sdk-feed/Ffx.Atel.Sdk.*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+        packages=("artifacts/release/Ffx.Atel.Sdk.$VERSION.nupkg")
+        if [ "$TEMPLATES" = "true" ]; then packages+=("artifacts/release/Ffx.Atel.Templates.$VERSION.nupkg"); fi
+        case "$TARGET" in
+          nuget.org)
+            if [ -z "$NUGET_API_KEY" ]; then echo "the NUGET_API_KEY secret is not set"; exit 1; fi
+            for p in "${packages[@]}"; do
+              dotnet nuget push "$p" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+            done ;;
+          github)
+            for p in "${packages[@]}"; do
+              dotnet nuget push "$p" --api-key "$GITHUB_TOKEN" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
+            done ;;
+          *)
+            echo "the repository variable ATEL_NUGET_TARGET is not set (nuget.org or github): nothing pushed (docs/release.md)"
+            exit 1 ;;
+        esac
