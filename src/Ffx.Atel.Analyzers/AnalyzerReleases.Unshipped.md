@@ -16,6 +16,8 @@ ATL1007 | Atel.Subset | Error | SubsetAnalyzer
 ATL1008 | Atel.Subset | Error | SubsetAnalyzer
 ATL1009 | Atel.Subset | Error | SubsetAnalyzer
 ATL1010 | Atel.Subset | Error | SubsetAnalyzer
+ATL1012 | Atel.Subset | Error | MemberAnalyzer
+ATL1013 | Atel.Subset | Error | MemberAnalyzer
 ATL2001 | Atel.Requests | Info | RequestAnalyzer
 ATL2002 | Atel.Requests | Error | RequestAnalyzer
 ATL2003 | Atel.Requests | Info | RequestAnalyzer
