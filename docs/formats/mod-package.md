@@ -138,7 +138,7 @@ each vanilla part, so a package never contains game code.
   `{ "text": "Nice throw!" }`, without an index, is a new message from
   `Text.New`: the linker numbers it (see "Messages" below).
   `{ "index": 73, "text": "…" }` sets message 73, for runtime injection: the
-  loader sets it in the running event's table
+  loader sets it in the running event's or battle's table
   ([debug.md](debug.md#runtime-injection)).
 
 A package is also a **runtime injection package**: put into the loader's
@@ -271,7 +271,7 @@ the same index in every language's table (`MessageLinker`, run by
 The loader writes the tables to its `efl/x` next to the linked script,
 where Fahrenheit serves them as it serves the scripts. A runtime injection
 package's new messages are numbered the same way, after every mod's; while
-the game runs they are set in the running event's table at once (with the
+the game runs they are set in the running event's or battle's table at once (with the
 explicit ones), and its table files are rewritten when they were served at
 startup.
 
