@@ -88,6 +88,8 @@ without the analyzers. `dotnet build` of a vanilla project only checks the C#.
 
 ## 2. Create the project
 
+With the template (below, "`dotnet new atel-mod`"), or by hand:
+
 ```xml
 <Project Sdk="Ffx.Atel.Sdk">
     <PropertyGroup>
@@ -181,6 +183,37 @@ nothing runs on .NET), no implicit usings, nullable on, CS0162 and CS1998 off.
 It references `Ffx.Atel.Game` (with its docs) and the analyzers and code
 fixes, which run in the IDE and on build ([analyzers.md](analyzers.md)).
 
+### `dotnet new atel-mod`
+
+`Ffx.Atel.Templates` (`src/Ffx.Atel.Templates`) is a `dotnet new` template package, packed beside the SDK with the
+same version and not published either. Install it from the local folder, then make a mod:
+
+```bash
+dotnet pack src/Ffx.Atel.Templates -c Release -o ~/atel-feed
+dotnet new install ~/atel-feed/Ffx.Atel.Templates.<version>.nupkg
+dotnet new atel-mod -n MyMod --script m209 --feed ~/atel-feed
+```
+
+It writes `MyMod/` as `examples/LarvaHp` is laid out, for the script `--script` names:
+
+```
+MyMod/
+  MyMod.csproj      AtelModId <authors>.<name> (--authors, --mod-id), AtelVanillaSource (--vanilla, ../atel-vanilla)
+  M209.cs           namespace Monsters.M209; a new variable in the script class, and a patch as a comment
+  global.json       Ffx.Atel.Sdk of the template's own version (--sdk-version)
+  nuget.config      the local package folder as a source (--feed, ../atel-feed)
+  mod.toml
+  README.md         decompiling the vanilla source, building, installing
+  .gitignore
+```
+
+`--script` is the script's file name (`m209`, `kami0000`, `kami00_00`); the template gives it the namespace, class
+and folder `atel decompile` gives it (`kami0000` → `Events.Ka_ThunderPlains.Kami0000`), by regex steps that
+`tools/gen-template.cs` writes from `data/areas.json` (run it when the areas change). They match the decompiler for
+all 1,621 scripts (`TemplateTests`). The mod's README then takes the modder through `dotnet restore` (which fetches
+the SDK package), `atel decompile` with the `atel` of that package, and `dotnet build`; `TemplateTests` runs those
+steps for m209 and gets the package.
+
 ## 3. Build
 
 ```bash
@@ -271,23 +304,20 @@ the same package works on Windows, Linux and macOS.
 
 ## Not yet
 
-- The package is not published yet; CI only packs it. Publishing is prepared (below) and waits
-  for a decision.
-- A `dotnet new` template; for now copy `examples/LarvaHp`.
+- The packages are not published yet; CI only packs them. Publishing is prepared (below) and waits
+  for the user's decisions.
 - `atel compile-mod` reads every `.cs` under the project folder (but `obj/`
   and `bin/`), not the project's `Compile` items.
 
 ## Publishing
 
-The plan is nuget.org (the id `Ffx.Atel.Sdk` was free on 2026-11-02). `.github/workflows/release-sdk.yml`
-publishes when a tag `sdk-v<version>` is pushed (`git tag sdk-v0.1.0-alpha.1 && git push origin
-sdk-v0.1.0-alpha.1`): it packs that version (`-p:Version=`, instead of the commit's), checks the package
-for the checkout path and pushes it with the repository secret `NUGET_API_KEY` (a nuget.org API key
-limited to pushing `Ffx.Atel.Sdk`). Nothing is published before both exist. Before the first push:
+Prepared, not done: [release.md](release.md) has the versions, the release workflow
+(`.github/workflows/release-sdk.yml`, only on a pushed tag `v<version>`, and pushing only once the repository
+variable `ATEL_NUGET_TARGET` says where), the package metadata and the decisions left to the user. Before the first
+push:
 
 - A nuget.org package is public and permanent (a version can be unlisted, not deleted). The package
   holds the reference assembly, whose enums carry names from Fahrenheit's ID tables (used with
   permission from their lead for this project); check that the permission covers a public package.
-- The package's project URL points at this repository, which is private.
 - NuGet orders `0.1.0-alpha` below every commit's `0.1.0-alpha.0.<commits>…`. A release must sort above
   the builds before it: `0.1.0-alpha.1`, then `0.1.0-alpha.2`, and so on. Never tag a version twice.
