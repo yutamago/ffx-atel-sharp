@@ -28,6 +28,8 @@ namespace Ffx.Atel.Loader;
 ///     It also adds the debug natives (<see cref="DebugNatives"/>), watches its <c>inject/</c> folder for
 ///     runtime injection packages (<see cref="RuntimeInjector"/>, docs/formats/debug.md), and keeps the mods'
 ///     <c>[Saved]</c> fields with each save in its Fahrenheit local state (<see cref="SaveHooks"/>, docs/research/mod-saves.md).
+///     The last <c>Debug.*</c> lines also show on screen (<see cref="DebugOverlayView"/>, F6); its settings are the
+///     JSON in the loader's Fahrenheit global state file.
 /// </remarks>
 [FhLoad(FhGameId.FFX)]
 public sealed class AtelLoaderModule : FhModule {
@@ -40,6 +42,7 @@ public sealed class AtelLoaderModule : FhModule {
     private readonly AtelMod?          _injected;
     private RuntimeInjector?           _injector;
     private SaveHooks?                 _saves;
+    private DebugOverlayView?          _overlay;
 
     public AtelLoaderModule() {
         try {
@@ -70,7 +73,12 @@ public sealed class AtelLoaderModule : FhModule {
     /// <summary>On a load, when the slot has a state: the mods' saved fields back into the save's mod area.</summary>
     public override void load_local_state(FileStream local_state_file, FhLocalStateInfo local_state_info) => _saves?.Load(local_state_file);
 
+    /// <summary>The debug overlay. Render thread.</summary>
+    public override void render_imgui() => _overlay?.Render();
+
     public override bool init(FhModContext mod_context, FileStream global_state_file) {
+        _overlay = new DebugOverlayView(DebugNatives.Lines, _logger);
+        _overlay.Load(global_state_file);
         // The debug natives do not depend on the link: a script with Debug.Print may come from anywhere.
         if (!DebugNatives.Install(this, _logger)) _logger.Error("Atel loader: cannot hook AtelInitTotal; Debug.* calls would stop their worker.");
         // The saved fields' hooks do not depend on the link either: without mods they keep the state of absent mods and

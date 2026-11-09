@@ -70,6 +70,9 @@ internal static unsafe class DebugNatives {
     /// <summary>Every text the loader was given: from the linked mods and the injected packages.</summary>
     public static DebugStringTable Strings { get; } = new();
 
+    /// <summary>The last lines the natives printed, for the overlay (<see cref="DebugOverlayView"/>).</summary>
+    public static DebugLines Lines { get; } = new();
+
     /// <summary>Whether group F is registered.</summary>
     public static bool Registered { get; private set; }
 
@@ -125,6 +128,9 @@ internal static unsafe class DebugNatives {
 
     private static string Where(AtelBasicWorker* work) => string.Create(CultureInfo.InvariantCulture, $"worker {work->worker_idx}");
 
+    /// <summary>The line on screen too (the overlay draws it on the render thread).</summary>
+    private static void Show(AtelBasicWorker* work, string text) => Lines.Add(new DebugLine(DebugOverlayView.Now, DateTime.Now, work->worker_idx, text));
+
     /// <summary><c>0xf000</c>: values, their count, the text's id (on top).</summary>
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int Print(AtelBasicWorker* work, int* args, AtelStack* stack) {
@@ -133,7 +139,9 @@ internal static unsafe class DebugNatives {
             int n = Math.Clamp(AsInt(Pop(work, stack)), 0, Math.Min(DebugText.MaxValues, stack->size));
             object[] values = new object[n];
             for (int i = n - 1; i >= 0; i--) values[i] = Pop(work, stack);
-            _log?.Info($"Atel debug: {Where(work)}: {DebugText.Format(Strings.Find(id), id, values)}");
+            string text = DebugText.Format(Strings.Find(id), id, values);
+            _log?.Info($"Atel debug: {Where(work)}: {text}");
+            Show(work, text);
         }
         catch (Exception ex) {
             if (_reported.TryAdd(-1, true)) _log?.Error($"Atel loader: Debug.Print: {ex}");
@@ -148,7 +156,9 @@ internal static unsafe class DebugNatives {
             List<string> regs = [];
             for (int i = 0; i < 4; i++) regs.Add(string.Create(CultureInfo.InvariantCulture, $"i{i}={work->reg_int[i]}"));
             for (int i = 0; i < 10; i++) regs.Add(string.Create(CultureInfo.InvariantCulture, $"f{i}={work->reg_float[i]}"));
-            _log?.Info($"Atel debug: {Where(work)}: break, stack depth {stack->size}, {string.Join(" ", regs)}");
+            string text = $"break, stack depth {stack->size}, {string.Join(" ", regs)}";
+            _log?.Info($"Atel debug: {Where(work)}: {text}");
+            Show(work, text);
             if (Debugger.IsAttached) Debugger.Break();
         }
         catch (Exception ex) {

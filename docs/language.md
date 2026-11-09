@@ -754,8 +754,8 @@ Wait.Seconds(Pause);        // Wait.Frames(45)
 | `Common.MsgSetText(0, V3);` | **available**: a computed index converts from `int` |
 | `Dialogue.Say(Text[12]);` | **available**: a line of dialogue as one call ("Inline methods") |
 | `Text.New("Nice throw!")` | **available in mods**: a new message; the loader gives it the next free index of the script's tables when it links, the same in every language ([mod-package.md](formats/mod-package.md#messages)) |
-| `Debug.Print($"hp = {Hp}")` | **available**: a line in Fahrenheit's log, through native `0xf000` the loader registers (native group F); text with up to 16 interpolated values ([debug.md](formats/debug.md)) |
-| `Debug.Break()` | **available**: logs the worker's registers through native `0xf001`, and stops in a .NET debugger if one is attached |
+| `Debug.Print($"hp = {Hp}")` | **available**: a line in Fahrenheit's log and on screen (top left, with the time and the worker; F6 shows or hides it), through native `0xf000` the loader registers (native group F); text with up to 16 interpolated values ([debug.md](formats/debug.md#on-screen)) |
+| `Debug.Break()` | **available**: logs the worker's registers through native `0xf001` (and shows them on screen), and stops in a .NET debugger if one is attached |
 
 `string` is an error everywhere except attribute arguments and the reference-assembly members that
 take one (`Asm`, `Debug.Print`, `Text.New`) ([ATL1002](analyzers.md#atl1002)). `Debug.*` calls compile to the
