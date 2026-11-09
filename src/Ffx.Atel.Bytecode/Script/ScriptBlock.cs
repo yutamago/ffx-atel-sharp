@@ -36,7 +36,22 @@ public readonly record struct Instr(uint Offset, byte Code, ushort? Operand) {
 /// <param name="Labels">Jump labels, as code offsets.</param>
 /// <param name="Start">Start of the worker's code range (code offset).</param>
 /// <param name="End">End of the worker's code range (code offset, exclusive).</param>
-public sealed record Worker(int Header, ushort Type, uint[] Entries, uint[] Labels, uint Start, uint End);
+/// <param name="TailStart">
+///     Start of the worker's tail: a second code range past the code length (<c>+0x00</c>), where a linked script keeps
+///     a worker's new code while its vanilla code stays in place; equal to <paramref name="TailEnd"/> when it has none
+///     (every shipped script). A worker with only a tail (a new one) has an empty first range at its tail's start.
+/// </param>
+/// <param name="TailEnd">End of the tail (code offset, exclusive).</param>
+public sealed record Worker(int Header, ushort Type, uint[] Entries, uint[] Labels, uint Start, uint End, uint TailStart = 0, uint TailEnd = 0) {
+    /// <summary>Whether the worker has a tail past the code length.</summary>
+    public bool HasTail => TailEnd > TailStart;
+
+    /// <summary>The length of its code: the first range and the tail.</summary>
+    public uint Length => End - Start + (TailEnd - TailStart);
+
+    /// <summary>Whether a code offset lies in the worker's code.</summary>
+    public bool Contains(uint offset) => (offset >= Start && offset < End) || (offset >= TailStart && offset < TailEnd);
+}
 
 /// <summary>
 ///     A script block: section 0 of a monster file or an event file, which the interpreter runs.
@@ -56,7 +71,10 @@ public sealed record Worker(int Header, ushort Type, uint[] Entries, uint[] Labe
 ///            +0x0a u16  label count         +0x24 u32  jump labels (u32 code offsets)
 ///     </code>
 ///     Every worker's entries and labels lie in its own contiguous code range, which runs from
-///     its first entry to the next worker's.
+///     its first entry to the next worker's (every shipped script). A linked script may give a worker a second
+///     range, its tail, past the code length at <c>+0x00</c>: the targets at or past the code length are in the
+///     tail, which runs from the first of them to the next worker's tail or the block's end (<c>+0x10</c>). The
+///     game does not bound code by <c>+0x00</c> (docs/formats/script-block.md, "Code past the code length").
 /// </remarks>
 public sealed class ScriptBlock {
     public const int WorkerHeaderLength = 0x34;
@@ -120,30 +138,55 @@ public sealed class ScriptBlock {
             raw[w] = (header, (ushort)U16At(header), Table(0x08, 0x20), Table(0x0a, 0x24));
         }
 
-        // Each worker runs from its first entry to the next one in code order. Shipped scripts are
-        // in worker order; rebuilt ones may have workers appended past the original code.
-        uint[] starts = raw.Select(r => r.entries.Length > 0 ? r.entries.Min() : throw new ScriptFormatException("worker without entries")).ToArray();
-        int[] order = Enumerable.Range(0, count).OrderBy(i => starts[i]).ToArray();
-        for (int k = 1; k < order.Length; k++) {
-            if (starts[order[k - 1]] == starts[order[k]]) throw new ScriptFormatException("two workers start at the same offset");
-        }
-        uint blockEnd = (uint)(bytes.Length - code);
-        Worker[] workers = new Worker[count];
-        for (int k = 0; k < order.Length; k++) {
-            int i = order[k];
-            uint end = k + 1 < order.Length ? starts[order[k + 1]]
-                : starts[i] >= codeLength ? blockEnd
-                : (uint)codeLength;
-            (int header, ushort type, uint[] entries, uint[] labels) = raw[i];
-            if (entries.Concat(labels).Any(t => t < starts[i] || t >= end)) {
-                throw new ScriptFormatException("entry or label outside its worker");
+        // Each worker's code runs from its first entry to the next worker's in code order: below the code length
+        // (every shipped script), and in its tail past it (a linked script's new code). A range starts at the
+        // worker's first target in it, an entry or, where the linker moved the entry away, a label.
+        long blockLength = Math.Min(U32At(0x10), bytes.Length);
+        uint blockEnd = (uint)Math.Max(blockLength - code, codeLength);
+        uint?[] starts = new uint?[count], tails = new uint?[count];
+        for (int w = 0; w < count; w++) {
+            if (raw[w].entries.Length == 0) throw new ScriptFormatException("worker without entries");
+            foreach (uint t in raw[w].entries.Concat(raw[w].labels)) {
+                if (t < codeLength) starts[w] = Math.Min(starts[w] ?? t, t);
+                else tails[w] = Math.Min(tails[w] ?? t, t);
             }
-            workers[i] = new Worker(header, type, entries, labels, starts[i], end);
+        }
+        uint[] Ends(uint?[] from, uint last) {
+            uint[] ends = new uint[count];
+            int[] order = [.. Enumerable.Range(0, count).Where(i => from[i] is not null).OrderBy(i => from[i])];
+            for (int k = 0; k < order.Length; k++) {
+                if (k > 0 && from[order[k - 1]] == from[order[k]]) throw new ScriptFormatException("two workers start at the same offset");
+                ends[order[k]] = k + 1 < order.Length ? from[order[k + 1]]!.Value : last;
+            }
+            return ends;
+        }
+        uint[] mainEnds = Ends(starts, (uint)codeLength), tailEnds = Ends(tails, blockEnd);
+        // The last tail runs to the block's end, which is aligned to 16: its zeros past the last target and the last
+        // other instruction are padding, not code.
+        if (Enumerable.Range(0, count).Where(i => tails[i] is not null).OrderBy(i => tails[i]).LastOrDefault(-1) is int last and >= 0) {
+            uint floor = raw[last].entries.Concat(raw[last].labels).Max() + 1;
+            uint end = tailEnds[last];
+            while (end > floor && bytes[code + end - 1] == 0) end--;
+            // Back to the end of an instruction: zeros that are an operand belong to it.
+            uint pc = tails[last]!.Value;
+            while (pc < end) pc += (bytes[code + pc] & 0x80) != 0 ? 3u : 1u;
+            tailEnds[last] = Math.Min(pc, tailEnds[last]);
+        }
+        Worker[] workers = new Worker[count];
+        for (int i = 0; i < count; i++) {
+            (int header, ushort type, uint[] entries, uint[] labels) = raw[i];
+            uint tailStart = tails[i] ?? 0, tailEnd = tails[i] is null ? 0 : tailEnds[i];
+            if (tails[i] is not null && tailStart >= tailEnd) throw new ScriptFormatException("a worker's code past the block's end");
+            // A worker with only a tail has an empty first range there.
+            uint start = starts[i] ?? tailStart, end = starts[i] is null ? tailStart : mainEnds[i];
+            Worker w = new(header, type, entries, labels, start, end, tailStart, tailEnd);
+            if (entries.Concat(labels).Any(t => !w.Contains(t))) throw new ScriptFormatException("entry or label outside its worker");
+            workers[i] = w;
         }
 
         ScriptBlock script = new(bytes, (int)code, (int)codeLength, workers);
         foreach (Worker w in workers) {
-            HashSet<uint> instrStarts = script.Decode(w.Start, w.End).Select(i => i.Offset).ToHashSet();
+            HashSet<uint> instrStarts = script.Decode(w).Select(i => i.Offset).ToHashSet();
             if (w.Entries.Concat(w.Labels).Any(t => !instrStarts.Contains(t))) {
                 throw new ScriptFormatException("entry or label inside an instruction");
             }
@@ -151,8 +194,12 @@ public sealed class ScriptBlock {
         return script;
     }
 
-    /// <summary>Decodes the instructions of a worker.</summary>
-    public List<Instr> Decode(Worker worker) => Decode(worker.Start, worker.End);
+    /// <summary>Decodes the instructions of a worker: its range, then its tail (offsets are code offsets).</summary>
+    public List<Instr> Decode(Worker worker) {
+        List<Instr> code = Decode(worker.Start, worker.End);
+        if (worker.HasTail) code.AddRange(Decode(worker.TailStart, worker.TailEnd));
+        return code;
+    }
 
     /// <summary>Decodes the instructions in a code range.</summary>
     /// <exception cref="ScriptFormatException">An instruction runs past the range.</exception>

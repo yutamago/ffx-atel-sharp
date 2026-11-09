@@ -97,6 +97,53 @@ developer maps `sample01`, `sample02`, `test28`, `test33` and `test34`. The
 15 empty monster slots (`m332` and `m347`–`m360`) have no workers, so nothing points
 at their shared data, but it is there, where rule 8 puts it.
 
+## Code past the code length
+
+A linked script keeps every vanilla worker's code where it was and puts
+new code after the block's end (mod-package.md, "Linking"). The code
+offset at `+0x30` stays; the new code's offsets reach past the code
+length at `+0x00`. What FFX.exe does with the two (ffx-rust's names;
+checked in the decompilation 2026-11-09):
+
+- **Code offsets.** Every place that turns an entry or a label into a
+  program counter computes `block + [block + 0x30] + offset`, with the
+  block from the work's `+0x04`: `Script_Run` (`0x008641e0`: `jmp`, the
+  conditional jumps, `call`), `Script_Jump` (`0x008726f0`),
+  `AtelStartSignal` (`0x008690a0`), `AtelExecReturn` (`0x008691d0`) and its
+  twin `0x00869370`, `AtelResetLevel` (`0x008639e0`), `AtelSetPC`
+  (`0x00870910`) and `0x0086c930`. None compares the offset with `+0x00` or
+  `+0x10`.
+- **The block is used where it was loaded.** `AtelEventSetUp`
+  (`0x00872ef0`) reads the whole `.ebp` into one buffer and passes
+  `file + [file + 4]` on (`AtelActorSetUp2`, `AtelGetActorBufferSize`);
+  `MsAtelRegist` (`0x00797a40`) keeps a monster's or battle's block pointer.
+  Nothing copies a block, so nothing copies by `+0x00` or `+0x10`.
+- **The header readers** (`AtelInitBasicWork` `0x0086cb00`,
+  `AtelGetActorNumber`, `AtelGetNamespaceNumber`, `AtelGetIndexWork`,
+  `AtelGetActorBufferSize`, `AtelGetBinHdrExpandAddChr`, the `+0x14`,
+  `+0x16`, `+0x1c` getters `AtelBattleSetUp` calls) read `+0x14`–`+0x1c`,
+  `+0x2c`, `+0x34`, `+0x36` and `+0x38`. No read of `+0x00` turned up, through
+  the work's block pointer or in the set-up paths. Fahrenheit names it
+  `code_length` and does not use it either.
+
+So entries and labels may point past the vanilla code, and `+0x00` bounds
+nothing in the game. The linker's earlier layout, which moved the whole
+code region past the block's end, ran in game (Phase 9); the in-place layout
+differs only in that `+0x00` no longer covers all of the code.
+
+`ScriptBlock.Parse` reads such a block as follows. A worker's targets
+(entries and labels) below `+0x00` make up its range as before; those at or
+past it make up its **tail**, which runs from the first of them to the next
+worker's tail, or to the block's end (`+0x10`). A range starts at the
+worker's first target in it, so the linker puts a label where no entry is
+(the first method's entries moved to the tail, a new worker's first byte).
+A new worker has only a tail. `ScriptImage` keeps a worker's code as its
+range followed by its tail (`WorkerImage.TailAt`), lays the ranges out in
+worker order as before, and the tails after the per-worker tables (pinned
+where the linker put them). The last tail runs to the block's end, so it
+ends in the zeros of the 16-byte alignment (`nop`s). Shipped scripts have no
+tails: the 1,621 blocks come back byte for byte as before.
+
 ## The data areas
 
 | Area | Bytes | Under a declared variable | Non-zero, under none |

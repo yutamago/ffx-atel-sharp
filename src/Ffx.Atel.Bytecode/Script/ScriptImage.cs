@@ -44,8 +44,21 @@ public sealed class WorkerImage {
     /// <summary>Header <c>+0x10</c>, Fahrenheit's <c>priv_data_len</c>.</summary>
     public uint PrivateLength { get; set; }
 
-    /// <summary>The worker's code, from its first entry to the next worker's.</summary>
+    /// <summary>
+    ///     The worker's code, from its first entry to the next worker's; with a tail (<see cref="TailAt"/>), its code in
+    ///     the code region and then its tail.
+    /// </summary>
     public byte[] Code { get; set; } = [];
+
+    /// <summary>
+    ///     Where in <see cref="Code"/> the worker's tail starts, the code it has past the code region (a linked
+    ///     script's new code; <see cref="Worker.TailStart"/>); null when it has none (every shipped script). The bytes
+    ///     before it are the worker's part of the code region, 0 bytes for a worker that has only a tail.
+    /// </summary>
+    public int? TailAt { get; set; }
+
+    /// <summary>The worker's part of the code region: <see cref="Code"/> up to its tail.</summary>
+    public int RegionLength => TailAt ?? Code.Length;
 
     /// <summary>Entry points, as offsets into <see cref="Code"/>.</summary>
     public uint[] Entries { get; set; } = [];
@@ -75,7 +88,7 @@ public sealed class WorkerImage {
 ///     variable table (align 4), int constants, float constants, code,
 ///     shared data (storage 4; align 32), other (0x40), event data (storage 6), area,
 ///     per worker: entry table, label table, private data (0x10),
-///     end (align 16 = block length)
+///     workers' tails (align 16; linked scripts only), end (align 16 = block length)
 ///     </code>
 /// </remarks>
 public sealed class ScriptImage {
@@ -148,14 +161,17 @@ public sealed class ScriptImage {
             return at;
         }
         int pos = 0x38 + 4 * Workers.Count;
-        pos = Put("workers", pos) + 0x34 * Workers.Count;
+        int headers = Put("workers", pos);
+        // Back to back in every shipped script; a linked one may have moved some (a grown header table, new workers).
+        for (int w = 0; w < Workers.Count; w++) Put($"w{w}.header", headers + 0x34 * w);
+        pos = headers + 0x34 * Workers.Count;
         if (Map is not null) pos = Put("map", pos) + Map.Length;
         pos = Put("author", pos) + Author.Length + 1;
         pos = Put("name", Align(pos, 4)) + Name.Length + 1;
         pos = Put("vars", Align(pos, 4)) + 8 * Variables.Count;
         pos = Put("ints", pos) + 4 * IntConstants.Count;
         pos = Put("floats", pos) + 4 * FloatConstants.Count;
-        pos = Put("code", pos) + Workers.Sum(w => w.Code.Length);
+        pos = Put("code", pos) + Workers.Sum(w => w.RegionLength);
         if (Shared is not null) pos = Put("shared", Align(pos, 32)) + Shared.Length;
         if (Other is not null) pos = Put("other", pos) + Other.Length;
         if (Event is not null) pos = Put("event", pos) + Event.Length;
@@ -165,6 +181,14 @@ public sealed class ScriptImage {
             pos = Put($"w{w}.entries", pos) + 4 * wi.Entries.Length;
             pos = Put($"w{w}.labels", pos) + 4 * wi.Labels.Length;
             if (wi.Private is not null) pos = Put($"w{w}.private", pos) + wi.Private.Length;
+        }
+        // Tails, in worker order, back to back after the first one (a linked script pins them where it put them).
+        bool firstTail = true;
+        for (int w = 0; w < Workers.Count; w++) {
+            WorkerImage wi = Workers[w];
+            if (wi.TailAt is not int t) continue;
+            pos = Put($"w{w}.tail", firstTail ? Align(pos, 16) : pos) + wi.Code.Length - t;
+            firstTail = false;
         }
         l.End = Put("end", Align(pos, 16));
         return l;
@@ -183,7 +207,7 @@ public sealed class ScriptImage {
         int At(string name) => l.At.TryGetValue(name, out int v) ? v : 0;
 
         int code = At("code");
-        int codeLength = Workers.Sum(w => w.Code.Length);
+        int codeLength = Workers.Sum(w => w.RegionLength);
         U32(0x00, (uint)codeLength);
         U32(0x04, (uint)At("map"));
         U32(0x08, (uint)At("author"));
@@ -219,7 +243,7 @@ public sealed class ScriptImage {
         int workerStart = 0;
         for (int w = 0; w < Workers.Count; w++) {
             WorkerImage wi = Workers[w];
-            int h = At("workers") + 0x34 * w;
+            int h = At($"w{w}.header");
             U32(0x38 + 4 * w, (uint)h);
             U16(h + 0x00, wi.Type);
             U16(h + 0x02, Variables.Count);
@@ -237,11 +261,16 @@ public sealed class ScriptImage {
             U32(h + 0x24, (uint)labels);
             U32(h + 0x2c, (uint)At($"w{w}.private"));
             U32(h + 0x30, (uint)At("shared"));
-            Bytes(code + workerStart, wi.Code);
-            for (int i = 0; i < wi.Entries.Length; i++) U32(entries + 4 * i, (uint)workerStart + wi.Entries[i]);
-            for (int i = 0; i < wi.Labels.Length; i++) U32(labels + 4 * i, (uint)workerStart + wi.Labels[i]);
+            int region = wi.RegionLength;
+            Bytes(code + workerStart, wi.Code[..region]);
+            // A tail's offsets count from the code start too; the image's offsets past the region are in the tail.
+            int tail = wi.TailAt is null ? 0 : At($"w{w}.tail");
+            if (wi.TailAt is not null) Bytes(tail, wi.Code[region..]);
+            uint Offset(uint o) => o < region ? (uint)workerStart + o : (uint)(tail - code) + (o - (uint)region);
+            for (int i = 0; i < wi.Entries.Length; i++) U32(entries + 4 * i, Offset(wi.Entries[i]));
+            for (int i = 0; i < wi.Labels.Length; i++) U32(labels + 4 * i, Offset(wi.Labels[i]));
             if (wi.Private is not null) Bytes(At($"w{w}.private"), wi.Private);
-            workerStart += wi.Code.Length;
+            workerStart += region;
         }
         foreach ((int o, byte[] v) in Patches) v.CopyTo(b, o);
         return b;
@@ -276,6 +305,7 @@ public sealed class ScriptImage {
 
         int map = (int)U32(0x04), author = (int)U32(0x08), name = (int)U32(0x0c);
         if (n > 0) actual["workers"] = block.Workers[0].Header;
+        for (int w = 0; w < n; w++) actual[$"w{w}.header"] = block.Workers[w].Header;
         if (map != 0) {
             img.Map = Slice(map, author);
             actual["map"] = map;
@@ -310,9 +340,11 @@ public sealed class ScriptImage {
         actual["vars"] = vars;
         actual["code"] = block.CodeStart;
 
-        // Workers' code, in worker order; the code region must be exactly their ranges back to back.
+        // Workers' code, in worker order; the code region must be exactly their ranges back to back. A worker with
+        // only a tail has no part in it.
         uint expected = 0;
         foreach (Worker w in block.Workers) {
+            if (w.Start == w.End && w.HasTail) continue;
             if (w.Start != expected) throw new ScriptFormatException("worker code not in worker order");
             expected = w.End;
         }
@@ -323,7 +355,7 @@ public sealed class ScriptImage {
         int shared = n > 0 ? (int)U32(block.Workers[0].Header + 0x30) : 0;
         int other = (int)U32(0x2c), ev = (int)U32(0x20), area = (int)U32(0x28);
         int tables = n > 0 ? block.Workers.Min(w => (int)U32(w.Header + 0x20)) : blockLength;
-        List<int> starts = [codeEnd, tables, blockLength];
+        List<int> starts = [codeEnd, tables, blockLength, .. block.Workers.Where(w => w.HasTail).Select(w => block.CodeStart + (int)w.TailStart)];
         foreach (int s in new[] { shared, other, ev, area }) if (s != 0) starts.Add(s);
         // A region that starts where the worker tables do is empty.
         int NextAfter(int s) => s == tables ? s : starts.Where(x => x > s).DefaultIfEmpty(blockLength).Min();
@@ -339,14 +371,21 @@ public sealed class ScriptImage {
             Worker wk = block.Workers[w];
             int h = wk.Header;
             int priv = (int)U32(h + 0x2c);
+            uint region = wk.End - wk.Start;
+            uint Offset(uint o) => o >= wk.Start && o < wk.End ? o - wk.Start : region + (o - wk.TailStart);
             WorkerImage wi = new() {
                 Type = wk.Type,
                 Unknown0C = U32(h + 0x0c),
                 PrivateLength = U32(h + 0x10),
                 Code = Slice(block.CodeStart + (int)wk.Start, block.CodeStart + (int)wk.End),
-                Entries = wk.Entries.Select(e => e - wk.Start).ToArray(),
-                Labels = wk.Labels.Select(e => e - wk.Start).ToArray(),
+                Entries = wk.Entries.Select(Offset).ToArray(),
+                Labels = wk.Labels.Select(Offset).ToArray(),
             };
+            if (wk.HasTail) {
+                wi.TailAt = (int)region;
+                wi.Code = [.. wi.Code, .. Slice(block.CodeStart + (int)wk.TailStart, block.CodeStart + (int)wk.TailEnd)];
+                actual[$"w{w}.tail"] = block.CodeStart + (int)wk.TailStart;
+            }
             actual[$"w{w}.entries"] = (int)U32(h + 0x20);
             actual[$"w{w}.labels"] = (int)U32(h + 0x24);
             if (priv != 0) {
