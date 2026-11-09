@@ -22,6 +22,7 @@ namespace Ffx.Atel.Rider.Tests
         protected override string RelativeTestDataPath => "Hints";
 
         private bool myWithTextFolder = true;
+        private string myLanguage;
 
         protected override void DoTest(Lifetime lifetime, IProject testProject)
         {
@@ -29,6 +30,11 @@ namespace Ffx.Atel.Rider.Tests
             var folder = myWithTextFolder ? TestDataPath.Combine(".atel").Combine("text").FullPath : "";
             settings.SetValue((AtelTextSettings s) => s.TextDirectory, folder);
             lifetime.OnTermination(() => settings.ResetValue((AtelTextSettings s) => s.TextDirectory));
+            if (myLanguage != null)
+            {
+                settings.SetValue((AtelTextSettings s) => s.Language, myLanguage);
+                lifetime.OnTermination(() => settings.ResetValue((AtelTextSettings s) => s.Language));
+            }
 
             var textControl = OpenTextControl(lifetime);
             var context = DataContextOfTestTextControl.Create(lifetime, textControl, Solution);
@@ -53,6 +59,14 @@ namespace Ffx.Atel.Rider.Tests
         [Test] public void TestQuickDocEvent() => DoNamedTest2();
         [Test] public void TestQuickDocLibrary() => DoNamedTest2();
         [Test] public void TestQuickDocNotText() => DoNamedTest2();
+
+        /// <summary>A language the export does not have: says so, and which it has.</summary>
+        [Test]
+        public void TestQuickDocNoLanguage()
+        {
+            myLanguage = "fr";
+            DoNamedTest2();
+        }
 
         [Test]
         public void TestQuickDocNoTable()

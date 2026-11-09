@@ -21,6 +21,26 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "atel.selectTextLanguage",
+        "title": "Select the message language",
+        "category": "Atel#"
+      },
+      {
+        "command": "atel.setTextLanguage",
+        "title": "Set the message language",
+        "category": "Atel#"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "atel.setTextLanguage",
+          "when": "false"
+        }
+      ]
+    },
     "configuration": {
       "title": "Atel#",
       "properties": {
@@ -71,9 +91,9 @@
         },
         "atel.inlayHints.maxLength": {
           "type": "number",
-          "default": 60,
+          "default": 40,
           "minimum": 8,
-          "description": "Inlay hints longer than this are cut with an ellipsis; the hover shows the whole message."
+          "description": "Inlay hints longer than this are cut with an ellipsis (at a word where it can); the hover shows the whole message."
         }
       }
     }

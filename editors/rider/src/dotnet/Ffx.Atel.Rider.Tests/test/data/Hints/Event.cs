@@ -13,5 +13,6 @@ public sealed class W01
         Common.MsgSetText(4, Other[1]);
         Common.MsgSetText(5, this.Text[3]);
         Common.MsgSetText(6, Text[i]);
+        Common.MsgSetText(7, Text[4]); // an empty first line: no speaker
     }
 }

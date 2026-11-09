@@ -5,6 +5,7 @@
 
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 
 namespace Ffx.Atel.Rider.Tests
@@ -64,9 +65,64 @@ namespace Ffx.Atel.Rider.Tests
             Assert.That(file.Has(1) && !file.Has(2), Is.True);
             Assert.That(TextResolver.ParseTextFile("not json"), Is.Null);
             Assert.That(TextResolver.ParseTextFile("{\"messages\":3}"), Is.Null);
-            Assert.That(TextResolver.HintLabel("One\nTwo", 60), Is.EqualTo("One ⏎ Two"));
+            Assert.That(TextResolver.HintLabel("One\nTwo", 60), Is.EqualTo("One Two"));
             Assert.That(TextResolver.HintLabel("abcdefghij", 5), Is.EqualTo("abcd…"));
+            // Cut at the last space in the second half when the cut is inside a word.
+            Assert.That(TextResolver.HintLabel("A made-up line that is long", 20), Is.EqualTo("A made-up line that…"));
+            Assert.That(TextResolver.HintLabel("Abcdefghijklmnop qrstuvwxyz", 20), Is.EqualTo("Abcdefghijklmnop…"));
             Assert.That(TextResolver.Quote("say \"hi\"\\"), Is.EqualTo("\"say \\\"hi\\\"\\\\\""));
+        }
+
+        private static string Parts(string text)
+        {
+            var (speaker, lines) = TextResolver.MessageParts(text);
+            return (speaker ?? "-") + "|" + string.Join("/", lines);
+        }
+
+        [Test]
+        public void SplitsAMessageIntoSpeakerAndLines()
+        {
+            Assert.That(Parts("{name:Tidus}\nMade-up line.\nAnd another."), Is.EqualTo("Tidus|Made-up line./And another."));
+            Assert.That(Parts("{wait:0}{name:Wakka}\r\nMade-up."), Is.EqualTo("Wakka|Made-up."));
+            // A first line left empty: a speaker the window does not name.
+            Assert.That(Parts("\nMade-up question?"), Is.EqualTo("-|Made-up question?"));
+            // Anything else on the first line is text: a plain name, a choice, codes.
+            Assert.That(Parts("Someone\nMade-up."), Is.EqualTo("-|Someone/Made-up."));
+            Assert.That(Parts("{wait:0}\nMade-up."), Is.EqualTo("-|{wait:0}/Made-up."));
+            Assert.That(Parts("{name:Tidus}"), Is.EqualTo("-|{name:Tidus}"));
+            Assert.That(Parts("{name:Tidus} and {name:Yuna}\nMade-up."), Is.EqualTo("-|{name:Tidus} and {name:Yuna}/Made-up."));
+
+            Assert.That(TextResolver.MessageHint("{name:Tidus}\nMade-up line.\nAnd \"another\".", 60), Is.EqualTo("Tidus: \"Made-up line. And \\\"another\\\".\""));
+            Assert.That(TextResolver.MessageHint("\nMade-up question?", 60), Is.EqualTo("\"Made-up question?\""));
+            Assert.That(TextResolver.MessageFull("{name:Tidus}\nMade-up line.\nAnd another."), Is.EqualTo("Tidus:\nMade-up line.\nAnd another."));
+            Assert.That(TextResolver.MessageFull("\nMade-up question?"), Is.EqualTo("Made-up question?"));
+        }
+
+        [Test]
+        public void ReadsOnlyTheStartOfABigFile()
+        {
+            var filler = "// " + new string('x', 100) + "\n";
+            var big = new StringBuilder("namespace Events.Aa.Aaaa0100;\n");
+            while (big.Length < TextResolver.HeadLength * 4) big.Append(filler);
+            big.Append("[Event(\"zzzz9999\")]\n");
+            Assert.That(Scripts(big.ToString(), "/x.cs"), Is.EqualTo(new[] { "aaaa0100:Event" }));
+        }
+
+        [Test]
+        public void ListsTheExportedLanguages()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "atel-languages-" + Path.GetRandomFileName());
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "en"));
+                Directory.CreateDirectory(Path.Combine(root, "de"));
+                Assert.That(TextResolver.ExportedLanguages(root), Is.EqualTo(new[] { "de", "en" }));
+                Assert.That(TextResolver.ExportedLanguages(Path.Combine(root, "missing")), Is.Empty);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
         }
     }
 }

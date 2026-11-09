@@ -5,7 +5,7 @@ Shows the text behind `Text[n]` in decompiled [Atel#](https://github.com/yutamag
 choose. The text comes from your own copy of the game; the extension ships none.
 
 ```csharp
-Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
+Common.MsgSetText(0, Text[3]);  Tidus: "A made-up line, cut at a…"
 Btl.UseCommand(Target.Biran "…", Command.Attack "…");
 ```
 
@@ -32,6 +32,9 @@ It complements the C# extension and has no language server: it reads the file's 
 
 3. Open `src` (or any folder in it) and a script's `.cs` file.
 
+Hovering a hint shows the whole message; hovering `Text[n]` shows it with its speaker and links to the other
+languages your export has. **Atel#: Select the message language** (Command Palette) switches too.
+
 ## Settings
 
 | Setting | Default | |
@@ -39,7 +42,7 @@ It complements the C# extension and has no language server: it reads the file's 
 | `atel.textLanguage` | `en` | `en`, `ja`, `fr`, `es`, `de`, `it`, `ko` or `zh` |
 | `atel.textDirectory` | (empty) | the folder with the language folders; empty: the nearest `.atel/text` above the file |
 | `atel.inlayHints.enabled` | `true` | hints on or off (the hover stays) |
-| `atel.inlayHints.maxLength` | `60` | hints are cut here |
+| `atel.inlayHints.maxLength` | `40` | hints are cut here, at a word |
 | `atel.inlayHints.names` | `true` | name hints on or off (the hover stays) |
 | `atel.namesDirectory` | (empty) | `atel names export`'s folder; empty: the nearest `.atel/names` above the file |
 

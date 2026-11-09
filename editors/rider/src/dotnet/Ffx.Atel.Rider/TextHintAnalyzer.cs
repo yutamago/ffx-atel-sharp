@@ -10,8 +10,9 @@ using JetBrains.Util;
 
 namespace Ffx.Atel.Rider
 {
-    /// <summary>An inlay hint after each <c>Text[n]</c> with the message: the first script's, <c>(+n)</c> when the
-    /// other users of a library class have different ones.</summary>
+    /// <summary>An inlay hint after each <c>Text[n]</c> with the message on one line and its speaker
+    /// (<c>Tidus: "…"</c>): the first script's, <c>(+n)</c> when the other users of a library class have different ones.
+    /// The tooltip holds the whole message.</summary>
     [ElementProblemAnalyzer(typeof(IElementAccessExpression), HighlightingTypes = new[] { typeof(TextHint) })]
     public sealed class TextHintAnalyzer : ElementProblemAnalyzer<IElementAccessExpression>
     {
@@ -29,11 +30,11 @@ namespace Ffx.Atel.Rider
             var found = tables.Find(context, index).Where(l => l.Found && l.Text != null).ToList();
             if (found.Count == 0) return;
             var others = found.Select(l => l.Text).Distinct().Count() - 1;
-            var label = TextResolver.Quote(TextResolver.HintLabel(found[0].Text, context.MaxLength)) + (others > 0 ? $" (+{others})" : "");
+            var label = TextResolver.MessageHint(found[0].Text, context.MaxLength) + (others > 0 ? $" (+{others})" : "");
             var toolTip = found.Count == 1
-                ? found[0].Text
-                : string.Join("\n\n", found.Select(l => $"{l.Script.Name}: {l.Text}"));
-            consumer.AddHighlighting(new TextHint(element, element.GetDocumentEndOffset(), label, toolTip));
+                ? TextResolver.MessageFull(found[0].Text)
+                : string.Join("\n\n", found.Take(8).Select(l => $"{l.Script.Name}:\n{TextResolver.MessageFull(l.Text)}"));
+            consumer.AddHighlighting(new TextHint(element, element.GetDocumentEndOffset(), label, toolTip, context.Language, context.TextLanguages));
         }
     }
 }

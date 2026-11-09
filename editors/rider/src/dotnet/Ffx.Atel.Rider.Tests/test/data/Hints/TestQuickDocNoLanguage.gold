@@ -1,0 +1,2 @@
+﻿Message 1
+<html><body><p>No <code>fr</code> text (<code>atel text export --lang fr</code> exports it); exported: de, en. The language is in Settings → Tools → Atel# message text.</p></body></html>

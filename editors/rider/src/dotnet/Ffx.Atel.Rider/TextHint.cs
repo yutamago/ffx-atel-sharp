@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 //
-// The inlay hint after Text[n]: a highlighting the daemon adds (TextHintAnalyzer), drawn by an adornment provider,
-// with the whole message as its tooltip.
+// The inlay hint after Text[n] (and after the typed values with a name): a highlighting the daemon adds
+// (TextHintAnalyzer, NameHints), drawn by an adornment provider, with the whole message as its tooltip. Its context
+// menu switches the language among those the export has, opens the settings, or hides the hints.
 
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Application.Parts;
+using JetBrains.Application.Settings;
+using JetBrains.Application.UI.Controls.BulbMenu.Anchors;
 using JetBrains.Application.UI.Controls.BulbMenu.Items;
 using JetBrains.Application.UI.Controls.Utils;
+using JetBrains.Application.UI.Icons.CommonThemedIcons;
 using JetBrains.Application.UI.PopupLayout;
 using JetBrains.DocumentModel;
 using JetBrains.ProjectModel;
@@ -45,13 +50,22 @@ namespace Ffx.Atel.Rider
         private readonly ITreeNode myNode;
         private readonly DocumentOffset myOffset;
 
-        public TextHint(ITreeNode node, DocumentOffset offset, string label, string toolTip)
+        public TextHint(ITreeNode node, DocumentOffset offset, string label, string toolTip, string language = null,
+            IReadOnlyList<string> languages = null)
         {
             myNode = node;
             myOffset = offset;
             Label = label;
             ToolTip = toolTip;
+            Language = language;
+            Languages = languages ?? new string[0];
         }
+
+        /// <summary>The language shown.</summary>
+        public string Language { get; }
+
+        /// <summary>The languages the export has, for the context menu.</summary>
+        public IReadOnlyList<string> Languages { get; }
 
         /// <summary>What the hint shows: the message on one line, shortened.</summary>
         public string Label { get; }
@@ -68,23 +82,56 @@ namespace Ffx.Atel.Rider
     [SolutionComponent(Instantiation.ContainerAsyncAnyThreadSafe)]
     public sealed class TextHintAdornmentProvider : IHighlighterAdornmentProvider
     {
+        private readonly ISettingsStore mySettings;
+
+        public TextHintAdornmentProvider(ISettingsStore settings) => mySettings = settings;
+
         public bool IsValid(IHighlighter highlighter) => highlighter.UserData is TextHint;
 
         public IAdornmentDataModel CreateDataModel(IHighlighter highlighter) =>
-            highlighter.UserData is TextHint hint ? new TextHintDataModel(hint.Label) : null;
+            highlighter.UserData is TextHint hint ? new TextHintDataModel(hint.Label, TextHintMenu.Items(mySettings, hint.Language, hint.Languages)) : null;
+    }
+
+    /// <summary>The hint's context menu: the export's languages (the shown one checked), the settings page, hiding
+    /// the hints. The language goes where Rider's own hint menus write, the machine's settings.</summary>
+    public static class TextHintMenu
+    {
+        public static IReadOnlyList<BulbMenuItem> Items(ISettingsStore settings, string language, IReadOnlyList<string> languages)
+        {
+            var items = new List<BulbMenuItem>();
+            if (languages.Count > 1)
+            {
+                var submenu = new SubmenuAnchor(BulbMenuAnchors.FirstClassContextItems, SubmenuBehavior.Static(new RichText("Message language")));
+                foreach (var code in languages)
+                {
+                    var name = TextResolver.Languages.FirstOrDefault(l => l.Key == code).Value;
+                    items.Add(new BulbMenuItem(
+                        new ExecutableItem(() => settings.BindToContextTransient(ContextRange.ApplicationWide).SetValue((AtelTextSettings s) => s.Language, code)),
+                        new RichText(name != null ? $"{code} ({name})" : code),
+                        code == language ? CommonThemedIcons.MenuItemCheck.Id : null,
+                        submenu));
+                }
+            }
+
+            items.Add(IntraTextAdornmentDataModelHelper.CreateConfigureBulbMenuItem(AtelTextOptionsPage.Pid));
+            items.Add(IntraTextAdornmentDataModelHelper.CreateTurnOffBulbMenuItem<AtelTextSettings>(settings, s => s.ShowInlayHints,
+                "Hide Atel# message text hints", null, BulbMenuAnchors.SecondClassContextItems));
+            return items;
+        }
     }
 
     public sealed class TextHintDataModel : IAdornmentDataModel
     {
-        public TextHintDataModel(string label)
+        public TextHintDataModel(string label, IEnumerable<BulbMenuItem> menu = null)
         {
             Data = new AdornmentData(new RichText(label), null, default,
                 AdornmentPlacement.DefaultAfterPrevChar, PushToHintMode.Default);
+            ContextMenuItems = menu ?? EmptyList<BulbMenuItem>.Instance;
         }
 
         public AdornmentData Data { get; }
         public IPresentableItem ContextMenuTitle => null;
-        public IEnumerable<BulbMenuItem> ContextMenuItems => EmptyList<BulbMenuItem>.Instance;
+        public IEnumerable<BulbMenuItem> ContextMenuItems { get; }
         public TextRange? SelectionRange => null;
         public void ExecuteNavigation(PopupWindowContextSource popupWindowContextSource) { }
     }

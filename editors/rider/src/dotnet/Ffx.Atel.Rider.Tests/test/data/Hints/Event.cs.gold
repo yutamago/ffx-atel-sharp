@@ -13,15 +13,19 @@ public sealed class W01
         Common.MsgSetText(4, Other[1]);
         Common.MsgSetText(5, this.Text[3]||(2));
         Common.MsgSetText(6, Text[i]);
+        Common.MsgSetText(7, Text[4]||(3)); // an empty first line: no speaker
     }
 }
 
 ---------------------------------------------------------
-(0): Atel# Message Text Hint: {name:Tidus}
+(0): Atel# Message Text Hint: Tidus:
 Made-up line.
 (1): Atel# Message Text Hint: First.
 (2): Atel# Message Text Hint: A made-up line that is long enough to be cut short in the inlay hint, but not in the documentation.
+(3): Atel# Message Text Hint: A made-up question, its speaker not named?
 Labels:
-  "{name:Tidus} ⏎ Made-up line."
+  Tidus: "Made-up line."
   "First."
-  "A made-up line that is long enough to be cut short in the i…"
+  "A made-up line that is long enough to…"
+  "A made-up question, its speaker not…"
+Language: en of de, en
