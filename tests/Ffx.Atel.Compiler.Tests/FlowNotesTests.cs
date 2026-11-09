@@ -138,7 +138,7 @@ public sealed class FlowNotesTests {
         Assert.Empty(library.Check());
         foreach (ScriptSource script in shared.Scripts) {
             WorkerSource w01 = script.Workers[1];
-            Assert.StartsWith("Shared", w01.Base, StringComparison.Ordinal);
+            Assert.Contains(w01.Base, shared.Classes.Select(c => c.Name));
             Assert.Contains($"/// <summary>E2Async: requested by W00.Main.</summary>\npublic sealed partial class W01 : {w01.Base}\n", w01.Text, StringComparison.Ordinal);
             Assert.Equal(original, ScriptCompiler.Compile(Parse(SourceLayout.Files(script)), library).ApplyTo(file).ToArray());
         }
