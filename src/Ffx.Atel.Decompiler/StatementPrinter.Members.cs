@@ -29,7 +29,8 @@ internal sealed partial class StatementPrinter {
             case MemberReceiver.None:
                 return "";
             case MemberReceiver.Index:
-                return $"{m.Root}[{ToInt(Expr(args[0])).Text}].";
+                // Typed as the native's argument (Actors[Target.AllPly]).
+                return $"{m.Root}[{(GameNames.NativeParameters.GetValueOrDefault(m.Id)?[0] is Domain d ? Typed(args[0], d) : ToInt(Expr(args[0]))).Text}].";
             default:
                 if (args[0] is CallExpr { Native: KnownNatives.GetWorkerId, Args: [IntLit { Value: -1 }] }) {
                     if (m.SelfTwin) return null;
@@ -60,12 +61,15 @@ internal sealed partial class StatementPrinter {
 
     /// <summary>A native call as a statement written as its member (<c>Turn.Start(0, 4099, 0);</c>, <c>Yaw = 1.5f;</c>); null where it is none.</summary>
     private string? MemberStatement(CallStmt c) {
-        if (NativeMembers.Default[c.Native] is not MemberNative m || m.Use == MemberUse.Get || natives[c.Native] is not NativeSignature sig) return null;
-        int first = m.Receiver == MemberReceiver.None ? 0 : 1;
+        if (NativeMembers.Default.Of(c.Native, c.Args) is not MemberNative m || m.Use == MemberUse.Get || natives[c.Native] is not NativeSignature sig) return null;
+        int first = (m.Receiver == MemberReceiver.None ? 0 : 1) + (m.Constant is null ? 0 : 1);
         string? text = null;
         if (MemberTarget(m, c.Args, sig) is string target) {
             if (m.Use == MemberUse.Call) {
-                text = $"{target}({string.Join(", ", Enumerable.Range(first, sig.Argc - first).Select(k => MemberArg(c.Native, sig, c.Args, k)))});";
+                IEnumerable<string> args = Enumerable.Range(first, sig.Argc - first).Select(k => MemberArg(c.Native, sig, c.Args, k));
+                // A choice member names its native by its first argument: Camera.Eye.Shake(ShakeKind.SineFadeOut, …).
+                if (m.ChoiceText is string choice) args = args.Prepend(choice);
+                text = $"{target}({string.Join(", ", args)});";
             }
             else if (m.Vector) {
                 text = $"{target} = new Vector3({string.Join(", ", Enumerable.Range(first, 3).Select(k => MemberArg(c.Native, sig, c.Args, k)))});";
@@ -74,19 +78,19 @@ internal sealed partial class StatementPrinter {
                 text = $"{target} = {MemberArg(c.Native, sig, c.Args, first, m.Bool)};";
             }
         }
-        if (text is not null) Count("member");
+        if (text is not null) Count(m.Constant is null ? "member" : "member-property");
         return text;
     }
 
     /// <summary>A native call as a value written as its member (<c>Turn.GetKind()</c>, <c>Tidus.Pos.X</c>); null where it is none.</summary>
     private E? MemberValue(CallExpr c) {
-        if (NativeMembers.Default[c.Native] is not MemberNative m || m.Use == MemberUse.Set || m.Void || natives[c.Native] is not NativeSignature sig) return null;
+        if (NativeMembers.Default.Of(c.Native, c.Args) is not MemberNative m || m.Use == MemberUse.Set || m.Void || natives[c.Native] is not NativeSignature sig) return null;
         if (MemberTarget(m, c.Args, sig) is not string target) return null;
-        int first = m.Receiver == MemberReceiver.None ? 0 : 1;
-        string text = m.Use == MemberUse.Get
-            ? target
-            : $"{target}({string.Join(", ", Enumerable.Range(first, sig.Argc - first).Select(k => MemberArg(c.Native, sig, c.Args, k)))})";
-        Count("member");
+        int first = (m.Receiver == MemberReceiver.None ? 0 : 1) + (m.Constant is null ? 0 : 1);
+        IEnumerable<string> args = Enumerable.Range(first, sig.Argc - first).Select(k => MemberArg(c.Native, sig, c.Args, k));
+        if (m.ChoiceText is string choice) args = args.Prepend(choice);
+        string text = m.Use == MemberUse.Get ? target : $"{target}({string.Join(", ", args)})";
+        Count(m.Constant is null ? "member" : "member-property");
         return new E(text, sig.Result switch { "float" => CType.Float, "bool" => CType.Bool, _ => CType.Int }, PPrimary);
     }
 }

@@ -48,6 +48,18 @@ internal sealed partial class WorkerDecompiler {
     /// <summary>The names of the worker's own inline methods (<c>Repeated01</c>, or the table's), which an entry method must not take.</summary>
     public IEnumerable<string> OwnMethodNames => _own.Select(x => x.Macro.CallName ?? x.Macro.Name);
 
+    /// <summary>Declares the integer registers the worker's code uses as flags <c>bool</c> (<see cref="FlagVariables.Registers"/>).</summary>
+    public void TypeFlagRegisters() {
+        _printer.BoolRegisters.Clear();
+        _printer.BoolRegisters.UnionWith(FlagVariables.Registers(_methods.Select(m => (IReadOnlyList<Stmt>)m.Body).Concat(OwnBodies), _natives, _functionWorker));
+    }
+
+    /// <summary>Whether integer register <paramref name="n"/> is declared <c>bool</c>.</summary>
+    public bool IsBoolRegister(int n) => _printer.BoolRegisters.Contains(n);
+
+    /// <summary>The bodies of the worker's own inline methods as printed.</summary>
+    public IEnumerable<IReadOnlyList<Stmt>> OwnBodies => _own.Select(x => x.Printed);
+
     /// <summary>Folds the worker's repeated code into inline methods of its own (<see cref="RepeatOptions"/>).</summary>
     public void FoldRepeats(RepeatOptions o) {
         if (o.MaxHelpers <= 0) return;

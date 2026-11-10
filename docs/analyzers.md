@@ -36,6 +36,8 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL1009](#atl1009) | error | not an ATEL type (`long`, `double`, …) | `1.5` → `1.5f` |
 | [ATL1010](#atl1010) | error | `checked` | remove it |
 | [ATL1011](#atl1011) | retired | `&&` and `\|\|` compile since 2026-11-02 | |
+| [ATL1012](#atl1012) | error | compound assignment to a native member (`Actors[Target.Own].Hp += 10`) | |
+| [ATL1013](#atl1013) | error | a member holder used as a value (`var a = Actors[Target.AllPly];`) | |
 | [ATL2001](#atl2001) | hint | request neither awaited nor discarded | `_ =`, `await` |
 | [ATL2002](#atl2002) | error | request to an entry that is not `async` | |
 | [ATL2003](#atl2003) | hint | `await` on something that is not a request | |
@@ -205,6 +207,28 @@ Fix (code fix): remove `checked`.
 **Retired.** It reported `&&` and `||` while the compiler could not compile them. They compile now,
 with C#'s short-circuit (language.md, "Conditions"; encoding.md, "New code"), so the rule and its
 code fix are gone; the id is not reused.
+
+### ATL1012
+
+**Compound assignment to a native member** (error, 2026-11-09). A property of the object-oriented surface is its
+native: reading it calls the getter, assigning it the setter (language.md, "Members"). `+=`, `++` and the other
+compound assignments would hide both, so the compiler takes only `=`; write the read and the write out.
+
+```csharp
+Actors[Target.Own].Hp += 10;                              // ATL1012
+Actors[Target.Own].Hp = Actors[Target.Own].Hp + 10;       // the getter, then the setter
+```
+
+### ATL1013
+
+**Member holder used as a value** (error, 2026-11-09). What holds members (`Actors[Target.AllPly]`, `Self`, `Turn`,
+`Sprites[3]`, `Workers[n]`) names the receiver of the native a member calls, and the compiler reads it together with
+the member after it. There is no object behind it to keep in a local, pass or return.
+
+```csharp
+var party = Actors[Target.AllPly];                         // ATL1013
+Actors[Target.AllPly].Defense = 0;                         // a member after it
+```
 
 ### ATL2001
 

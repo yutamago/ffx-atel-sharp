@@ -148,7 +148,7 @@ public static class ScriptDecompiler {
         string shortPath = archivePath.StartsWith("ffx_ps2/ffx/master/jppc/", StringComparison.Ordinal) ? archivePath["ffx_ps2/ffx/master/jppc/".Length..] : archivePath;
 
         HandlerTable? handlers = HandlerTable.Of(file);
-        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions(), handlers);
+        (string[] varNames, string[] workerNames, WorkerDecompiler[] workers, VarInfo[] vars) = StructuredWorkers(names, block, image, inline, overlay, cuts, repeats ?? new RepeatOptions(), handlers);
         EntryNaming.Apply(workers, workerNames, overlay);
         HandlerNaming.AssignEntries(names.Category, handlers, workers, workerNames, WorkerNaming.ReservedWith(varNames));
         // The rest by what triggers them or what their code does (OnTalk, Say12, Hide).
@@ -181,7 +181,7 @@ public static class ScriptDecompiler {
         };
 
         StringBuilder main = new(), layout = new(), data = new();
-        WriteScriptClass(main, layout, names, image, workerNames, varNames, stats.IntPoolPinned, stats.FloatPoolPinned);
+        WriteScriptClass(main, layout, names, image, workerNames, varNames, vars, stats.IntPoolPinned, stats.FloatPoolPinned);
         WorkerSource[] workerSources = [.. Enumerable.Range(0, image.Workers.Count).Select(w => WriteWorker(image, workers[w], w, workerNames[w], names.Category) with { Signature = WorkerSignature.Of(block, w) })];
         // Comments read off the code: who requests each entry, and the story index on the script class.
         workerSources = FlowNotes.Annotate(workers, workerNames, workerSources);
@@ -279,7 +279,7 @@ public static class ScriptDecompiler {
     ///     only pin the layout (<c>[Header]</c>, <c>[Pin]</c>, <c>[Patch]</c>, the pools) go to <paramref name="layout"/>,
     ///     which becomes the layout part (<c>Bjyt0400.Layout.cs</c>), so the main file reads as the script's outline.
     /// </summary>
-    private static void WriteScriptClass(StringBuilder main, StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, bool pinInts, bool pinFloats) {
+    private static void WriteScriptClass(StringBuilder main, StringBuilder sb, SourceNames names, ScriptImage image, string[] workerNames, string[] varNames, VarInfo[] vars, bool pinInts, bool pinFloats) {
         main.Append(CultureInfo.InvariantCulture, $"[{names.Attribute}({Str(names.Name)})]\n");
         if (workerNames.Length > 0) {
             WriteList(main, "Workers", workerNames.Select(n => $"typeof({n})").ToList(), 6);
@@ -303,13 +303,14 @@ public static class ScriptDecompiler {
         }
         main.Append(CultureInfo.InvariantCulture, $"public static partial class {names.ClassName}\n{{\n");
         for (int i = 0; i < image.Variables.Count; i++) {
-            main.Append(Indent).Append(VarDeclaration(image.Variables[i], i, varNames[i])).Append('\n');
+            main.Append(Indent).Append(VarDeclaration(image.Variables[i], i, varNames[i], vars[i].Type == CType.Bool)).Append('\n');
         }
         main.Append("}\n");
     }
 
     /// <summary><c>[Var(Storage.Private, 0x0012)] public static byte[] V3 = new byte[4];</c></summary>
-    private static string VarDeclaration(VarEntry v, int index, string name) {
+    /// <param name="flag">A flag (<see cref="FlagVariables"/>): <c>bool</c>, its integer type as <c>Stored</c> unless <c>int</c>.</param>
+    private static string VarDeclaration(VarEntry v, int index, string name, bool flag = false) {
         string type = v.Type switch {
             0 => "byte", 1 => "sbyte", 2 => "ushort", 3 => "short", 4 => "uint", 5 => "int", 6 => "float",
             _ => throw new ScriptFormatException($"variable {index} has type {v.Type}, which has no C# type"),
@@ -320,7 +321,9 @@ public static class ScriptDecompiler {
         string offset = v.Storage == 0 && GameNames.SaveFields.TryGetValue(v.Offset, out string? field) ? $"Save.{field}"
             : v.Storage == 0 && InModArea(v.Offset) ? $"Save.{nameof(Ffx.Save.ModArea)} + {Hex((uint)(v.Offset - Ffx.Save.ModArea), 1)}"
             : Hex((uint)v.Offset, 4);
-        string head = $"[Var(Storage.{storage}, {offset})] public static";
+        string stored = flag && v.Type != 5 ? $", Stored = typeof({type})" : "";
+        if (flag) type = "bool";
+        string head = $"[Var(Storage.{storage}, {offset}{stored})] public static";
         // Location bit 24 is a variable declared as an array, also of length 1; the row length
         // makes it 2-D (it divides the length in every shipped script).
         if (!v.IsArray) {
@@ -364,7 +367,7 @@ public static class ScriptDecompiler {
         sb.Clear();
         SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
         foreach ((RegKind kind, int n) in registers) {
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public static {(kind == RegKind.Int ? "int" : "float")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
+            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public static {(kind == RegKind.Float ? "float" : worker.IsBoolRegister(n) ? "bool" : "int")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);
@@ -372,7 +375,7 @@ public static class ScriptDecompiler {
     }
 
     /// <summary>The script's workers, structured and with the calls of <paramref name="inline"/> folded: the first half of <see cref="Decompile"/>.</summary>
-    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats, HandlerTable? handlers) {
+    private static (string[] VarNames, string[] WorkerNames, WorkerDecompiler[] Workers, VarInfo[] Vars) StructuredWorkers(SourceNames names, ScriptBlock block, ScriptImage image, IReadOnlyList<InlineMacro>? inline, NameOverlay overlay, CutNames? cuts, RepeatOptions repeats, HandlerTable? handlers) {
         string[] varNames = VariableNames(image.Variables, overlay);
         string[] defaults = WorkerNames(image.Workers.Count);
         string[] taken = [.. varNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames];
@@ -391,7 +394,10 @@ public static class ScriptDecompiler {
             w.FoldInline(inline);
             w.FoldRepeats(repeats);
         }
-        return (varNames, workerNames, workers);
+        // Flags are bool (FlagVariables), from the code as it will be printed.
+        FlagVariables.Apply(vars, workers.SelectMany(w => w.Bodies.Select(m => (IReadOnlyList<Stmt>)m.Body).Concat(w.OwnBodies)), Natives);
+        foreach (WorkerDecompiler w in workers) w.TypeFlagRegisters();
+        return (varNames, workerNames, workers, vars);
     }
 
     /// <summary>
@@ -406,7 +412,7 @@ public static class ScriptDecompiler {
     public static StructuredScript Structured(string archivePath, ScriptFile file, IReadOnlyList<InlineMacro>? inline = null, RepeatOptions? repeats = null) {
         SourceNames names = SourceNames.ForPath(archivePath);
         ScriptBlock block = file.Script;
-        (_, string[] workerNames, WorkerDecompiler[] workers) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null, repeats ?? RepeatOptions.Disabled, HandlerTable.Of(file));
+        (_, string[] workerNames, WorkerDecompiler[] workers, _) = StructuredWorkers(names, block, ScriptImage.FromBlock(block), inline, NameOverlay.Load(null, archivePath), null, repeats ?? RepeatOptions.Disabled, HandlerTable.Of(file));
         return new StructuredScript(names, [.. workers.Select((w, i) => new StructuredWorker(i, workerNames[i], w.Bodies, w.Print))]);
     }
 

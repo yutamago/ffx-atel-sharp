@@ -93,6 +93,18 @@ public static class Rules {
 
     // ATL1011 (`&&` and `||`, "not yet") is retired: the compiler lowers them to branches.
 
+    public static readonly DiagnosticDescriptor MemberCompound = Rule(
+        "ATL1012", "Compound assignment to a native member",
+        "'{0}' is a native's read and a native's write; assign it with '=' ('x = x + 1' reads it, then sets it)",
+        SubsetCategory, DiagnosticSeverity.Error,
+        "A property of the object-oriented surface (Actors[Target.Own].Hp, Self.Hp, Yaw) is its native: reading calls the getter native and assigning the setter native. '+=', '++' and the other compound assignments would hide two calls, so the compiler takes only '='.");
+
+    public static readonly DiagnosticDescriptor MemberHolder = Rule(
+        "ATL1013", "Member holder used as a value",
+        "'{0}' only stands before one of its members ('{0}.Hp', '{0}.Start(…)'); there is no object to keep or pass on",
+        SubsetCategory, DiagnosticSeverity.Error,
+        "What holds the object-oriented surface's members (Actors[Target.AllPly], Self, Turn, Sprites[3], Workers[n]) names the native's receiver; the compiler reads it with the member written after it. Kept in a local, passed or returned, it would need an object ATEL does not have.");
+
     // ----- ATL2xxx: requests between workers ----------------------------------------------------
 
     public static readonly DiagnosticDescriptor RequestNotAwaited = Rule(

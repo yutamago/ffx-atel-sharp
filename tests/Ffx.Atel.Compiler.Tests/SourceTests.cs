@@ -331,8 +331,9 @@ public sealed class SourceTests {
             "Common.MapJump(Map.Hiku0800, 0);",
             "Sound.Play((Sfx)0x80000017);",
             "Sound.Play((Sfx)0x16008, 63, 127);",
-            "Btl.SetActorProperty(ActorProperty.Maxmp, 1);",
-            "Btl.SetActorsProperty(Target.Biran, ActorProperty.Hp, 0);",
+            // A property by its constant (Phase 5, "Typing and members picked by a constant").
+            "Self.Maxmp = 1;",
+            "Actors[Target.Biran].Hp = 0;",
             "Btl.LabelExe(Battle.Kami00_00, 1);",
             "if (Btl.GetBattleId() == Battle.Kami00_00)",
             "Common.MapChange(Map.Camtest0, 0);",
