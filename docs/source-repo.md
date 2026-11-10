@@ -145,6 +145,23 @@ twice. In the shipped scripts (2026-11-07) this names 891 of the 891 monster wor
 the 2,220 battle workers that were `Wnn`, and every entry method of a monster (2,023 that were
 `En`) and all but 95 of a battle's (3,147).
 
+**Function workers** are named after what they do to the worker that calls them
+(`WorkerNaming.FunctionRole`): `SetMoveTalkDefaults`, `AttachEquipment`, `DetachEquipment`.
+
+**Entries** the overlay and the handler table leave numbered (`E5`, `E5Async`) are named by
+`EntryRoles`: first the trigger entries, from FFX.exe's default trigger table and the worker's own
+`SetTriggerEntry` (`OnTalk`, `OnTouch`, `OnCross`, `OnTouchBegin`, `OnTouchEnd`; `OnTalk_6` for an
+entry a worker points talking at), then what the method's code does (`Say12`, `Say12To15`,
+`PlayVoice`, `MoveCamera`, `PlayMotion`, `Walk`, `Hide`, `Show`, `Unload`, `RunEffects`, `SetLights`,
+`GoToKami0100`, `Scene12`, or the one native it calls). The rules and what was checked for each:
+[research/variable-names.md](research/variable-names.md). A name several methods of a worker get
+takes each one's entry (`Hide_7`); empty methods that are no trigger entry keep their number.
+
+**Variables**: storage 1 (`Storage.Common`, shared by the battle and monster scripts of a battle)
+by `data/variable-names.toml`, one name per offset for every script (`CameraActor`); a script's own
+variables (storage 2, 3, 4, 6) by what the code does with them (`TriggerEntries`, a native's result:
+`MsgChoiceResult`). The overlay's names come first.
+
 Story progress values are not in the overlay: they are constants of the
 reference assembly (`Story.S01340_Kami0400`), and their hand names go into
 `data/story-names.json`, next to `data/names/`.
@@ -187,6 +204,22 @@ when the same code is written differently in different scripts (an entry
 another worker requests is `async Task`, elsewhere `void`): the one with more
 users gets the name, the other `Name_2`. The corpus test checks that every
 signature in the file still names a class.
+
+A class without a hand name is named by rule, from its users (`SharedWorkers.AutoName`): where they
+are (the one script, `Bjyt0000`, with the blitzball `cn_`/`psv_` copies counting as their script; else
+the one area, `ThunderPlains`; test maps and other builds' copies count only when every user is one)
+and what the decompiler named them all (their model, role or handler without the number:
+`Bjyt0000CameraLine`, `ThunderPlainsSystemRequests2`), or `Idle` and the worker type for code that
+does nothing. Without a place, a name a worker already has takes the category (`BattleSystemRequests2`).
+A name taken twice gets `_2`, `_3`, … in order of first use. Classes whose users all kept their
+number (`W17`) keep `SharedNNNN`.
+
+**Bodies that name a sibling worker.** A worker whose body names other workers of its script
+(`SetMoveTalkDefaults.Run()`, `W59.Say98Async()`, `Tidus.Pos`) is shared too when each of those is
+the only worker of its script deriving from a library class: the library body names the class
+(`MoveTalkDefaults.Run()`), and the compiler reads a library class's name as the one worker of the
+script that derives from it (`ScriptCompiler.LibraryAliases`; a class two workers derive from, or
+that is a worker's name, stands for nothing).
 
 ## Notes
 
