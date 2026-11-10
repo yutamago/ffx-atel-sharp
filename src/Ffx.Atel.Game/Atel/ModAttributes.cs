@@ -36,29 +36,34 @@ public sealed class ReplaceAttribute(string method) : Attribute {
 
 /// <summary>
 ///     Runs this method at a point inside the vanilla entry method <paramref name="method"/>: before or after the
-///     statement that holds the <see cref="Occurrence"/>-th call to <see cref="Before"/> or <see cref="After"/>, counted
-///     in the order the calls stand in the decompiled source
-///     (<c>[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand), Occurrence = 2)]</c>).
+///     statement that holds the <see cref="Occurrence"/>-th place of <see cref="Before"/> or <see cref="After"/>, counted
+///     in the order they stand in the decompiled source
+///     (<c>[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand), Occurrence = 2)]</c>, <c>[Inject(nameof(Main), After = nameof(Self.Hp))]</c>).
 /// </summary>
 /// <remarks>
-///     The call is named as it is written there: <c>nameof(Btl.UseCommand)</c> or <c>"Btl.UseCommand"</c> for a native,
+///     A call is named as it is written there: <c>nameof(Btl.UseCommand)</c> or <c>"Btl.UseCommand"</c> for a native,
 ///     <c>"Motion.Play"</c> for a member, <c>nameof(Dialogue.Say)</c> for an inline method, <c>"W02.OpenAsync"</c> for a
-///     request. The statement is the innermost one holding the call: for a call in an <c>if</c>'s condition, the whole
-///     <c>if</c>. Jumps that come from inside the statement (a loop's back edge, an <c>if</c>'s end) stay inside it: code
-///     injected before it runs once as the statement starts, code injected after it once as it ends; a <c>return</c> in
-///     the statement leaves before the code after it. A <c>return;</c> in the injected method ends the entry.
+///     request. A member property is named in full (<c>nameof(Self.Hp)</c>, <c>nameof(Yaw)</c>,
+///     <c>"Camera.Eye.Position"</c>, <c>"Actors.Hp"</c>): its places are its reads and assignments. A native or a member
+///     named in full also counts whatever compiles to its native, written either way: <c>Self.Hp = 1;</c> is a place of
+///     <c>Btl.SetActorProperty</c>, and <c>Btl.SetActorProperty(ActorProperty.Hp, 1);</c> one of <c>Self.Hp</c>, so a
+///     re-export that writes more natives as members moves no anchor. The statement is the innermost one holding the
+///     place: for one in an <c>if</c>'s condition, the whole <c>if</c>. Jumps that come from inside the statement (a
+///     loop's back edge, an <c>if</c>'s end) stay inside it: code injected before it runs once as the statement starts,
+///     code injected after it once as it ends; a <c>return</c> in the statement leaves before the code after it. A
+///     <c>return;</c> in the injected method ends the entry.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class InjectAttribute(string method) : Attribute {
     public string Method { get; } = method;
 
-    /// <summary>Runs before the statement with this call.</summary>
+    /// <summary>Runs before the statement with this call or member.</summary>
     public string? Before { get; set; }
 
-    /// <summary>Runs after the statement with this call.</summary>
+    /// <summary>Runs after the statement with this call or member.</summary>
     public string? After { get; set; }
 
-    /// <summary>Which call of that name in the method: 1 (the default) for the first.</summary>
+    /// <summary>Which place of that call or member in the method: 1 (the default) for the first.</summary>
     public int Occurrence { get; set; } = 1;
 }
 

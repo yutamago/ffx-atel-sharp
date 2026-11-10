@@ -106,4 +106,37 @@ public sealed class ModTests {
             void E() { Hp = 5; }
         }
         """, "using static M997;\n");
+
+    /// <summary>A member anchor counts the member's reads and writes and the calls of its natives that pass its constant.</summary>
+    [Fact]
+    public void AnInjectNamesAMemberOfItsMethod() => Verify(Monster + """
+
+        public sealed partial class Larva
+        {
+            protected override void Main()
+            {
+                Self.Hp = 1;
+                if (Self.Mp > Common.Random16()) { Btl.SetActorProperty(ActorProperty.Hp, 2); }
+                return;
+            }
+
+            [Inject(nameof(Main), Before = nameof(Self.Hp), Occurrence = 2)]
+            void A() { Hp = 1; }
+
+            [Inject(nameof(Main), After = "Self.Mp")]
+            void B() { Hp = 2; }
+
+            [Inject(nameof(Main), After = nameof(Btl.SetActorProperty), Occurrence = 2)]
+            void C() { Hp = 3; }
+
+            [Inject(nameof(Main), Before = {|ATL4002:nameof(Self.Hp)|}, Occurrence = 3)]
+            void E() { Hp = 5; }
+
+            [Inject(nameof(Main), Before = {|ATL4002:nameof(Self.Str)|})]
+            void F() { Hp = 6; }
+
+            [Inject(nameof(Main), Before = {|ATL4002:"Self.Poison"|})]
+            void G() { Hp = 7; }
+        }
+        """, "using static M997;\n");
 }

@@ -448,7 +448,7 @@ public static partial class ScriptCompiler {
             int w = workers[worker];
             MethodDeclarationSyntax vanillaMethod = vanillaParts[worker].SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>().First(m => m.Identifier.ValueText == anchor.Method);
             (_, uint start, uint end) = methods[worker][anchor.Method];
-            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], start, end);
+            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], vanilla.NativeSites, start, end);
         }
 
         // ----- Initial values -------------------------------------------------------------------

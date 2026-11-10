@@ -51,6 +51,9 @@ public sealed record MemberNative(string Path, ushort Id, MemberUse Use, MemberR
     /// <summary>For a <see cref="Choice"/>, the constant as written: <c>ShakeKind.SineFadeOut</c>.</summary>
     public string? ChoiceText { get; init; }
 
+    /// <summary>On a <c>Vector3</c> getter: the component it reads (<c>X</c> in <c>Pos.X</c>); the member is the path before it.</summary>
+    public string? Component { get; init; }
+
     /// <summary>The root of the path: the worker's member, the group or the static class.</summary>
     public string Root => Path.Split('.')[0];
 
@@ -89,6 +92,21 @@ public sealed class NativeMembers {
     /// <summary>Every member's native (one member each; a native picked by a constant argument, once per constant).</summary>
     public IEnumerable<MemberNative> All => _byId.Values.Concat(_byConstant.Values).OrderBy(m => m.Id).ThenBy(m => m.Constant);
 
+    /// <summary>The classes of the worker's components and indexed groups' items, with their roots (<c>OwnActor</c>: <c>Self</c>, <c>PickedActors</c>: <c>Actors</c>).</summary>
+    private readonly Dictionary<string, string> _typeRoots = new(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The natives a member named in full compiles to, used any way (called, read, written; a <c>Vector3</c>'s
+    ///     components too): <c>Self.Hp</c>, <c>Camera.Eye.Position</c>, <c>Motion</c>, <c>Turn.Start</c>, or with the class
+    ///     of a component or an indexed group's item first, as <c>nameof</c> may name it (<c>PickedActors.Hp</c> is
+    ///     <c>Actors.Hp</c>). <c>[Inject]</c>'s anchors (ScriptCompiler.ResolveInject).
+    /// </summary>
+    public IEnumerable<MemberNative> Named(string path) {
+        int dot = path.IndexOf('.');
+        if (dot > 0 && _typeRoots.TryGetValue(path[..dot], out string? root)) path = root + path[dot..];
+        return _byPath.Values.SelectMany(l => l).Where(n => n.Path == path || n.Component is not null && n.Path == $"{path}.{n.Component}");
+    }
+
     /// <summary>The members at a path, used so.</summary>
     public IReadOnlyList<MemberNative> Find(string path, MemberUse use) => _byPath.GetValueOrDefault((path, use)) ?? [];
 
@@ -125,11 +143,13 @@ public sealed class NativeMembers {
             if (t.Name == "WorkerList") continue;
             if (t.GetProperties(Instance).FirstOrDefault(x => x.GetIndexParameters().Length == 1) is PropertyInfo indexer && HasMembers(indexer.PropertyType)) {
                 m.IndexedRoots.Add(p.Name);
+                m._typeRoots.TryAdd(indexer.PropertyType.Name, p.Name);
                 m.WorkerRoots.Add(p.Name);
                 m.AddType(indexer.PropertyType, Instance, p.Name, MemberReceiver.Index, isStatic: false);
             }
             else if (t.IsClass && HasMembers(t)) {
                 m.WorkerRoots.Add(p.Name);
+                m._typeRoots.TryAdd(t.Name, p.Name);
                 m.AddType(t, Instance, p.Name, MemberReceiver.None, isStatic: false);
                 m.AddProperty(p, p.Name, MemberReceiver.None, isStatic: false);
             }
@@ -198,7 +218,7 @@ public sealed class NativeMembers {
             foreach (Attribute a in Natives(accessor)) {
                 string? component = (string?)a.GetType().GetProperty("Component")!.GetValue(a);
                 Add(new MemberNative(component is null ? path : $"{path}.{component}", Id(a), use, Receiver(a, receiver),
-                    vector && use == MemberUse.Set, p.PropertyType == typeof(bool) && use == MemberUse.Set, Polls(a), Constant: Constant(a)) { Static = isStatic });
+                    vector && use == MemberUse.Set, p.PropertyType == typeof(bool) && use == MemberUse.Set, Polls(a), Constant: Constant(a)) { Static = isStatic, Component = component });
                 any = true;
             }
         }

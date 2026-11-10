@@ -84,8 +84,8 @@ public sealed class InjectTests {
         return file;
     }
 
-    private static ScriptPackage Compile(string mod) {
-        CompiledMod m = ScriptCompiler.CompileMod([ScriptCompiler.Parse(Vanilla, "Monsters/M997/M997.cs")], [ScriptCompiler.Parse(mod, "mod/Larva.cs")]);
+    private static ScriptPackage Compile(string mod, string vanilla = Vanilla) {
+        CompiledMod m = ScriptCompiler.CompileMod([ScriptCompiler.Parse(vanilla, "Monsters/M997/M997.cs")], [ScriptCompiler.Parse(mod, "mod/Larva.cs")]);
         m.Package.File = Path;
         return ScriptPackage.FromJson(m.Package.ToJson());
     }
@@ -242,7 +242,64 @@ public sealed class InjectTests {
         Assert.True(main >= 0 && inject > main && call > inject, d.Source);
     }
 
+    /// <summary>
+    ///     The vanilla source with its natives written as members, as the decompiler writes them: <c>Self.Hp = 1;</c> for
+    ///     <c>Btl.SetActorProperty(ActorProperty.Hp, 1);</c>, a read of <c>Self.Mp</c>. The same bytes.
+    /// </summary>
+    private static readonly string VanillaWithMembers = Vanilla
+        .Replace("Btl.SetActorProperty(ActorProperty.Hp, Hp);", "Self.Hp = Hp;", StringComparison.Ordinal)
+        .Replace("Btl.SetActorProperty(ActorProperty.Hp, 1);", "Self.Hp = 1;", StringComparison.Ordinal)
+        .Replace("Btl.SetActorProperty(ActorProperty.Mp, 2);", "Self.Mp = 2;", StringComparison.Ordinal);
+
+    [Fact]
+    public void TheVanillaSourceWithMembersIsTheSameScript() {
+        Assert.NotEqual(Vanilla, VanillaWithMembers);
+        Assert.Equal(ScriptCompiler.Compile(Vanilla, "M997.cs").Block(), ScriptCompiler.Compile(VanillaWithMembers, "M997.cs").Block());
+    }
+
+    /// <summary>
+    ///     An anchor names a member (<c>nameof(Self.Mp)</c>): the statement with its n-th use, a read or an assignment, found
+    ///     by the native it compiles to. So it is the same statement whether the vanilla source writes the member or the
+    ///     native's call, and an anchor on the native counts the member's places too: stable across re-exports that write
+    ///     more natives as members.
+    /// </summary>
     [Theory]
+    [InlineData("Before = nameof(Self.Mp)", "Before = \"Btl.SetActorProperty\", Occurrence = 2", "before the statement with the 1st use of Self.Mp in Main")]
+    [InlineData("After = nameof(Self.Hp)", "After = nameof(Btl.SetActorProperty)", "after the statement with the 1st use of Self.Hp in Main")]
+    [InlineData("After = \"Self.Hp\"", "After = nameof(Btl.SetActorProperty)", "after the statement with the 1st use of Self.Hp in Main")]
+    [InlineData("After = nameof(OwnActor.Hp)", "After = nameof(Btl.SetActorProperty)", "after the statement with the 1st use of OwnActor.Hp in Main")]
+    [InlineData("Before = \"Mp\"", "Before = nameof(Btl.SetActorProperty), Occurrence = 2", null)]
+    public void AnAnchorNamesAMember(string member, string native, string? words) {
+        foreach (string vanilla in new[] { Vanilla, VanillaWithMembers }) {
+            InjectPoint byNative = Assert.Single(Compile(Mod($"[Inject(nameof(Main), {native})] void B() {{ Before = 1; }}"), vanilla).Patches).At!;
+            InjectPoint byMember;
+            try {
+                byMember = Assert.Single(Compile(Mod($"[Inject(nameof(Main), {member})] void B() {{ Before = 1; }}"), vanilla).Patches).At!;
+            }
+            catch (CompileException) when (words is null && vanilla == Vanilla) {
+                continue;    // a short name matches the members written so, and this source writes the native
+            }
+            Assert.Equal((byNative.Position, byNative.Start, byNative.End), (byMember.Position, byMember.Start, byMember.End));
+            if (words is not null) Assert.Equal(words, byMember.Anchor);
+        }
+    }
+
+    /// <summary>A read counts as a use: <c>Self.Hp</c> read in an <c>if</c>'s condition is the whole <c>if</c>; the write after it the 2nd use.</summary>
+    [Fact]
+    public void AReadOfAMemberIsAPlaceOfIt() {
+        string vanilla = Vanilla.Replace("if (Hp == 3)", "if (Self.Hp == 3)", StringComparison.Ordinal);
+        InjectPoint read = Assert.Single(Compile(Mod("[Inject(nameof(Main), Before = nameof(Self.Hp))] void B() { Before = 1; }"), vanilla).Patches).At!;
+        InjectPoint write = Assert.Single(Compile(Mod("[Inject(nameof(Main), Before = nameof(Self.Hp), Occurrence = 2)] void B() { Before = 1; }"), vanilla).Patches).At!;
+        InjectPoint next = Assert.Single(Compile(Mod("[Inject(nameof(Main), Before = nameof(Self.Mp))] void B() { Before = 1; }"), vanilla).Patches).At!;
+        Assert.Equal(0u, read.Start);
+        Assert.Equal(next.Start, read.End);         // the whole if
+        Assert.True(write.Start > read.Start && write.End <= read.End, $"{write.Start}-{write.End} in {read.Start}-{read.End}");
+        Assert.Equal("before the statement with the 2nd use of Self.Hp in Main", write.Anchor);
+    }
+
+    [Theory]
+    [InlineData("[Inject(nameof(Main), Before = nameof(Self.Str))]", "Main has no use of Self.Str")]
+    [InlineData("[Inject(nameof(Main), Before = nameof(Self.Hp), Occurrence = 2)]", "Main has 1 use(s) of Self.Hp, not 2")]
     [InlineData("[Inject(nameof(Main), Before = nameof(Common.Random16))]", "Main has no call to Common.Random16")]
     [InlineData("[Inject(nameof(Main), Before = \"Btl.SetActorProperty\", Occurrence = 3)]", "Main has 2 call(s) to Btl.SetActorProperty, not 3")]
     [InlineData("[Inject(nameof(Main))]", "Before = … or After = …")]
