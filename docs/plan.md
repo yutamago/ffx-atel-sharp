@@ -2042,7 +2042,8 @@ count, names placed.
     modding with it, in Astro Starlight: pages written new for people (not
     `docs/` rendered), guides built on `examples/`, concepts, a reference with
     the `Ffx.Atel.Game` API and one page per analyzer rule, and the CLI as a
-    .NET tool (`AtelSharp.Cli`). Planned and decided 2026-11-10 in
+    .NET tool (`AtelSharp.Cli`); the guides are a Besaid course of visual
+    example mods. Planned and decided 2026-11-10 in
     [website.md](website.md), with the list of screenshots and clips.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
