@@ -156,6 +156,56 @@ public static class SharedWorkers {
         return new SharedLibrary(result, classes);
     }
 
+    /// <summary>
+    ///     Near-duplicates (docs/research/repeats.md, "Near-duplicate workers"): the workers left with a body of their own
+    ///     and the library classes, grouped by base and body with every number written as a hole, so that a group's
+    ///     members differ only in constants. A group with at most <paramref name="maxHoles"/> holes whose values differ
+    ///     could be one library class with those constants as parameters. Measures only; nothing is rewritten.
+    /// </summary>
+    public static NearDuplicates MeasureNearDuplicates(SharedLibrary library, int maxHoles) {
+        Dictionary<ScriptSource, HashSet<string>> declared = new(ReferenceEqualityComparer.Instance);
+        // (base, body as written, how many workers it stands for: a library class its users).
+        List<(string Base, string Body, int Workers)> items = [.. library.Classes.Select(c => (c.Base, c.Body, c.Users.Count))];
+        foreach (ScriptSource s in library.Scripts) {
+            foreach (WorkerSource w in s.Workers.Where(w => w.Body.Length > 0)) {
+                if (!declared.TryGetValue(s, out HashSet<string>? names)) declared[s] = names = DeclaredNames(s);
+                if (!Identifiers(w.Body).Overlaps(names)) items.Add((w.Base, w.Body, 1));
+            }
+        }
+        Dictionary<(string Base, string Shape), List<(string Body, int Workers, string[] Numbers)>> groups = [];
+        foreach ((string b, string body, int workers) in items) {
+            StringBuilder shape = new(body.Length);
+            List<string> numbers = [];
+            int at = 0;
+            foreach (SyntaxToken t in SyntaxFactory.ParseTokens(body).Where(t => t.IsKind(SyntaxKind.NumericLiteralToken))) {
+                shape.Append(body, at, t.SpanStart - at).Append('#');
+                numbers.Add(t.Text);
+                at = t.Span.End;
+            }
+            shape.Append(body, at, body.Length - at);
+            if (!groups.TryGetValue((b, shape.ToString()), out var list)) groups[(b, shape.ToString())] = list = [];
+            list.Add((body, workers, [.. numbers]));
+        }
+        NearDuplicates result = new() { MaxHoles = maxHoles };
+        foreach (((string _, string shapeText), var members) in groups) {
+            if (members.Count < 2) continue;
+            int holes = Enumerable.Range(0, members[0].Numbers.Length).Count(k => members.Select(m => m.Numbers[k]).Distinct(StringComparer.Ordinal).Count() > 1);
+            int lines = shapeText.Count(c => c == '\n');
+            int workers = members.Sum(m => m.Workers);
+            result.Add(holes, members.Count, workers, lines);
+            if (holes <= maxHoles) {
+                // One body instead of n; each class that derives from it gives its holes' values, a line each.
+                result.Groups++;
+                result.Bodies += members.Count;
+                result.Workers += workers;
+                result.LinesSaved += (long)lines * (members.Count - 1) - (long)holes * members.Count;
+                result.Examples.Add((members.Count, workers, lines, holes, members[0].Body));
+            }
+        }
+        result.Examples.Sort((a, b) => (b.Lines * (b.Bodies - 1)).CompareTo(a.Lines * (a.Bodies - 1)));
+        return result;
+    }
+
     /// <summary>What stands for library class <c>n</c> in a body until the classes have their names: <c>__AtelLibrary17__</c>.</summary>
     private const string SiblingMark = "__AtelLibrary";
 
@@ -331,4 +381,36 @@ public static class SharedWorkers {
 
         public int GetHashCode((ScriptSource Script, int Worker) obj) => HashCode.Combine(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj.Script), obj.Worker);
     }
+}
+
+/// <summary>What <see cref="SharedWorkers.MeasureNearDuplicates"/> found.</summary>
+public sealed class NearDuplicates {
+    public int MaxHoles { get; init; }
+
+    /// <summary>Groups of at least two bodies that differ only in at most <see cref="MaxHoles"/> constants.</summary>
+    public int Groups { get; set; }
+
+    /// <summary>The distinct bodies in them (a library class counts once).</summary>
+    public int Bodies { get; set; }
+
+    /// <summary>The workers those bodies are.</summary>
+    public int Workers { get; set; }
+
+    /// <summary>Lines one body per group saves: the others' bodies, less a line per hole per body.</summary>
+    public long LinesSaved { get; set; }
+
+    /// <summary>Per number of differing constants: groups, bodies, workers, body lines.</summary>
+    public SortedDictionary<int, (int Groups, int Bodies, int Workers, long Lines)> ByHoles { get; } = [];
+
+    /// <summary>The groups within <see cref="MaxHoles"/>: bodies, workers, lines of one body, holes, the first body.</summary>
+    public List<(int Bodies, int Workers, int Lines, int Holes, string Body)> Examples { get; } = [];
+
+    internal void Add(int holes, int bodies, int workers, int lines) {
+        (int g, int b, int w, long l) = ByHoles.GetValueOrDefault(holes);
+        ByHoles[holes] = (g + 1, b + bodies, w + workers, l + (long)lines * (bodies - 1));
+    }
+
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"near-duplicates with at most {MaxHoles} differing constants: {Groups} groups of {Bodies} bodies ({Workers} workers), {LinesSaved} lines saved; by holes: ")
+        + string.Join(", ", ByHoles.Take(12).Select(x => string.Create(CultureInfo.InvariantCulture, $"{x.Key}: {x.Value.Groups} groups/{x.Value.Bodies} bodies/{x.Value.Workers} workers/{x.Value.Lines} lines")));
 }

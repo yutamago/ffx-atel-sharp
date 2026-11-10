@@ -100,6 +100,8 @@ public sealed class CorpusTests(ITestOutputHelper output) {
         });
         output.WriteLine($"{identical} scripts round-trip through C#: {sourceBytes / 1e6:0.0} MB of source in {fileCount} files, {diagnostics} C# diagnostics (and {registerWarnings} ATL0001/ATL2006 warnings the original code gives), {clock.Elapsed.TotalSeconds:0.0} s");
         output.WriteLine($"{shared.SharedWorkers} workers derive from {shared.Classes.Count} library classes, {shared.SavedChars / 1e6:0.0} MB saved");
+        // Workers that differ only in constants (docs/research/repeats.md, "Near-duplicate workers"): measured, not merged.
+        output.WriteLine(SharedWorkers.MeasureNearDuplicates(shared, maxHoles: 4).ToString());
         output.WriteLine(totals.ToString());
         output.WriteLine(totals.FlowSummary());
         output.WriteLine(totals.NameSummary());

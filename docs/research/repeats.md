@@ -376,6 +376,52 @@ parameter's most common value is in `repeats.md`, e.g. 448 for 6,690 of the
 | `atel roundtrip --check` | 1,621 / 1,621 | 1,621 / 1,621, 0 C# errors, 221 warnings (ATL2006) |
 
 
+## Near-duplicate workers
+
+2026-11-10, measured, not built (docs/plan.md, Phase 6, "Bodies that name a sibling"). The library classes
+take workers whose bodies are the same text. A near-duplicate is a worker whose body equals another's except
+for a few numbers. Such a group could be one library class with the differing numbers as members the
+deriving worker gives (`protected override int Dobj => 49;`), and the compiler would fold them back as
+constants, so the bytes would stay the same.
+
+`SharedWorkers.MeasureNearDuplicates` groups what is left after the library is built. That is each library
+class once, plus every worker that still has its own body and names nothing its script declares (the
+library's own condition). The grouping key is the base class and the body with every numeric literal
+replaced by a hole. A hole whose value differs inside a group would become a parameter. The corpus
+roundtrip test prints the line for at most 4 holes.
+
+| differing constants | groups | bodies | workers | lines of the bodies beyond the first |
+|---|---|---|---|---|
+| 1 | 36 | 97 | 291 | 2,005 |
+| 2 | 23 | 65 | 146 | 1,613 |
+| 3 | 12 | 31 | 45 | 858 |
+| 4 | 15 | 53 | 76 | 2,053 |
+| 5-8 | 42 | 124 | 166 | 2,828 |
+| 9-12 | 35 | 138 | 153 | 3,202 |
+
+With at most 4 holes, 86 groups of 246 bodies (558 workers) would become 86 classes. That saves 5,997 lines
+once each body pays a line per hole. With at most 8 holes the saving is 8,011 lines, about 0.2 % of the
+3.92 million lines of worker bodies left after the library. 3,334 workers already derive from 551 classes.
+
+Why it is not built:
+
+- **Little to gain.** The groups are small: the median group has 2-3 bodies of 30-60 lines. The largest,
+  15 bodies of 62 lines, is the event props that place a model at a point and wait (`WorkerAttachDobj(49)`,
+  `Pos = new Vector3(53.3f, -297.8f, 49.1f)`). The next largest is 9 idle workers that differ only in the
+  flag `Common.WorkerClearFlag34Bit1(1)`, and then 6 party members' setups that differ in `PartyIndex`.
+- **The holes have no names.** They are dobj and model numbers, flag arguments, motion IDs and coordinates.
+  A coordinate is three holes, because `Vector3` is no value ATEL can store (language.md, "Members"). A
+  parameter named `P1` or `X0` reads worse than the number it hides. Naming them would need the same
+  reading as the library names, for gains of tens of lines per class.
+- **C# could not express a third of them.** A requested entry is `static` (`public static async Task
+  Place_6Async()`), and a static body cannot read a deriving class's override. The other way to pass a value,
+  a static field or a generic argument of the base class, would compile in C# but would not read as plain C#.
+  The constants would then also have to be read as the worker's own, which the compiler does not do for
+  library bodies yet.
+
+It would pay only for a group whose holes have a clear meaning and whose body is long, and a hand-written
+library class can do that today with `[Inline]` methods taking `[Constant]` parameters.
+
 ## Names
 
 2026-11-04, second pass. Of the 3,617 helpers the decompiler wrote, 2,250 were `RepeatedNN`. The
