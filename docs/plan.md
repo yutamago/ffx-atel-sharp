@@ -1214,6 +1214,10 @@ replaces and the round trip stays byte for byte.
     `ShowStatIcon`/`ShowStatIconOfCurrent`, differ by a parameter). It would
     pay only for hand-written helpers.
   - 1,621/1,621 round-trip, 0 C# errors, 221 warnings (ATL2006).
+  - Open: an `[Inject]` anchor is a call as written, so a property
+    (`Self.Hp = 1;`, now 45,069 places in battle scripts, and `Yaw = …`
+    before) is no anchor; anchoring on a member property's name would need
+    the compiler to find its assignments too.
 - Not done yet: register and variable names beyond the save, names for
   function workers, storage 1 names, entry names beyond 0 and 1 (requested
   entries are `E5Async`).

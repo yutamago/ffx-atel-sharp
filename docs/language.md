@@ -1075,7 +1075,7 @@ partial class Ai
     [Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 3)]
     void Exhausted()
     {
-        Btl.SetActorProperty(ActorProperty.Hp, 1);
+        Self.Hp = 1;
     }
 
     // Before the statement with the 1st call to Common.Random16.
@@ -1088,7 +1088,8 @@ partial class Ai
   native, `"Motion.Play"` for a member, `nameof(Dialogue.Say)` for an inline method, `"W02.OpenAsync"` for a
   request, `"Helper"` for a helper. `Occurrence` (1 by default) counts the calls of that name in the method, in
   the order they stand in the file. A shorter name matches longer ones (`"UseCommand"` matches
-  `Btl.UseCommand`). The statement is the innermost one holding the call: for a call in an `if`'s condition, the
+  `Btl.UseCommand`). A property's read or assignment (`Self.Hp = 1;`, `Yaw = 1.5f;`) is written as no call, so it
+  is no anchor: anchor on a call before or after it. The statement is the innermost one holding the call: for a call in an `if`'s condition, the
   whole `if` with its branches; for one inside a branch, that statement only.
 - **Before** runs as the statement is entered, **after** as it is left by its end. Jumps that stay inside the
   statement do not run the code again: a loop's back edge to its head does not repeat the code before the loop,
