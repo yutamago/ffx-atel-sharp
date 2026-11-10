@@ -2038,9 +2038,14 @@ count, names placed.
     (`dotnet build` of an `AtelSharp.Sdk` project) since 2026-11-02, with
     `atel compile-mod` as the way without it; its steps were run up to the
     linked file.
+12. **Website.** A GitHub Pages site that introduces Atel# and teaches
+    modding with it: landing page, get started, guides built on `examples/`,
+    concepts, a reference with the `Ffx.Atel.Game` API and one page per
+    analyzer rule. Planned 2026-11-10 in [website.md](website.md); five
+    decisions wait on the user.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
-of every script. 5–11 follow and partly run alongside.
+of every script. 5–12 follow and partly run alongside.
 
 Separate from the phases: **the Frames mod** (`yuta.frames`, PRs #64 to #67,
 checked in the game 2026-11-08) moved to ffx-mods on 2026-11-08 as FPS unlock
