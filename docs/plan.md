@@ -1235,7 +1235,12 @@ replaces and the round trip stays byte for byte.
     (`Self.Hp = 1;`, now 45,069 places in battle scripts, and `Yaw = …`
     before) is no anchor; anchoring on a member property's name would need
     the compiler to find its assignments too.
-- Not done yet: register names, empty entries
+- **More names by rule** (2026-11-10): party members by `SetPartyIndex`, `BattleLine`/`Box`,
+  `WarpLine`/`Box`, `MapSetup`, registers by the getter stored in them, long entries by
+  three quarters of their calls ([research/variable-names.md](research/variable-names.md)).
+  Numbers: workers `Wnn` 5,025 → 4,427; `SharedNNNN` 175 → 147; entries `E<n>` 20,772 →
+  20,082; registers named 0 → 416 of 9,181.
+- Not done yet: most registers, empty entries
   that are no trigger entry (8,649), long entries that mix kinds of natives and requests,
   storage 1 offsets whose writers do not say what they hold.
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
@@ -1405,7 +1410,10 @@ how `atel compile` reads it:
   compiler reads as that worker (`ScriptCompiler.LibraryAliases`). Library classes
   without a hand name are named by rule from their users' place and name
   (`Bjyt0000CameraLine`, `ThunderPlainsSystemRequests2`, `IdleActor`;
-  source-repo.md, "Library names"). Not done: near-duplicates with parameters.
+  source-repo.md, "Library names"). `atel compile-mod` (and so the SDK build) resolves
+  the same aliases in a mod's own code (2026-11-10, `WorkerTable`, shared with `atel
+  compile`); a library class with no or several deriving workers is a compile error and
+  [ATL3007](analyzers.md#atl3007) in the IDE. Not done: near-duplicates with parameters.
 - **Layout and data parts** (2026-11-03, review proposal P16): what only
   pins the compiled layout is in `<Script>.Layout.cs`, the data areas in
   `<Script>.Data.cs`, and neither in the files people read: the layout part

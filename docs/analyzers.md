@@ -52,6 +52,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3004](#atl3004) | error | argument of an inline method with an effect | a variable first |
 | [ATL3005](#atl3005) | error | argument of a `[Constant]` parameter (`Wait.Seconds`) is not a constant | a literal or a `const` |
 | [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
+| [ATL3007](#atl3007) | error | a library class named as a worker with no or several deriving workers in the script | name the worker |
 | [ATL4001](#atl4001) | error | a static constructor that is not initial values | |
 | [ATL4002](#atl4002) | error | `[Inject]` names no call of its method | |
 | [ATL4003](#atl4003) | error | a `[Saved]` field that cannot be saved | |
@@ -403,6 +404,21 @@ frames (below 1/60 s), a negative one, or one past 2,147,483,647 frames is an er
 ```csharp
 Wait.Seconds(1f / 30);                                 // fine: Wait.Frames(1)
 Wait.Seconds(0.01f);                                   // ATL3006: 0.3 frames
+```
+
+### ATL3007
+
+**Library class that names no worker of this script** (error). In a script's or a mod's code, a library
+class's name used as a worker (`MoveTalkDefaults.Run()`, `Call<MoveTalkDefaults>()`,
+`WaitForEntry<T>()`, a request) is the one worker of that script deriving from it: the decompiler writes
+shared bodies that call a sibling this way, and `atel compile` and `atel compile-mod` read it so. When no
+worker of the script derives from the class, or several do, it names none; the compiler stops with the
+same message. The library's own code is not checked: its names are resolved in each script that uses it.
+
+```csharp
+public sealed partial class W87 : MoveTalkDefaults { }
+MoveTalkDefaults.Run();                                // fine: W87.Run()
+Idle.Run();                                            // ATL3007: 2 do (A, B): name the worker
 ```
 
 ### ATL4001

@@ -206,6 +206,9 @@ internal static class EntryRoles {
         if (!f.Requests && !f.Calls && calls >= 6 && f.Counts.MaxBy(kv => kv.Value) is var (top, n) && n * 3 >= calls * 2) {
             if (OnlyNames.TryGetValue(top, out string? most)) return most;
         }
+        // Three quarters of the calls of one kind, also among requests and calls of other workers (a long walk that
+        // cues others on the way).
+        if (calls >= 6 && f.Counts.MaxBy(kv => kv.Value) is var (top4, n4) && n4 * 4 >= calls * 3 && OnlyNames.TryGetValue(top4, out string? mostly)) return mostly;
         return null;
     }
 

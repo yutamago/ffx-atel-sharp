@@ -19,7 +19,15 @@ namespace Ffx.Atel.Decompiler.Naming;
 ///     (<c>SetMoveTalkDefaults</c>); all others keep <c>W03</c>.
 /// </summary>
 internal static class WorkerNaming {
-    private const ushort SetModel = 0x0001;
+    private const ushort SetModel = 0x0001, SetPartyIndex = 0x0042;
+
+    /// <summary>The party members by <c>SetPartyIndex</c> (0x0042: 0 Tidus, 1 Yuna, …; <c>pc.ath</c>'s order, <see cref="Ffx.Target"/> 0-6).</summary>
+    private static readonly string[] PartyNames = ["Tidus", "Yuna", "Auron", "Kimahri", "Wakka", "Lulu", "Rikku"];
+
+    private static int? Constant(Instr arg) => arg.Code switch {
+        Opcodes.PushImm => (short)arg.Operand!.Value,
+        _ => null,
+    };
 
     /// <summary>
     ///     The names, given the default ones (<c>W00</c>, …) and names already taken in the source. The
@@ -47,10 +55,14 @@ internal static class WorkerNaming {
         for (int w = 0; w < defaults.Length; w++) {
             Bytecode.Script.Worker worker = block.Workers[w];
             if (worker.Type == 0) continue;
-            HashSet<int> loaded = [];
-            bool unknown = false;
+            HashSet<int> loaded = [], party = [];
+            bool unknown = false, unknownParty = false;
             List<Instr> code = block.Decode(worker);
             for (int i = 0; i < code.Count; i++) {
+                if (code[i].Code is (Opcodes.Func or Opcodes.FuncFacc) && code[i].Operand == SetPartyIndex) {
+                    if (Constant(i > 0 ? code[i - 1] : default) is int k) party.Add(k);
+                    else unknownParty = true;
+                }
                 if (code[i].Code is not (Opcodes.Func or Opcodes.FuncFacc) || code[i].Operand != SetModel) continue;
                 Instr arg = i > 0 ? code[i - 1] : default;
                 int? value = arg.Code switch {
@@ -60,6 +72,12 @@ internal static class WorkerNaming {
                 };
                 if (value is int v) loaded.Add(v);
                 else unknown = true;
+            }
+            // A worker bound to one party member (SetPartyIndex(k), 0 Tidus … 6 Rikku) is that character's, also when it
+            // changes models (Tidu, then TiduH).
+            if ((unknown || loaded.Count != 1) && worker.Type == 1 && !unknownParty && party.Count == 1 && party.First() is int index and >= 0 && index < PartyNames.Length) {
+                baseNames[w] = PartyNames[index];
+                continue;
             }
             if (unknown || loaded.Count != 1) continue;
             string? member = models.Member(loaded.First());
@@ -105,7 +123,7 @@ internal static class WorkerNaming {
         if (cls == "Common" && method.StartsWith("Wait", StringComparison.Ordinal)) return Use.Neutral;
         if (cls == "Cam" || name == "Common.AttachCamera") return Use.Camera;
         if (method.StartsWith("Msg", StringComparison.Ordinal) || method.StartsWith("Voice", StringComparison.Ordinal)
-            || name is "Common.ControlDisable" or "Common.ControlEnable") return Use.Dialogue;
+            || name is "Common.ControlDisable" or "Common.ControlEnable" or "Chr.SetAutoTalkOf" or "Chr.SetAutoTalk") return Use.Dialogue;
         if (cls == "Common" && (method.StartsWith("Trigger", StringComparison.Ordinal) || method.StartsWith("Line", StringComparison.Ordinal)
                                 || method.StartsWith("SetTalk", StringComparison.Ordinal)
                                 || method is "SetTriggerMode" or "SetTouchRange" or "EnableTrigger" or "DisableTrigger" or "PosSetYaw" or "PosSetField28")) return Use.Trigger;
@@ -171,6 +189,13 @@ internal static class WorkerNaming {
         && (name.Contains("Move", StringComparison.Ordinal) || name.Contains("Turn", StringComparison.Ordinal) || name.Contains("Talk", StringComparison.Ordinal)
             || name.Contains("Touch", StringComparison.Ordinal) || name.Contains("Radius", StringComparison.Ordinal) || name.Contains("Angle", StringComparison.Ordinal));
 
+    /// <summary><c>Btl.LabelExe</c> (0x7002): <c>MsBattleLabelExe</c>, starts a battle by its id.</summary>
+    private const ushort BattleLabelExe = 0x7002;
+
+    private static bool IsMapSetup(string native) =>
+        native is "Common.SetMapMarkerPos" or "Common.FootstepHookEnable" or "Fx.GuideMapSetLimit"
+        || native.StartsWith("Common.Minimap", StringComparison.Ordinal);
+
     private static string? Role(WorkerDecompiler worker, ScriptCategory category, Domain maps) {
         int type = worker.Type;
         bool trigger = category == ScriptCategory.Event && type is 2 or 3 or 5 or 6;
@@ -186,6 +211,9 @@ internal static class WorkerNaming {
         if (trigger) {
             uses.Remove(Use.Trigger);
             string shape = type is 2 or 5 ? "Line" : "Box";
+            // A trigger that starts a battle (Btl.LabelExe, MsBattleLabelExe) or jumps within the map (MapJumpToEntrance).
+            if (ids.Contains(BattleLabelExe)) return "Battle" + shape;
+            if (ids.Contains(JumpToEntrance) && !ids.Overlaps(MapChanges)) return "Warp" + shape;
             return uses.Count != 1 ? null : uses.First() switch {
                 Use.Camera => "Camera" + shape,
                 Use.Dialogue => "Dialogue" + shape,
@@ -193,6 +221,16 @@ internal static class WorkerNaming {
             };
         }
         if (uses.Contains(Use.Light)) uses.Remove(Use.Bones);
+        // A logic worker that only sets the map's display up: the minimap, the world map marker, the guide map limits,
+        // the footstep sounds (MinimapSetCorner, SetMapMarkerPos, GuideMapSetLimit, FootstepHookEnable).
+        // Only those, the lights, the screen and its fades, music and waiting besides; requests and calls rule it out.
+        if (category == ScriptCategory.Event && type == 4 && !worker.Calls().Any()) {
+            string[] natives = [.. ids.Select(id => ScriptDecompiler.Natives[id]?.Name ?? "?")];
+            if (natives.Any(IsMapSetup) && natives.All(n => IsMapSetup(n) || n.StartsWith("Screen.", StringComparison.Ordinal) || n.StartsWith("Common.Music", StringComparison.Ordinal)
+                                                           || n.StartsWith("Common.SetMapFade", StringComparison.Ordinal) || n.StartsWith("Fx.GuideMap", StringComparison.Ordinal)
+                                                           || n is "Chr.RefreshAllBones" or "Chr.AllBoneUpdate" or "Common.ControlEnable" or "Common.ControlDisable"
+                                                           || n.StartsWith("Common.Wait", StringComparison.Ordinal))) return "MapSetup";
+        }
         return uses.Count != 1 ? null : uses.First() switch {
             Use.Camera => "CameraWorker",
             Use.Dialogue => "DialogueWorker",

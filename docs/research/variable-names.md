@@ -104,6 +104,42 @@ name several methods of a worker get takes each one's entry (`Hide_7`, `Hide_9`)
 the worker, the script or the reference assembly has is not taken. Empty methods that are
 no trigger entry keep their number: nothing in them says what they are for.
 
+## Workers
+
+Added 2026-11-10 to the role rules (`WorkerNaming`):
+
+- **Party members**: an actor (type 1) that loads several models, or none by a constant, but binds
+  itself to one party member with constant `SetPartyIndex(k)` (native `0x0042`: worker `+0x40` =
+  k, `g 0x0132ffa0[k]` = the worker; "0 Tidus, 1 Yuna, …", `pc.ath`'s order, `Target` 0-6) is
+  that character: `Tidus` (`Tidu`, then `TiduH`), `Wakka`, … 414 workers.
+- **`BattleLine`, `BattleBox`**: a trigger that starts a battle (`Btl.LabelExe`, 0x7002,
+  `MsBattleLabelExe(a, 1, b)`).
+- **`WarpLine`, `WarpBox`**: a trigger that jumps to an entrance of the same map
+  (`Fx.MapJumpToEntrance`, 0x8006, `Atel_JumpToEntrance`) and changes no map.
+- **`MapSetup`**: a logic worker that calls a map-display native (`MinimapSetCorner` and the other
+  `MinimapSet*`, `SetMapMarkerPos`: the world map marker, `Fx.GuideMapSetLimit`,
+  `FootstepHookEnable`) and otherwise only `Screen.*` (lights, fades), music, the player's control
+  and waiting; no requests, no calls. (Without that limit the rule took 409 workers, blitzball's
+  8,000-line logic among them; with it 99.)
+- `DialogueWorker`, `DialogueLine`, `DialogueBox` also allow the speaker's mouth
+  (`Chr.SetAutoTalkOf`, `Chr.SetAutoTalk`), as the scripts set it around every spoken line.
+
+## Registers
+
+`RegisterRoles`: a worker's register (`I0`-`I3`, `F0`-`F9`; the compiler places it by
+`[Register(n)]`) every store to which, in all its methods, is the result of one native getter
+(`Get` in its name, no address or offset in it), and which is read, is named after it without
+`Get`: `TurnKind` (`Common.GetTurnKind`, 350), `ActorMotionInfo`, `WorkerId`, `SelfProperty`,
+`ComInfo`, `ParsedCommand`. A register stored from a constant, a computation or a loop keeps its
+number: 8,765 of 9,181 do. A name the worker, the script or the reference assembly has, or one two
+registers of the worker would take, is not given.
+
+## Long entries
+
+Entries of at least six native calls, three quarters of them of one kind (`Walk`, `MoveCamera`,
+…), take that kind's name also when they request or call other workers (the rule above without
+requests allows two thirds).
+
 ## Function workers
 
 `WorkerNaming.FunctionRole`, from the natives the function worker calls (on its caller's
