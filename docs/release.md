@@ -22,7 +22,7 @@ The editor extensions (`editors/vscode`, `editors/rider`) are not NuGet packages
 ## Decisions (user, 2026-11-10)
 
 1. **nuget.org.** The workflow keeps its switch: the repository variable `ATEL_NUGET_TARGET` (`nuget.org`, or
-   `github` for GitHub Packages) and the secret `NUGET_API_KEY`.
+   `github` for GitHub Packages). It pushes with nuget.org's Trusted Publishing: no stored API key.
 2. **Package ids `AtelSharp.Sdk` and `AtelSharp.Templates`**, under the prefix `AtelSharp`, reserved on nuget.org for
    the owner's account. The template's short name stays `atel-mod`.
 3. **The first version is `0.1.0-alpha.1`** (CHANGELOG.md has its section).
@@ -85,7 +85,8 @@ and the plugin `.zip`.
 Once both pass, the job `publish` pushes the packages (`--skip-duplicate`, so a re-run pushes nothing twice),
 **only** where the repository variable `ATEL_NUGET_TARGET` says:
 
-- `nuget.org`: with the repository secret `NUGET_API_KEY` (a nuget.org API key scoped to pushing `AtelSharp.*`);
+- `nuget.org`: through Trusted Publishing. The job (with `id-token: write`) runs `NuGet/login` for the account in the
+  repository variable `NUGET_USER`, which swaps GitHub's OIDC token for an API key valid for this run only;
 - `github`: to GitHub Packages of the repository's owner (`https://nuget.pkg.github.com/yutamago/index.json`), with
   the job's `GITHUB_TOKEN`;
 - unset: it stops with an error before pushing anything, and no GitHub release is made.
@@ -106,10 +107,10 @@ pre-release.
    (https://learn.microsoft.com/nuget/nuget-org/id-prefix-reservation). Once granted, only that account can push
    `AtelSharp.*`, and the packages show the verified mark. The first push does not wait for it: the ids are free
    until someone pushes them.
-3. **An API key** (nuget.org → API Keys → Create): scope *Push new packages and package versions*, glob pattern
-   `AtelSharp.*`, an expiry (365 days at most; renew it before a release after that).
-4. **The secret**: GitHub → the repository's Settings → Secrets and variables → Actions → New repository secret,
-   name `NUGET_API_KEY`, the key as its value.
+3. **A Trusted Publishing policy** (nuget.org → Trusted Publishing; done 2026-11-10): repository owner `yutamago`,
+   repository `ffx-atel-sharp`, workflow file `release-sdk.yml`, no environment. No API key or secret is needed.
+4. **The variable** `NUGET_USER` = the nuget.org account name (`yutamago`), on the repository's Settings → Secrets
+   and variables → Actions → Variables.
 5. **The variable** `ATEL_NUGET_TARGET=nuget.org` (same page, Variables tab): the maintainer's tooling sets it with the
    release setup; if it is missing at tag time, the run stops before pushing (add it, then re-run the failed jobs).
 
@@ -118,7 +119,7 @@ pre-release.
 1. On `main`, move the `## [Unreleased]` entries of `CHANGELOG.md` into `## [<version>] - <date>` and merge that.
    For `0.1.0-alpha.1` this is done (dated 2026-11-10; change the date if the tag comes later). Its links point at
    the tag (`blob/v0.1.0-alpha.1/…`), since the GitHub release shows the section as it is.
-2. Check `ATEL_NUGET_TARGET` and `NUGET_API_KEY` ("Before the first release").
+2. Check `ATEL_NUGET_TARGET` and `NUGET_USER`, and that the Trusted Publishing policy still exists ("Before the first release").
 3. `git tag v<version> <commit on main> && git push origin v<version>`; for the first:
    `git tag v0.1.0-alpha.1 && git push origin v0.1.0-alpha.1` on an up-to-date `main`.
 4. Watch the run: the packages, then nuget.org, then the GitHub release. nuget.org validates and indexes a pushed

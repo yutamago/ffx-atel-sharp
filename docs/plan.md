@@ -179,8 +179,8 @@ and moved here when work began.
 2026-11-10, the release ([release.md](release.md#decisions-user-2026-11-10); these answer its former list of
 decisions for the user):
 
-- **Packages go to nuget.org**, through the release workflow's switch (`ATEL_NUGET_TARGET`, the secret
-  `NUGET_API_KEY`).
+- **Packages go to nuget.org**, through the release workflow's switch (`ATEL_NUGET_TARGET`), with nuget.org's
+  Trusted Publishing (no stored API key; the account in the variable `NUGET_USER`).
 - **Package ids `AtelSharp.Sdk` and `AtelSharp.Templates`**, the prefix `AtelSharp` reserved on nuget.org. A mod is
   `<Project Sdk="AtelSharp.Sdk">`; projects, assemblies and namespaces keep their `Ffx.Atel` names, the template's
   short name stays `atel-mod`.
