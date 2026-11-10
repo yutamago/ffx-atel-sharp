@@ -1146,6 +1146,11 @@ replaces and the round trip stays byte for byte.
   and ffx-rust's save.md name at or past save `+0x1ec` was already in `Save`; the other
   ffx.sym labels in the save block (`g_SaveAbilityMap`, `g_SaveWalkMap`, …) lie at offsets
   no script declares, so the 1,538 `Save_xxxx` declarations stay.
+- Numbers (2026-11-09): entry methods still `E<n>` 80,193 → 20,772 (8,079 of them
+  empty, no trigger entry); variables `V<n>` 25,762 → 20,109 (storage 1: 2,506
+  declarations named; `TriggerEntries` 454); function workers named 435; library classes `SharedNNNN` 417 → 175 (551 classes, 3,334 workers derive
+  from them, 3,000 before); `Save_xxxx` 1,538 (unchanged); workers `Wnn` 5,677 → 5,242.
+  1621/1621 round-trip, 0 C# errors, the 221 ATL2006 warnings.
 - Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register names, empty entries
   that are no trigger entry (8,649), long entries that mix kinds of natives and requests,
   storage 1 offsets whose writers do not say what they hold.
