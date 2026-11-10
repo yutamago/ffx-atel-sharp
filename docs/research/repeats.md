@@ -361,6 +361,9 @@ parameter's most common value is in `repeats.md`, e.g. 448 for 6,690 of the
   `HidePlayerPanel`, `ShowTwoDigits`, `LoadAliasAutoMotions`, `WaitForMotionFrame`, …; see
   [Names](#names) for the second pass).
 - **The constant `if` on a parameter** is not done: the two foldings of one macro stay two helpers.
+  Built and measured 2026-11-09, not kept (plan.md, Phase 5, "Typing and members picked by a constant"):
+  it compiles byte for byte, but the folded twins are single statements below the miner's threshold, and no
+  worker's helpers pair up as the two foldings, so it merges nothing.
   It needs the expansion to give the original's label order where the constant `if` starts before
   `A`, which nothing checks yet.
 

@@ -37,6 +37,20 @@ public sealed class NativeMemberAttribute(int id) : Attribute {
 
     /// <summary>On a <see cref="Ffx.Vector3"/> getter: the component (<c>X</c>, <c>Y</c>, <c>Z</c>) this native reads.</summary>
     public string? Component { get; init; }
+
+    /// <summary>
+    ///     The native's argument after the receiver is this constant, which the member's name stands for: the property of
+    ///     <c>Actors[Target.AllPly].Hp</c> is <c>ActorProperty.Hp</c>, so the getter is <c>Btl.GetActorProperty(Target.AllPly,
+    ///     ActorProperty.Hp)</c>. -1: none.
+    /// </summary>
+    public int Constant { get; init; } = -1;
+
+    /// <summary>
+    ///     The value of the method's first argument, a constant, that picks this native (several natives share the
+    ///     member, one per value): <c>Camera.Eye.Shake(ShakeKind.SineFadeOut, …)</c> is native <c>0x605d</c>, and the
+    ///     argument is not passed. -1: none.
+    /// </summary>
+    public int Choice { get; init; } = -1;
 }
 
 /// <summary>Members of the reference assembly only describe the game; they never run on .NET.</summary>

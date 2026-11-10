@@ -230,7 +230,7 @@ public sealed class ModTests {
         List<SyntaxTree> trees = [.. d.Files().Select(f => ScriptCompiler.Parse(f.Text, f.RelativePath))];
         Assert.Empty(ScriptCompiler.Check(trees));
         Assert.Equal(r.File, ScriptCompiler.Compile(trees).ApplyTo(linked).ToArray());
-        Assert.Contains("SetActorProperty(ActorProperty.Hp, 1234)", d.Source, StringComparison.Ordinal);
+        Assert.Contains("Self.Hp = 1234;", d.Source, StringComparison.Ordinal);
     }
 
     [Fact]

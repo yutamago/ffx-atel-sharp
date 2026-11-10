@@ -169,7 +169,7 @@ public static partial class ScriptCompiler {
         Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
             VarEntry entry = Variable(field);
-            variables[field.Declaration.Variables[0].Identifier.ValueText] = new VariableSymbol(image.Variables.Count, entry);
+            variables[field.Declaration.Variables[0].Identifier.ValueText] = new VariableSymbol(image.Variables.Count, entry) { Bool = IsBoolField(field) };
             image.Variables.Add(entry);
         }
 
@@ -190,6 +190,12 @@ public static partial class ScriptCompiler {
         }
         List<(WorkerImage Image, List<WorkerItem> Items, string Name, Location Where)> workers = [];
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
+        // Library aliases: in code, a library class's name stands for the one worker of the script that derives
+        // from it (a shared body calling a sibling: `MoveTalkDefaults.Run()`; docs/plan.md, Phase 6).
+        Dictionary<string, int> named = LibraryAliases(byName, workerIndex, library);
+        foreach ((string alias, int w) in named) {
+            if (!workerIndex.ContainsKey(alias)) entryMethods.TryAdd(alias, entryMethods[workerIndex.First(kv => kv.Value == w).Key]);
+        }
         // Helper methods (of the workers and the script class) become function workers after the others.
         // A shared worker's inline methods are in its library class.
         InlineMethods inlines = InlineMethods.With([.. trees, .. library.Trees]);
@@ -212,17 +218,17 @@ public static partial class ScriptCompiler {
             }
         }
         EntrySignature? SignatureOf(string w, string m) => signatures.GetValueOrDefault((w, m));
-        inlines.Script = new InlineMethods.ScriptContext(variables, workerIndex, cls => InlineRegisters(cls, byName, library)) {
+        inlines.Script = new InlineMethods.ScriptContext(variables, named, cls => InlineRegisters(cls, byName, library)) {
             EntryMethods = entryMethods, Signatures = SignatureOf,
         };
         List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            CompiledWorker cw = Worker(parts, library, variables, workerIndex, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers, signatures: SignatureOf);
+            CompiledWorker cw = Worker(parts, library, variables, named, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers, signatures: SignatureOf);
             compiled.Add(cw);
             image.Workers.Add(cw.Image);
         }
-        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, workerIndex, entryMethods, links: null, debug: debug, signatures: SignatureOf);
+        foreach (Helper h in helpers.All) CompileHelper(h, helpers, variables, named, entryMethods, links: null, debug: debug, signatures: SignatureOf);
         // New code's locals: registers where free, else hidden variables in the private data of the workers
         // that run the code, one element per level. An entry's parameter fields: private when only its own
         // worker requests it, else at the end of the shared data.
@@ -288,11 +294,13 @@ public static partial class ScriptCompiler {
             type = at.ElementType;
             rank = at.RankSpecifiers[0].Rank;
         }
-        uint varType = (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
+        // A bool is a flag kept as an int, or as the integer type `Stored` names ([Var(…, Stored = typeof(byte))]).
+        bool isBool = type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
+        uint varType = isBool ? 5 : (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
             SyntaxKind.ByteKeyword => 0, SyntaxKind.SByteKeyword => 1, SyntaxKind.UShortKeyword => 2, SyntaxKind.ShortKeyword => 3,
             SyntaxKind.UIntKeyword => 4, SyntaxKind.IntKeyword => 5, SyntaxKind.FloatKeyword => 6,
             _ => throw CompileException.At(type, $"a variable cannot be {p.Keyword.ValueText}"),
-        } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
+        } : throw CompileException.At(type, "a variable is bool, byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
         object storage = a is null ? new EnumMember(nameof(Storage.Shared)) : Positional(a, 0);
         uint storageNumber = storage is EnumMember(string member) && Enum.TryParse(member, out Storage s) ? (uint)s
             : throw CompileException.At(a!, "the storage is Storage.<area>");
@@ -302,6 +310,13 @@ public static partial class ScriptCompiler {
         foreach ((string key, object value) in a is null ? [] : Named(a)) {
             switch (key) {
                 case "Length": length = I32(value, a!); break;
+                case "Stored" when isBool:
+                    varType = value is TypeName { Name: string stored } ? stored switch {
+                        "byte" or "Byte" => 0u, "sbyte" or "SByte" => 1u, "ushort" or "UInt16" => 2u, "short" or "Int16" => 3u, "int" or "Int32" => 5u,
+                        _ => throw CompileException.At(a!, "a bool is stored as byte, sbyte, ushort, short or int"),
+                    } : throw CompileException.At(a!, "Stored = typeof(<integer type>)");
+                    break;
+                case "Stored": throw CompileException.At(a!, "Stored is for a bool variable: the integer type it is kept as");
                 default: throw CompileException.At(a!, $"[Var] has no {key}");
             }
         }
@@ -423,6 +438,31 @@ public static partial class ScriptCompiler {
             Parameters = parameters ?? [],
         });
 
+    /// <summary>
+    ///     The workers by name, with each library class that exactly one worker of the script derives from,
+    ///     directly or through other library classes, as another name of that worker. A library class's name
+    ///     that is also a worker's, or that several workers derive from, names nothing more.
+    /// </summary>
+    internal static Dictionary<string, int> LibraryAliases(ILookup<string, ClassDeclarationSyntax> byName, IReadOnlyDictionary<string, int> workers, ScriptLibrary library) {
+        Dictionary<string, int> named = new(workers, StringComparer.Ordinal);
+        Dictionary<string, int> count = new(StringComparer.Ordinal);
+        List<(string Class, int Worker)> found = [];
+        foreach ((string worker, int w) in workers) {
+            HashSet<string> seen = new(StringComparer.Ordinal);
+            for (List<ClassDeclarationSyntax> level = [.. byName[worker]]; level.Count > 0;) {
+                BaseTypeSyntax? b = level.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
+                if (b is null || !library.Classes.Contains(SimpleName(b.Type)) || !seen.Add(SimpleName(b.Type))) break;
+                found.Add((SimpleName(b.Type), w));
+                count[SimpleName(b.Type)] = count.GetValueOrDefault(SimpleName(b.Type)) + 1;
+                level = [.. library.Classes[SimpleName(b.Type)]];
+            }
+        }
+        foreach ((string cls, int w) in found) {
+            if (count[cls] == 1 && !workers.ContainsKey(cls)) named[cls] = w;
+        }
+        return named;
+    }
+
     private static CompiledWorker Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
@@ -535,16 +575,21 @@ public static partial class ScriptCompiler {
         return (parts, type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from a worker type (Actor, LineTrigger, …, or Worker0 … Worker6) or a library class"));
     }
 
-    /// <summary>A worker's <c>[Register(n)]</c> fields: <c>int</c> for the integer registers, <c>float</c> for the float ones.</summary>
+    /// <summary>
+    ///     A worker's <c>[Register(n)]</c> fields: <c>int</c> (or <c>bool</c>, a flag: <see cref="RegisterTable.Bools"/>) for
+    ///     the integer registers, <c>float</c> for the float ones.
+    /// </summary>
     private static Dictionary<string, RegExpr> Registers(IEnumerable<ClassDeclarationSyntax> parts) {
-        Dictionary<string, RegExpr> registers = new(StringComparer.Ordinal);
+        RegisterTable registers = new();
         foreach (FieldDeclarationSyntax field in parts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
             AttributeSyntax a = Attributes(field).FirstOrDefault(x => NameOf(x) == "Register")
                 ?? throw CompileException.At(field, "a worker field is a [Register] (for now)");
             int n = I32(Positional(a, 0), a);
-            RegExpr reg = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
+            bool flag = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
+            RegExpr reg = flag || field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
                 : field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } ? new RegExpr(RegKind.Float, n)
-                : throw CompileException.At(field.Declaration.Type, "a register is int or float");
+                : throw CompileException.At(field.Declaration.Type, "a register is int, bool or float");
+            if (flag) foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers.Bools.Add(v.Identifier.ValueText);
             if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
             foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
         }
@@ -688,6 +733,15 @@ public static partial class ScriptCompiler {
     // ----- Attribute arguments ---------------------------------------------------------------
 
     private sealed record TypeName(string Name);
+
+    /// <summary>A worker's registers by field name; <see cref="Bools"/> names those declared <c>bool</c> (an integer register used as a flag).</summary>
+    internal sealed class RegisterTable() : Dictionary<string, RegExpr>(StringComparer.Ordinal) {
+        public HashSet<string> Bools { get; } = new(StringComparer.Ordinal);
+    }
+
+    /// <summary>A <c>bool</c> variable (<see cref="VariableSymbol.Bool"/>), scalar.</summary>
+    internal static bool IsBoolField(FieldDeclarationSyntax field) =>
+        field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
 
     private sealed record EnumMember(string Name);
 

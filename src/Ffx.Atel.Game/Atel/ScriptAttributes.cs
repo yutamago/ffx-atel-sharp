@@ -112,7 +112,9 @@ public enum Storage {
 ///     <c>float</c> f32). A variable declared as an array (location bit 24) is a C# array, also when its
 ///     length is 1, its size the length: <c>[Var(Storage.Event, 0x40)] public static float[] V3 = new float[4];</c>.
 ///     A 2-D array (<c>T[,]</c>) gives the table's row length (<c>+6</c>) as its second dimension:
-///     <c>new byte[3, 8]</c> is 24 elements in rows of 8.
+///     <c>new byte[3, 8]</c> is 24 elements in rows of 8. A <c>bool</c> is a flag (0 or 1) kept as an <c>int</c>, or as the
+///     integer type <see cref="Stored"/> names: <c>[Var(Storage.Event, 0x12, Stored = typeof(byte))] public static bool V4;</c>.
+///     It is a condition where it is read (<c>if (V4)</c>), and takes <c>true</c>, <c>false</c> or a condition.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field, Inherited = false)]
 public sealed class VarAttribute(Storage storage, int offset) : Attribute {
@@ -123,6 +125,12 @@ public sealed class VarAttribute(Storage storage, int offset) : Attribute {
 
     /// <summary>Array length (table <c>+4</c>), for an array field without <c>= new T[n]</c>.</summary>
     public int Length { get; set; } = 1;
+
+    /// <summary>
+    ///     For a <c>bool</c> variable, the integer type it is kept as (<c>typeof(byte)</c>, <c>sbyte</c>, <c>ushort</c>,
+    ///     <c>short</c>); <c>int</c> without it.
+    /// </summary>
+    public System.Type? Stored { get; set; }
 }
 
 /// <summary>
