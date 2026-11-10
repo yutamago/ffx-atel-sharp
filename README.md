@@ -10,6 +10,8 @@ The plan, its decisions and the phases are in [`docs/plan.md`](docs/plan.md).
 
 ## Docs
 
+The website, for modders: <https://yutamago.github.io/ffx-atel-sharp/> (being written; the source is in [`site/`](site/)).
+
 For modders, in reading order:
 
 1. [`docs/tutorial.md`](docs/tutorial.md): a first mod, from decompiling to checking it in battle.
