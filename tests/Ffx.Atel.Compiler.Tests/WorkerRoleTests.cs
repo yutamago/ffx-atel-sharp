@@ -173,7 +173,7 @@ public sealed class WorkerRoleTests {
         string[] expected = [
             "typeof(Director), typeof(CameraWorker), typeof(ExitToKami0100_02), typeof(ExitToKami0100_03), typeof(DialogueBox), typeof(W05)",
             "public sealed partial class Director : LogicWorker",
-            "await CameraWorker.E2Async();",
+            "await CameraWorker.MoveCameraAsync();",
             "public sealed partial class CameraWorker : Actor",
             "public sealed partial class ExitToKami0100_02 : LineTrigger",
             "public sealed partial class DialogueBox : BoxTrigger",

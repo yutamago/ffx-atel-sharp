@@ -213,13 +213,18 @@ public static class SharedWorkers {
             HashSet<string> used = Identifiers(key.Body);
             List<(ScriptSource Script, WorkerSource Worker)> users = [.. groups[key].Where(u => !used.Overlaps(declared(u.Script)))];
             if (existing.TryGetValue(key, out int known)) {
+                // Only the same code: a first-pass class keeps one signature, the key of its hand name.
+                users = [.. users.Where(u => u.Worker.Signature == classes[known].Signature)];
                 classUsers[known].AddRange(users);
                 classes[known] = classes[known] with { Users = [.. classes[known].Users, .. users.Select(u => $"{u.Script.Names.Namespace}.{u.Worker.Name}")] };
                 continue;
             }
             if (users.Count < 2) continue;
             string name = string.Create(CultureInfo.InvariantCulture, $"Shared{classes.Count + 1:D4}");
-            classes.Add(new SharedWorker(name, key.Base, key.Body, [.. users.Select(u => $"{u.Script.Names.Namespace}.{u.Worker.Name}")]) { Signature = users[0].Worker.Signature });
+            // The same text calls the siblings by their numbers, which differ between scripts: then the users'
+            // code differs, the class has no signature and so no hand name (its rule name still applies).
+            string? signature = users.Select(u => u.Worker.Signature).Distinct().Count() == 1 ? users[0].Worker.Signature : null;
+            classes.Add(new SharedWorker(name, key.Base, key.Body, [.. users.Select(u => $"{u.Script.Names.Namespace}.{u.Worker.Name}")]) { Signature = signature });
             classUsers.Add(users);
         }
     }
