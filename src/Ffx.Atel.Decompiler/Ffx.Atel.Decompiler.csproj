@@ -17,6 +17,8 @@
         <EmbeddedResource Include="../../data/names/**/*.toml" LogicalName="names/%(RecursiveDir)%(Filename)%(Extension)" />
         <!-- Hand-written names for library classes, by the signature of their code (docs/source-repo.md, "Library names"). -->
         <EmbeddedResource Include="../../data/library-names.toml" LogicalName="library-names.toml" />
+        <!-- Names for the variables every script shares (storage 1), by offset (docs/source-repo.md, "Names"). -->
+        <EmbeddedResource Include="../../data/variable-names.toml" LogicalName="variable-names.toml" />
         <!-- Hand-written names for dead if (false) blocks, by the signature of their code (docs/research/dead-code.md, "Names"). -->
         <EmbeddedResource Include="../../data/cut-names.toml" LogicalName="cut-names.toml" />
         <!-- Hand-written names for the inline methods of a worker's repeated code, by the signature of their body (docs/language.md, "Repeated code"). -->

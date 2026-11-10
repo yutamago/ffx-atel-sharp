@@ -1,0 +1,17 @@
+# Names for variables every script that declares them shares (docs/source-repo.md, "Names"): storage 1
+# (Storage.Common, the ctrl work's +0x30 area, ffx-rust docs/formats/script.md "Variables"), which the
+# battle and monster scripts of one battle all see. Keyed as the overlay's [variables], by storage and
+# offset; a script's own overlay (data/names/) still wins. Only names whose readers and writers say what
+# the variable holds; the evidence is in the comment and docs/research/variable-names.md. Our own names:
+# no game code or text.
+#
+# Counts: scripts declaring the offset in the decompiled corpus (ffx-atel-sharp 8e0a942).
+
+[variables]
+# The battle camera handler (OnCamera66 of the Cameras worker, 545 battle scripts and every monster's):
+"Common:0x0030" = "CameraActor"              # 567: = Btl.GetTurnActor(), or the first party actor (FindActor(AllPly)) while an aeon is out; the actor every Camera.Eye.Orbit/Focus.OrbitScaled of the handler orbits (116,000 reads)
+"Common:0x002c" = "TurnActorIsParty"         # 545: 0, then 1 when GetTurnActor() is 0..19 (party and aeon actors; monsters are 0x14 on)
+"Common:0x0038" = "CameraActorUnavailable"   # 545: 0, then 1 when CameraActor is not in battle, stoned, about to die, flying or not alive (GetActorProperty Inbattle, Stone, WillDie, Fly, Alive)
+"Common:0x003c" = "AeonOnField"              # 548: 0, then 1 when CountActorsInBoth(AllPly, AllSummon) finds a party actor that is a summon
+"Common:0x0094" = "MoveSteps"                # 169: = Btl.ChrGetMoveSteps(Target.Active) (148 writes): the frames the camera waits (Wait.Frames(X - n)) and moves (Camera.Eye.Move(X))
+"Common:0x00f4" = "LastCameraPick"           # 132: the random camera of the last request: do { I0 = Cam.BtlRandom(0) % n; } while (I0 == X); X = I0; switch (X)
