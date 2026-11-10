@@ -6,7 +6,7 @@
 #           version of every other build), checks them and keeps them as an artifact;
 # editors   builds the VS Code extension (.vsix) and the Rider plugin (.zip) (editors.yml, as build.yml does);
 # publish   pushes both packages to where the repository variable ATEL_NUGET_TARGET names:
-#             nuget.org   with the secret NUGET_API_KEY (an API key limited to pushing AtelSharp.*);
+#             nuget.org   through Trusted Publishing: a short-lived key for the account in the variable NUGET_USER;
 #             github      GitHub Packages of this repository's owner, with the job's GITHUB_TOKEN;
 #           unset, it stops before pushing anything. The templates go along unless ATEL_PUBLISH_TEMPLATES=false;
 # release   creates the GitHub release of the tag, once the packages are pushed: both .nupkg, the .vsix and the
@@ -106,6 +106,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write   # nuget.org Trusted Publishing: GitHub's OIDC token is exchanged for a short-lived API key
 
     steps:
     - name: Setup .NET
@@ -119,6 +120,15 @@ jobs:
         name: packages-${{ needs.packages.outputs.version }}
         path: artifacts/release
 
+    # nuget.org Trusted Publishing (policy: repository yutamago/ffx-atel-sharp, workflow release-sdk.yml, no
+    # environment): a short-lived API key for this run, for the account in the repository variable NUGET_USER.
+    - name: NuGet login (Trusted Publishing)
+      id: nuget-login
+      if: vars.ATEL_NUGET_TARGET == 'nuget.org'
+      uses: NuGet/login@v1
+      with:
+        user: ${{ vars.NUGET_USER }}
+
     # --skip-duplicate: a re-run (after a failed GitHub release, say) pushes nothing twice.
     - name: Push
       shell: bash
@@ -126,14 +136,14 @@ jobs:
         VERSION: ${{ needs.packages.outputs.version }}
         TARGET: ${{ vars.ATEL_NUGET_TARGET }}
         TEMPLATES: ${{ vars.ATEL_PUBLISH_TEMPLATES }}
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         packages=("artifacts/release/AtelSharp.Sdk.$VERSION.nupkg")
         if [ "$TEMPLATES" != "false" ]; then packages+=("artifacts/release/AtelSharp.Templates.$VERSION.nupkg"); fi
         case "$TARGET" in
           nuget.org)
-            if [ -z "$NUGET_API_KEY" ]; then echo "the NUGET_API_KEY secret is not set"; exit 1; fi
+            if [ -z "$NUGET_API_KEY" ]; then echo "no nuget.org key: is NUGET_USER set and the Trusted Publishing policy in place? (docs/release.md)"; exit 1; fi
             for p in "${packages[@]}"; do
               dotnet nuget push "$p" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
             done ;;
