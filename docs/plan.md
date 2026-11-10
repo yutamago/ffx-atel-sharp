@@ -2039,10 +2039,11 @@ count, names placed.
     `atel compile-mod` as the way without it; its steps were run up to the
     linked file.
 12. **Website.** A GitHub Pages site that introduces Atel# and teaches
-    modding with it: landing page, get started, guides built on `examples/`,
-    concepts, a reference with the `Ffx.Atel.Game` API and one page per
-    analyzer rule. Planned 2026-11-10 in [website.md](website.md); five
-    decisions wait on the user.
+    modding with it, in Astro Starlight: pages written new for people (not
+    `docs/` rendered), guides built on `examples/`, concepts, a reference with
+    the `Ffx.Atel.Game` API and one page per analyzer rule, and the CLI as a
+    .NET tool (`AtelSharp.Cli`). Planned and decided 2026-11-10 in
+    [website.md](website.md), with the list of screenshots and clips.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–12 follow and partly run alongside.
