@@ -75,7 +75,7 @@ public static partial class ScriptCompiler {
         }
         AttributeSyntax workersAttribute = mainParts.SelectMany(Attributes).First(a => NameOf(a) == "Workers");
         List<string> vanillaWorkers = [.. AllPositional(workersAttribute).Select(t => ((TypeName)t).Name)];
-        Dictionary<string, int> workers = new(StringComparer.Ordinal);
+        WorkerTable workers = new();
         foreach (string w in vanillaWorkers) workers[w] = workers.Count;
 
         // Each vanilla worker's entry methods, in layout order: their entries and code range.
@@ -159,6 +159,10 @@ public static partial class ScriptCompiler {
                 parts.Add(c);
             }
         }
+
+        // A library class one worker derives from (vanilla or new) names that worker, as in vanilla source:
+        // `MoveTalkDefaults.Run()` is the call of the script's worker deriving from MoveTalkDefaults.
+        workers = WorkerTable.Of(workers, w => newWorkers.FirstOrDefault(x => x.Name == w).Parts ?? [.. byName[w]], library);
 
         // Saved fields the code names: storage 0 variables whose offsets the loader gives (docs/language.md, "Saved fields").
         // One is written as C# would name it from here: Namespace.Class.Field, Class.Field (when only one class of the mod
@@ -251,10 +255,13 @@ public static partial class ScriptCompiler {
         // A worker's number and an entry's, as numbers or as what the linker gives (Link.Worker,
         // Link.Entry, and requests written as calls: `_ = W01.BoostAsync();`).
         Expr WorkerNumber(string worker, SyntaxNode at) {
+            if (workers.WhyNot(worker) is string why) throw CompileException.At(at, why);
+            worker = workers.Real(worker);
             if (!workers.TryGetValue(worker, out int number)) throw CompileException.At(at, $"no worker {worker}");
             return number >= vanillaWorkers.Count ? new SymbolExpr(new LinkSymbol(RelocKind.NewWorker, number - vanillaWorkers.Count)) : new IntLit(number);
         }
         Expr? EntryNumber(string worker, string method) {
+            worker = workers.Real(worker);
             if (!workers.TryGetValue(worker, out int number)) return null;
             if (number >= vanillaWorkers.Count) {
                 MethodDeclarationSyntax? m = newWorkers[number - vanillaWorkers.Count].Parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()
@@ -291,6 +298,9 @@ public static partial class ScriptCompiler {
         foreach ((string name, List<ClassDeclarationSyntax> parts) in newWorkers) {
             entryMethods[name] = parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()
                 .Where(m => EntriesOf(m).Count > 0).ToDictionary(m => m.Identifier.ValueText, m => EntriesOf(m)[0], StringComparer.Ordinal);
+        }
+        foreach ((string alias, string real) in workers.Aliases) {
+            if (entryMethods.TryGetValue(real, out Dictionary<string, int>? own)) entryMethods.TryAdd(alias, own);
         }
 
         FragmentBuilder fragments = new(v.Variables.Count, vanillaWorkers.Count);

@@ -153,6 +153,8 @@ public static class ScriptDecompiler {
         HandlerNaming.AssignEntries(names.Category, handlers, workers, workerNames, WorkerNaming.ReservedWith(varNames));
         // The rest by what triggers them or what their code does (OnTalk, Say12, Hide).
         EntryRoles.Assign(names.Category, workers, workerNames, WorkerNaming.ReservedWith([.. varNames, names.ClassName]));
+        // Registers by what is stored in them (TurnActor), after the entries, whose names they avoid.
+        RegisterRoles.Assign(workers, WorkerNaming.ReservedWith([.. varNames, .. workerNames, names.ClassName, .. names.Namespace.Split('.'), .. MemberNames]));
         RequestNaming.Assign(workers, workerNames);
 
         // The pools follow the rules unless the original differs, or assembly names them by index.
@@ -367,7 +369,8 @@ public static class ScriptDecompiler {
         sb.Clear();
         SortedSet<(RegKind Kind, int Number)> registers = worker.Registers();
         foreach ((RegKind kind, int n) in registers) {
-            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public static {(kind == RegKind.Float ? "float" : worker.IsBoolRegister(n) ? "bool" : "int")} {(kind == RegKind.Int ? "I" : "F")}{n};\n");
+            string field = worker.RegisterNames.GetValueOrDefault((kind, n)) ?? string.Create(CultureInfo.InvariantCulture, $"{(kind == RegKind.Int ? "I" : "F")}{n}");
+            sb.Append(Indent).Append(CultureInfo.InvariantCulture, $"[Register({n})] public static {(kind == RegKind.Float ? "float" : worker.IsBoolRegister(n) ? "bool" : "int")} {field};\n");
         }
         if (registers.Count > 0) sb.Append('\n');
         worker.WriteMethods(sb, id => NativeNames.Value.TryGetValue(id, out string? native) ? native : null);

@@ -107,7 +107,8 @@ change), build, then `atel export` the source repo. Check it first with
 names without rebuilding).
 
 Without an overlay name, the decompiler names a worker after the model it loads
-(`Tidus`, `TreasureChest_14`; `data/actor-names.json` gives the English names); in monster and
+(`Tidus`, `TreasureChest_14`; `data/actor-names.json` gives the English names), or, an actor that
+loads several, after the party member it binds itself to (`SetPartyIndex(k)`, 0 Tidus … 6 Rikku); in monster and
 battle scripts, else after the battle's handler it serves (below); else after its role where
 its code says it, read off the structured code by fixed rules (`WorkerNaming.AssignRoles`), in
 this order:
@@ -115,9 +116,11 @@ this order:
 | Name | Rule |
 |---|---|
 | `ExitTo<Map>` | an event trigger (`LineTrigger`, `BoxTrigger`, `LineSensor`, `BoxSensor`) whose map changes (`MapChange`, `MapJump`, `MapChangeDefault`, `ChangeMap`, `JumpToMap`) all go to one constant map: `ExitToKami0100` |
+| `BattleLine`, `BattleBox`, `WarpLine`, `WarpBox` | an event trigger that starts a battle (`Btl.LabelExe`, `MsBattleLabelExe`) or jumps to an entrance of the same map (`MapJumpToEntrance`, no map change) |
 | `Director` | an event worker whose `Main` switches on `StoryProgress` and requests other workers' entries from its cases (the story index on the script class) |
 | `CameraLine`, `CameraBox` | an event trigger that only sets the camera (`Cam.*`, `AttachCamera`) besides its own setup (`TriggerSet*`, `Line*`, its target and yaw); line for types 2 and 5, box for 3 and 6 |
 | `DialogueLine`, `DialogueBox` | the same, only message windows and voices (`Msg*`, `Voice*`, the player's control around them) |
+| `MapSetup` | an event logic worker that sets the map's display up (`MinimapSet*`, `SetMapMarkerPos`, `GuideMapSetLimit`, `FootstepHookEnable`) and does nothing else but lights, screen, fades, music and waiting |
 | `CameraWorker`, `DialogueWorker`, `Lighting` | any other worker that only drives the camera, only opens messages, or only sets the lights (`Screen.LightSet` and the skeleton refresh after it) |
 
 Waiting (`Common.Wait*`) counts for none. A role several workers of a script share takes their
@@ -156,6 +159,9 @@ entry a worker points talking at), then what the method's code does (`Say12`, `S
 `GoToKami0100`, `Scene12`, or the one native it calls). The rules and what was checked for each:
 [research/variable-names.md](research/variable-names.md). A name several methods of a worker get
 takes each one's entry (`Hide_7`); empty methods that are no trigger entry keep their number.
+
+**Registers** (`[Register(0)] public static int I0;`) whose every store is one getter's result are
+named after it without `Get` (`TurnKind`, `ActorMotionInfo`); the attribute keeps the number.
 
 **Variables**: storage 1 (`Storage.Common`, shared by the battle and monster scripts of a battle)
 by `data/variable-names.toml`, one name per offset for every script (`CameraActor`); a script's own

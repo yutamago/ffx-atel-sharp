@@ -192,10 +192,8 @@ public static partial class ScriptCompiler {
         Dictionary<string, Dictionary<string, int>> entryMethods = EntryMethods(byName, workerIndex, library);
         // Library aliases: in code, a library class's name stands for the one worker of the script that derives
         // from it (a shared body calling a sibling: `MoveTalkDefaults.Run()`; docs/plan.md, Phase 6).
-        Dictionary<string, int> named = LibraryAliases(byName, workerIndex, library);
-        foreach ((string alias, int w) in named) {
-            if (!workerIndex.ContainsKey(alias)) entryMethods.TryAdd(alias, entryMethods[workerIndex.First(kv => kv.Value == w).Key]);
-        }
+        WorkerTable named = WorkerTable.Of(workerIndex, w => byName[w], library);
+        foreach ((string alias, string real) in named.Aliases) entryMethods.TryAdd(alias, entryMethods[real]);
         // Helper methods (of the workers and the script class) become function workers after the others.
         // A shared worker's inline methods are in its library class.
         InlineMethods inlines = InlineMethods.With([.. trees, .. library.Trees]);
@@ -363,6 +361,8 @@ public static partial class ScriptCompiler {
         return new VarEntry(location, (ushort)length, (ushort)rowLength);
     }
 
+    internal static string SimpleNameOf(TypeSyntax type) => SimpleName(type);
+
     private static string SimpleName(TypeSyntax type) => type switch {
         QualifiedNameSyntax q => q.Right.Identifier.ValueText,
         AliasQualifiedNameSyntax q => q.Name.Identifier.ValueText,
@@ -437,31 +437,6 @@ public static partial class ScriptCompiler {
             Hide = hide,
             Parameters = parameters ?? [],
         });
-
-    /// <summary>
-    ///     The workers by name, with each library class that exactly one worker of the script derives from,
-    ///     directly or through other library classes, as another name of that worker. A library class's name
-    ///     that is also a worker's, or that several workers derive from, names nothing more.
-    /// </summary>
-    internal static Dictionary<string, int> LibraryAliases(ILookup<string, ClassDeclarationSyntax> byName, IReadOnlyDictionary<string, int> workers, ScriptLibrary library) {
-        Dictionary<string, int> named = new(workers, StringComparer.Ordinal);
-        Dictionary<string, int> count = new(StringComparer.Ordinal);
-        List<(string Class, int Worker)> found = [];
-        foreach ((string worker, int w) in workers) {
-            HashSet<string> seen = new(StringComparer.Ordinal);
-            for (List<ClassDeclarationSyntax> level = [.. byName[worker]]; level.Count > 0;) {
-                BaseTypeSyntax? b = level.Select(p => p.BaseList?.Types.FirstOrDefault()).LastOrDefault(x => x is not null);
-                if (b is null || !library.Classes.Contains(SimpleName(b.Type)) || !seen.Add(SimpleName(b.Type))) break;
-                found.Add((SimpleName(b.Type), w));
-                count[SimpleName(b.Type)] = count.GetValueOrDefault(SimpleName(b.Type)) + 1;
-                level = [.. library.Classes[SimpleName(b.Type)]];
-            }
-        }
-        foreach ((string cls, int w) in found) {
-            if (count[cls] == 1 && !workers.ContainsKey(cls)) named[cls] = w;
-        }
-        return named;
-    }
 
     private static CompiledWorker Worker(
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
