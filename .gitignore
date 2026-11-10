@@ -20,3 +20,8 @@ TestResults/
 /work/
 /out/
 /decompiled/
+
+# The website (site/): packages and build output.
+site/node_modules/
+site/dist/
+site/.astro/
