@@ -1,4 +1,4 @@
-<Project Sdk="Ffx.Atel.Sdk">
+<Project Sdk="AtelSharp.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
     <!-- An Atel mod: counts the Larvas (m209) met, kept with the save game. A [Saved] field. docs/sdk.md -->
     <PropertyGroup>

@@ -378,7 +378,7 @@ anyway, and the merge would then undo it on `main`.
 
 ## The reference assembly
 
-The tree's projects use the SDK package, `<Project Sdk="Ffx.Atel.Sdk">`, of
+The tree's projects use the SDK package, `<Project Sdk="AtelSharp.Sdk">`, of
 the version in `global.json` ([sdk.md](sdk.md)), the version of the `atel`
 that decompiled it: the reference assembly, the analyzers and the build
 settings. `atel decompile -o` copies the package to

@@ -13,7 +13,7 @@ namespace Ffx;
 /// </summary>
 /// <remarks>
 ///     Names: Fahrenheit's <c>SaveData</c> (<c>core/ffx/savedata.cs</c>, Fahrenheit f7e2258; used with
-///     permission from their lead), in C# case, as listed in ffx-rust's <c>docs/formats/save.md</c>. Only
+///     the Fahrenheit project's permission), in C# case, as listed in ffx-rust's <c>docs/formats/save.md</c>. Only
 ///     fields at or after save offset <c>0x1ec</c> are reachable from a script. Storage 0 offsets the
 ///     scripts use without a name here are written <c>Save_0123</c> (the storage 0 offset in hex).
 ///     Fields Fahrenheit does not name carry our own names, each from what the scripts do with it and the

@@ -1,6 +1,6 @@
-<Project Sdk="Ffx.Atel.Sdk">
+<Project Sdk="AtelSharp.Sdk">
     <!-- An Atel mod of atel-script-name, made with `dotnet new atel-mod`. README.md has the steps; the SDK's
-         properties are in the Ffx.Atel.Sdk docs (docs/sdk.md in github.com/yutamago/ffx-atel-sharp).
+         properties are in the AtelSharp.Sdk docs (docs/sdk.md in github.com/yutamago/ffx-atel-sharp).
          The SDK's version is in global.json. -->
     <PropertyGroup>
         <!-- The Fahrenheit mod id: dotnet build writes bin/<configuration>/net10.0/mods/atel-mod-id/. -->
@@ -9,6 +9,10 @@
         <Description>An Atel mod of atel-script-name.</Description>
         <Authors>atel-mod-author</Authors>
         <Version>0.1.0</Version>
+<!--#if (mitLicense) -->
+        <!-- The mod's licence (LICENSE), as an SPDX expression. -->
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+<!--#endif -->
         <!-- The vanilla source: the folder `atel decompile atel-script-name -o <dir>` wrote, or a clone of the
              source repo. Never inside this project: it is the game's code. Relative to this file or absolute;
              dotnet build -p:AtelVanillaSource=<dir> overrides it. -->

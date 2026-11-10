@@ -1,3 +1,7 @@
+#if (mitLicense)
+// SPDX-License-Identifier: MIT
+
+#endif
 using Ffx;
 using Ffx.Atel;
 using static AtelScriptNamespace.AtelScriptClass;

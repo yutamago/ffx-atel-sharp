@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: MIT
-# The release of the SDK packages (docs/release.md). Runs only when the user pushes a tag v<version>
+# The release (docs/release.md). Runs only when the user pushes a tag v<version>
 # (git tag v0.1.0-alpha.1 && git push origin v0.1.0-alpha.1); nothing else starts it, and no other workflow publishes.
 #
-# It packs Ffx.Atel.Sdk and Ffx.Atel.Templates with the tag's version (-p:Version, instead of the per-commit
-# version of every other build), checks them, keeps them as an artifact, and pushes them only when the repository
-# variable ATEL_NUGET_TARGET names where:
-#   nuget.org   needs the secret NUGET_API_KEY (an API key limited to pushing these package ids);
-#   github      GitHub Packages of this repository's owner, with the job's GITHUB_TOKEN.
-# Unset (as now), the job stops before pushing. Ffx.Atel.Templates is pushed only with the variable
-# ATEL_PUBLISH_TEMPLATES=true. Both are decisions the user makes before the first release (docs/release.md).
+# packages  packs AtelSharp.Sdk and AtelSharp.Templates with the tag's version (-p:Version, instead of the per-commit
+#           version of every other build), checks them and keeps them as an artifact;
+# editors   builds the VS Code extension (.vsix) and the Rider plugin (.zip) (editors.yml, as build.yml does);
+# publish   pushes both packages to where the repository variable ATEL_NUGET_TARGET names:
+#             nuget.org   with the secret NUGET_API_KEY (an API key limited to pushing AtelSharp.*);
+#             github      GitHub Packages of this repository's owner, with the job's GITHUB_TOKEN;
+#           unset, it stops before pushing anything. The templates go along unless ATEL_PUBLISH_TEMPLATES=false;
+# release   creates the GitHub release of the tag, once the packages are pushed: both .nupkg, the .vsix and the
+#           Rider zip, the version's CHANGELOG.md section as notes; a version with a suffix (-alpha.1) is a pre-release.
 name: Release SDK
 
 on:
@@ -19,11 +21,10 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  packages:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
     # The whole history: the release must be on main, and the build reads git (Directory.Build.targets).
@@ -40,6 +41,7 @@ jobs:
     # v0.1.0-alpha.1 -> 0.1.0-alpha.1: a SemVer 2 version, which must sort above every per-commit build before it
     # (0.1.0-alpha.0.<commits>.g<commit>; docs/release.md, "Versions").
     - name: Version from the tag
+      id: version
       shell: bash
       run: |
         version="${GITHUB_REF_NAME#v}"
@@ -47,6 +49,7 @@ jobs:
           echo "the tag $GITHUB_REF_NAME is not v<SemVer version>"; exit 1
         fi
         echo "VERSION=$version" >> "$GITHUB_ENV"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
 
     - name: The tag is on main
       shell: bash
@@ -77,14 +80,14 @@ jobs:
     - name: Check the packages
       shell: bash
       run: |
-        for id in Ffx.Atel.Sdk Ffx.Atel.Templates; do
+        for id in AtelSharp.Sdk AtelSharp.Templates; do
           test -f "artifacts/release/$id.$VERSION.nupkg" || { echo "no $id.$VERSION.nupkg"; exit 1; }
         done
         for pkg in artifacts/release/*.nupkg; do
           if unzip -p "$pkg" | grep -aqF "$GITHUB_WORKSPACE"; then echo "$pkg names the checkout's path"; exit 1; fi
         done
         # The template pins the SDK of the release's version.
-        unzip -p "artifacts/release/Ffx.Atel.Templates.$VERSION.nupkg" content/atel-mod/.template.config/template.json \
+        unzip -p "artifacts/release/AtelSharp.Templates.$VERSION.nupkg" content/atel-mod/.template.config/template.json \
           | grep -qF "\"defaultValue\": \"$VERSION\"" || { echo "the template does not pin $VERSION"; exit 1; }
 
     - name: Keep the packages
@@ -92,28 +95,107 @@ jobs:
       with:
         name: packages-${{ env.VERSION }}
         path: artifacts/release/*.nupkg
+        if-no-files-found: error
 
+  editors:
+    uses: ./.github/workflows/editors.yml
+
+  publish:
+    needs: [ packages, editors ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Get the packages
+      uses: actions/download-artifact@v7
+      with:
+        name: packages-${{ needs.packages.outputs.version }}
+        path: artifacts/release
+
+    # --skip-duplicate: a re-run (after a failed GitHub release, say) pushes nothing twice.
     - name: Push
       shell: bash
       env:
+        VERSION: ${{ needs.packages.outputs.version }}
         TARGET: ${{ vars.ATEL_NUGET_TARGET }}
         TEMPLATES: ${{ vars.ATEL_PUBLISH_TEMPLATES }}
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        packages=("artifacts/release/Ffx.Atel.Sdk.$VERSION.nupkg")
-        if [ "$TEMPLATES" = "true" ]; then packages+=("artifacts/release/Ffx.Atel.Templates.$VERSION.nupkg"); fi
+        packages=("artifacts/release/AtelSharp.Sdk.$VERSION.nupkg")
+        if [ "$TEMPLATES" != "false" ]; then packages+=("artifacts/release/AtelSharp.Templates.$VERSION.nupkg"); fi
         case "$TARGET" in
           nuget.org)
             if [ -z "$NUGET_API_KEY" ]; then echo "the NUGET_API_KEY secret is not set"; exit 1; fi
             for p in "${packages[@]}"; do
-              dotnet nuget push "$p" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+              dotnet nuget push "$p" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
             done ;;
           github)
             for p in "${packages[@]}"; do
-              dotnet nuget push "$p" --api-key "$GITHUB_TOKEN" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
+              dotnet nuget push "$p" --api-key "$GITHUB_TOKEN" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" --skip-duplicate
             done ;;
           *)
             echo "the repository variable ATEL_NUGET_TARGET is not set (nuget.org or github): nothing pushed (docs/release.md)"
             exit 1 ;;
         esac
+
+  release:
+    needs: [ packages, editors, publish ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Get the packages and the editors
+      uses: actions/download-artifact@v7
+      with:
+        path: downloads
+
+    # The assets' names say which editor and which version: the .vsix is atel-text.vsix whatever its version.
+    - name: Assets
+      shell: bash
+      env:
+        VERSION: ${{ needs.packages.outputs.version }}
+      run: |
+        mkdir assets
+        cp "downloads/packages-$VERSION/"*.nupkg assets/
+        vsix=downloads/vscode-extension/atel-text.vsix
+        vscode_version=$(unzip -p "$vsix" extension/package.json | jq -r .version)
+        cp "$vsix" "assets/atel-text-vscode-$vscode_version.vsix"
+        zip=$(ls downloads/rider-plugin/atel-text-*.zip)
+        cp "$zip" "assets/atel-text-rider-$(basename "$zip" | sed 's/^atel-text-//')"
+        ls -l assets
+
+    # The version's section of CHANGELOG.md, without its heading: from "## [<version>]" to the next "## [".
+    - name: Notes
+      shell: bash
+      env:
+        VERSION: ${{ needs.packages.outputs.version }}
+      run: |
+        awk -v head="## [$VERSION]" '
+          index($0, head) == 1 { on = 1; next }
+          on && /^## \[/ { exit }
+          on { print }
+        ' CHANGELOG.md > notes.md
+        test -s notes.md || { echo "CHANGELOG.md's section of $VERSION is empty"; exit 1; }
+
+    - name: GitHub release
+      shell: bash
+      env:
+        VERSION: ${{ needs.packages.outputs.version }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        prerelease=()
+        if [[ "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
+        gh release create "$GITHUB_REF_NAME" assets/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+          --title "Atel# $VERSION" --notes-file notes.md "${prerelease[@]}"

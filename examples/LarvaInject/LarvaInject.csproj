@@ -1,4 +1,4 @@
-<Project Sdk="Ffx.Atel.Sdk">
+<Project Sdk="AtelSharp.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
     <!-- An Atel mod: after the Larva (m209) casts Thundara at full HP, its HP drops to 1. An [Inject]. docs/sdk.md -->
     <PropertyGroup>

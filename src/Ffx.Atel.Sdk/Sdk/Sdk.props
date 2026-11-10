@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!--
-    Ffx.Atel.Sdk: an MSBuild project SDK for Atel source (docs/sdk.md).
+    AtelSharp.Sdk: an MSBuild project SDK for Atel source (docs/sdk.md).
 
-        <Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha.0.117.g5e8c870545">
+        <Project Sdk="AtelSharp.Sdk/0.1.0-alpha.0.117.g5e8c870545">
 
-    or <Project Sdk="Ffx.Atel.Sdk"> with the version in global.json ("msbuild-sdks"). Every commit of
+    or <Project Sdk="AtelSharp.Sdk"> with the version in global.json ("msbuild-sdks"). Every commit of
     ffx-atel-sharp packs its own version, 0.1.0-alpha.0.<commits>.g<commit> (docs/sdk.md, "Versions"):
     NuGet never reads a version again once it has cached it, so a changed SDK needs a new version. A
     release has its own (0.1.0-alpha.1, …).

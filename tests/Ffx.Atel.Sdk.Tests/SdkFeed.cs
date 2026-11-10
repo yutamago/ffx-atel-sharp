@@ -37,14 +37,14 @@ public sealed class SdkFeed : IDisposable {
     /// <summary>The environment of every <c>dotnet</c> the tests run: the package cache.</summary>
     public Dictionary<string, string?> Env { get; }
 
-    /// <summary>The folder with <c>Ffx.Atel.Sdk.&lt;version&gt;.nupkg</c> and <c>Ffx.Atel.Templates.&lt;version&gt;.nupkg</c>.</summary>
+    /// <summary>The folder with <c>AtelSharp.Sdk.&lt;version&gt;.nupkg</c> and <c>AtelSharp.Templates.&lt;version&gt;.nupkg</c>.</summary>
     public string Feed => _packed.Value.Feed;
 
     /// <summary>The packages' version, the commit's.</summary>
     public string Version => _packed.Value.Version;
 
-    public string SdkPackage => Path.Combine(Feed, $"Ffx.Atel.Sdk.{Version}.nupkg");
-    public string TemplatesPackage => Path.Combine(Feed, $"Ffx.Atel.Templates.{Version}.nupkg");
+    public string SdkPackage => Path.Combine(Feed, $"AtelSharp.Sdk.{Version}.nupkg");
+    public string TemplatesPackage => Path.Combine(Feed, $"AtelSharp.Templates.{Version}.nupkg");
 
     private (string, string) Pack() {
         string repo = RepoRoot();
@@ -56,9 +56,9 @@ public sealed class SdkFeed : IDisposable {
             DotNet.Run(repo, Env, ["pack", Path.Combine(repo, "src", project), "-c", configuration, "-o", feed,
                 "--artifacts-path", Path.Combine(Root, "artifacts"), .. DotNet.BuildFlags]);
         }
-        string nupkg = Assert.Single(Directory.GetFiles(feed, "Ffx.Atel.Sdk.*.nupkg"));
-        string version = Path.GetFileNameWithoutExtension(nupkg)["Ffx.Atel.Sdk.".Length..];
-        Assert.True(File.Exists(Path.Combine(feed, $"Ffx.Atel.Templates.{version}.nupkg")), "the templates have the SDK's version");
+        string nupkg = Assert.Single(Directory.GetFiles(feed, "AtelSharp.Sdk.*.nupkg"));
+        string version = Path.GetFileNameWithoutExtension(nupkg)["AtelSharp.Sdk.".Length..];
+        Assert.True(File.Exists(Path.Combine(feed, $"AtelSharp.Templates.{version}.nupkg")), "the templates have the SDK's version");
         return (feed, version);
     }
 

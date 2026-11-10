@@ -1,5 +1,5 @@
 {
   "msbuild-sdks": {
-    "Ffx.Atel.Sdk": "atel-sdk-version"
+    "AtelSharp.Sdk": "atel-sdk-version"
   }
 }

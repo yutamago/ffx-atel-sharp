@@ -34,7 +34,7 @@ public sealed class ExampleModTests(SdkFeed sdk) {
             DotNet.Run(root, env, [atel, "decompile", "m209", "-o", vanilla, "--sdk", feed]);
             // atel pins the package of its own version: the CLI and the package agree.
             using (JsonDocument global = JsonDocument.Parse(File.ReadAllText(Path.Combine(vanilla, "global.json")))) {
-                Assert.Equal(version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("Ffx.Atel.Sdk").GetString());
+                Assert.Equal(version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("AtelSharp.Sdk").GetString());
             }
             DotNet.Run(vanilla, env, ["build", Path.Combine(vanilla, "Atel.slnx"), .. DotNet.BuildFlags]);
 
@@ -42,7 +42,7 @@ public sealed class ExampleModTests(SdkFeed sdk) {
             Directory.CreateDirectory(Path.Combine(root, "mod"));
             foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples"))) File.Copy(f, Path.Combine(root, "mod", Path.GetFileName(f)));
             File.WriteAllText(Path.Combine(root, "mod", "global.json"), $$"""
-                { "msbuild-sdks": { "Ffx.Atel.Sdk": "{{version}}" } }
+                { "msbuild-sdks": { "AtelSharp.Sdk": "{{version}}" } }
                 """);
             // Each example mod, copied out of the repo, built, and compared with atel compile-mod's package.
             // In this order: LarvaCountReader reads LarvaCount's saved field.

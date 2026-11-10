@@ -8,7 +8,7 @@ namespace Ffx.Atel.Decompiler.Layout;
 /// <summary>How a decompiled tree's projects get <c>Ffx.Atel.Game</c> and the analyzers.</summary>
 public enum GameReference {
     /// <summary>
-    ///     The projects use the SDK package (<c>&lt;Project Sdk="Ffx.Atel.Sdk"&gt;</c>, its version in
+    ///     The projects use the SDK package (<c>&lt;Project Sdk="AtelSharp.Sdk"&gt;</c>, its version in
     ///     <c>global.json</c>): reference assembly, analyzers and settings (docs/sdk.md).
     /// </summary>
     Sdk,
@@ -43,7 +43,7 @@ public static class ProjectLayout {
     public const string GameAssembly = "Ffx.Atel.Game.dll";
 
     /// <summary>The SDK package's id (<see cref="GameReference.Sdk"/>).</summary>
-    public const string SdkPackage = "Ffx.Atel.Sdk";
+    public const string SdkPackage = "AtelSharp.Sdk";
 
     /// <summary>The folder under <see cref="ToolFolder"/> that is a local NuGet source holding the SDK package.</summary>
     public const string PackageFolder = "packages";
@@ -259,7 +259,7 @@ public static class ProjectLayout {
     ///     (net10.0, no implicit usings, CS0162 and CS1998 off, the reference assembly, the analyzers).
     /// </summary>
     public const string SdkBuildProps = """
-        <!-- Written by atel decompile. The projects use Ffx.Atel.Sdk, its version in global.json. -->
+        <!-- Written by atel decompile. The projects use AtelSharp.Sdk, its version in global.json. -->
         <Project>
             <PropertyGroup>
                 <!-- Vanilla source: dotnet build checks the C# and writes no mod package. -->
@@ -281,7 +281,7 @@ public static class ProjectLayout {
     /// <summary>A package source for <c>.atel/packages/</c>, where <c>atel decompile</c> put the SDK package.</summary>
     public const string NuGetConfig = """
         <?xml version="1.0" encoding="utf-8"?>
-        <!-- Written by atel decompile: Ffx.Atel.Sdk from .atel/packages/. -->
+        <!-- Written by atel decompile: AtelSharp.Sdk from .atel/packages/. -->
         <configuration>
           <packageSources>
             <add key="atel" value=".atel/packages" />

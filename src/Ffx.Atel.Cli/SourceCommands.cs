@@ -36,7 +36,7 @@ internal static class SourceCommands {
                                            filter), compare with the game's bytes
           --no-library                     (decompile, roundtrip) keep duplicated workers in
                                            every script instead of library base classes
-          --sdk <dir|nupkg>                (decompile, export) the Ffx.Atel.Sdk package to copy into
+          --sdk <dir|nupkg>                (decompile, export) the AtelSharp.Sdk package to copy into
                                            <dir>/.atel/packages/ with a nuget.config naming it; else
                                            looked for beside atel, or left to your NuGet sources
           --no-sdk                         (decompile, export) projects reference .atel/Ffx.Atel.Game.dll
