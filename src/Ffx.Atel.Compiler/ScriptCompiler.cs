@@ -169,7 +169,7 @@ public static partial class ScriptCompiler {
         Dictionary<string, VariableSymbol> variables = new(StringComparer.Ordinal);
         foreach (FieldDeclarationSyntax field in mainParts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
             VarEntry entry = Variable(field);
-            variables[field.Declaration.Variables[0].Identifier.ValueText] = new VariableSymbol(image.Variables.Count, entry);
+            variables[field.Declaration.Variables[0].Identifier.ValueText] = new VariableSymbol(image.Variables.Count, entry) { Bool = IsBoolField(field) };
             image.Variables.Add(entry);
         }
 
@@ -292,11 +292,13 @@ public static partial class ScriptCompiler {
             type = at.ElementType;
             rank = at.RankSpecifiers[0].Rank;
         }
-        uint varType = (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
+        // A bool is a flag kept as an int, or as the integer type `Stored` names ([Var(…, Stored = typeof(byte))]).
+        bool isBool = type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
+        uint varType = isBool ? 5 : (uint)(type is PredefinedTypeSyntax p ? p.Keyword.Kind() switch {
             SyntaxKind.ByteKeyword => 0, SyntaxKind.SByteKeyword => 1, SyntaxKind.UShortKeyword => 2, SyntaxKind.ShortKeyword => 3,
             SyntaxKind.UIntKeyword => 4, SyntaxKind.IntKeyword => 5, SyntaxKind.FloatKeyword => 6,
             _ => throw CompileException.At(type, $"a variable cannot be {p.Keyword.ValueText}"),
-        } : throw CompileException.At(type, "a variable is byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
+        } : throw CompileException.At(type, "a variable is bool, byte, sbyte, ushort, short, uint, int or float, or a 1-D or 2-D array of one"));
         object storage = a is null ? new EnumMember(nameof(Storage.Shared)) : Positional(a, 0);
         uint storageNumber = storage is EnumMember(string member) && Enum.TryParse(member, out Storage s) ? (uint)s
             : throw CompileException.At(a!, "the storage is Storage.<area>");
@@ -306,6 +308,13 @@ public static partial class ScriptCompiler {
         foreach ((string key, object value) in a is null ? [] : Named(a)) {
             switch (key) {
                 case "Length": length = I32(value, a!); break;
+                case "Stored" when isBool:
+                    varType = value is TypeName { Name: string stored } ? stored switch {
+                        "byte" or "Byte" => 0u, "sbyte" or "SByte" => 1u, "ushort" or "UInt16" => 2u, "short" or "Int16" => 3u, "int" or "Int32" => 5u,
+                        _ => throw CompileException.At(a!, "a bool is stored as byte, sbyte, ushort, short or int"),
+                    } : throw CompileException.At(a!, "Stored = typeof(<integer type>)");
+                    break;
+                case "Stored": throw CompileException.At(a!, "Stored is for a bool variable: the integer type it is kept as");
                 default: throw CompileException.At(a!, $"[Var] has no {key}");
             }
         }
@@ -541,16 +550,21 @@ public static partial class ScriptCompiler {
         return (parts, type ?? throw CompileException.At(own[0].Identifier.GetLocation(), "a worker derives from a worker type (Actor, LineTrigger, …, or Worker0 … Worker6) or a library class"));
     }
 
-    /// <summary>A worker's <c>[Register(n)]</c> fields: <c>int</c> for the integer registers, <c>float</c> for the float ones.</summary>
+    /// <summary>
+    ///     A worker's <c>[Register(n)]</c> fields: <c>int</c> (or <c>bool</c>, a flag: <see cref="RegisterTable.Bools"/>) for
+    ///     the integer registers, <c>float</c> for the float ones.
+    /// </summary>
     private static Dictionary<string, RegExpr> Registers(IEnumerable<ClassDeclarationSyntax> parts) {
-        Dictionary<string, RegExpr> registers = new(StringComparer.Ordinal);
+        RegisterTable registers = new();
         foreach (FieldDeclarationSyntax field in parts.SelectMany(p => p.Members.OfType<FieldDeclarationSyntax>())) {
             AttributeSyntax a = Attributes(field).FirstOrDefault(x => NameOf(x) == "Register")
                 ?? throw CompileException.At(field, "a worker field is a [Register] (for now)");
             int n = I32(Positional(a, 0), a);
-            RegExpr reg = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
+            bool flag = field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
+            RegExpr reg = flag || field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.IntKeyword } ? new RegExpr(RegKind.Int, n)
                 : field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.FloatKeyword } ? new RegExpr(RegKind.Float, n)
-                : throw CompileException.At(field.Declaration.Type, "a register is int or float");
+                : throw CompileException.At(field.Declaration.Type, "a register is int, bool or float");
+            if (flag) foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers.Bools.Add(v.Identifier.ValueText);
             if (n < 0 || n >= (reg.Kind == RegKind.Int ? 4 : 10)) throw CompileException.At(a, reg.Kind == RegKind.Int ? "integer registers are 0-3" : "float registers are 0-9");
             foreach (VariableDeclaratorSyntax v in field.Declaration.Variables) registers[v.Identifier.ValueText] = reg;
         }
@@ -694,6 +708,15 @@ public static partial class ScriptCompiler {
     // ----- Attribute arguments ---------------------------------------------------------------
 
     private sealed record TypeName(string Name);
+
+    /// <summary>A worker's registers by field name; <see cref="Bools"/> names those declared <c>bool</c> (an integer register used as a flag).</summary>
+    internal sealed class RegisterTable() : Dictionary<string, RegExpr>(StringComparer.Ordinal) {
+        public HashSet<string> Bools { get; } = new(StringComparer.Ordinal);
+    }
+
+    /// <summary>A <c>bool</c> variable (<see cref="VariableSymbol.Bool"/>), scalar.</summary>
+    internal static bool IsBoolField(FieldDeclarationSyntax field) =>
+        field.Declaration.Type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.BoolKeyword };
 
     private sealed record EnumMember(string Name);
 

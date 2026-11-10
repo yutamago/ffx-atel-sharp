@@ -238,7 +238,7 @@ public sealed class InjectTests {
         // In Main, now the linked copy (the vanilla code stays behind Init as bytes no entry starts).
         int main = d.Source.IndexOf("void Main()", StringComparison.Ordinal);
         int inject = d.Source.IndexOf("= 4321;", StringComparison.Ordinal);
-        int call = d.Source.IndexOf("ActorProperty.Mp, 2)", main, StringComparison.Ordinal);
+        int call = d.Source.IndexOf("Self.Mp = 2;", main, StringComparison.Ordinal);
         Assert.True(main >= 0 && inject > main && call > inject, d.Source);
     }
 
@@ -300,7 +300,7 @@ public sealed class InjectTests {
         // In the new OnTurn: the last Thundara, then the injected statement.
         string ai = d.Files().Single(f => f.RelativePath.EndsWith("Ai.cs", StringComparison.Ordinal)).Text;
         int onTurn = ai.IndexOf("void OnTurn()", StringComparison.Ordinal);
-        int body = ai.IndexOf("Btl.SetActorProperty(ActorProperty.Hp, 1);", onTurn, StringComparison.Ordinal);
+        int body = ai.IndexOf("Self.Hp = 1;", onTurn, StringComparison.Ordinal);
         Assert.True(onTurn >= 0 && body > onTurn, ai);
         string between = ai[onTurn..body];
         Assert.Equal(3, System.Text.RegularExpressions.Regex.Count(between, @"Btl\.UseCommand\("));

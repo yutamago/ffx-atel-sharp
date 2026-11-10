@@ -494,12 +494,19 @@ area and offset:
 | `Event` (6) | the event data | |
 
 - Types: `byte` (`u8`), `sbyte` (`i8`), `ushort` (`u16`), `short` (`i16`), `uint` (`u32`), `int`
-  (`i32`), `float` (`f32`); arrays of those, 1-D or 2-D. The size is the initializer
+  (`i32`), `float` (`f32`); arrays of those, 1-D or 2-D. And `bool`, a flag (0 or 1) kept as an `int`, or as
+  the integer type `Stored` names: `[Var(Storage.Common, 0x0040, Stored = typeof(byte))] public static bool V5;`. The size is the initializer
   (`new byte[6]`; a 2-D array's second dimension is the row length). `[Var(…, Length = n)]` is the
   alternative for a 1-D array.
 - The machine's values are signed 32-bit, so a `uint` read as an operand is `(int)x`: the decompiler
   writes `Hp = (int)Kills;`, `if ((int)Kills > 3)`, `Kills += (uint)n;`, and the compiler drops the
   casts. No shipped script declares a `u32` variable; a mod's `[Saved] uint` field is the usual one.
+- **Flags are `bool`** (2026-11-09). The decompiler declares a scalar integer variable `bool` when every
+  write is 0, 1 or a condition and every read a condition, or a value passed on as it is (`I0 = AsInt(V4)`; a native
+  argument an overload takes as `bool`, `Btl.DebugPrint(V4)`, needs no `AsInt`), and the reads as conditions
+  outnumber the `AsInt`s: `V4 = true;`, `if (V0 & !V4)` instead of `V4 = 1;`,
+  `if (AsBool(V0) & !AsBool(V4))`. The bytes are the same: `true` is `pushimm 1`, and a `bool` variable is a
+  condition to the compiler (`&` of two is `land`).
 - A variable declared as an array is an array in C#, also with length 1 (`new byte[1]`): the
   variable table has a bit for it.
 - Field initializers on a vanilla script's scalars are errors: its initial values are in the data areas
@@ -523,7 +530,9 @@ area and offset:
 ### Registers
 
 A worker's registers are `static` fields with `[Register(n)]`: `int` for integer registers 0-3,
-`float` for float registers 0-9.
+`float` for float registers 0-9. An integer register may be `bool`, a flag, as a variable may: the decompiler
+writes `[Register(0)] public static bool I0;` where a worker's code uses it only so (not in a function worker,
+or a worker that calls one, which share registers).
 
 ```csharp
 [Register(0)] public static int I0;
@@ -660,6 +669,8 @@ Chr.WaitMotion();                                       Motion.Wait();
 | a component | the worker's `Turn`, `Move`, `Motion`, `Neck`; its members are natives | `Turn.Start(0, 4099, 0);`, `Move.Target = new Vector3(…);` |
 | `Motion = id` | the component takes an assignment: `Chr.SetMotion(id)` | `Motion = Turn.GetMotion(I3);` |
 | an indexed group | the native's first argument is the index | `Sprites[3].Show(V12);` |
+| a property picked by a constant | the property's name is a constant argument of one native (after the receiver) | `Actors[Target.Own].Hp = 0;`, `I0 = Self.Mp;` |
+| a method picked by a constant | several natives share it, one per value of its first argument, which is not passed | `Camera.Eye.Shake(ShakeKind.SineFadeOut, 7, 0.5f, 30, 4, 2);` |
 | a static class | an engine-wide native | `Wait.Frames(30);`, `Camera.Roll = 5f;`, `Sound.Play(sfx);` |
 | a nested static class | a static class inside another, for natives that belong to one part of it | `Camera.Eye.AimAt(…);`, `Camera.Focus.Position = new Vector3(…);` |
 | another worker | a native whose first argument is a worker: its class, or `Workers[n]` | `Tidus.AutoTalk = true;`, `F0 = Tidus.Pos.X;`, `Workers[V3].Turn.Stop();` |
@@ -694,7 +705,7 @@ Chr.WaitMotion();                                       Motion.Wait();
   whether the first argument is a worker, whether the value is a `Vector3` or a `bool`);
   `dotnet run tools/gen-members.cs` writes `src/Ffx.Atel.Game/Members.g.cs` from it and `data/natives.json`.
   The compiler and the decompiler read the members from the reference assembly
-  (`Ffx.Atel.Compiler.NativeMembers`). 168 natives are members today, 74.5 % of the native calls in the shipped
+  (`Ffx.Atel.Compiler.NativeMembers`). 185 natives are members today, 76.5 % of the native calls in the shipped
   scripts; [research/oo-surface.md](research/oo-surface.md) has the numbers and what comes next.
 - **Nested groups.** A static group may hold static groups (`"Camera.Eye"` in `data/native-members.json`, a
   static class inside `Camera`): the camera's natives act on its eye (side 1 of its channel, FFX.exe's `cam`),
@@ -707,6 +718,25 @@ Chr.WaitMotion();                                       Motion.Wait();
   that are not the camera's (`BtlRandom`), and those whose meaning or side the docs do not say yet
   (`GetRollResultF`, `SetScreenVector`, `ScreenSetLink0`/`1`, `SetPriority`, `EyeMoveFrame`, …). The
   natives no script calls are left out.
+- **Battle actors' properties** (2026-11-09). `Btl.SetActorsProperty(selector, property, value)` (0x7018) and
+  `Btl.GetActorProperty(selector, property)` (0x700f) are one native each whatever the property, so the property is
+  a member of what the selector picks: `Actors[Target.AllPly].Hp = 0;` is `Btl.SetActorsProperty(Target.AllPly,
+  ActorProperty.Hp, 0)`, `Actors[Target.Own].Mp` is `Btl.GetActorProperty(Target.Own, ActorProperty.Mp)`. The
+  getter averages over the picked actors (FFX.exe's `Battle_GetActorProperty`), which the property's summary says.
+  The worker's own actor has natives of its own, `Btl.GetSelfProperty` (0x70aa) and `Btl.SetActorProperty`
+  (0x70ab), which pass the selector -13 (`Target.Own`) themselves: they are `Self.Hp`. One property per
+  `ActorProperty` member (339, `[NativeMember(0x700f, Constant = 0x0000)]` on the accessor), all `int`. A computed
+  property (`(ActorProperty)V2`) stays the native's call. `Actors[…].Hp += 10` is an error (ATL1012: two natives);
+  `Actors[…]` and `Self` are not values (ATL1013).
+- **Shakes** (2026-11-09). The camera's and screens' shakes are one native per kind (`EyeShakeKind1` …
+  `ScreenShakeKind6`), each passing its kind to `MsCameraShake`/`MsScreenShake`. As members they are one method per
+  side whose first argument picks the native: `Camera.Eye.Shake(ShakeKind kind, int which, float speed, int frames,
+  int amplitude, int jitter)`, `Camera.Focus.Shake(…)`, `Camera.Screen.Shake(kind, screen, …)`. `ShakeKind` names the
+  kinds after FFX.exe's `MsCameraShakeProcess` (ffx-rust `shake.rs`): the wave (`Sine`, `Blend` =
+  `(sin a + cos(a + φ)) / 2`, `Jerky` = a blend holding half its last value on odd frames) and whether the amplitude
+  fades out, fades in or stays (`SineFadeOut` is kind 1, …, `Blend` kind 8). The kind is a constant: the compiler
+  picks the native by it and does not pass it. The spring (kind 9, `Cam.ScreenShakeKind9`, other arguments) stays
+  a call.
 - **Inline helpers** may be written with members: an `[Inline]` method of a worker (or, in the reference
   assembly, of `Worker`, called without a class name) that says `Turn.Yaw = yaw; Turn.Start(0, 4099, 0);
   Turn.Wait();` expands to the natives' calls as any inline method does.
@@ -723,9 +753,11 @@ The groups and their members:
 | `Sprites[slot]` | `Show`, `Hide`, `SetPos`, `SetScale`, `SetColor` |
 | `Wait` | `Frames`, `FramesUnlessHddMode`, `Forever`; `Seconds` (below) |
 | `Camera` | `Roll`, `ScreenDepth` (read and write), `Blur`, `DepthMaskMode`, `SetDepthMask`, `Suspend`, `Resume`; the groups `Eye`, `Focus`, `Screen` |
-| `Camera.Eye` | `Position` (`Vector3`, `SetPos`), `SetPolar`, `AddPolar`, `SetYaw`, `AimAtXZ`, `AimAt`, `AimShortOf`, `SetFocusList`, `SetFocusList1`, `SetTargetPolar`, `SetTargetPolar1`, `Orbit`, `OrbitScaled`, `OrbitPolar`, `Move`, `MoveCosine`, `MoveEased`, `MoveMode1`, `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove`, `Wait`, `ResetDir`, `Reset`, `LineFilter`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `FollowSpline`, `OnSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`7`/`8`, `ResetShake`, `WaitShake` |
-| `Camera.Focus` | `Position` (`Vector3`, `RefSetPos`), `SetTarget`, `OnActors`, `Orbit`, `OrbitScaled`, `Move` (`FocusTimeLinear`), `MoveCosine`, `MoveEased` (`FocusTimeEase`), `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove` (`FocusCut`), `Wait`, `Reset`, `LineFilter`, `AddLineArea`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `AddPathArea`, `AddPathAreaScaled`, `FollowSpline`, `ClearPath`, `AddPathPoint`, `ShakeKind1`/`2`/`3`/`4`/`7`/`8`, `ResetShake`, `WaitShake` |
-| `Camera.Screen` | `ShakeKind1`/`3`/`4`/`5`/`6`, `ResetShake`, `WaitShake`, `WaitMove` (each takes the screen) |
+| `Camera.Eye` | `Position` (`Vector3`, `SetPos`), `SetPolar`, `AddPolar`, `SetYaw`, `AimAtXZ`, `AimAt`, `AimShortOf`, `SetFocusList`, `SetFocusList1`, `SetTargetPolar`, `SetTargetPolar1`, `Orbit`, `OrbitScaled`, `OrbitPolar`, `Move`, `MoveCosine`, `MoveEased`, `MoveMode1`, `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove`, `Wait`, `ResetDir`, `Reset`, `LineFilter`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `FollowSpline`, `OnSpline`, `ClearPath`, `AddPathPoint`, `Shake` (kinds 1-8), `ResetShake`, `WaitShake` |
+| `Camera.Focus` | `Position` (`Vector3`, `RefSetPos`), `SetTarget`, `OnActors`, `Orbit`, `OrbitScaled`, `Move` (`FocusTimeLinear`), `MoveCosine`, `MoveEased` (`FocusTimeEase`), `MoveEasedMode1`, `MoveDivide`, `MoveStat`, `FinishMove` (`FocusCut`), `Wait`, `Reset`, `LineFilter`, `AddLineArea`, `AddHeightLimitSoft`, `AddHeightLimitScaled`, `ClearAreas`, `AddPathArea`, `AddPathAreaScaled`, `FollowSpline`, `ClearPath`, `AddPathPoint`, `Shake` (kinds 1-8), `ResetShake`, `WaitShake` |
+| `Camera.Screen` | `Shake` (kinds 1-6), `ResetShake`, `WaitShake`, `WaitMove` (each takes the screen) |
+| `Actors[selector]` | a property per `ActorProperty` member (`Hp`, `Mp`, `DeathPattern`, …): `GetActorProperty`, `SetActorsProperty` |
+| `Self` | a property per `ActorProperty` member: `GetSelfProperty`, `SetActorProperty` |
 | `Voice` | `Prepare` (`VoiceStandbyEnd`), `Play` (`VoiceStartEnd`), `Stop`, `IsPlaying` |
 | `Sound` | `Play(sfx)`, `Play(sfx, pan, volume)` |
 
@@ -830,7 +862,7 @@ expression is a condition: a comparison, `!`, `true`/`false`, `AsBool(…)`, a n
   jumps, one test per operand; as a value (`AsInt(a && b)`, a `bool` local) they set a temporary to
   0 or 1. New code may use either form; mind that `&` evaluates a native call on its right also when
   the left is false.
-- A `bool` local is a condition, like a comparison.
+- A `bool` local, variable or register is a condition, like a comparison.
 - `AsBool(x)` is an `int` (or `float`) used as a condition, `if (AsBool(V3 & 4))`: no code, the
   machine tests against 0. `if (V3 != 0)` would add an `ne`, so different bytes. **Decompiler
   only**, but fine in new code.
@@ -1049,7 +1081,7 @@ partial class Ai
     [Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 3)]
     void Exhausted()
     {
-        Btl.SetActorProperty(ActorProperty.Hp, 1);
+        Self.Hp = 1;
     }
 
     // Before the statement with the 1st call to Common.Random16.
@@ -1062,7 +1094,8 @@ partial class Ai
   native, `"Motion.Play"` for a member, `nameof(Dialogue.Say)` for an inline method, `"W02.OpenAsync"` for a
   request, `"Helper"` for a helper. `Occurrence` (1 by default) counts the calls of that name in the method, in
   the order they stand in the file. A shorter name matches longer ones (`"UseCommand"` matches
-  `Btl.UseCommand`). The statement is the innermost one holding the call: for a call in an `if`'s condition, the
+  `Btl.UseCommand`). A property's read or assignment (`Self.Hp = 1;`, `Yaw = 1.5f;`) is written as no call, so it
+  is no anchor: anchor on a call before or after it. The statement is the innermost one holding the call: for a call in an `if`'s condition, the
   whole `if` with its branches; for one inside a branch, that statement only.
 - **Before** runs as the statement is entered, **after** as it is left by its end. Jumps that stay inside the
   statement do not run the code again: a loop's back edge to its head does not repeat the code before the loop,

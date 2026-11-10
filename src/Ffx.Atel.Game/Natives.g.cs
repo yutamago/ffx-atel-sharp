@@ -5984,7 +5984,7 @@ public static partial class Btl
     [Atel.Native(0x70b0)]
     public static int ChrGetMoveSteps(Target selector) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>Logs a value as <see cref="DebugPrint"/> does, between <c>#####</c> instead of <c>*****</c>; dbgPrintf is empty on PC. Returns 0.</summary>
+    /// <summary>Logs a value as <see cref="DebugPrint(int)"/> does, between <c>#####</c> instead of <c>*****</c>; dbgPrintf is empty on PC. Returns 0.</summary>
     /// <remarks>Native <c>0x70b1</c>, <c>Native_70b1_DebugPrint</c>; 15 calls in the shipped scripts. Reverse engineering: 0x70b1: args (v int) -&gt; debug (mod-tool candidate): dbgPrintf(&quot;##### %d : %x : c%02d #####&quot;, v, v, actor) (a bare ret in this build); 0; debug, not ported (mod-tool candidate); name from &quot;dbgPrintf(&quot; %d : %x : c%02d &quot;, v, v, actor) (a bare ret in this build)&quot; Verified for Atel#: handler 0x007a4a60: dbgPrintf("##### %d : %x : c%02d #####", v, v, actor).</remarks>
     [Atel.Native(0x70b1)]
     public static int DebugPrintHashes(int v) => throw Atel.Runtime.NotRunnable();

@@ -17,6 +17,9 @@ internal sealed record VariableSymbol(int Index, VarEntry Entry) {
     ///     names may stand for one variable (a saved field by <c>Progress.LarvasMet</c> and <c>LarvaCount.Progress.LarvasMet</c>).
     /// </summary>
     public string? ReadOnly { get; init; }
+
+    /// <summary>Declared <c>bool</c>: a flag, 0 or 1 in its storage type, and a condition where it is read (<c>if (V0)</c>, <c>V0 &amp; !V4</c> is <c>land</c>).</summary>
+    public bool Bool { get; init; }
 }
 
 /// <summary>
@@ -445,7 +448,11 @@ internal sealed partial class StatementReader(
             InvocationExpressionSyntax { Expression: IdentifierNameSyntax } call when Helpers is null || HelperOf(call) is null => MemberIsBool(call),
             PrefixUnaryExpressionSyntax u => u.IsKind(SyntaxKind.LogicalNotExpression),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalAndExpression or (int)SyntaxKind.LogicalOrExpression } => true,
-            IdentifierNameSyntax id => Local(id.Identifier.ValueText) is LocalExpr { Slot: Slot { Bool: true } },
+            IdentifierNameSyntax id => Local(id.Identifier.ValueText) is LocalExpr { Slot: Slot { Bool: true } }
+                || Local(id.Identifier.ValueText) is null && (registers.ContainsKey(id.Identifier.ValueText)
+                    ? registers is ScriptCompiler.RegisterTable { Bools: var bools } && bools.Contains(id.Identifier.ValueText)
+                    : variables.TryGetValue(id.Identifier.ValueText, out VariableSymbol? v) && v.Bool),
+            MemberAccessExpressionSyntax m when DottedVariable(m) is { Bool: true } => true,
             LiteralExpressionSyntax l => l.IsKind(SyntaxKind.TrueLiteralExpression) || l.IsKind(SyntaxKind.FalseLiteralExpression),
             BinaryExpressionSyntax b => b.Kind() switch {
                 SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression or SyntaxKind.LessThanExpression

@@ -72,8 +72,9 @@ internal sealed partial class StatementReader {
     }
 
     /// <summary>The native for a member used so, and the receiver argument it needs (null for none).</summary>
-    private (MemberNative Native, NativeSignature Sig, Expr? Fixed, ExpressionSyntax? Receiver)? Resolve(MemberSyntax m, MemberUse use, int? argc = null) {
-        IReadOnlyList<MemberNative> all = Members.Find(m.Path, use);
+    /// <param name="choice">The constant that picks among a choice member's natives (<see cref="MemberNative.Choice"/>).</param>
+    private (MemberNative Native, NativeSignature Sig, Expr? Fixed, ExpressionSyntax? Receiver)? Resolve(MemberSyntax m, MemberUse use, int? argc = null, int? choice = null) {
+        IReadOnlyList<MemberNative> all = [.. Members.Find(m.Path, use).Where(n => n.Choice == choice)];
         if (all.Count == 0) return null;
         NativeSignature Sig(MemberNative n) => ScriptCompiler.Natives[n.Id] ?? throw Error(m.Node, $"no native 0x{n.Id:x4}");
         IEnumerable<MemberNative> fits = all.Where(n => argc is null || NativeMembers.ValueCount(n, Sig(n)) == argc);
@@ -97,12 +98,23 @@ internal sealed partial class StatementReader {
     /// <summary>A member call (<c>Turn.Start(0, 4099, 0)</c>, <c>Tidus.Turn.Stop()</c>): the native and its arguments; null if the call is no member.</summary>
     private (ushort Id, IReadOnlyList<Expr> Args)? MemberCall(InvocationExpressionSyntax call) {
         if (MemberOf(call.Expression) is not MemberSyntax m) return null;
-        int argc = call.ArgumentList.Arguments.Count;
-        if (Resolve(m, MemberUse.Call, argc) is not var (native, sig, fixedArg, receiver)) {
+        SeparatedSyntaxList<ArgumentSyntax> args = call.ArgumentList.Arguments;
+        int? choice = null;
+        if (Members.Find(m.Path, MemberUse.Call).Any(n => n.Choice is not null)) {
+            // The first argument picks the native (Camera.Eye.Shake(ShakeKind.SineFadeOut, …)) and is not passed.
+            if (args.Count == 0 || args[0].NameColon is not null || ConstantValue(args[0].Expression) is not IntLit { Value: int k }) {
+                throw Error(call, $"{m.Path}'s first argument is a constant: it picks the native");
+            }
+            choice = k;
+            args = args.RemoveAt(0);
+            if (!Members.Find(m.Path, MemberUse.Call).Any(n => n.Choice == k)) throw Error(call.ArgumentList.Arguments[0], $"{m.Path} has no native for {k}");
+        }
+        int argc = args.Count;
+        if (Resolve(m, MemberUse.Call, argc, choice) is not var (native, sig, fixedArg, receiver)) {
             if (Members.Find(m.Path, MemberUse.Call).Count > 0) throw Error(call, $"{m.Path} takes no {argc} arguments");
             return null;
         }
-        return (native.Id, NativeArgs(sig, m.Path, call, call.ArgumentList.Arguments, fixedArg, receiver));
+        return (native.Id, NativeArgs(sig, m.Path, call, args, fixedArg, receiver, native.Constant));
     }
 
     /// <summary>A member read (<c>Yaw</c>, <c>Tidus.Pos.X</c>, <c>Move.YawToTarget</c>): the native's result; null if it is no member.</summary>
@@ -114,7 +126,7 @@ internal sealed partial class StatementReader {
             }
             return null;
         }
-        return new CallExpr(native.Id, NativeArgs(sig, m.Path, e, default, fixedArg, receiver));
+        return new CallExpr(native.Id, NativeArgs(sig, m.Path, e, default, fixedArg, receiver, native.Constant));
     }
 
     /// <summary>
@@ -145,15 +157,16 @@ internal sealed partial class StatementReader {
             values = [a.Right];
         }
         SeparatedSyntaxList<ArgumentSyntax> args = SyntaxFactory.SeparatedList(values.Select(SyntaxFactory.Argument));
-        return new CallStmt(native.Id, NativeArgs(sig, m.Path, a, args, fixedArg, receiver));
+        return new CallStmt(native.Id, NativeArgs(sig, m.Path, a, args, fixedArg, receiver, native.Constant));
     }
 
     /// <summary>
     ///     A native's arguments: the receiver (a fixed value, or the expression before the member, evaluated first, as C#
     ///     does), then the member's arguments by position or name.
     /// </summary>
-    private List<Expr> NativeArgs(NativeSignature sig, string name, SyntaxNode at, SeparatedSyntaxList<ArgumentSyntax> args, Expr? fixedArg, ExpressionSyntax? receiver) {
-        int skip = fixedArg is not null || receiver is not null ? 1 : 0;
+    /// <param name="constant">The argument after the receiver that the member's name stands for (<see cref="MemberNative.Constant"/>).</param>
+    private List<Expr> NativeArgs(NativeSignature sig, string name, SyntaxNode at, SeparatedSyntaxList<ArgumentSyntax> args, Expr? fixedArg, ExpressionSyntax? receiver, int? constant = null) {
+        int skip = (fixedArg is not null || receiver is not null ? 1 : 0) + (constant is null ? 0 : 1);
         int count = sig.Argc - skip;
         if (args.Count != count) throw Error(at, $"{name} takes {count} arguments");
         string[]? names = sig.ParamNames?.Skip(skip).ToArray();
@@ -195,6 +208,7 @@ internal sealed partial class StatementReader {
             for (int k = 0; k < values.Count; k++) ordered[position[k]] = values[k];
             values = [.. ordered];
         }
+        if (constant is int c) values.Insert(0, new IntLit(c));
         return first is null ? values : [first, .. values];
     }
 

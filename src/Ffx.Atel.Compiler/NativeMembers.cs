@@ -37,8 +37,19 @@ public enum MemberReceiver {
 ///     this one with <c>Common.GetWorkerId(-1)</c> has no member form.
 /// </param>
 /// <param name="Void">A method that returns nothing: only a statement.</param>
-public sealed record MemberNative(string Path, ushort Id, MemberUse Use, MemberReceiver Receiver, bool Vector, bool Bool, bool Polls, bool Void = false) {
+/// <param name="Constant">
+///     The native's argument after the receiver, which the member's name stands for (<see cref="NativeMemberAttribute"/>'s
+///     <c>Constant</c>: <c>Actors[Target.AllPly].Hp</c> passes <c>ActorProperty.Hp</c>); null when every argument is the member's.
+/// </param>
+/// <param name="Choice">
+///     The value of the member's first argument that picks this native (<see cref="NativeMemberAttribute"/>'s
+///     <c>Choice</c>: <c>Camera.Eye.Shake(ShakeKind.SineFadeOut, …)</c> is <c>0x605d</c>); the argument is not passed.
+/// </param>
+public sealed record MemberNative(string Path, ushort Id, MemberUse Use, MemberReceiver Receiver, bool Vector, bool Bool, bool Polls, bool Void = false, int? Constant = null, int? Choice = null) {
     public bool SelfTwin { get; init; }
+
+    /// <summary>For a <see cref="Choice"/>, the constant as written: <c>ShakeKind.SineFadeOut</c>.</summary>
+    public string? ChoiceText { get; init; }
 
     /// <summary>The root of the path: the worker's member, the group or the static class.</summary>
     public string Root => Path.Split('.')[0];
@@ -58,6 +69,7 @@ public sealed record MemberNative(string Path, ushort Id, MemberUse Use, MemberR
 public sealed class NativeMembers {
     private readonly Dictionary<(string Path, MemberUse Use), List<MemberNative>> _byPath = [];
     private readonly Dictionary<ushort, MemberNative> _byId = [];
+    private readonly Dictionary<(ushort Id, int Constant), MemberNative> _byConstant = [];
 
     /// <summary>Roots that are members of the worker (<c>Pos</c>, <c>Turn</c>, <c>Sprites</c>, <c>EnableTrigger</c>).</summary>
     public HashSet<string> WorkerRoots { get; } = new(StringComparer.Ordinal);
@@ -74,14 +86,28 @@ public sealed class NativeMembers {
     /// <summary>Roots indexed by the native's first argument (<c>Sprites</c>).</summary>
     public HashSet<string> IndexedRoots { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>Every member's native.</summary>
-    public IEnumerable<MemberNative> All => _byId.Values.OrderBy(m => m.Id);
+    /// <summary>Every member's native (one member each; a native picked by a constant argument, once per constant).</summary>
+    public IEnumerable<MemberNative> All => _byId.Values.Concat(_byConstant.Values).OrderBy(m => m.Id).ThenBy(m => m.Constant);
 
     /// <summary>The members at a path, used so.</summary>
     public IReadOnlyList<MemberNative> Find(string path, MemberUse use) => _byPath.GetValueOrDefault((path, use)) ?? [];
 
-    /// <summary>The member a native is, if any.</summary>
+    /// <summary>The member a native is, if any (not those picked by a constant argument: <see cref="Of"/>).</summary>
     public MemberNative? this[ushort id] => _byId.GetValueOrDefault(id);
+
+    /// <summary>
+    ///     The member a call of native <paramref name="id"/> with <paramref name="args"/> is, if any: the native's member, or
+    ///     for a native picked by a constant argument (<see cref="MemberNative.Constant"/>) the member of that constant,
+    ///     when the argument is one.
+    /// </summary>
+    public MemberNative? Of(ushort id, IReadOnlyList<Bytecode.Code.Expr> args) {
+        if (_byId.TryGetValue(id, out MemberNative? m)) return m;
+        if (!_constantAt.TryGetValue(id, out int k) || k >= args.Count || args[k] is not Bytecode.Code.IntLit { Value: int v }) return null;
+        return _byConstant.GetValueOrDefault((id, v));
+    }
+
+    /// <summary>Natives picked by a constant argument: the argument's position (after the receiver).</summary>
+    private readonly Dictionary<ushort, int> _constantAt = [];
 
     /// <summary>The members of <c>Ffx.Atel.Game</c>.</summary>
     public static NativeMembers Default => s_default.Value;
@@ -97,7 +123,7 @@ public sealed class NativeMembers {
         foreach (PropertyInfo p in worker.GetProperties(Static)) {
             Type t = p.PropertyType;
             if (t.Name == "WorkerList") continue;
-            if (t.GetProperty("Item", Instance) is PropertyInfo indexer && HasMembers(indexer.PropertyType)) {
+            if (t.GetProperties(Instance).FirstOrDefault(x => x.GetIndexParameters().Length == 1) is PropertyInfo indexer && HasMembers(indexer.PropertyType)) {
                 m.IndexedRoots.Add(p.Name);
                 m.WorkerRoots.Add(p.Name);
                 m.AddType(indexer.PropertyType, Instance, p.Name, MemberReceiver.Index, isStatic: false);
@@ -172,7 +198,7 @@ public sealed class NativeMembers {
             foreach (Attribute a in Natives(accessor)) {
                 string? component = (string?)a.GetType().GetProperty("Component")!.GetValue(a);
                 Add(new MemberNative(component is null ? path : $"{path}.{component}", Id(a), use, Receiver(a, receiver),
-                    vector && use == MemberUse.Set, p.PropertyType == typeof(bool) && use == MemberUse.Set, Polls(a)) { Static = isStatic });
+                    vector && use == MemberUse.Set, p.PropertyType == typeof(bool) && use == MemberUse.Set, Polls(a), Constant: Constant(a)) { Static = isStatic });
                 any = true;
             }
         }
@@ -182,7 +208,11 @@ public sealed class NativeMembers {
     private bool AddMethod(MethodInfo method, string path, MemberReceiver receiver, bool isStatic) {
         bool any = false;
         foreach (Attribute a in Natives(method)) {
-            Add(new MemberNative(path, Id(a), MemberUse.Call, Receiver(a, receiver), false, false, Polls(a), method.ReturnType == typeof(void)) { Static = isStatic });
+            int? choice = Choice(a);
+            Type? kinds = choice is null ? null : method.GetParameters().FirstOrDefault()?.ParameterType;
+            string? choiceText = kinds is { IsEnum: true } && Enum.GetName(kinds, Enum.ToObject(kinds, choice!.Value)) is string member ? $"{kinds.Name}.{member}" : null;
+            if (choice is not null && choiceText is null) throw new InvalidOperationException($"{path}: a choice's first parameter is an enum with a member {choice}");
+            Add(new MemberNative(path, Id(a), MemberUse.Call, Receiver(a, receiver), false, false, Polls(a), method.ReturnType == typeof(void), Choice: choice) { Static = isStatic, ChoiceText = choiceText });
             any = true;
         }
         return any;
@@ -192,6 +222,10 @@ public sealed class NativeMembers {
 
     private static bool Polls(Attribute a) => (bool)a.GetType().GetProperty("Polls")!.GetValue(a)!;
 
+    private static int? Choice(Attribute a) => a.GetType().GetProperty("Choice")?.GetValue(a) is int c && c >= 0 ? c : null;
+
+    private static int? Constant(Attribute a) => a.GetType().GetProperty("Constant")?.GetValue(a) is int c && c >= 0 ? c : null;
+
     private static MemberReceiver Receiver(Attribute a, MemberReceiver container) =>
         (bool)a.GetType().GetProperty("Worker")!.GetValue(a)! ? MemberReceiver.Worker : container;
 
@@ -200,9 +234,15 @@ public sealed class NativeMembers {
         // One entry per native.
         if (list.Any(x => x.Id == n.Id)) return;
         list.Add(n);
-        _byId.TryAdd(n.Id, n);
+        if (n.Constant is int c) {
+            _byConstant.TryAdd((n.Id, c), n);
+            _constantAt[n.Id] = n.Receiver == MemberReceiver.None ? 0 : 1;
+        }
+        else {
+            _byId.TryAdd(n.Id, n);
+        }
     }
 
     /// <summary>The native's argument count the member gives (without the receiver): <c>sig.Argc</c> less one with a receiver.</summary>
-    public static int ValueCount(MemberNative m, NativeSignature sig) => sig.Argc - (m.Receiver == MemberReceiver.None ? 0 : 1);
+    public static int ValueCount(MemberNative m, NativeSignature sig) => sig.Argc - (m.Receiver == MemberReceiver.None ? 0 : 1) - (m.Constant is null ? 0 : 1);
 }

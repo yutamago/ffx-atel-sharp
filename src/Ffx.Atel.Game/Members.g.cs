@@ -29,6 +29,12 @@ namespace Ffx.Atel
         /// <summary>The screen's sprites by slot (0-127): <c>Sprites[3].Show(V12)</c>.</summary>
         protected static SpriteList Sprites => throw Runtime.NotRunnable();
 
+        /// <summary>The battle's actors by selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks (<c>Btl.SetActorsProperty</c>), <c>Actors[Target.Own].Hp</c> reads it (<c>Btl.GetActorProperty</c>, averaged over the picked actors).</summary>
+        protected static ActorList Actors => throw Runtime.NotRunnable();
+
+        /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads a property of it (<c>Btl.GetSelfProperty</c>), <c>Self.Hp = 0;</c> sets it (<c>Btl.SetActorProperty</c>).</summary>
+        protected static OwnActor Self => throw Runtime.NotRunnable();
+
         /// <summary>Moves the worker (and its model) to (x, y, z) at once. Its <c>X</c>, <c>Y</c> and <c>Z</c> read the worker's position.</summary>
         /// <remarks>Setting it calls native <c>0x0126</c>, <c>Common.SetPos</c> (7028 calls in the shipped scripts). Reading <c>X</c> calls native <c>0x0038</c>, <c>Common.GetWorkerX</c> (6921 calls in the shipped scripts), with the worker: this one (<c>Common.GetWorkerId(-1)</c>) when written without a worker, else the one written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>). Reading <c>Y</c> calls native <c>0x0039</c>, <c>Common.GetWorkerY</c> (6927 calls in the shipped scripts), with the worker: this one (<c>Common.GetWorkerId(-1)</c>) when written without a worker, else the one written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>). Reading <c>Z</c> calls native <c>0x003a</c>, <c>Common.GetWorkerZ</c> (6955 calls in the shipped scripts), with the worker: this one (<c>Common.GetWorkerId(-1)</c>) when written without a worker, else the one written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         protected static Vector3 Pos { [NativeMember(0x0038, Worker = true, Component = "X")] [NativeMember(0x0039, Worker = true, Component = "Y")] [NativeMember(0x003a, Worker = true, Component = "Z")] get => throw Runtime.NotRunnable(); [NativeMember(0x0126)] set => throw Runtime.NotRunnable(); }
@@ -424,6 +430,2068 @@ namespace Ffx
         public int SetColor(int red, int blue, int green) => throw Atel.Runtime.NotRunnable();
     }
 
+    /// <summary>The battle's actors by selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks (<c>Btl.SetActorsProperty</c>), <c>Actors[Target.Own].Hp</c> reads it (<c>Btl.GetActorProperty</c>, averaged over the picked actors).</summary>
+    public sealed partial class ActorList
+    {
+        private ActorList() { }
+
+        /// <summary>The one at <paramref name="actorSelector"/>.</summary>
+        public PickedActors this[Target actorSelector] => throw Atel.Runtime.NotRunnable();
+    }
+
+    /// <summary>One of <c>Actors</c>: <c>Actors[actorSelector].…</c>.</summary>
+    public sealed class PickedActors
+    {
+        private PickedActors() { }
+
+        // One property per ActorProperty member: reading calls native 0x700f (Btl.GetActorProperty, 11619 calls in the shipped scripts),
+        // assigning calls 0x7018 (Btl.SetActorsProperty, 33358 calls), with the member as the property argument.
+
+        /// <summary><c>STAT_HP</c> of the picked actors (<see cref="ActorProperty.Hp"/>).</summary>
+        public int Hp { [Atel.NativeMember(0x700f, Constant = 0x0000)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0000)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MP</c> of the picked actors (<see cref="ActorProperty.Mp"/>).</summary>
+        public int Mp { [Atel.NativeMember(0x700f, Constant = 0x0001)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0001)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAXHP</c> of the picked actors (<see cref="ActorProperty.Maxhp"/>).</summary>
+        public int Maxhp { [Atel.NativeMember(0x700f, Constant = 0x0002)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0002)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAXMP</c> of the picked actors (<see cref="ActorProperty.Maxmp"/>).</summary>
+        public int Maxmp { [Atel.NativeMember(0x700f, Constant = 0x0003)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0003)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ALIVE</c> of the picked actors (<see cref="ActorProperty.Alive"/>).</summary>
+        public int Alive { [Atel.NativeMember(0x700f, Constant = 0x0004)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0004)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POISON</c> of the picked actors (<see cref="ActorProperty.Poison"/>).</summary>
+        public int Poison { [Atel.NativeMember(0x700f, Constant = 0x0005)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0005)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STONE</c> of the picked actors (<see cref="ActorProperty.Stone"/>).</summary>
+        public int Stone { [Atel.NativeMember(0x700f, Constant = 0x0006)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0006)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ZOMBIE</c> of the picked actors (<see cref="ActorProperty.Zombie"/>).</summary>
+        public int Zombie { [Atel.NativeMember(0x700f, Constant = 0x0007)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0007)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK</c> of the picked actors (<see cref="ActorProperty.Weak"/>).</summary>
+        public int Weak { [Atel.NativeMember(0x700f, Constant = 0x0008)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0008)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR</c> of the picked actors (<see cref="ActorProperty.Str"/>).</summary>
+        public int Str { [Atel.NativeMember(0x700f, Constant = 0x0009)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0009)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIT</c> of the picked actors (<see cref="ActorProperty.Vit"/>).</summary>
+        public int Vit { [Atel.NativeMember(0x700f, Constant = 0x000a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG</c> of the picked actors (<see cref="ActorProperty.Mag"/>).</summary>
+        public int Mag { [Atel.NativeMember(0x700f, Constant = 0x000b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SPIRIT</c> of the picked actors (<see cref="ActorProperty.Spirit"/>).</summary>
+        public int Spirit { [Atel.NativeMember(0x700f, Constant = 0x000c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX</c> of the picked actors (<see cref="ActorProperty.Dex"/>).</summary>
+        public int Dex { [Atel.NativeMember(0x700f, Constant = 0x000d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LUCK</c> of the picked actors (<see cref="ActorProperty.Luck"/>).</summary>
+        public int Luck { [Atel.NativeMember(0x700f, Constant = 0x000e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID</c> of the picked actors (<see cref="ActorProperty.Avoid"/>).</summary>
+        public int Avoid { [Atel.NativeMember(0x700f, Constant = 0x000f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x000f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT</c> of the picked actors (<see cref="ActorProperty.Hit"/>).</summary>
+        public int Hit { [Atel.NativeMember(0x700f, Constant = 0x0010)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0010)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POISON_PER</c> of the picked actors (<see cref="ActorProperty.PoisonPer"/>).</summary>
+        public int PoisonPer { [Atel.NativeMember(0x700f, Constant = 0x0011)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0011)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_TYPE</c> of the picked actors (<see cref="ActorProperty.LimitType"/>).</summary>
+        public int LimitType { [Atel.NativeMember(0x700f, Constant = 0x0012)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0012)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE</c> of the picked actors (<see cref="ActorProperty.LimitGauge"/>).</summary>
+        public int LimitGauge { [Atel.NativeMember(0x700f, Constant = 0x0013)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0013)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_MAX</c> of the picked actors (<see cref="ActorProperty.LimitGaugeMax"/>).</summary>
+        public int LimitGaugeMax { [Atel.NativeMember(0x700f, Constant = 0x0014)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0014)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INBATTLE</c> of the picked actors (<see cref="ActorProperty.Inbattle"/>).</summary>
+        public int Inbattle { [Atel.NativeMember(0x700f, Constant = 0x0015)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0015)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAN</c> of the picked actors (<see cref="ActorProperty.Man"/>).</summary>
+        public int Man { [Atel.NativeMember(0x700f, Constant = 0x0016)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0016)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FEMALE</c> of the picked actors (<see cref="ActorProperty.Female"/>).</summary>
+        public int Female { [Atel.NativeMember(0x700f, Constant = 0x0017)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0017)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SUMMON</c> of the picked actors (<see cref="ActorProperty.Summon"/>).</summary>
+        public int Summon { [Atel.NativeMember(0x700f, Constant = 0x0018)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0018)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MONSTER</c> of the picked actors (<see cref="ActorProperty.Monster"/>).</summary>
+        public int Monster { [Atel.NativeMember(0x700f, Constant = 0x0019)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0019)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FLY</c> of the picked actors (<see cref="ActorProperty.Fly"/>).</summary>
+        public int Fly { [Atel.NativeMember(0x700f, Constant = 0x001a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WILL_DIE</c> of the picked actors (<see cref="ActorProperty.WillDie"/>).</summary>
+        public int WillDie { [Atel.NativeMember(0x700f, Constant = 0x001b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AREA</c> of the picked actors (<see cref="ActorProperty.Area"/>).</summary>
+        public int Area { [Atel.NativeMember(0x700f, Constant = 0x001c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POS</c> of the picked actors (<see cref="ActorProperty.Pos"/>).</summary>
+        public int Pos { [Atel.NativeMember(0x700f, Constant = 0x001d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FAR</c> of the picked actors (<see cref="ActorProperty.Far"/>).</summary>
+        public int Far { [Atel.NativeMember(0x700f, Constant = 0x001e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GROUP</c> of the picked actors (<see cref="ActorProperty.Group"/>).</summary>
+        public int Group { [Atel.NativeMember(0x700f, Constant = 0x001f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x001f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_HARD</c> of the picked actors (<see cref="ActorProperty.SpHard"/>).</summary>
+        public int SpHard { [Atel.NativeMember(0x700f, Constant = 0x0020)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0020)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_RATIO</c> of the picked actors (<see cref="ActorProperty.SpRatio"/>).</summary>
+        public int SpRatio { [Atel.NativeMember(0x700f, Constant = 0x0021)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0021)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_ZOMBIE</c> of the picked actors (<see cref="ActorProperty.SpZombie"/>).</summary>
+        public int SpZombie { [Atel.NativeMember(0x700f, Constant = 0x0022)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0022)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_SEE</c> of the picked actors (<see cref="ActorProperty.SpSee"/>).</summary>
+        public int SpSee { [Atel.NativeMember(0x700f, Constant = 0x0023)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0023)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_LIVE</c> of the picked actors (<see cref="ActorProperty.SpLive"/>).</summary>
+        public int SpLive { [Atel.NativeMember(0x700f, Constant = 0x0024)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0024)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POWER_BREAK</c> of the picked actors (<see cref="ActorProperty.PowerBreak"/>).</summary>
+        public int PowerBreak { [Atel.NativeMember(0x700f, Constant = 0x0025)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0025)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_BREAK</c> of the picked actors (<see cref="ActorProperty.MagicBreak"/>).</summary>
+        public int MagicBreak { [Atel.NativeMember(0x700f, Constant = 0x0026)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0026)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ARMOR_BREAK</c> of the picked actors (<see cref="ActorProperty.ArmorBreak"/>).</summary>
+        public int ArmorBreak { [Atel.NativeMember(0x700f, Constant = 0x0027)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0027)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MENTAL_BREAK</c> of the picked actors (<see cref="ActorProperty.MentalBreak"/>).</summary>
+        public int MentalBreak { [Atel.NativeMember(0x700f, Constant = 0x0028)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0028)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONFUSE</c> of the picked actors (<see cref="ActorProperty.Confuse"/>).</summary>
+        public int Confuse { [Atel.NativeMember(0x700f, Constant = 0x0029)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0029)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BERSERK</c> of the picked actors (<see cref="ActorProperty.Berserk"/>).</summary>
+        public int Berserk { [Atel.NativeMember(0x700f, Constant = 0x002a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV</c> of the picked actors (<see cref="ActorProperty.Prov"/>).</summary>
+        public int Prov { [Atel.NativeMember(0x700f, Constant = 0x002b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_THREAT</c> of the picked actors (<see cref="ActorProperty.Threat"/>).</summary>
+        public int Threat { [Atel.NativeMember(0x700f, Constant = 0x002c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLEEP</c> of the picked actors (<see cref="ActorProperty.Sleep"/>).</summary>
+        public int Sleep { [Atel.NativeMember(0x700f, Constant = 0x002d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SILENCE</c> of the picked actors (<see cref="ActorProperty.Silence"/>).</summary>
+        public int Silence { [Atel.NativeMember(0x700f, Constant = 0x002e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DARK</c> of the picked actors (<see cref="ActorProperty.Dark"/>).</summary>
+        public int Dark { [Atel.NativeMember(0x700f, Constant = 0x002f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x002f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHELL</c> of the picked actors (<see cref="ActorProperty.Shell"/>).</summary>
+        public int Shell { [Atel.NativeMember(0x700f, Constant = 0x0030)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0030)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTESS</c> of the picked actors (<see cref="ActorProperty.Protess"/>).</summary>
+        public int Protess { [Atel.NativeMember(0x700f, Constant = 0x0031)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0031)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REFLECT</c> of the picked actors (<see cref="ActorProperty.Reflect"/>).</summary>
+        public int Reflect { [Atel.NativeMember(0x700f, Constant = 0x0032)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0032)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BAWATER</c> of the picked actors (<see cref="ActorProperty.Bawater"/>).</summary>
+        public int Bawater { [Atel.NativeMember(0x700f, Constant = 0x0033)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0033)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BAFIRE</c> of the picked actors (<see cref="ActorProperty.Bafire"/>).</summary>
+        public int Bafire { [Atel.NativeMember(0x700f, Constant = 0x0034)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0034)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BATHUNDER</c> of the picked actors (<see cref="ActorProperty.Bathunder"/>).</summary>
+        public int Bathunder { [Atel.NativeMember(0x700f, Constant = 0x0035)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0035)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BACOLD</c> of the picked actors (<see cref="ActorProperty.Bacold"/>).</summary>
+        public int Bacold { [Atel.NativeMember(0x700f, Constant = 0x0036)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0036)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REGEN</c> of the picked actors (<see cref="ActorProperty.Regen"/>).</summary>
+        public int Regen { [Atel.NativeMember(0x700f, Constant = 0x0037)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0037)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HASTE</c> of the picked actors (<see cref="ActorProperty.Haste"/>).</summary>
+        public int Haste { [Atel.NativeMember(0x700f, Constant = 0x0038)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0038)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLOW</c> of the picked actors (<see cref="ActorProperty.Slow"/>).</summary>
+        public int Slow { [Atel.NativeMember(0x700f, Constant = 0x0039)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0039)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_SEE</c> of the picked actors (<see cref="ActorProperty.AbilitySee"/>).</summary>
+        public int AbilitySee { [Atel.NativeMember(0x700f, Constant = 0x003a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_LEAD</c> of the picked actors (<see cref="ActorProperty.AbilityLead"/>).</summary>
+        public int AbilityLead { [Atel.NativeMember(0x700f, Constant = 0x003b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_FIRST</c> of the picked actors (<see cref="ActorProperty.AbilityFirst"/>).</summary>
+        public int AbilityFirst { [Atel.NativeMember(0x700f, Constant = 0x003c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_COUNTER</c> of the picked actors (<see cref="ActorProperty.AbilityCounter"/>).</summary>
+        public int AbilityCounter { [Atel.NativeMember(0x700f, Constant = 0x003d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_COUNTER2</c> of the picked actors (<see cref="ActorProperty.AbilityCounter2"/>).</summary>
+        public int AbilityCounter2 { [Atel.NativeMember(0x700f, Constant = 0x003e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_DARK</c> of the picked actors (<see cref="ActorProperty.AbilityDark"/>).</summary>
+        public int AbilityDark { [Atel.NativeMember(0x700f, Constant = 0x003f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x003f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AP2</c> of the picked actors (<see cref="ActorProperty.AbilityAp2"/>).</summary>
+        public int AbilityAp2 { [Atel.NativeMember(0x700f, Constant = 0x0040)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0040)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_EXP2</c> of the picked actors (<see cref="ActorProperty.AbilityExp2"/>).</summary>
+        public int AbilityExp2 { [Atel.NativeMember(0x700f, Constant = 0x0041)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0041)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_BOOSTER</c> of the picked actors (<see cref="ActorProperty.AbilityBooster"/>).</summary>
+        public int AbilityBooster { [Atel.NativeMember(0x700f, Constant = 0x0042)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0042)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MAGIC_COUNTER</c> of the picked actors (<see cref="ActorProperty.AbilityMagicCounter"/>).</summary>
+        public int AbilityMagicCounter { [Atel.NativeMember(0x700f, Constant = 0x0043)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0043)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MEDICINE</c> of the picked actors (<see cref="ActorProperty.AbilityMedicine"/>).</summary>
+        public int AbilityMedicine { [Atel.NativeMember(0x700f, Constant = 0x0044)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0044)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_POTION</c> of the picked actors (<see cref="ActorProperty.AbilityAutoPotion"/>).</summary>
+        public int AbilityAutoPotion { [Atel.NativeMember(0x700f, Constant = 0x0045)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0045)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_CUREALL</c> of the picked actors (<see cref="ActorProperty.AbilityAutoCureall"/>).</summary>
+        public int AbilityAutoCureall { [Atel.NativeMember(0x700f, Constant = 0x0046)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0046)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_PHENIX</c> of the picked actors (<see cref="ActorProperty.AbilityAutoPhenix"/>).</summary>
+        public int AbilityAutoPhenix { [Atel.NativeMember(0x700f, Constant = 0x0047)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0047)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_LIMITUP</c> of the picked actors (<see cref="ActorProperty.AbilityLimitup"/>).</summary>
+        public int AbilityLimitup { [Atel.NativeMember(0x700f, Constant = 0x0048)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0048)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_DREAM</c> of the picked actors (<see cref="ActorProperty.AbilityDream"/>).</summary>
+        public int AbilityDream { [Atel.NativeMember(0x700f, Constant = 0x0049)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0049)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_PIERCE</c> of the picked actors (<see cref="ActorProperty.AbilityPierce"/>).</summary>
+        public int AbilityPierce { [Atel.NativeMember(0x700f, Constant = 0x004a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_EXCHANGE</c> of the picked actors (<see cref="ActorProperty.AbilityExchange"/>).</summary>
+        public int AbilityExchange { [Atel.NativeMember(0x700f, Constant = 0x004b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_HP_RECOVER</c> of the picked actors (<see cref="ActorProperty.AbilityHpRecover"/>).</summary>
+        public int AbilityHpRecover { [Atel.NativeMember(0x700f, Constant = 0x004c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MP_RECOVER</c> of the picked actors (<see cref="ActorProperty.AbilityMpRecover"/>).</summary>
+        public int AbilityMpRecover { [Atel.NativeMember(0x700f, Constant = 0x004d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_NONENCOUNT</c> of the picked actors (<see cref="ActorProperty.AbilityNonencount"/>).</summary>
+        public int AbilityNonencount { [Atel.NativeMember(0x700f, Constant = 0x004e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_PATTERN</c> of the picked actors (<see cref="ActorProperty.DeathPattern"/>).</summary>
+        public int DeathPattern { [Atel.NativeMember(0x700f, Constant = 0x004f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x004f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EVENT_CHR</c> of the picked actors (<see cref="ActorProperty.EventChr"/>).</summary>
+        public int EventChr { [Atel.NativeMember(0x700f, Constant = 0x0050)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0050)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ACTION</c> of the picked actors (<see cref="ActorProperty.Action"/>).</summary>
+        public int Action { [Atel.NativeMember(0x700f, Constant = 0x0051)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0051)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSOR</c> of the picked actors (<see cref="ActorProperty.Cursor"/>).</summary>
+        public int Cursor { [Atel.NativeMember(0x700f, Constant = 0x0052)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0052)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CTB_LIST</c> of the picked actors (<see cref="ActorProperty.CtbList"/>).</summary>
+        public int CtbList { [Atel.NativeMember(0x700f, Constant = 0x0053)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0053)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE</c> of the picked actors (<see cref="ActorProperty.Visible"/>).</summary>
+        public int Visible { [Atel.NativeMember(0x700f, Constant = 0x0054)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0054)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_AREA</c> of the picked actors (<see cref="ActorProperty.MoveArea"/>).</summary>
+        public int MoveArea { [Atel.NativeMember(0x700f, Constant = 0x0055)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0055)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_POS</c> of the picked actors (<see cref="ActorProperty.MovePos"/>).</summary>
+        public int MovePos { [Atel.NativeMember(0x700f, Constant = 0x0056)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0056)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFLV</c> of the picked actors (<see cref="ActorProperty.Efflv"/>).</summary>
+        public int Efflv { [Atel.NativeMember(0x700f, Constant = 0x0057)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0057)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MODEL</c> of the picked actors (<see cref="ActorProperty.Model"/>).</summary>
+        public int Model { [Atel.NativeMember(0x700f, Constant = 0x0058)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0058)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_CHR</c> of the picked actors (<see cref="ActorProperty.DamageChr"/>).</summary>
+        public int DamageChr { [Atel.NativeMember(0x700f, Constant = 0x0059)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0059)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_TARGET</c> of the picked actors (<see cref="ActorProperty.MoveTarget"/>).</summary>
+        public int MoveTarget { [Atel.NativeMember(0x700f, Constant = 0x005a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTIONLV</c> of the picked actors (<see cref="ActorProperty.Motionlv"/>).</summary>
+        public int Motionlv { [Atel.NativeMember(0x700f, Constant = 0x005b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NOP</c> of the picked actors (<see cref="ActorProperty.Nop"/>).</summary>
+        public int Nop { [Atel.NativeMember(0x700f, Constant = 0x005c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_FLAG</c> of the picked actors (<see cref="ActorProperty.MoveFlag"/>).</summary>
+        public int MoveFlag { [Atel.NativeMember(0x700f, Constant = 0x005d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE_MOTION</c> of the picked actors (<see cref="ActorProperty.LiveMotion"/>).</summary>
+        public int LiveMotion { [Atel.NativeMember(0x700f, Constant = 0x005e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ADJUST_POS</c> of the picked actors (<see cref="ActorProperty.AdjustPos"/>).</summary>
+        public int AdjustPos { [Atel.NativeMember(0x700f, Constant = 0x005f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x005f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HEIGHT_ON</c> of the picked actors (<see cref="ActorProperty.HeightOn"/>).</summary>
+        public int HeightOn { [Atel.NativeMember(0x700f, Constant = 0x0060)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0060)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLEEP_RECOVER_FLAG</c> of the picked actors (<see cref="ActorProperty.SleepRecoverFlag"/>).</summary>
+        public int SleepRecoverFlag { [Atel.NativeMember(0x700f, Constant = 0x0061)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0061)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_FIRE</c> of the picked actors (<see cref="ActorProperty.AbsFire"/>).</summary>
+        public int AbsFire { [Atel.NativeMember(0x700f, Constant = 0x0062)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0062)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_COLD</c> of the picked actors (<see cref="ActorProperty.AbsCold"/>).</summary>
+        public int AbsCold { [Atel.NativeMember(0x700f, Constant = 0x0063)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0063)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_THUNDER</c> of the picked actors (<see cref="ActorProperty.AbsThunder"/>).</summary>
+        public int AbsThunder { [Atel.NativeMember(0x700f, Constant = 0x0064)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0064)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_WATER</c> of the picked actors (<see cref="ActorProperty.AbsWater"/>).</summary>
+        public int AbsWater { [Atel.NativeMember(0x700f, Constant = 0x0065)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0065)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_HOLY</c> of the picked actors (<see cref="ActorProperty.AbsHoly"/>).</summary>
+        public int AbsHoly { [Atel.NativeMember(0x700f, Constant = 0x0066)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0066)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_FIRE</c> of the picked actors (<see cref="ActorProperty.InvFire"/>).</summary>
+        public int InvFire { [Atel.NativeMember(0x700f, Constant = 0x0067)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0067)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_COLD</c> of the picked actors (<see cref="ActorProperty.InvCold"/>).</summary>
+        public int InvCold { [Atel.NativeMember(0x700f, Constant = 0x0068)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0068)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_THUNDER</c> of the picked actors (<see cref="ActorProperty.InvThunder"/>).</summary>
+        public int InvThunder { [Atel.NativeMember(0x700f, Constant = 0x0069)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0069)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_WATER</c> of the picked actors (<see cref="ActorProperty.InvWater"/>).</summary>
+        public int InvWater { [Atel.NativeMember(0x700f, Constant = 0x006a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_HOLY</c> of the picked actors (<see cref="ActorProperty.InvHoly"/>).</summary>
+        public int InvHoly { [Atel.NativeMember(0x700f, Constant = 0x006b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_FIRE</c> of the picked actors (<see cref="ActorProperty.HalfFire"/>).</summary>
+        public int HalfFire { [Atel.NativeMember(0x700f, Constant = 0x006c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_COLD</c> of the picked actors (<see cref="ActorProperty.HalfCold"/>).</summary>
+        public int HalfCold { [Atel.NativeMember(0x700f, Constant = 0x006d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_THUNDER</c> of the picked actors (<see cref="ActorProperty.HalfThunder"/>).</summary>
+        public int HalfThunder { [Atel.NativeMember(0x700f, Constant = 0x006e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_WATER</c> of the picked actors (<see cref="ActorProperty.HalfWater"/>).</summary>
+        public int HalfWater { [Atel.NativeMember(0x700f, Constant = 0x006f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x006f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_HOLY</c> of the picked actors (<see cref="ActorProperty.HalfHoly"/>).</summary>
+        public int HalfHoly { [Atel.NativeMember(0x700f, Constant = 0x0070)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0070)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_FIRE</c> of the picked actors (<see cref="ActorProperty.WeakFire"/>).</summary>
+        public int WeakFire { [Atel.NativeMember(0x700f, Constant = 0x0071)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0071)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_COLD</c> of the picked actors (<see cref="ActorProperty.WeakCold"/>).</summary>
+        public int WeakCold { [Atel.NativeMember(0x700f, Constant = 0x0072)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0072)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_THUNDER</c> of the picked actors (<see cref="ActorProperty.WeakThunder"/>).</summary>
+        public int WeakThunder { [Atel.NativeMember(0x700f, Constant = 0x0073)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0073)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_WATER</c> of the picked actors (<see cref="ActorProperty.WeakWater"/>).</summary>
+        public int WeakWater { [Atel.NativeMember(0x700f, Constant = 0x0074)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0074)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_HOLY</c> of the picked actors (<see cref="ActorProperty.WeakHoly"/>).</summary>
+        public int WeakHoly { [Atel.NativeMember(0x700f, Constant = 0x0075)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0075)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ADJUST_POS_FLAG</c> of the picked actors (<see cref="ActorProperty.AdjustPosFlag"/>).</summary>
+        public int AdjustPosFlag { [Atel.NativeMember(0x700f, Constant = 0x0076)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0076)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_PHYSIC_MOTION</c> of the picked actors (<see cref="ActorProperty.InvPhysicMotion"/>).</summary>
+        public int InvPhysicMotion { [Atel.NativeMember(0x700f, Constant = 0x0077)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0077)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_MAGIC_MOTION</c> of the picked actors (<see cref="ActorProperty.InvMagicMotion"/>).</summary>
+        public int InvMagicMotion { [Atel.NativeMember(0x700f, Constant = 0x0078)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0078)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STEAL_COUNT</c> of the picked actors (<see cref="ActorProperty.StealCount"/>).</summary>
+        public int StealCount { [Atel.NativeMember(0x700f, Constant = 0x0079)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0079)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WAIT_MOTION_FLAG</c> of the picked actors (<see cref="ActorProperty.WaitMotionFlag"/>).</summary>
+        public int WaitMotionFlag { [Atel.NativeMember(0x700f, Constant = 0x007a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_RETURN_FLAG</c> of the picked actors (<see cref="ActorProperty.AttackReturnFlag"/>).</summary>
+        public int AttackReturnFlag { [Atel.NativeMember(0x700f, Constant = 0x007b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NORMAL_FRAME</c> of the picked actors (<see cref="ActorProperty.AttackNormalFrame"/>).</summary>
+        public int AttackNormalFrame { [Atel.NativeMember(0x700f, Constant = 0x007c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DISABLE_MOVE_FLAG</c> of the picked actors (<see cref="ActorProperty.DisableMoveFlag"/>).</summary>
+        public int DisableMoveFlag { [Atel.NativeMember(0x700f, Constant = 0x007d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DISABLE_JUMP_FLAG</c> of the picked actors (<see cref="ActorProperty.DisableJumpFlag"/>).</summary>
+        public int DisableJumpFlag { [Atel.NativeMember(0x700f, Constant = 0x007e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BODYHIT_FLAG</c> of the picked actors (<see cref="ActorProperty.BodyhitFlag"/>).</summary>
+        public int BodyhitFlag { [Atel.NativeMember(0x700f, Constant = 0x007f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x007f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFVAR</c> of the picked actors (<see cref="ActorProperty.Effvar"/>).</summary>
+        public int Effvar { [Atel.NativeMember(0x700f, Constant = 0x0080)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0080)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM</c> of the picked actors (<see cref="ActorProperty.Item"/>).</summary>
+        public int Item { [Atel.NativeMember(0x700f, Constant = 0x0081)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0081)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM_NUM</c> of the picked actors (<see cref="ActorProperty.ItemNum"/>).</summary>
+        public int ItemNum { [Atel.NativeMember(0x700f, Constant = 0x0082)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0082)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RAREITEM</c> of the picked actors (<see cref="ActorProperty.Rareitem"/>).</summary>
+        public int Rareitem { [Atel.NativeMember(0x700f, Constant = 0x0083)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0083)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RAREITEM_NUM</c> of the picked actors (<see cref="ActorProperty.RareitemNum"/>).</summary>
+        public int RareitemNum { [Atel.NativeMember(0x700f, Constant = 0x0084)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0084)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGICLV</c> of the picked actors (<see cref="ActorProperty.Magiclv"/>).</summary>
+        public int Magiclv { [Atel.NativeMember(0x700f, Constant = 0x0085)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0085)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_MOTION_FLAG</c> of the picked actors (<see cref="ActorProperty.AppearMotionFlag"/>).</summary>
+        public int AppearMotionFlag { [Atel.NativeMember(0x700f, Constant = 0x0086)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0086)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSOR_ELEMENT</c> of the picked actors (<see cref="ActorProperty.CursorElement"/>).</summary>
+        public int CursorElement { [Atel.NativeMember(0x700f, Constant = 0x0087)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0087)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_FLAG_CAM</c> of the picked actors (<see cref="ActorProperty.LimitBarFlagCam"/>).</summary>
+        public int LimitBarFlagCam { [Atel.NativeMember(0x700f, Constant = 0x0088)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0088)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_FLAG</c> of the picked actors (<see cref="ActorProperty.LimitBarFlag"/>).</summary>
+        public int LimitBarFlag { [Atel.NativeMember(0x700f, Constant = 0x0089)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0089)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DROP1</c> of the picked actors (<see cref="ActorProperty.Drop1"/>).</summary>
+        public int Drop1 { [Atel.NativeMember(0x700f, Constant = 0x008a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DROP2</c> of the picked actors (<see cref="ActorProperty.Drop2"/>).</summary>
+        public int Drop2 { [Atel.NativeMember(0x700f, Constant = 0x008b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAPON_DROP</c> of the picked actors (<see cref="ActorProperty.WeaponDrop"/>).</summary>
+        public int WeaponDrop { [Atel.NativeMember(0x700f, Constant = 0x008c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STEAL</c> of the picked actors (<see cref="ActorProperty.Steal"/>).</summary>
+        public int Steal { [Atel.NativeMember(0x700f, Constant = 0x008d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EXIST_FLAG</c> of the picked actors (<see cref="ActorProperty.ExistFlag"/>).</summary>
+        public int ExistFlag { [Atel.NativeMember(0x700f, Constant = 0x008e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE</c> of the picked actors (<see cref="ActorProperty.Live"/>).</summary>
+        public int Live { [Atel.NativeMember(0x700f, Constant = 0x008f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x008f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR_MEMORY</c> of the picked actors (<see cref="ActorProperty.StrMemory"/>).</summary>
+        public int StrMemory { [Atel.NativeMember(0x700f, Constant = 0x0090)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0090)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG_MEMORY</c> of the picked actors (<see cref="ActorProperty.MagMemory"/>).</summary>
+        public int MagMemory { [Atel.NativeMember(0x700f, Constant = 0x0091)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0091)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX_MEMORY</c> of the picked actors (<see cref="ActorProperty.DexMemory"/>).</summary>
+        public int DexMemory { [Atel.NativeMember(0x700f, Constant = 0x0092)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0092)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_MEMORY</c> of the picked actors (<see cref="ActorProperty.MoveMemory"/>).</summary>
+        public int MoveMemory { [Atel.NativeMember(0x700f, Constant = 0x0093)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0093)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABILITY_MEMORY</c> of the picked actors (<see cref="ActorProperty.AbilityMemory"/>).</summary>
+        public int AbilityMemory { [Atel.NativeMember(0x700f, Constant = 0x0094)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0094)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DODGE</c> of the picked actors (<see cref="ActorProperty.Dodge"/>).</summary>
+        public int Dodge { [Atel.NativeMember(0x700f, Constant = 0x0095)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0095)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEFEND</c> of the picked actors (<see cref="ActorProperty.Defend"/>).</summary>
+        public int Defend { [Atel.NativeMember(0x700f, Constant = 0x0096)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0096)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLOW</c> of the picked actors (<see cref="ActorProperty.Blow"/>).</summary>
+        public int Blow { [Atel.NativeMember(0x700f, Constant = 0x0097)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0097)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RELIFE</c> of the picked actors (<see cref="ActorProperty.Relife"/>).</summary>
+        public int Relife { [Atel.NativeMember(0x700f, Constant = 0x0098)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0098)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSE</c> of the picked actors (<see cref="ActorProperty.Curse"/>).</summary>
+        public int Curse { [Atel.NativeMember(0x700f, Constant = 0x0099)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0099)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEFENSE</c> of the picked actors (<see cref="ActorProperty.Defense"/>).</summary>
+        public int Defense { [Atel.NativeMember(0x700f, Constant = 0x009a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTECT</c> of the picked actors (<see cref="ActorProperty.Protect"/>).</summary>
+        public int Protect { [Atel.NativeMember(0x700f, Constant = 0x009b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_IRON</c> of the picked actors (<see cref="ActorProperty.Iron"/>).</summary>
+        public int Iron { [Atel.NativeMember(0x700f, Constant = 0x009c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE</c> of the picked actors (<see cref="ActorProperty.DeathSentence"/>).</summary>
+        public int DeathSentence { [Atel.NativeMember(0x700f, Constant = 0x009d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE</c> of the picked actors (<see cref="ActorProperty.MotionType"/>).</summary>
+        public int MotionType { [Atel.NativeMember(0x700f, Constant = 0x009e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE_START</c> of the picked actors (<see cref="ActorProperty.DeathSentenceStart"/>).</summary>
+        public int DeathSentenceStart { [Atel.NativeMember(0x700f, Constant = 0x009f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x009f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE_COUNT</c> of the picked actors (<see cref="ActorProperty.DeathSentenceCount"/>).</summary>
+        public int DeathSentenceCount { [Atel.NativeMember(0x700f, Constant = 0x00a0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DMG_DIR</c> of the picked actors (<see cref="ActorProperty.DmgDir"/>).</summary>
+        public int DmgDir { [Atel.NativeMember(0x700f, Constant = 0x00a1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_CHANGE_FLAG</c> of the picked actors (<see cref="ActorProperty.DirectionChangeFlag"/>).</summary>
+        public int DirectionChangeFlag { [Atel.NativeMember(0x700f, Constant = 0x00a2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_CHANGE_EFFECT</c> of the picked actors (<see cref="ActorProperty.DirectionChangeEffect"/>).</summary>
+        public int DirectionChangeEffect { [Atel.NativeMember(0x700f, Constant = 0x00a3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_FIX_FLAG</c> of the picked actors (<see cref="ActorProperty.DirectionFixFlag"/>).</summary>
+        public int DirectionFixFlag { [Atel.NativeMember(0x700f, Constant = 0x00a4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT_TERMINATE_FLAG</c> of the picked actors (<see cref="ActorProperty.HitTerminateFlag"/>).</summary>
+        public int HitTerminateFlag { [Atel.NativeMember(0x700f, Constant = 0x00a5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_HP</c> of the picked actors (<see cref="ActorProperty.DamageHp"/>).</summary>
+        public int DamageHp { [Atel.NativeMember(0x700f, Constant = 0x00a6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_MP</c> of the picked actors (<see cref="ActorProperty.DamageMp"/>).</summary>
+        public int DamageMp { [Atel.NativeMember(0x700f, Constant = 0x00a7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_CTB</c> of the picked actors (<see cref="ActorProperty.DamageCtb"/>).</summary>
+        public int DamageCtb { [Atel.NativeMember(0x700f, Constant = 0x00a8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_INVISIBLE_FLAG</c> of the picked actors (<see cref="ActorProperty.AppearInvisibleFlag"/>).</summary>
+        public int AppearInvisibleFlag { [Atel.NativeMember(0x700f, Constant = 0x00a9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00a9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFECT_HIT_NUM</c> of the picked actors (<see cref="ActorProperty.EffectHitNum"/>).</summary>
+        public int EffectHitNum { [Atel.NativeMember(0x700f, Constant = 0x00aa)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00aa)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID_FLAG</c> of the picked actors (<see cref="ActorProperty.AvoidFlag"/>).</summary>
+        public int AvoidFlag { [Atel.NativeMember(0x700f, Constant = 0x00ab)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ab)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLOW_EXIST_FLAG</c> of the picked actors (<see cref="ActorProperty.BlowExistFlag"/>).</summary>
+        public int BlowExistFlag { [Atel.NativeMember(0x700f, Constant = 0x00ac)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ac)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ESCAPE_FLAG</c> of the picked actors (<see cref="ActorProperty.EscapeFlag"/>).</summary>
+        public int EscapeFlag { [Atel.NativeMember(0x700f, Constant = 0x00ad)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ad)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIDE</c> of the picked actors (<see cref="ActorProperty.Hide"/>).</summary>
+        public int Hide { [Atel.NativeMember(0x700f, Constant = 0x00ae)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ae)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEATH</c> of the picked actors (<see cref="ActorProperty.DefDeath"/>).</summary>
+        public int DefDeath { [Atel.NativeMember(0x700f, Constant = 0x00af)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00af)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ZOMBIE</c> of the picked actors (<see cref="ActorProperty.DefZombie"/>).</summary>
+        public int DefZombie { [Atel.NativeMember(0x700f, Constant = 0x00b0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_STONE</c> of the picked actors (<see cref="ActorProperty.DefStone"/>).</summary>
+        public int DefStone { [Atel.NativeMember(0x700f, Constant = 0x00b1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_POISON</c> of the picked actors (<see cref="ActorProperty.DefPoison"/>).</summary>
+        public int DefPoison { [Atel.NativeMember(0x700f, Constant = 0x00b2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_POWER_BREAK</c> of the picked actors (<see cref="ActorProperty.DefPowerBreak"/>).</summary>
+        public int DefPowerBreak { [Atel.NativeMember(0x700f, Constant = 0x00b3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MAGIC_BREAK</c> of the picked actors (<see cref="ActorProperty.DefMagicBreak"/>).</summary>
+        public int DefMagicBreak { [Atel.NativeMember(0x700f, Constant = 0x00b4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ARMOR_BREAK</c> of the picked actors (<see cref="ActorProperty.DefArmorBreak"/>).</summary>
+        public int DefArmorBreak { [Atel.NativeMember(0x700f, Constant = 0x00b5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MENTAL_BREAK</c> of the picked actors (<see cref="ActorProperty.DefMentalBreak"/>).</summary>
+        public int DefMentalBreak { [Atel.NativeMember(0x700f, Constant = 0x00b6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CONFUSE</c> of the picked actors (<see cref="ActorProperty.DefConfuse"/>).</summary>
+        public int DefConfuse { [Atel.NativeMember(0x700f, Constant = 0x00b7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BERSERK</c> of the picked actors (<see cref="ActorProperty.DefBerserk"/>).</summary>
+        public int DefBerserk { [Atel.NativeMember(0x700f, Constant = 0x00b8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROV</c> of the picked actors (<see cref="ActorProperty.DefProv"/>).</summary>
+        public int DefProv { [Atel.NativeMember(0x700f, Constant = 0x00b9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00b9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_THREAT</c> of the picked actors (<see cref="ActorProperty.DefThreat"/>).</summary>
+        public int DefThreat { [Atel.NativeMember(0x700f, Constant = 0x00ba)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ba)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SLEEP</c> of the picked actors (<see cref="ActorProperty.DefSleep"/>).</summary>
+        public int DefSleep { [Atel.NativeMember(0x700f, Constant = 0x00bb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00bb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SILENCE</c> of the picked actors (<see cref="ActorProperty.DefSilence"/>).</summary>
+        public int DefSilence { [Atel.NativeMember(0x700f, Constant = 0x00bc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00bc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DARK</c> of the picked actors (<see cref="ActorProperty.DefDark"/>).</summary>
+        public int DefDark { [Atel.NativeMember(0x700f, Constant = 0x00bd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00bd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SHELL</c> of the picked actors (<see cref="ActorProperty.DefShell"/>).</summary>
+        public int DefShell { [Atel.NativeMember(0x700f, Constant = 0x00be)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00be)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROTESS</c> of the picked actors (<see cref="ActorProperty.DefProtess"/>).</summary>
+        public int DefProtess { [Atel.NativeMember(0x700f, Constant = 0x00bf)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00bf)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_REFLECT</c> of the picked actors (<see cref="ActorProperty.DefReflect"/>).</summary>
+        public int DefReflect { [Atel.NativeMember(0x700f, Constant = 0x00c0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BAWATER</c> of the picked actors (<see cref="ActorProperty.DefBawater"/>).</summary>
+        public int DefBawater { [Atel.NativeMember(0x700f, Constant = 0x00c1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BAFIRE</c> of the picked actors (<see cref="ActorProperty.DefBafire"/>).</summary>
+        public int DefBafire { [Atel.NativeMember(0x700f, Constant = 0x00c2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BATHUNDER</c> of the picked actors (<see cref="ActorProperty.DefBathunder"/>).</summary>
+        public int DefBathunder { [Atel.NativeMember(0x700f, Constant = 0x00c3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BACOLD</c> of the picked actors (<see cref="ActorProperty.DefBacold"/>).</summary>
+        public int DefBacold { [Atel.NativeMember(0x700f, Constant = 0x00c4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_REGEN</c> of the picked actors (<see cref="ActorProperty.DefRegen"/>).</summary>
+        public int DefRegen { [Atel.NativeMember(0x700f, Constant = 0x00c5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_HASTE</c> of the picked actors (<see cref="ActorProperty.DefHaste"/>).</summary>
+        public int DefHaste { [Atel.NativeMember(0x700f, Constant = 0x00c6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SLOW</c> of the picked actors (<see cref="ActorProperty.DefSlow"/>).</summary>
+        public int DefSlow { [Atel.NativeMember(0x700f, Constant = 0x00c7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_LIVE</c> of the picked actors (<see cref="ActorProperty.DefLive"/>).</summary>
+        public int DefLive { [Atel.NativeMember(0x700f, Constant = 0x00c8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_STR_MEMORY</c> of the picked actors (<see cref="ActorProperty.DefStrMemory"/>).</summary>
+        public int DefStrMemory { [Atel.NativeMember(0x700f, Constant = 0x00c9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00c9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MAG_MEMORY</c> of the picked actors (<see cref="ActorProperty.DefMagMemory"/>).</summary>
+        public int DefMagMemory { [Atel.NativeMember(0x700f, Constant = 0x00ca)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ca)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEX_MEMORY</c> of the picked actors (<see cref="ActorProperty.DefDexMemory"/>).</summary>
+        public int DefDexMemory { [Atel.NativeMember(0x700f, Constant = 0x00cb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00cb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MOVE_MEMORY</c> of the picked actors (<see cref="ActorProperty.DefMoveMemory"/>).</summary>
+        public int DefMoveMemory { [Atel.NativeMember(0x700f, Constant = 0x00cc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00cc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ABILITY_MEMORY</c> of the picked actors (<see cref="ActorProperty.DefAbilityMemory"/>).</summary>
+        public int DefAbilityMemory { [Atel.NativeMember(0x700f, Constant = 0x00cd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00cd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DODGE</c> of the picked actors (<see cref="ActorProperty.DefDodge"/>).</summary>
+        public int DefDodge { [Atel.NativeMember(0x700f, Constant = 0x00ce)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ce)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEFEND</c> of the picked actors (<see cref="ActorProperty.DefDefend"/>).</summary>
+        public int DefDefend { [Atel.NativeMember(0x700f, Constant = 0x00cf)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00cf)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_RELIFE</c> of the picked actors (<see cref="ActorProperty.DefRelife"/>).</summary>
+        public int DefRelife { [Atel.NativeMember(0x700f, Constant = 0x00d0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BLOW</c> of the picked actors (<see cref="ActorProperty.DefBlow"/>).</summary>
+        public int DefBlow { [Atel.NativeMember(0x700f, Constant = 0x00d1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CURSE</c> of the picked actors (<see cref="ActorProperty.DefCurse"/>).</summary>
+        public int DefCurse { [Atel.NativeMember(0x700f, Constant = 0x00d2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEFENSE</c> of the picked actors (<see cref="ActorProperty.DefDefense"/>).</summary>
+        public int DefDefense { [Atel.NativeMember(0x700f, Constant = 0x00d3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROTECT</c> of the picked actors (<see cref="ActorProperty.DefProtect"/>).</summary>
+        public int DefProtect { [Atel.NativeMember(0x700f, Constant = 0x00d4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_IRON</c> of the picked actors (<see cref="ActorProperty.DefIron"/>).</summary>
+        public int DefIron { [Atel.NativeMember(0x700f, Constant = 0x00d5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEATH_SENTENCE</c> of the picked actors (<see cref="ActorProperty.DefDeathSentence"/>).</summary>
+        public int DefDeathSentence { [Atel.NativeMember(0x700f, Constant = 0x00d6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_LIST</c> of the picked actors (<see cref="ActorProperty.HpList"/>).</summary>
+        public int HpList { [Atel.NativeMember(0x700f, Constant = 0x00d7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_CAM</c> of the picked actors (<see cref="ActorProperty.VisibleCam"/>).</summary>
+        public int VisibleCam { [Atel.NativeMember(0x700f, Constant = 0x00d8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_OUT</c> of the picked actors (<see cref="ActorProperty.VisibleOut"/>).</summary>
+        public int VisibleOut { [Atel.NativeMember(0x700f, Constant = 0x00d9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00d9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ROUND</c> of the picked actors (<see cref="ActorProperty.Round"/>).</summary>
+        public int Round { [Atel.NativeMember(0x700f, Constant = 0x00da)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00da)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ROUND_RETURN</c> of the picked actors (<see cref="ActorProperty.RoundReturn"/>).</summary>
+        public int RoundReturn { [Atel.NativeMember(0x700f, Constant = 0x00db)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00db)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WIN_POSE</c> of the picked actors (<see cref="ActorProperty.WinPose"/>).</summary>
+        public int WinPose { [Atel.NativeMember(0x700f, Constant = 0x00dc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00dc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIGOR</c> of the picked actors (<see cref="ActorProperty.Vigor"/>).</summary>
+        public int Vigor { [Atel.NativeMember(0x700f, Constant = 0x00dd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00dd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FAST_MODEL_FLAG</c> of the picked actors (<see cref="ActorProperty.FastModelFlag"/>).</summary>
+        public int FastModelFlag { [Atel.NativeMember(0x700f, Constant = 0x00de)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00de)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ALIVE_NOT_STONE</c> of the picked actors (<see cref="ActorProperty.AliveNotStone"/>).</summary>
+        public int AliveNotStone { [Atel.NativeMember(0x700f, Constant = 0x00df)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00df)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_TYPE</c> of the picked actors (<see cref="ActorProperty.CommandType"/>).</summary>
+        public int CommandType { [Atel.NativeMember(0x700f, Constant = 0x00e0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFECT_TARGET_FLAG</c> of the picked actors (<see cref="ActorProperty.EffectTargetFlag"/>).</summary>
+        public int EffectTargetFlag { [Atel.NativeMember(0x700f, Constant = 0x00e1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_EFFECT_GROUND</c> of the picked actors (<see cref="ActorProperty.MagicEffectGround"/>).</summary>
+        public int MagicEffectGround { [Atel.NativeMember(0x700f, Constant = 0x00e2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_EFFECT_WATER</c> of the picked actors (<see cref="ActorProperty.MagicEffectWater"/>).</summary>
+        public int MagicEffectWater { [Atel.NativeMember(0x700f, Constant = 0x00e3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_IDLE2_PROB</c> of the picked actors (<see cref="ActorProperty.Idle2Prob"/>).</summary>
+        public int Idle2Prob { [Atel.NativeMember(0x700f, Constant = 0x00e4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_MOTION_TYPE</c> of the picked actors (<see cref="ActorProperty.AttackMotionType"/>).</summary>
+        public int AttackMotionType { [Atel.NativeMember(0x700f, Constant = 0x00e5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_INC_SPEED</c> of the picked actors (<see cref="ActorProperty.AttackIncSpeed"/>).</summary>
+        public int AttackIncSpeed { [Atel.NativeMember(0x700f, Constant = 0x00e6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_DEC_SPEED</c> of the picked actors (<see cref="ActorProperty.AttackDecSpeed"/>).</summary>
+        public int AttackDecSpeed { [Atel.NativeMember(0x700f, Constant = 0x00e7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CTB</c> of the picked actors (<see cref="ActorProperty.Ctb"/>).</summary>
+        public int Ctb { [Atel.NativeMember(0x700f, Constant = 0x00e8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_COUNT</c> of the picked actors (<see cref="ActorProperty.AppearCount"/>).</summary>
+        public int AppearCount { [Atel.NativeMember(0x700f, Constant = 0x00e9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00e9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_NUM</c> of the picked actors (<see cref="ActorProperty.MotionNum"/>).</summary>
+        public int MotionNum { [Atel.NativeMember(0x700f, Constant = 0x00ea)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ea)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INFO_MES_ID</c> of the picked actors (<see cref="ActorProperty.InfoMesId"/>).</summary>
+        public int InfoMesId { [Atel.NativeMember(0x700f, Constant = 0x00eb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00eb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE_MES_ID</c> of the picked actors (<see cref="ActorProperty.LiveMesId"/>).</summary>
+        public int LiveMesId { [Atel.NativeMember(0x700f, Constant = 0x00ec)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ec)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_EFF</c> of the picked actors (<see cref="ActorProperty.VisibleEff"/>).</summary>
+        public int VisibleEff { [Atel.NativeMember(0x700f, Constant = 0x00ed)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ed)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_DISPOSE_FLAG</c> of the picked actors (<see cref="ActorProperty.MotionDisposeFlag"/>).</summary>
+        public int MotionDisposeFlag { [Atel.NativeMember(0x700f, Constant = 0x00ee)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ee)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MODEL_DISPOSE_FLAG</c> of the picked actors (<see cref="ActorProperty.ModelDisposeFlag"/>).</summary>
+        public int ModelDisposeFlag { [Atel.NativeMember(0x700f, Constant = 0x00ef)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ef)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CTB</c> of the picked actors (<see cref="ActorProperty.DefCtb"/>).</summary>
+        public int DefCtb { [Atel.NativeMember(0x700f, Constant = 0x00f0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHADOW</c> of the picked actors (<see cref="ActorProperty.Shadow"/>).</summary>
+        public int Shadow { [Atel.NativeMember(0x700f, Constant = 0x00f1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH</c> of the picked actors (<see cref="ActorProperty.Death"/>).</summary>
+        public int Death { [Atel.NativeMember(0x700f, Constant = 0x00f2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_STONE</c> of the picked actors (<see cref="ActorProperty.DeathStone"/>).</summary>
+        public int DeathStone { [Atel.NativeMember(0x700f, Constant = 0x00f3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CHECK_POS</c> of the picked actors (<see cref="ActorProperty.CheckPos"/>).</summary>
+        public int CheckPos { [Atel.NativeMember(0x700f, Constant = 0x00f4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WIN_SE</c> of the picked actors (<see cref="ActorProperty.WinSe"/>).</summary>
+        public int WinSe { [Atel.NativeMember(0x700f, Constant = 0x00f5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NUM</c> of the picked actors (<see cref="ActorProperty.AttackNum"/>).</summary>
+        public int AttackNum { [Atel.NativeMember(0x700f, Constant = 0x00f6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NEAR_MOTION</c> of the picked actors (<see cref="ActorProperty.NearMotion"/>).</summary>
+        public int NearMotion { [Atel.NativeMember(0x700f, Constant = 0x00f7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT1</c> of the picked actors (<see cref="ActorProperty.TalkStat1"/>).</summary>
+        public int TalkStat1 { [Atel.NativeMember(0x700f, Constant = 0x00f8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT2</c> of the picked actors (<see cref="ActorProperty.TalkStat2"/>).</summary>
+        public int TalkStat2 { [Atel.NativeMember(0x700f, Constant = 0x00f9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00f9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NEAR_MOTION_SET</c> of the picked actors (<see cref="ActorProperty.NearMotionSet"/>).</summary>
+        public int NearMotionSet { [Atel.NativeMember(0x700f, Constant = 0x00fa)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00fa)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_SPEED_NORMAL</c> of the picked actors (<see cref="ActorProperty.MotionSpeedNormal"/>).</summary>
+        public int MotionSpeedNormal { [Atel.NativeMember(0x700f, Constant = 0x00fb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00fb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_SPEED_NORMAL_START</c> of the picked actors (<see cref="ActorProperty.MotionSpeedNormalStart"/>).</summary>
+        public int MotionSpeedNormalStart { [Atel.NativeMember(0x700f, Constant = 0x00fc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00fc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_OWN_ATTACK_NEAR</c> of the picked actors (<see cref="ActorProperty.OwnAttackNear"/>).</summary>
+        public int OwnAttackNear { [Atel.NativeMember(0x700f, Constant = 0x00fd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00fd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT3</c> of the picked actors (<see cref="ActorProperty.TalkStat3"/>).</summary>
+        public int TalkStat3 { [Atel.NativeMember(0x700f, Constant = 0x00fe)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00fe)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_SET</c> of the picked actors (<see cref="ActorProperty.CommandSet"/>).</summary>
+        public int CommandSet { [Atel.NativeMember(0x700f, Constant = 0x00ff)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x00ff)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV_COMMAND_FLAG</c> of the picked actors (<see cref="ActorProperty.ProvCommandFlag"/>).</summary>
+        public int ProvCommandFlag { [Atel.NativeMember(0x700f, Constant = 0x0100)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0100)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV_CHR</c> of the picked actors (<see cref="ActorProperty.ProvChr"/>).</summary>
+        public int ProvChr { [Atel.NativeMember(0x700f, Constant = 0x0101)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0101)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_MP0</c> of the picked actors (<see cref="ActorProperty.UseMp0"/>).</summary>
+        public int UseMp0 { [Atel.NativeMember(0x700f, Constant = 0x0102)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0102)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ICON_NUMBER</c> of the picked actors (<see cref="ActorProperty.IconNumber"/>).</summary>
+        public int IconNumber { [Atel.NativeMember(0x700f, Constant = 0x0103)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0103)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SOUND_HIT_NUM</c> of the picked actors (<see cref="ActorProperty.SoundHitNum"/>).</summary>
+        public int SoundHitNum { [Atel.NativeMember(0x700f, Constant = 0x0104)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0104)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_NUM_POS</c> of the picked actors (<see cref="ActorProperty.DamageNumPos"/>).</summary>
+        public int DamageNumPos { [Atel.NativeMember(0x700f, Constant = 0x0105)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0105)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SUMMONER</c> of the picked actors (<see cref="ActorProperty.Summoner"/>).</summary>
+        public int Summoner { [Atel.NativeMember(0x700f, Constant = 0x0106)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0106)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INVINCIBLE</c> of the picked actors (<see cref="ActorProperty.SpInvincible"/>).</summary>
+        public int SpInvincible { [Atel.NativeMember(0x700f, Constant = 0x0107)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0107)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INV_MAGIC</c> of the picked actors (<see cref="ActorProperty.SpInvMagic"/>).</summary>
+        public int SpInvMagic { [Atel.NativeMember(0x700f, Constant = 0x0108)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0108)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INV_PHYSIC</c> of the picked actors (<see cref="ActorProperty.SpInvPhysic"/>).</summary>
+        public int SpInvPhysic { [Atel.NativeMember(0x700f, Constant = 0x0109)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0109)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLUE_MAGIC</c> of the picked actors (<see cref="ActorProperty.BlueMagic"/>).</summary>
+        public int BlueMagic { [Atel.NativeMember(0x700f, Constant = 0x010a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_DISABLE_ZAN</c> of the picked actors (<see cref="ActorProperty.SpDisableZan"/>).</summary>
+        public int SpDisableZan { [Atel.NativeMember(0x700f, Constant = 0x010b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_OVER_KILL_HP</c> of the picked actors (<see cref="ActorProperty.OverKillHp"/>).</summary>
+        public int OverKillHp { [Atel.NativeMember(0x700f, Constant = 0x010c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RETURN_MOTION_TYPE</c> of the picked actors (<see cref="ActorProperty.ReturnMotionType"/>).</summary>
+        public int ReturnMotionType { [Atel.NativeMember(0x700f, Constant = 0x010d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CAM_WIDTH</c> of the picked actors (<see cref="ActorProperty.CamWidth"/>).</summary>
+        public int CamWidth { [Atel.NativeMember(0x700f, Constant = 0x010e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CAM_HEIGHT</c> of the picked actors (<see cref="ActorProperty.CamHeight"/>).</summary>
+        public int CamHeight { [Atel.NativeMember(0x700f, Constant = 0x010f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x010f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HEIGHT</c> of the picked actors (<see cref="ActorProperty.Height"/>).</summary>
+        public int Height { [Atel.NativeMember(0x700f, Constant = 0x0110)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0110)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_YOUJINBO</c> of the picked actors (<see cref="ActorProperty.Youjinbo"/>).</summary>
+        public int Youjinbo { [Atel.NativeMember(0x700f, Constant = 0x0111)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0111)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PAYMENT</c> of the picked actors (<see cref="ActorProperty.Payment"/>).</summary>
+        public int Payment { [Atel.NativeMember(0x700f, Constant = 0x0112)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0112)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MONSTER_VALUE_MAX</c> of the picked actors (<see cref="ActorProperty.MonsterValueMax"/>).</summary>
+        public int MonsterValueMax { [Atel.NativeMember(0x700f, Constant = 0x0113)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0113)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_EXE_COUNT</c> of the picked actors (<see cref="ActorProperty.CommandExeCount"/>).</summary>
+        public int CommandExeCount { [Atel.NativeMember(0x700f, Constant = 0x0114)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0114)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONSENT</c> of the picked actors (<see cref="ActorProperty.Consent"/>).</summary>
+        public int Consent { [Atel.NativeMember(0x700f, Constant = 0x0115)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0115)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NEAR_FRAME</c> of the picked actors (<see cref="ActorProperty.AttackNearFrame"/>).</summary>
+        public int AttackNearFrame { [Atel.NativeMember(0x700f, Constant = 0x0116)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0116)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ENERGY</c> of the picked actors (<see cref="ActorProperty.Energy"/>).</summary>
+        public int Energy { [Atel.NativeMember(0x700f, Constant = 0x0117)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0117)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_ADD</c> of the picked actors (<see cref="ActorProperty.LimitGaugeAdd"/>).</summary>
+        public int LimitGaugeAdd { [Atel.NativeMember(0x700f, Constant = 0x0118)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0118)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_HALF</c> of the picked actors (<see cref="ActorProperty.HpHalf"/>).</summary>
+        public int HpHalf { [Atel.NativeMember(0x700f, Constant = 0x0119)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0119)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_CHECK</c> of the picked actors (<see cref="ActorProperty.LimitGaugeCheck"/>).</summary>
+        public int LimitGaugeCheck { [Atel.NativeMember(0x700f, Constant = 0x011a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_CHECK</c> of the picked actors (<see cref="ActorProperty.HpCheck"/>).</summary>
+        public int HpCheck { [Atel.NativeMember(0x700f, Constant = 0x011b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MP_CHECK</c> of the picked actors (<see cref="ActorProperty.MpCheck"/>).</summary>
+        public int MpCheck { [Atel.NativeMember(0x700f, Constant = 0x011c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BA_ALL_CHECK</c> of the picked actors (<see cref="ActorProperty.BaAllCheck"/>).</summary>
+        public int BaAllCheck { [Atel.NativeMember(0x700f, Constant = 0x011d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHELL_REFLECT</c> of the picked actors (<see cref="ActorProperty.ShellReflect"/>).</summary>
+        public int ShellReflect { [Atel.NativeMember(0x700f, Constant = 0x011e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTESS_REFLECT</c> of the picked actors (<see cref="ActorProperty.ProtessReflect"/>).</summary>
+        public int ProtessReflect { [Atel.NativeMember(0x700f, Constant = 0x011f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x011f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HASTE_REFLECT</c> of the picked actors (<see cref="ActorProperty.HasteReflect"/>).</summary>
+        public int HasteReflect { [Atel.NativeMember(0x700f, Constant = 0x0120)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0120)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_MOTION</c> of the picked actors (<see cref="ActorProperty.WeakMotion"/>).</summary>
+        public int WeakMotion { [Atel.NativeMember(0x700f, Constant = 0x0121)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0121)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_WAIRO</c> of the picked actors (<see cref="ActorProperty.SpWairo"/>).</summary>
+        public int SpWairo { [Atel.NativeMember(0x700f, Constant = 0x0122)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0122)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_MOTION_FRAME</c> of the picked actors (<see cref="ActorProperty.AttackMotionFrame"/>).</summary>
+        public int AttackMotionFrame { [Atel.NativeMember(0x700f, Constant = 0x0123)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0123)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE_RESET</c> of the picked actors (<see cref="ActorProperty.MotionTypeReset"/>).</summary>
+        public int MotionTypeReset { [Atel.NativeMember(0x700f, Constant = 0x0124)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0124)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE_ADD</c> of the picked actors (<see cref="ActorProperty.MotionTypeAdd"/>).</summary>
+        public int MotionTypeAdd { [Atel.NativeMember(0x700f, Constant = 0x0125)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0125)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_STATUS</c> of the picked actors (<see cref="ActorProperty.DeathStatus"/>).</summary>
+        public int DeathStatus { [Atel.NativeMember(0x700f, Constant = 0x0126)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0126)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TARGET_LIST</c> of the picked actors (<see cref="ActorProperty.TargetList"/>).</summary>
+        public int TargetList { [Atel.NativeMember(0x700f, Constant = 0x0127)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0127)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_POS</c> of the picked actors (<see cref="ActorProperty.LimitBarPos"/>).</summary>
+        public int LimitBarPos { [Atel.NativeMember(0x700f, Constant = 0x0128)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0128)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CENTER_CHR_FLAG</c> of the picked actors (<see cref="ActorProperty.CenterChrFlag"/>).</summary>
+        public int CenterChrFlag { [Atel.NativeMember(0x700f, Constant = 0x0129)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0129)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SAME_TARGET_CHECK</c> of the picked actors (<see cref="ActorProperty.SameTargetCheck"/>).</summary>
+        public int SameTargetCheck { [Atel.NativeMember(0x700f, Constant = 0x012a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_AP</c> of the picked actors (<see cref="ActorProperty.GetAp"/>).</summary>
+        public int GetAp { [Atel.NativeMember(0x700f, Constant = 0x012b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_OVER_AP</c> of the picked actors (<see cref="ActorProperty.GetOverAp"/>).</summary>
+        public int GetOverAp { [Atel.NativeMember(0x700f, Constant = 0x012c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_GILL</c> of the picked actors (<see cref="ActorProperty.GetGill"/>).</summary>
+        public int GetGill { [Atel.NativeMember(0x700f, Constant = 0x012d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR_UP</c> of the picked actors (<see cref="ActorProperty.StrUp"/>).</summary>
+        public int StrUp { [Atel.NativeMember(0x700f, Constant = 0x012e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIT_UP</c> of the picked actors (<see cref="ActorProperty.VitUp"/>).</summary>
+        public int VitUp { [Atel.NativeMember(0x700f, Constant = 0x012f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x012f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG_UP</c> of the picked actors (<see cref="ActorProperty.MagUp"/>).</summary>
+        public int MagUp { [Atel.NativeMember(0x700f, Constant = 0x0130)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0130)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SPIRIT_UP</c> of the picked actors (<see cref="ActorProperty.SpiritUp"/>).</summary>
+        public int SpiritUp { [Atel.NativeMember(0x700f, Constant = 0x0131)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0131)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX_UP</c> of the picked actors (<see cref="ActorProperty.DexUp"/>).</summary>
+        public int DexUp { [Atel.NativeMember(0x700f, Constant = 0x0132)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0132)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LUCK_UP</c> of the picked actors (<see cref="ActorProperty.LuckUp"/>).</summary>
+        public int LuckUp { [Atel.NativeMember(0x700f, Constant = 0x0133)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0133)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID_UP</c> of the picked actors (<see cref="ActorProperty.AvoidUp"/>).</summary>
+        public int AvoidUp { [Atel.NativeMember(0x700f, Constant = 0x0134)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0134)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT_UP</c> of the picked actors (<see cref="ActorProperty.HitUp"/>).</summary>
+        public int HitUp { [Atel.NativeMember(0x700f, Constant = 0x0135)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0135)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_MP</c> of the picked actors (<see cref="ActorProperty.UseMp"/>).</summary>
+        public int UseMp { [Atel.NativeMember(0x700f, Constant = 0x0136)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0136)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_LIMIT</c> of the picked actors (<see cref="ActorProperty.UseLimit"/>).</summary>
+        public int UseLimit { [Atel.NativeMember(0x700f, Constant = 0x0137)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0137)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_LIMIT_ALL</c> of the picked actors (<see cref="ActorProperty.UseLimitAll"/>).</summary>
+        public int UseLimitAll { [Atel.NativeMember(0x700f, Constant = 0x0138)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0138)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONTINUE_MAGIC</c> of the picked actors (<see cref="ActorProperty.ContinueMagic"/>).</summary>
+        public int ContinueMagic { [Atel.NativeMember(0x700f, Constant = 0x0139)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0139)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM</c> of the picked actors (<see cref="ActorProperty.Item1Com"/>).</summary>
+        public int Item1Com { [Atel.NativeMember(0x700f, Constant = 0x013a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE</c> of the picked actors (<see cref="ActorProperty.Item1Rare"/>).</summary>
+        public int Item1Rare { [Atel.NativeMember(0x700f, Constant = 0x013b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM</c> of the picked actors (<see cref="ActorProperty.Item2Com"/>).</summary>
+        public int Item2Com { [Atel.NativeMember(0x700f, Constant = 0x013c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE</c> of the picked actors (<see cref="ActorProperty.Item2Rare"/>).</summary>
+        public int Item2Rare { [Atel.NativeMember(0x700f, Constant = 0x013d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_OVER_KILL</c> of the picked actors (<see cref="ActorProperty.Item1ComOverKill"/>).</summary>
+        public int Item1ComOverKill { [Atel.NativeMember(0x700f, Constant = 0x013e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_OVER_KILL</c> of the picked actors (<see cref="ActorProperty.Item1RareOverKill"/>).</summary>
+        public int Item1RareOverKill { [Atel.NativeMember(0x700f, Constant = 0x013f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x013f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_OVER_KILL</c> of the picked actors (<see cref="ActorProperty.Item2ComOverKill"/>).</summary>
+        public int Item2ComOverKill { [Atel.NativeMember(0x700f, Constant = 0x0140)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0140)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_OVER_KILL</c> of the picked actors (<see cref="ActorProperty.Item2RareOverKill"/>).</summary>
+        public int Item2RareOverKill { [Atel.NativeMember(0x700f, Constant = 0x0141)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0141)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_NUM</c> of the picked actors (<see cref="ActorProperty.Item1ComNum"/>).</summary>
+        public int Item1ComNum { [Atel.NativeMember(0x700f, Constant = 0x0142)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0142)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_NUM</c> of the picked actors (<see cref="ActorProperty.Item1RareNum"/>).</summary>
+        public int Item1RareNum { [Atel.NativeMember(0x700f, Constant = 0x0143)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0143)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_NUM</c> of the picked actors (<see cref="ActorProperty.Item2ComNum"/>).</summary>
+        public int Item2ComNum { [Atel.NativeMember(0x700f, Constant = 0x0144)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0144)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_NUM</c> of the picked actors (<see cref="ActorProperty.Item2RareNum"/>).</summary>
+        public int Item2RareNum { [Atel.NativeMember(0x700f, Constant = 0x0145)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0145)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_OVER_KILL_NUM</c> of the picked actors (<see cref="ActorProperty.Item1ComOverKillNum"/>).</summary>
+        public int Item1ComOverKillNum { [Atel.NativeMember(0x700f, Constant = 0x0146)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0146)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_OVER_KILL_NUM</c> of the picked actors (<see cref="ActorProperty.Item1RareOverKillNum"/>).</summary>
+        public int Item1RareOverKillNum { [Atel.NativeMember(0x700f, Constant = 0x0147)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0147)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_OVER_KILL_NUM</c> of the picked actors (<see cref="ActorProperty.Item2ComOverKillNum"/>).</summary>
+        public int Item2ComOverKillNum { [Atel.NativeMember(0x700f, Constant = 0x0148)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0148)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_OVER_KILL_NUM</c> of the picked actors (<see cref="ActorProperty.Item2RareOverKillNum"/>).</summary>
+        public int Item2RareOverKillNum { [Atel.NativeMember(0x700f, Constant = 0x0149)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0149)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_RETURN</c> of the picked actors (<see cref="ActorProperty.DeathReturn"/>).</summary>
+        public int DeathReturn { [Atel.NativeMember(0x700f, Constant = 0x014a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LINEAR_MOVE_RESET</c> of the picked actors (<see cref="ActorProperty.LinearMoveReset"/>).</summary>
+        public int LinearMoveReset { [Atel.NativeMember(0x700f, Constant = 0x014b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BODYHIT_DIRECT</c> of the picked actors (<see cref="ActorProperty.BodyhitDirect"/>).</summary>
+        public int BodyhitDirect { [Atel.NativeMember(0x700f, Constant = 0x014c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_JOIN</c> of the picked actors (<see cref="ActorProperty.Join"/>).</summary>
+        public int Join { [Atel.NativeMember(0x700f, Constant = 0x014d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ETERNAL_RELIFE</c> of the picked actors (<see cref="ActorProperty.EternalRelife"/>).</summary>
+        public int EternalRelife { [Atel.NativeMember(0x700f, Constant = 0x014e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NECK_TARGET_FLAG</c> of the picked actors (<see cref="ActorProperty.NeckTargetFlag"/>).</summary>
+        public int NeckTargetFlag { [Atel.NativeMember(0x700f, Constant = 0x014f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x014f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_OUT_ON</c> of the picked actors (<see cref="ActorProperty.VisibleOutOn"/>).</summary>
+        public int VisibleOutOn { [Atel.NativeMember(0x700f, Constant = 0x0150)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0150)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REGEN_DAMAGE_FLAG</c> of the picked actors (<see cref="ActorProperty.RegenDamageFlag"/>).</summary>
+        public int RegenDamageFlag { [Atel.NativeMember(0x700f, Constant = 0x0151)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0151)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NUM_PRINT_ELEMENT</c> of the picked actors (<see cref="ActorProperty.NumPrintElement"/>).</summary>
+        public int NumPrintElement { [Atel.NativeMember(0x700f, Constant = 0x0152)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0152)] set => throw Atel.Runtime.NotRunnable(); }
+    }
+
+    /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads a property of it (<c>Btl.GetSelfProperty</c>), <c>Self.Hp = 0;</c> sets it (<c>Btl.SetActorProperty</c>).</summary>
+    /// <remarks>The worker's <c>Self</c> property (<c>Self.…</c>; another worker's: <c>Tidus.Self.…</c>, <c>Workers[n].Self.…</c>).</remarks>
+    public sealed partial class OwnActor
+    {
+        private OwnActor() { }
+
+        // One property per ActorProperty member: reading calls native 0x70aa (Btl.GetSelfProperty, 1300 calls in the shipped scripts),
+        // assigning calls 0x70ab (Btl.SetActorProperty, 4536 calls), with the member as the property argument.
+
+        /// <summary><c>STAT_HP</c> of the worker's own actor (<see cref="ActorProperty.Hp"/>).</summary>
+        public int Hp { [Atel.NativeMember(0x70aa, Constant = 0x0000)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0000)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MP</c> of the worker's own actor (<see cref="ActorProperty.Mp"/>).</summary>
+        public int Mp { [Atel.NativeMember(0x70aa, Constant = 0x0001)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0001)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAXHP</c> of the worker's own actor (<see cref="ActorProperty.Maxhp"/>).</summary>
+        public int Maxhp { [Atel.NativeMember(0x70aa, Constant = 0x0002)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0002)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAXMP</c> of the worker's own actor (<see cref="ActorProperty.Maxmp"/>).</summary>
+        public int Maxmp { [Atel.NativeMember(0x70aa, Constant = 0x0003)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0003)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ALIVE</c> of the worker's own actor (<see cref="ActorProperty.Alive"/>).</summary>
+        public int Alive { [Atel.NativeMember(0x70aa, Constant = 0x0004)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0004)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POISON</c> of the worker's own actor (<see cref="ActorProperty.Poison"/>).</summary>
+        public int Poison { [Atel.NativeMember(0x70aa, Constant = 0x0005)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0005)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STONE</c> of the worker's own actor (<see cref="ActorProperty.Stone"/>).</summary>
+        public int Stone { [Atel.NativeMember(0x70aa, Constant = 0x0006)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0006)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ZOMBIE</c> of the worker's own actor (<see cref="ActorProperty.Zombie"/>).</summary>
+        public int Zombie { [Atel.NativeMember(0x70aa, Constant = 0x0007)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0007)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK</c> of the worker's own actor (<see cref="ActorProperty.Weak"/>).</summary>
+        public int Weak { [Atel.NativeMember(0x70aa, Constant = 0x0008)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0008)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR</c> of the worker's own actor (<see cref="ActorProperty.Str"/>).</summary>
+        public int Str { [Atel.NativeMember(0x70aa, Constant = 0x0009)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0009)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIT</c> of the worker's own actor (<see cref="ActorProperty.Vit"/>).</summary>
+        public int Vit { [Atel.NativeMember(0x70aa, Constant = 0x000a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG</c> of the worker's own actor (<see cref="ActorProperty.Mag"/>).</summary>
+        public int Mag { [Atel.NativeMember(0x70aa, Constant = 0x000b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SPIRIT</c> of the worker's own actor (<see cref="ActorProperty.Spirit"/>).</summary>
+        public int Spirit { [Atel.NativeMember(0x70aa, Constant = 0x000c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX</c> of the worker's own actor (<see cref="ActorProperty.Dex"/>).</summary>
+        public int Dex { [Atel.NativeMember(0x70aa, Constant = 0x000d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LUCK</c> of the worker's own actor (<see cref="ActorProperty.Luck"/>).</summary>
+        public int Luck { [Atel.NativeMember(0x70aa, Constant = 0x000e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID</c> of the worker's own actor (<see cref="ActorProperty.Avoid"/>).</summary>
+        public int Avoid { [Atel.NativeMember(0x70aa, Constant = 0x000f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x000f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT</c> of the worker's own actor (<see cref="ActorProperty.Hit"/>).</summary>
+        public int Hit { [Atel.NativeMember(0x70aa, Constant = 0x0010)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0010)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POISON_PER</c> of the worker's own actor (<see cref="ActorProperty.PoisonPer"/>).</summary>
+        public int PoisonPer { [Atel.NativeMember(0x70aa, Constant = 0x0011)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0011)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_TYPE</c> of the worker's own actor (<see cref="ActorProperty.LimitType"/>).</summary>
+        public int LimitType { [Atel.NativeMember(0x70aa, Constant = 0x0012)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0012)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE</c> of the worker's own actor (<see cref="ActorProperty.LimitGauge"/>).</summary>
+        public int LimitGauge { [Atel.NativeMember(0x70aa, Constant = 0x0013)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0013)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_MAX</c> of the worker's own actor (<see cref="ActorProperty.LimitGaugeMax"/>).</summary>
+        public int LimitGaugeMax { [Atel.NativeMember(0x70aa, Constant = 0x0014)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0014)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INBATTLE</c> of the worker's own actor (<see cref="ActorProperty.Inbattle"/>).</summary>
+        public int Inbattle { [Atel.NativeMember(0x70aa, Constant = 0x0015)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0015)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAN</c> of the worker's own actor (<see cref="ActorProperty.Man"/>).</summary>
+        public int Man { [Atel.NativeMember(0x70aa, Constant = 0x0016)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0016)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FEMALE</c> of the worker's own actor (<see cref="ActorProperty.Female"/>).</summary>
+        public int Female { [Atel.NativeMember(0x70aa, Constant = 0x0017)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0017)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SUMMON</c> of the worker's own actor (<see cref="ActorProperty.Summon"/>).</summary>
+        public int Summon { [Atel.NativeMember(0x70aa, Constant = 0x0018)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0018)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MONSTER</c> of the worker's own actor (<see cref="ActorProperty.Monster"/>).</summary>
+        public int Monster { [Atel.NativeMember(0x70aa, Constant = 0x0019)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0019)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FLY</c> of the worker's own actor (<see cref="ActorProperty.Fly"/>).</summary>
+        public int Fly { [Atel.NativeMember(0x70aa, Constant = 0x001a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WILL_DIE</c> of the worker's own actor (<see cref="ActorProperty.WillDie"/>).</summary>
+        public int WillDie { [Atel.NativeMember(0x70aa, Constant = 0x001b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AREA</c> of the worker's own actor (<see cref="ActorProperty.Area"/>).</summary>
+        public int Area { [Atel.NativeMember(0x70aa, Constant = 0x001c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POS</c> of the worker's own actor (<see cref="ActorProperty.Pos"/>).</summary>
+        public int Pos { [Atel.NativeMember(0x70aa, Constant = 0x001d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FAR</c> of the worker's own actor (<see cref="ActorProperty.Far"/>).</summary>
+        public int Far { [Atel.NativeMember(0x70aa, Constant = 0x001e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GROUP</c> of the worker's own actor (<see cref="ActorProperty.Group"/>).</summary>
+        public int Group { [Atel.NativeMember(0x70aa, Constant = 0x001f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x001f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_HARD</c> of the worker's own actor (<see cref="ActorProperty.SpHard"/>).</summary>
+        public int SpHard { [Atel.NativeMember(0x70aa, Constant = 0x0020)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0020)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_RATIO</c> of the worker's own actor (<see cref="ActorProperty.SpRatio"/>).</summary>
+        public int SpRatio { [Atel.NativeMember(0x70aa, Constant = 0x0021)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0021)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_ZOMBIE</c> of the worker's own actor (<see cref="ActorProperty.SpZombie"/>).</summary>
+        public int SpZombie { [Atel.NativeMember(0x70aa, Constant = 0x0022)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0022)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_SEE</c> of the worker's own actor (<see cref="ActorProperty.SpSee"/>).</summary>
+        public int SpSee { [Atel.NativeMember(0x70aa, Constant = 0x0023)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0023)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_LIVE</c> of the worker's own actor (<see cref="ActorProperty.SpLive"/>).</summary>
+        public int SpLive { [Atel.NativeMember(0x70aa, Constant = 0x0024)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0024)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_POWER_BREAK</c> of the worker's own actor (<see cref="ActorProperty.PowerBreak"/>).</summary>
+        public int PowerBreak { [Atel.NativeMember(0x70aa, Constant = 0x0025)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0025)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_BREAK</c> of the worker's own actor (<see cref="ActorProperty.MagicBreak"/>).</summary>
+        public int MagicBreak { [Atel.NativeMember(0x70aa, Constant = 0x0026)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0026)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ARMOR_BREAK</c> of the worker's own actor (<see cref="ActorProperty.ArmorBreak"/>).</summary>
+        public int ArmorBreak { [Atel.NativeMember(0x70aa, Constant = 0x0027)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0027)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MENTAL_BREAK</c> of the worker's own actor (<see cref="ActorProperty.MentalBreak"/>).</summary>
+        public int MentalBreak { [Atel.NativeMember(0x70aa, Constant = 0x0028)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0028)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONFUSE</c> of the worker's own actor (<see cref="ActorProperty.Confuse"/>).</summary>
+        public int Confuse { [Atel.NativeMember(0x70aa, Constant = 0x0029)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0029)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BERSERK</c> of the worker's own actor (<see cref="ActorProperty.Berserk"/>).</summary>
+        public int Berserk { [Atel.NativeMember(0x70aa, Constant = 0x002a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV</c> of the worker's own actor (<see cref="ActorProperty.Prov"/>).</summary>
+        public int Prov { [Atel.NativeMember(0x70aa, Constant = 0x002b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_THREAT</c> of the worker's own actor (<see cref="ActorProperty.Threat"/>).</summary>
+        public int Threat { [Atel.NativeMember(0x70aa, Constant = 0x002c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLEEP</c> of the worker's own actor (<see cref="ActorProperty.Sleep"/>).</summary>
+        public int Sleep { [Atel.NativeMember(0x70aa, Constant = 0x002d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SILENCE</c> of the worker's own actor (<see cref="ActorProperty.Silence"/>).</summary>
+        public int Silence { [Atel.NativeMember(0x70aa, Constant = 0x002e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DARK</c> of the worker's own actor (<see cref="ActorProperty.Dark"/>).</summary>
+        public int Dark { [Atel.NativeMember(0x70aa, Constant = 0x002f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x002f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHELL</c> of the worker's own actor (<see cref="ActorProperty.Shell"/>).</summary>
+        public int Shell { [Atel.NativeMember(0x70aa, Constant = 0x0030)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0030)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTESS</c> of the worker's own actor (<see cref="ActorProperty.Protess"/>).</summary>
+        public int Protess { [Atel.NativeMember(0x70aa, Constant = 0x0031)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0031)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REFLECT</c> of the worker's own actor (<see cref="ActorProperty.Reflect"/>).</summary>
+        public int Reflect { [Atel.NativeMember(0x70aa, Constant = 0x0032)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0032)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BAWATER</c> of the worker's own actor (<see cref="ActorProperty.Bawater"/>).</summary>
+        public int Bawater { [Atel.NativeMember(0x70aa, Constant = 0x0033)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0033)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BAFIRE</c> of the worker's own actor (<see cref="ActorProperty.Bafire"/>).</summary>
+        public int Bafire { [Atel.NativeMember(0x70aa, Constant = 0x0034)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0034)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BATHUNDER</c> of the worker's own actor (<see cref="ActorProperty.Bathunder"/>).</summary>
+        public int Bathunder { [Atel.NativeMember(0x70aa, Constant = 0x0035)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0035)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BACOLD</c> of the worker's own actor (<see cref="ActorProperty.Bacold"/>).</summary>
+        public int Bacold { [Atel.NativeMember(0x70aa, Constant = 0x0036)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0036)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REGEN</c> of the worker's own actor (<see cref="ActorProperty.Regen"/>).</summary>
+        public int Regen { [Atel.NativeMember(0x70aa, Constant = 0x0037)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0037)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HASTE</c> of the worker's own actor (<see cref="ActorProperty.Haste"/>).</summary>
+        public int Haste { [Atel.NativeMember(0x70aa, Constant = 0x0038)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0038)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLOW</c> of the worker's own actor (<see cref="ActorProperty.Slow"/>).</summary>
+        public int Slow { [Atel.NativeMember(0x70aa, Constant = 0x0039)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0039)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_SEE</c> of the worker's own actor (<see cref="ActorProperty.AbilitySee"/>).</summary>
+        public int AbilitySee { [Atel.NativeMember(0x70aa, Constant = 0x003a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_LEAD</c> of the worker's own actor (<see cref="ActorProperty.AbilityLead"/>).</summary>
+        public int AbilityLead { [Atel.NativeMember(0x70aa, Constant = 0x003b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_FIRST</c> of the worker's own actor (<see cref="ActorProperty.AbilityFirst"/>).</summary>
+        public int AbilityFirst { [Atel.NativeMember(0x70aa, Constant = 0x003c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_COUNTER</c> of the worker's own actor (<see cref="ActorProperty.AbilityCounter"/>).</summary>
+        public int AbilityCounter { [Atel.NativeMember(0x70aa, Constant = 0x003d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_COUNTER2</c> of the worker's own actor (<see cref="ActorProperty.AbilityCounter2"/>).</summary>
+        public int AbilityCounter2 { [Atel.NativeMember(0x70aa, Constant = 0x003e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_DARK</c> of the worker's own actor (<see cref="ActorProperty.AbilityDark"/>).</summary>
+        public int AbilityDark { [Atel.NativeMember(0x70aa, Constant = 0x003f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x003f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AP2</c> of the worker's own actor (<see cref="ActorProperty.AbilityAp2"/>).</summary>
+        public int AbilityAp2 { [Atel.NativeMember(0x70aa, Constant = 0x0040)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0040)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_EXP2</c> of the worker's own actor (<see cref="ActorProperty.AbilityExp2"/>).</summary>
+        public int AbilityExp2 { [Atel.NativeMember(0x70aa, Constant = 0x0041)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0041)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_BOOSTER</c> of the worker's own actor (<see cref="ActorProperty.AbilityBooster"/>).</summary>
+        public int AbilityBooster { [Atel.NativeMember(0x70aa, Constant = 0x0042)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0042)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MAGIC_COUNTER</c> of the worker's own actor (<see cref="ActorProperty.AbilityMagicCounter"/>).</summary>
+        public int AbilityMagicCounter { [Atel.NativeMember(0x70aa, Constant = 0x0043)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0043)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MEDICINE</c> of the worker's own actor (<see cref="ActorProperty.AbilityMedicine"/>).</summary>
+        public int AbilityMedicine { [Atel.NativeMember(0x70aa, Constant = 0x0044)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0044)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_POTION</c> of the worker's own actor (<see cref="ActorProperty.AbilityAutoPotion"/>).</summary>
+        public int AbilityAutoPotion { [Atel.NativeMember(0x70aa, Constant = 0x0045)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0045)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_CUREALL</c> of the worker's own actor (<see cref="ActorProperty.AbilityAutoCureall"/>).</summary>
+        public int AbilityAutoCureall { [Atel.NativeMember(0x70aa, Constant = 0x0046)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0046)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_AUTO_PHENIX</c> of the worker's own actor (<see cref="ActorProperty.AbilityAutoPhenix"/>).</summary>
+        public int AbilityAutoPhenix { [Atel.NativeMember(0x70aa, Constant = 0x0047)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0047)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_LIMITUP</c> of the worker's own actor (<see cref="ActorProperty.AbilityLimitup"/>).</summary>
+        public int AbilityLimitup { [Atel.NativeMember(0x70aa, Constant = 0x0048)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0048)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_DREAM</c> of the worker's own actor (<see cref="ActorProperty.AbilityDream"/>).</summary>
+        public int AbilityDream { [Atel.NativeMember(0x70aa, Constant = 0x0049)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0049)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_PIERCE</c> of the worker's own actor (<see cref="ActorProperty.AbilityPierce"/>).</summary>
+        public int AbilityPierce { [Atel.NativeMember(0x70aa, Constant = 0x004a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_EXCHANGE</c> of the worker's own actor (<see cref="ActorProperty.AbilityExchange"/>).</summary>
+        public int AbilityExchange { [Atel.NativeMember(0x70aa, Constant = 0x004b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_HP_RECOVER</c> of the worker's own actor (<see cref="ActorProperty.AbilityHpRecover"/>).</summary>
+        public int AbilityHpRecover { [Atel.NativeMember(0x70aa, Constant = 0x004c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_MP_RECOVER</c> of the worker's own actor (<see cref="ActorProperty.AbilityMpRecover"/>).</summary>
+        public int AbilityMpRecover { [Atel.NativeMember(0x70aa, Constant = 0x004d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>ABILITY_NONENCOUNT</c> of the worker's own actor (<see cref="ActorProperty.AbilityNonencount"/>).</summary>
+        public int AbilityNonencount { [Atel.NativeMember(0x70aa, Constant = 0x004e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_PATTERN</c> of the worker's own actor (<see cref="ActorProperty.DeathPattern"/>).</summary>
+        public int DeathPattern { [Atel.NativeMember(0x70aa, Constant = 0x004f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x004f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EVENT_CHR</c> of the worker's own actor (<see cref="ActorProperty.EventChr"/>).</summary>
+        public int EventChr { [Atel.NativeMember(0x70aa, Constant = 0x0050)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0050)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ACTION</c> of the worker's own actor (<see cref="ActorProperty.Action"/>).</summary>
+        public int Action { [Atel.NativeMember(0x70aa, Constant = 0x0051)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0051)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSOR</c> of the worker's own actor (<see cref="ActorProperty.Cursor"/>).</summary>
+        public int Cursor { [Atel.NativeMember(0x70aa, Constant = 0x0052)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0052)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CTB_LIST</c> of the worker's own actor (<see cref="ActorProperty.CtbList"/>).</summary>
+        public int CtbList { [Atel.NativeMember(0x70aa, Constant = 0x0053)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0053)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE</c> of the worker's own actor (<see cref="ActorProperty.Visible"/>).</summary>
+        public int Visible { [Atel.NativeMember(0x70aa, Constant = 0x0054)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0054)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_AREA</c> of the worker's own actor (<see cref="ActorProperty.MoveArea"/>).</summary>
+        public int MoveArea { [Atel.NativeMember(0x70aa, Constant = 0x0055)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0055)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_POS</c> of the worker's own actor (<see cref="ActorProperty.MovePos"/>).</summary>
+        public int MovePos { [Atel.NativeMember(0x70aa, Constant = 0x0056)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0056)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFLV</c> of the worker's own actor (<see cref="ActorProperty.Efflv"/>).</summary>
+        public int Efflv { [Atel.NativeMember(0x70aa, Constant = 0x0057)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0057)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MODEL</c> of the worker's own actor (<see cref="ActorProperty.Model"/>).</summary>
+        public int Model { [Atel.NativeMember(0x70aa, Constant = 0x0058)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0058)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_CHR</c> of the worker's own actor (<see cref="ActorProperty.DamageChr"/>).</summary>
+        public int DamageChr { [Atel.NativeMember(0x70aa, Constant = 0x0059)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0059)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_TARGET</c> of the worker's own actor (<see cref="ActorProperty.MoveTarget"/>).</summary>
+        public int MoveTarget { [Atel.NativeMember(0x70aa, Constant = 0x005a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTIONLV</c> of the worker's own actor (<see cref="ActorProperty.Motionlv"/>).</summary>
+        public int Motionlv { [Atel.NativeMember(0x70aa, Constant = 0x005b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NOP</c> of the worker's own actor (<see cref="ActorProperty.Nop"/>).</summary>
+        public int Nop { [Atel.NativeMember(0x70aa, Constant = 0x005c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.MoveFlag"/>).</summary>
+        public int MoveFlag { [Atel.NativeMember(0x70aa, Constant = 0x005d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE_MOTION</c> of the worker's own actor (<see cref="ActorProperty.LiveMotion"/>).</summary>
+        public int LiveMotion { [Atel.NativeMember(0x70aa, Constant = 0x005e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ADJUST_POS</c> of the worker's own actor (<see cref="ActorProperty.AdjustPos"/>).</summary>
+        public int AdjustPos { [Atel.NativeMember(0x70aa, Constant = 0x005f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x005f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HEIGHT_ON</c> of the worker's own actor (<see cref="ActorProperty.HeightOn"/>).</summary>
+        public int HeightOn { [Atel.NativeMember(0x70aa, Constant = 0x0060)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0060)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SLEEP_RECOVER_FLAG</c> of the worker's own actor (<see cref="ActorProperty.SleepRecoverFlag"/>).</summary>
+        public int SleepRecoverFlag { [Atel.NativeMember(0x70aa, Constant = 0x0061)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0061)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_FIRE</c> of the worker's own actor (<see cref="ActorProperty.AbsFire"/>).</summary>
+        public int AbsFire { [Atel.NativeMember(0x70aa, Constant = 0x0062)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0062)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_COLD</c> of the worker's own actor (<see cref="ActorProperty.AbsCold"/>).</summary>
+        public int AbsCold { [Atel.NativeMember(0x70aa, Constant = 0x0063)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0063)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_THUNDER</c> of the worker's own actor (<see cref="ActorProperty.AbsThunder"/>).</summary>
+        public int AbsThunder { [Atel.NativeMember(0x70aa, Constant = 0x0064)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0064)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_WATER</c> of the worker's own actor (<see cref="ActorProperty.AbsWater"/>).</summary>
+        public int AbsWater { [Atel.NativeMember(0x70aa, Constant = 0x0065)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0065)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABS_HOLY</c> of the worker's own actor (<see cref="ActorProperty.AbsHoly"/>).</summary>
+        public int AbsHoly { [Atel.NativeMember(0x70aa, Constant = 0x0066)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0066)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_FIRE</c> of the worker's own actor (<see cref="ActorProperty.InvFire"/>).</summary>
+        public int InvFire { [Atel.NativeMember(0x70aa, Constant = 0x0067)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0067)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_COLD</c> of the worker's own actor (<see cref="ActorProperty.InvCold"/>).</summary>
+        public int InvCold { [Atel.NativeMember(0x70aa, Constant = 0x0068)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0068)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_THUNDER</c> of the worker's own actor (<see cref="ActorProperty.InvThunder"/>).</summary>
+        public int InvThunder { [Atel.NativeMember(0x70aa, Constant = 0x0069)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0069)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_WATER</c> of the worker's own actor (<see cref="ActorProperty.InvWater"/>).</summary>
+        public int InvWater { [Atel.NativeMember(0x70aa, Constant = 0x006a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_HOLY</c> of the worker's own actor (<see cref="ActorProperty.InvHoly"/>).</summary>
+        public int InvHoly { [Atel.NativeMember(0x70aa, Constant = 0x006b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_FIRE</c> of the worker's own actor (<see cref="ActorProperty.HalfFire"/>).</summary>
+        public int HalfFire { [Atel.NativeMember(0x70aa, Constant = 0x006c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_COLD</c> of the worker's own actor (<see cref="ActorProperty.HalfCold"/>).</summary>
+        public int HalfCold { [Atel.NativeMember(0x70aa, Constant = 0x006d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_THUNDER</c> of the worker's own actor (<see cref="ActorProperty.HalfThunder"/>).</summary>
+        public int HalfThunder { [Atel.NativeMember(0x70aa, Constant = 0x006e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_WATER</c> of the worker's own actor (<see cref="ActorProperty.HalfWater"/>).</summary>
+        public int HalfWater { [Atel.NativeMember(0x70aa, Constant = 0x006f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x006f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HALF_HOLY</c> of the worker's own actor (<see cref="ActorProperty.HalfHoly"/>).</summary>
+        public int HalfHoly { [Atel.NativeMember(0x70aa, Constant = 0x0070)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0070)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_FIRE</c> of the worker's own actor (<see cref="ActorProperty.WeakFire"/>).</summary>
+        public int WeakFire { [Atel.NativeMember(0x70aa, Constant = 0x0071)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0071)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_COLD</c> of the worker's own actor (<see cref="ActorProperty.WeakCold"/>).</summary>
+        public int WeakCold { [Atel.NativeMember(0x70aa, Constant = 0x0072)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0072)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_THUNDER</c> of the worker's own actor (<see cref="ActorProperty.WeakThunder"/>).</summary>
+        public int WeakThunder { [Atel.NativeMember(0x70aa, Constant = 0x0073)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0073)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_WATER</c> of the worker's own actor (<see cref="ActorProperty.WeakWater"/>).</summary>
+        public int WeakWater { [Atel.NativeMember(0x70aa, Constant = 0x0074)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0074)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_HOLY</c> of the worker's own actor (<see cref="ActorProperty.WeakHoly"/>).</summary>
+        public int WeakHoly { [Atel.NativeMember(0x70aa, Constant = 0x0075)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0075)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ADJUST_POS_FLAG</c> of the worker's own actor (<see cref="ActorProperty.AdjustPosFlag"/>).</summary>
+        public int AdjustPosFlag { [Atel.NativeMember(0x70aa, Constant = 0x0076)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0076)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_PHYSIC_MOTION</c> of the worker's own actor (<see cref="ActorProperty.InvPhysicMotion"/>).</summary>
+        public int InvPhysicMotion { [Atel.NativeMember(0x70aa, Constant = 0x0077)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0077)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INV_MAGIC_MOTION</c> of the worker's own actor (<see cref="ActorProperty.InvMagicMotion"/>).</summary>
+        public int InvMagicMotion { [Atel.NativeMember(0x70aa, Constant = 0x0078)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0078)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STEAL_COUNT</c> of the worker's own actor (<see cref="ActorProperty.StealCount"/>).</summary>
+        public int StealCount { [Atel.NativeMember(0x70aa, Constant = 0x0079)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0079)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WAIT_MOTION_FLAG</c> of the worker's own actor (<see cref="ActorProperty.WaitMotionFlag"/>).</summary>
+        public int WaitMotionFlag { [Atel.NativeMember(0x70aa, Constant = 0x007a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_RETURN_FLAG</c> of the worker's own actor (<see cref="ActorProperty.AttackReturnFlag"/>).</summary>
+        public int AttackReturnFlag { [Atel.NativeMember(0x70aa, Constant = 0x007b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NORMAL_FRAME</c> of the worker's own actor (<see cref="ActorProperty.AttackNormalFrame"/>).</summary>
+        public int AttackNormalFrame { [Atel.NativeMember(0x70aa, Constant = 0x007c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DISABLE_MOVE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.DisableMoveFlag"/>).</summary>
+        public int DisableMoveFlag { [Atel.NativeMember(0x70aa, Constant = 0x007d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DISABLE_JUMP_FLAG</c> of the worker's own actor (<see cref="ActorProperty.DisableJumpFlag"/>).</summary>
+        public int DisableJumpFlag { [Atel.NativeMember(0x70aa, Constant = 0x007e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BODYHIT_FLAG</c> of the worker's own actor (<see cref="ActorProperty.BodyhitFlag"/>).</summary>
+        public int BodyhitFlag { [Atel.NativeMember(0x70aa, Constant = 0x007f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x007f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFVAR</c> of the worker's own actor (<see cref="ActorProperty.Effvar"/>).</summary>
+        public int Effvar { [Atel.NativeMember(0x70aa, Constant = 0x0080)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0080)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM</c> of the worker's own actor (<see cref="ActorProperty.Item"/>).</summary>
+        public int Item { [Atel.NativeMember(0x70aa, Constant = 0x0081)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0081)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM_NUM</c> of the worker's own actor (<see cref="ActorProperty.ItemNum"/>).</summary>
+        public int ItemNum { [Atel.NativeMember(0x70aa, Constant = 0x0082)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0082)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RAREITEM</c> of the worker's own actor (<see cref="ActorProperty.Rareitem"/>).</summary>
+        public int Rareitem { [Atel.NativeMember(0x70aa, Constant = 0x0083)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0083)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RAREITEM_NUM</c> of the worker's own actor (<see cref="ActorProperty.RareitemNum"/>).</summary>
+        public int RareitemNum { [Atel.NativeMember(0x70aa, Constant = 0x0084)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0084)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGICLV</c> of the worker's own actor (<see cref="ActorProperty.Magiclv"/>).</summary>
+        public int Magiclv { [Atel.NativeMember(0x70aa, Constant = 0x0085)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0085)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_MOTION_FLAG</c> of the worker's own actor (<see cref="ActorProperty.AppearMotionFlag"/>).</summary>
+        public int AppearMotionFlag { [Atel.NativeMember(0x70aa, Constant = 0x0086)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0086)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSOR_ELEMENT</c> of the worker's own actor (<see cref="ActorProperty.CursorElement"/>).</summary>
+        public int CursorElement { [Atel.NativeMember(0x70aa, Constant = 0x0087)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0087)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_FLAG_CAM</c> of the worker's own actor (<see cref="ActorProperty.LimitBarFlagCam"/>).</summary>
+        public int LimitBarFlagCam { [Atel.NativeMember(0x70aa, Constant = 0x0088)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0088)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_FLAG</c> of the worker's own actor (<see cref="ActorProperty.LimitBarFlag"/>).</summary>
+        public int LimitBarFlag { [Atel.NativeMember(0x70aa, Constant = 0x0089)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0089)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DROP1</c> of the worker's own actor (<see cref="ActorProperty.Drop1"/>).</summary>
+        public int Drop1 { [Atel.NativeMember(0x70aa, Constant = 0x008a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DROP2</c> of the worker's own actor (<see cref="ActorProperty.Drop2"/>).</summary>
+        public int Drop2 { [Atel.NativeMember(0x70aa, Constant = 0x008b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAPON_DROP</c> of the worker's own actor (<see cref="ActorProperty.WeaponDrop"/>).</summary>
+        public int WeaponDrop { [Atel.NativeMember(0x70aa, Constant = 0x008c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STEAL</c> of the worker's own actor (<see cref="ActorProperty.Steal"/>).</summary>
+        public int Steal { [Atel.NativeMember(0x70aa, Constant = 0x008d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EXIST_FLAG</c> of the worker's own actor (<see cref="ActorProperty.ExistFlag"/>).</summary>
+        public int ExistFlag { [Atel.NativeMember(0x70aa, Constant = 0x008e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE</c> of the worker's own actor (<see cref="ActorProperty.Live"/>).</summary>
+        public int Live { [Atel.NativeMember(0x70aa, Constant = 0x008f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x008f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.StrMemory"/>).</summary>
+        public int StrMemory { [Atel.NativeMember(0x70aa, Constant = 0x0090)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0090)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.MagMemory"/>).</summary>
+        public int MagMemory { [Atel.NativeMember(0x70aa, Constant = 0x0091)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0091)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DexMemory"/>).</summary>
+        public int DexMemory { [Atel.NativeMember(0x70aa, Constant = 0x0092)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0092)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOVE_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.MoveMemory"/>).</summary>
+        public int MoveMemory { [Atel.NativeMember(0x70aa, Constant = 0x0093)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0093)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ABILITY_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.AbilityMemory"/>).</summary>
+        public int AbilityMemory { [Atel.NativeMember(0x70aa, Constant = 0x0094)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0094)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DODGE</c> of the worker's own actor (<see cref="ActorProperty.Dodge"/>).</summary>
+        public int Dodge { [Atel.NativeMember(0x70aa, Constant = 0x0095)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0095)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEFEND</c> of the worker's own actor (<see cref="ActorProperty.Defend"/>).</summary>
+        public int Defend { [Atel.NativeMember(0x70aa, Constant = 0x0096)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0096)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLOW</c> of the worker's own actor (<see cref="ActorProperty.Blow"/>).</summary>
+        public int Blow { [Atel.NativeMember(0x70aa, Constant = 0x0097)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0097)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RELIFE</c> of the worker's own actor (<see cref="ActorProperty.Relife"/>).</summary>
+        public int Relife { [Atel.NativeMember(0x70aa, Constant = 0x0098)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0098)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CURSE</c> of the worker's own actor (<see cref="ActorProperty.Curse"/>).</summary>
+        public int Curse { [Atel.NativeMember(0x70aa, Constant = 0x0099)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0099)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEFENSE</c> of the worker's own actor (<see cref="ActorProperty.Defense"/>).</summary>
+        public int Defense { [Atel.NativeMember(0x70aa, Constant = 0x009a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTECT</c> of the worker's own actor (<see cref="ActorProperty.Protect"/>).</summary>
+        public int Protect { [Atel.NativeMember(0x70aa, Constant = 0x009b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_IRON</c> of the worker's own actor (<see cref="ActorProperty.Iron"/>).</summary>
+        public int Iron { [Atel.NativeMember(0x70aa, Constant = 0x009c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE</c> of the worker's own actor (<see cref="ActorProperty.DeathSentence"/>).</summary>
+        public int DeathSentence { [Atel.NativeMember(0x70aa, Constant = 0x009d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE</c> of the worker's own actor (<see cref="ActorProperty.MotionType"/>).</summary>
+        public int MotionType { [Atel.NativeMember(0x70aa, Constant = 0x009e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE_START</c> of the worker's own actor (<see cref="ActorProperty.DeathSentenceStart"/>).</summary>
+        public int DeathSentenceStart { [Atel.NativeMember(0x70aa, Constant = 0x009f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x009f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_SENTENCE_COUNT</c> of the worker's own actor (<see cref="ActorProperty.DeathSentenceCount"/>).</summary>
+        public int DeathSentenceCount { [Atel.NativeMember(0x70aa, Constant = 0x00a0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DMG_DIR</c> of the worker's own actor (<see cref="ActorProperty.DmgDir"/>).</summary>
+        public int DmgDir { [Atel.NativeMember(0x70aa, Constant = 0x00a1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_CHANGE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.DirectionChangeFlag"/>).</summary>
+        public int DirectionChangeFlag { [Atel.NativeMember(0x70aa, Constant = 0x00a2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_CHANGE_EFFECT</c> of the worker's own actor (<see cref="ActorProperty.DirectionChangeEffect"/>).</summary>
+        public int DirectionChangeEffect { [Atel.NativeMember(0x70aa, Constant = 0x00a3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DIRECTION_FIX_FLAG</c> of the worker's own actor (<see cref="ActorProperty.DirectionFixFlag"/>).</summary>
+        public int DirectionFixFlag { [Atel.NativeMember(0x70aa, Constant = 0x00a4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT_TERMINATE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.HitTerminateFlag"/>).</summary>
+        public int HitTerminateFlag { [Atel.NativeMember(0x70aa, Constant = 0x00a5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_HP</c> of the worker's own actor (<see cref="ActorProperty.DamageHp"/>).</summary>
+        public int DamageHp { [Atel.NativeMember(0x70aa, Constant = 0x00a6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_MP</c> of the worker's own actor (<see cref="ActorProperty.DamageMp"/>).</summary>
+        public int DamageMp { [Atel.NativeMember(0x70aa, Constant = 0x00a7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_CTB</c> of the worker's own actor (<see cref="ActorProperty.DamageCtb"/>).</summary>
+        public int DamageCtb { [Atel.NativeMember(0x70aa, Constant = 0x00a8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_INVISIBLE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.AppearInvisibleFlag"/>).</summary>
+        public int AppearInvisibleFlag { [Atel.NativeMember(0x70aa, Constant = 0x00a9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00a9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFECT_HIT_NUM</c> of the worker's own actor (<see cref="ActorProperty.EffectHitNum"/>).</summary>
+        public int EffectHitNum { [Atel.NativeMember(0x70aa, Constant = 0x00aa)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00aa)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID_FLAG</c> of the worker's own actor (<see cref="ActorProperty.AvoidFlag"/>).</summary>
+        public int AvoidFlag { [Atel.NativeMember(0x70aa, Constant = 0x00ab)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ab)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLOW_EXIST_FLAG</c> of the worker's own actor (<see cref="ActorProperty.BlowExistFlag"/>).</summary>
+        public int BlowExistFlag { [Atel.NativeMember(0x70aa, Constant = 0x00ac)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ac)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ESCAPE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.EscapeFlag"/>).</summary>
+        public int EscapeFlag { [Atel.NativeMember(0x70aa, Constant = 0x00ad)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ad)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIDE</c> of the worker's own actor (<see cref="ActorProperty.Hide"/>).</summary>
+        public int Hide { [Atel.NativeMember(0x70aa, Constant = 0x00ae)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ae)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEATH</c> of the worker's own actor (<see cref="ActorProperty.DefDeath"/>).</summary>
+        public int DefDeath { [Atel.NativeMember(0x70aa, Constant = 0x00af)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00af)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ZOMBIE</c> of the worker's own actor (<see cref="ActorProperty.DefZombie"/>).</summary>
+        public int DefZombie { [Atel.NativeMember(0x70aa, Constant = 0x00b0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_STONE</c> of the worker's own actor (<see cref="ActorProperty.DefStone"/>).</summary>
+        public int DefStone { [Atel.NativeMember(0x70aa, Constant = 0x00b1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_POISON</c> of the worker's own actor (<see cref="ActorProperty.DefPoison"/>).</summary>
+        public int DefPoison { [Atel.NativeMember(0x70aa, Constant = 0x00b2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_POWER_BREAK</c> of the worker's own actor (<see cref="ActorProperty.DefPowerBreak"/>).</summary>
+        public int DefPowerBreak { [Atel.NativeMember(0x70aa, Constant = 0x00b3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MAGIC_BREAK</c> of the worker's own actor (<see cref="ActorProperty.DefMagicBreak"/>).</summary>
+        public int DefMagicBreak { [Atel.NativeMember(0x70aa, Constant = 0x00b4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ARMOR_BREAK</c> of the worker's own actor (<see cref="ActorProperty.DefArmorBreak"/>).</summary>
+        public int DefArmorBreak { [Atel.NativeMember(0x70aa, Constant = 0x00b5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MENTAL_BREAK</c> of the worker's own actor (<see cref="ActorProperty.DefMentalBreak"/>).</summary>
+        public int DefMentalBreak { [Atel.NativeMember(0x70aa, Constant = 0x00b6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CONFUSE</c> of the worker's own actor (<see cref="ActorProperty.DefConfuse"/>).</summary>
+        public int DefConfuse { [Atel.NativeMember(0x70aa, Constant = 0x00b7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BERSERK</c> of the worker's own actor (<see cref="ActorProperty.DefBerserk"/>).</summary>
+        public int DefBerserk { [Atel.NativeMember(0x70aa, Constant = 0x00b8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROV</c> of the worker's own actor (<see cref="ActorProperty.DefProv"/>).</summary>
+        public int DefProv { [Atel.NativeMember(0x70aa, Constant = 0x00b9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00b9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_THREAT</c> of the worker's own actor (<see cref="ActorProperty.DefThreat"/>).</summary>
+        public int DefThreat { [Atel.NativeMember(0x70aa, Constant = 0x00ba)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ba)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SLEEP</c> of the worker's own actor (<see cref="ActorProperty.DefSleep"/>).</summary>
+        public int DefSleep { [Atel.NativeMember(0x70aa, Constant = 0x00bb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00bb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SILENCE</c> of the worker's own actor (<see cref="ActorProperty.DefSilence"/>).</summary>
+        public int DefSilence { [Atel.NativeMember(0x70aa, Constant = 0x00bc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00bc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DARK</c> of the worker's own actor (<see cref="ActorProperty.DefDark"/>).</summary>
+        public int DefDark { [Atel.NativeMember(0x70aa, Constant = 0x00bd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00bd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SHELL</c> of the worker's own actor (<see cref="ActorProperty.DefShell"/>).</summary>
+        public int DefShell { [Atel.NativeMember(0x70aa, Constant = 0x00be)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00be)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROTESS</c> of the worker's own actor (<see cref="ActorProperty.DefProtess"/>).</summary>
+        public int DefProtess { [Atel.NativeMember(0x70aa, Constant = 0x00bf)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00bf)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_REFLECT</c> of the worker's own actor (<see cref="ActorProperty.DefReflect"/>).</summary>
+        public int DefReflect { [Atel.NativeMember(0x70aa, Constant = 0x00c0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BAWATER</c> of the worker's own actor (<see cref="ActorProperty.DefBawater"/>).</summary>
+        public int DefBawater { [Atel.NativeMember(0x70aa, Constant = 0x00c1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BAFIRE</c> of the worker's own actor (<see cref="ActorProperty.DefBafire"/>).</summary>
+        public int DefBafire { [Atel.NativeMember(0x70aa, Constant = 0x00c2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BATHUNDER</c> of the worker's own actor (<see cref="ActorProperty.DefBathunder"/>).</summary>
+        public int DefBathunder { [Atel.NativeMember(0x70aa, Constant = 0x00c3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BACOLD</c> of the worker's own actor (<see cref="ActorProperty.DefBacold"/>).</summary>
+        public int DefBacold { [Atel.NativeMember(0x70aa, Constant = 0x00c4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_REGEN</c> of the worker's own actor (<see cref="ActorProperty.DefRegen"/>).</summary>
+        public int DefRegen { [Atel.NativeMember(0x70aa, Constant = 0x00c5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_HASTE</c> of the worker's own actor (<see cref="ActorProperty.DefHaste"/>).</summary>
+        public int DefHaste { [Atel.NativeMember(0x70aa, Constant = 0x00c6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_SLOW</c> of the worker's own actor (<see cref="ActorProperty.DefSlow"/>).</summary>
+        public int DefSlow { [Atel.NativeMember(0x70aa, Constant = 0x00c7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_LIVE</c> of the worker's own actor (<see cref="ActorProperty.DefLive"/>).</summary>
+        public int DefLive { [Atel.NativeMember(0x70aa, Constant = 0x00c8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_STR_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DefStrMemory"/>).</summary>
+        public int DefStrMemory { [Atel.NativeMember(0x70aa, Constant = 0x00c9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00c9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MAG_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DefMagMemory"/>).</summary>
+        public int DefMagMemory { [Atel.NativeMember(0x70aa, Constant = 0x00ca)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ca)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEX_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DefDexMemory"/>).</summary>
+        public int DefDexMemory { [Atel.NativeMember(0x70aa, Constant = 0x00cb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00cb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_MOVE_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DefMoveMemory"/>).</summary>
+        public int DefMoveMemory { [Atel.NativeMember(0x70aa, Constant = 0x00cc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00cc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_ABILITY_MEMORY</c> of the worker's own actor (<see cref="ActorProperty.DefAbilityMemory"/>).</summary>
+        public int DefAbilityMemory { [Atel.NativeMember(0x70aa, Constant = 0x00cd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00cd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DODGE</c> of the worker's own actor (<see cref="ActorProperty.DefDodge"/>).</summary>
+        public int DefDodge { [Atel.NativeMember(0x70aa, Constant = 0x00ce)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ce)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEFEND</c> of the worker's own actor (<see cref="ActorProperty.DefDefend"/>).</summary>
+        public int DefDefend { [Atel.NativeMember(0x70aa, Constant = 0x00cf)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00cf)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_RELIFE</c> of the worker's own actor (<see cref="ActorProperty.DefRelife"/>).</summary>
+        public int DefRelife { [Atel.NativeMember(0x70aa, Constant = 0x00d0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_BLOW</c> of the worker's own actor (<see cref="ActorProperty.DefBlow"/>).</summary>
+        public int DefBlow { [Atel.NativeMember(0x70aa, Constant = 0x00d1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CURSE</c> of the worker's own actor (<see cref="ActorProperty.DefCurse"/>).</summary>
+        public int DefCurse { [Atel.NativeMember(0x70aa, Constant = 0x00d2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEFENSE</c> of the worker's own actor (<see cref="ActorProperty.DefDefense"/>).</summary>
+        public int DefDefense { [Atel.NativeMember(0x70aa, Constant = 0x00d3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_PROTECT</c> of the worker's own actor (<see cref="ActorProperty.DefProtect"/>).</summary>
+        public int DefProtect { [Atel.NativeMember(0x70aa, Constant = 0x00d4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_IRON</c> of the worker's own actor (<see cref="ActorProperty.DefIron"/>).</summary>
+        public int DefIron { [Atel.NativeMember(0x70aa, Constant = 0x00d5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_DEATH_SENTENCE</c> of the worker's own actor (<see cref="ActorProperty.DefDeathSentence"/>).</summary>
+        public int DefDeathSentence { [Atel.NativeMember(0x70aa, Constant = 0x00d6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_LIST</c> of the worker's own actor (<see cref="ActorProperty.HpList"/>).</summary>
+        public int HpList { [Atel.NativeMember(0x70aa, Constant = 0x00d7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_CAM</c> of the worker's own actor (<see cref="ActorProperty.VisibleCam"/>).</summary>
+        public int VisibleCam { [Atel.NativeMember(0x70aa, Constant = 0x00d8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_OUT</c> of the worker's own actor (<see cref="ActorProperty.VisibleOut"/>).</summary>
+        public int VisibleOut { [Atel.NativeMember(0x70aa, Constant = 0x00d9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00d9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ROUND</c> of the worker's own actor (<see cref="ActorProperty.Round"/>).</summary>
+        public int Round { [Atel.NativeMember(0x70aa, Constant = 0x00da)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00da)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ROUND_RETURN</c> of the worker's own actor (<see cref="ActorProperty.RoundReturn"/>).</summary>
+        public int RoundReturn { [Atel.NativeMember(0x70aa, Constant = 0x00db)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00db)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WIN_POSE</c> of the worker's own actor (<see cref="ActorProperty.WinPose"/>).</summary>
+        public int WinPose { [Atel.NativeMember(0x70aa, Constant = 0x00dc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00dc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIGOR</c> of the worker's own actor (<see cref="ActorProperty.Vigor"/>).</summary>
+        public int Vigor { [Atel.NativeMember(0x70aa, Constant = 0x00dd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00dd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_FAST_MODEL_FLAG</c> of the worker's own actor (<see cref="ActorProperty.FastModelFlag"/>).</summary>
+        public int FastModelFlag { [Atel.NativeMember(0x70aa, Constant = 0x00de)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00de)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ALIVE_NOT_STONE</c> of the worker's own actor (<see cref="ActorProperty.AliveNotStone"/>).</summary>
+        public int AliveNotStone { [Atel.NativeMember(0x70aa, Constant = 0x00df)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00df)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_TYPE</c> of the worker's own actor (<see cref="ActorProperty.CommandType"/>).</summary>
+        public int CommandType { [Atel.NativeMember(0x70aa, Constant = 0x00e0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_EFFECT_TARGET_FLAG</c> of the worker's own actor (<see cref="ActorProperty.EffectTargetFlag"/>).</summary>
+        public int EffectTargetFlag { [Atel.NativeMember(0x70aa, Constant = 0x00e1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_EFFECT_GROUND</c> of the worker's own actor (<see cref="ActorProperty.MagicEffectGround"/>).</summary>
+        public int MagicEffectGround { [Atel.NativeMember(0x70aa, Constant = 0x00e2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAGIC_EFFECT_WATER</c> of the worker's own actor (<see cref="ActorProperty.MagicEffectWater"/>).</summary>
+        public int MagicEffectWater { [Atel.NativeMember(0x70aa, Constant = 0x00e3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_IDLE2_PROB</c> of the worker's own actor (<see cref="ActorProperty.Idle2Prob"/>).</summary>
+        public int Idle2Prob { [Atel.NativeMember(0x70aa, Constant = 0x00e4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_MOTION_TYPE</c> of the worker's own actor (<see cref="ActorProperty.AttackMotionType"/>).</summary>
+        public int AttackMotionType { [Atel.NativeMember(0x70aa, Constant = 0x00e5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_INC_SPEED</c> of the worker's own actor (<see cref="ActorProperty.AttackIncSpeed"/>).</summary>
+        public int AttackIncSpeed { [Atel.NativeMember(0x70aa, Constant = 0x00e6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_DEC_SPEED</c> of the worker's own actor (<see cref="ActorProperty.AttackDecSpeed"/>).</summary>
+        public int AttackDecSpeed { [Atel.NativeMember(0x70aa, Constant = 0x00e7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CTB</c> of the worker's own actor (<see cref="ActorProperty.Ctb"/>).</summary>
+        public int Ctb { [Atel.NativeMember(0x70aa, Constant = 0x00e8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_APPEAR_COUNT</c> of the worker's own actor (<see cref="ActorProperty.AppearCount"/>).</summary>
+        public int AppearCount { [Atel.NativeMember(0x70aa, Constant = 0x00e9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00e9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_NUM</c> of the worker's own actor (<see cref="ActorProperty.MotionNum"/>).</summary>
+        public int MotionNum { [Atel.NativeMember(0x70aa, Constant = 0x00ea)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ea)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_INFO_MES_ID</c> of the worker's own actor (<see cref="ActorProperty.InfoMesId"/>).</summary>
+        public int InfoMesId { [Atel.NativeMember(0x70aa, Constant = 0x00eb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00eb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIVE_MES_ID</c> of the worker's own actor (<see cref="ActorProperty.LiveMesId"/>).</summary>
+        public int LiveMesId { [Atel.NativeMember(0x70aa, Constant = 0x00ec)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ec)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_EFF</c> of the worker's own actor (<see cref="ActorProperty.VisibleEff"/>).</summary>
+        public int VisibleEff { [Atel.NativeMember(0x70aa, Constant = 0x00ed)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ed)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_DISPOSE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.MotionDisposeFlag"/>).</summary>
+        public int MotionDisposeFlag { [Atel.NativeMember(0x70aa, Constant = 0x00ee)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ee)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MODEL_DISPOSE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.ModelDisposeFlag"/>).</summary>
+        public int ModelDisposeFlag { [Atel.NativeMember(0x70aa, Constant = 0x00ef)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ef)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEF_CTB</c> of the worker's own actor (<see cref="ActorProperty.DefCtb"/>).</summary>
+        public int DefCtb { [Atel.NativeMember(0x70aa, Constant = 0x00f0)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f0)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHADOW</c> of the worker's own actor (<see cref="ActorProperty.Shadow"/>).</summary>
+        public int Shadow { [Atel.NativeMember(0x70aa, Constant = 0x00f1)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f1)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH</c> of the worker's own actor (<see cref="ActorProperty.Death"/>).</summary>
+        public int Death { [Atel.NativeMember(0x70aa, Constant = 0x00f2)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f2)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_STONE</c> of the worker's own actor (<see cref="ActorProperty.DeathStone"/>).</summary>
+        public int DeathStone { [Atel.NativeMember(0x70aa, Constant = 0x00f3)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f3)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CHECK_POS</c> of the worker's own actor (<see cref="ActorProperty.CheckPos"/>).</summary>
+        public int CheckPos { [Atel.NativeMember(0x70aa, Constant = 0x00f4)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f4)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WIN_SE</c> of the worker's own actor (<see cref="ActorProperty.WinSe"/>).</summary>
+        public int WinSe { [Atel.NativeMember(0x70aa, Constant = 0x00f5)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f5)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NUM</c> of the worker's own actor (<see cref="ActorProperty.AttackNum"/>).</summary>
+        public int AttackNum { [Atel.NativeMember(0x70aa, Constant = 0x00f6)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f6)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NEAR_MOTION</c> of the worker's own actor (<see cref="ActorProperty.NearMotion"/>).</summary>
+        public int NearMotion { [Atel.NativeMember(0x70aa, Constant = 0x00f7)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f7)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT1</c> of the worker's own actor (<see cref="ActorProperty.TalkStat1"/>).</summary>
+        public int TalkStat1 { [Atel.NativeMember(0x70aa, Constant = 0x00f8)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f8)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT2</c> of the worker's own actor (<see cref="ActorProperty.TalkStat2"/>).</summary>
+        public int TalkStat2 { [Atel.NativeMember(0x70aa, Constant = 0x00f9)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00f9)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NEAR_MOTION_SET</c> of the worker's own actor (<see cref="ActorProperty.NearMotionSet"/>).</summary>
+        public int NearMotionSet { [Atel.NativeMember(0x70aa, Constant = 0x00fa)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00fa)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_SPEED_NORMAL</c> of the worker's own actor (<see cref="ActorProperty.MotionSpeedNormal"/>).</summary>
+        public int MotionSpeedNormal { [Atel.NativeMember(0x70aa, Constant = 0x00fb)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00fb)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_SPEED_NORMAL_START</c> of the worker's own actor (<see cref="ActorProperty.MotionSpeedNormalStart"/>).</summary>
+        public int MotionSpeedNormalStart { [Atel.NativeMember(0x70aa, Constant = 0x00fc)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00fc)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_OWN_ATTACK_NEAR</c> of the worker's own actor (<see cref="ActorProperty.OwnAttackNear"/>).</summary>
+        public int OwnAttackNear { [Atel.NativeMember(0x70aa, Constant = 0x00fd)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00fd)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TALK_STAT3</c> of the worker's own actor (<see cref="ActorProperty.TalkStat3"/>).</summary>
+        public int TalkStat3 { [Atel.NativeMember(0x70aa, Constant = 0x00fe)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00fe)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_SET</c> of the worker's own actor (<see cref="ActorProperty.CommandSet"/>).</summary>
+        public int CommandSet { [Atel.NativeMember(0x70aa, Constant = 0x00ff)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x00ff)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV_COMMAND_FLAG</c> of the worker's own actor (<see cref="ActorProperty.ProvCommandFlag"/>).</summary>
+        public int ProvCommandFlag { [Atel.NativeMember(0x70aa, Constant = 0x0100)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0100)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROV_CHR</c> of the worker's own actor (<see cref="ActorProperty.ProvChr"/>).</summary>
+        public int ProvChr { [Atel.NativeMember(0x70aa, Constant = 0x0101)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0101)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_MP0</c> of the worker's own actor (<see cref="ActorProperty.UseMp0"/>).</summary>
+        public int UseMp0 { [Atel.NativeMember(0x70aa, Constant = 0x0102)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0102)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ICON_NUMBER</c> of the worker's own actor (<see cref="ActorProperty.IconNumber"/>).</summary>
+        public int IconNumber { [Atel.NativeMember(0x70aa, Constant = 0x0103)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0103)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SOUND_HIT_NUM</c> of the worker's own actor (<see cref="ActorProperty.SoundHitNum"/>).</summary>
+        public int SoundHitNum { [Atel.NativeMember(0x70aa, Constant = 0x0104)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0104)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DAMAGE_NUM_POS</c> of the worker's own actor (<see cref="ActorProperty.DamageNumPos"/>).</summary>
+        public int DamageNumPos { [Atel.NativeMember(0x70aa, Constant = 0x0105)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0105)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SUMMONER</c> of the worker's own actor (<see cref="ActorProperty.Summoner"/>).</summary>
+        public int Summoner { [Atel.NativeMember(0x70aa, Constant = 0x0106)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0106)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INVINCIBLE</c> of the worker's own actor (<see cref="ActorProperty.SpInvincible"/>).</summary>
+        public int SpInvincible { [Atel.NativeMember(0x70aa, Constant = 0x0107)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0107)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INV_MAGIC</c> of the worker's own actor (<see cref="ActorProperty.SpInvMagic"/>).</summary>
+        public int SpInvMagic { [Atel.NativeMember(0x70aa, Constant = 0x0108)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0108)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_INV_PHYSIC</c> of the worker's own actor (<see cref="ActorProperty.SpInvPhysic"/>).</summary>
+        public int SpInvPhysic { [Atel.NativeMember(0x70aa, Constant = 0x0109)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0109)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BLUE_MAGIC</c> of the worker's own actor (<see cref="ActorProperty.BlueMagic"/>).</summary>
+        public int BlueMagic { [Atel.NativeMember(0x70aa, Constant = 0x010a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_DISABLE_ZAN</c> of the worker's own actor (<see cref="ActorProperty.SpDisableZan"/>).</summary>
+        public int SpDisableZan { [Atel.NativeMember(0x70aa, Constant = 0x010b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_OVER_KILL_HP</c> of the worker's own actor (<see cref="ActorProperty.OverKillHp"/>).</summary>
+        public int OverKillHp { [Atel.NativeMember(0x70aa, Constant = 0x010c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_RETURN_MOTION_TYPE</c> of the worker's own actor (<see cref="ActorProperty.ReturnMotionType"/>).</summary>
+        public int ReturnMotionType { [Atel.NativeMember(0x70aa, Constant = 0x010d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CAM_WIDTH</c> of the worker's own actor (<see cref="ActorProperty.CamWidth"/>).</summary>
+        public int CamWidth { [Atel.NativeMember(0x70aa, Constant = 0x010e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CAM_HEIGHT</c> of the worker's own actor (<see cref="ActorProperty.CamHeight"/>).</summary>
+        public int CamHeight { [Atel.NativeMember(0x70aa, Constant = 0x010f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x010f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HEIGHT</c> of the worker's own actor (<see cref="ActorProperty.Height"/>).</summary>
+        public int Height { [Atel.NativeMember(0x70aa, Constant = 0x0110)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0110)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_YOUJINBO</c> of the worker's own actor (<see cref="ActorProperty.Youjinbo"/>).</summary>
+        public int Youjinbo { [Atel.NativeMember(0x70aa, Constant = 0x0111)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0111)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PAYMENT</c> of the worker's own actor (<see cref="ActorProperty.Payment"/>).</summary>
+        public int Payment { [Atel.NativeMember(0x70aa, Constant = 0x0112)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0112)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MONSTER_VALUE_MAX</c> of the worker's own actor (<see cref="ActorProperty.MonsterValueMax"/>).</summary>
+        public int MonsterValueMax { [Atel.NativeMember(0x70aa, Constant = 0x0113)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0113)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_COMMAND_EXE_COUNT</c> of the worker's own actor (<see cref="ActorProperty.CommandExeCount"/>).</summary>
+        public int CommandExeCount { [Atel.NativeMember(0x70aa, Constant = 0x0114)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0114)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONSENT</c> of the worker's own actor (<see cref="ActorProperty.Consent"/>).</summary>
+        public int Consent { [Atel.NativeMember(0x70aa, Constant = 0x0115)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0115)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_NEAR_FRAME</c> of the worker's own actor (<see cref="ActorProperty.AttackNearFrame"/>).</summary>
+        public int AttackNearFrame { [Atel.NativeMember(0x70aa, Constant = 0x0116)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0116)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ENERGY</c> of the worker's own actor (<see cref="ActorProperty.Energy"/>).</summary>
+        public int Energy { [Atel.NativeMember(0x70aa, Constant = 0x0117)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0117)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_ADD</c> of the worker's own actor (<see cref="ActorProperty.LimitGaugeAdd"/>).</summary>
+        public int LimitGaugeAdd { [Atel.NativeMember(0x70aa, Constant = 0x0118)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0118)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_HALF</c> of the worker's own actor (<see cref="ActorProperty.HpHalf"/>).</summary>
+        public int HpHalf { [Atel.NativeMember(0x70aa, Constant = 0x0119)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0119)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_GAUGE_CHECK</c> of the worker's own actor (<see cref="ActorProperty.LimitGaugeCheck"/>).</summary>
+        public int LimitGaugeCheck { [Atel.NativeMember(0x70aa, Constant = 0x011a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HP_CHECK</c> of the worker's own actor (<see cref="ActorProperty.HpCheck"/>).</summary>
+        public int HpCheck { [Atel.NativeMember(0x70aa, Constant = 0x011b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MP_CHECK</c> of the worker's own actor (<see cref="ActorProperty.MpCheck"/>).</summary>
+        public int MpCheck { [Atel.NativeMember(0x70aa, Constant = 0x011c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BA_ALL_CHECK</c> of the worker's own actor (<see cref="ActorProperty.BaAllCheck"/>).</summary>
+        public int BaAllCheck { [Atel.NativeMember(0x70aa, Constant = 0x011d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SHELL_REFLECT</c> of the worker's own actor (<see cref="ActorProperty.ShellReflect"/>).</summary>
+        public int ShellReflect { [Atel.NativeMember(0x70aa, Constant = 0x011e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_PROTESS_REFLECT</c> of the worker's own actor (<see cref="ActorProperty.ProtessReflect"/>).</summary>
+        public int ProtessReflect { [Atel.NativeMember(0x70aa, Constant = 0x011f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x011f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HASTE_REFLECT</c> of the worker's own actor (<see cref="ActorProperty.HasteReflect"/>).</summary>
+        public int HasteReflect { [Atel.NativeMember(0x70aa, Constant = 0x0120)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0120)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_WEAK_MOTION</c> of the worker's own actor (<see cref="ActorProperty.WeakMotion"/>).</summary>
+        public int WeakMotion { [Atel.NativeMember(0x70aa, Constant = 0x0121)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0121)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SP_WAIRO</c> of the worker's own actor (<see cref="ActorProperty.SpWairo"/>).</summary>
+        public int SpWairo { [Atel.NativeMember(0x70aa, Constant = 0x0122)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0122)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ATTACK_MOTION_FRAME</c> of the worker's own actor (<see cref="ActorProperty.AttackMotionFrame"/>).</summary>
+        public int AttackMotionFrame { [Atel.NativeMember(0x70aa, Constant = 0x0123)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0123)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE_RESET</c> of the worker's own actor (<see cref="ActorProperty.MotionTypeReset"/>).</summary>
+        public int MotionTypeReset { [Atel.NativeMember(0x70aa, Constant = 0x0124)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0124)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MOTION_TYPE_ADD</c> of the worker's own actor (<see cref="ActorProperty.MotionTypeAdd"/>).</summary>
+        public int MotionTypeAdd { [Atel.NativeMember(0x70aa, Constant = 0x0125)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0125)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_STATUS</c> of the worker's own actor (<see cref="ActorProperty.DeathStatus"/>).</summary>
+        public int DeathStatus { [Atel.NativeMember(0x70aa, Constant = 0x0126)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0126)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_TARGET_LIST</c> of the worker's own actor (<see cref="ActorProperty.TargetList"/>).</summary>
+        public int TargetList { [Atel.NativeMember(0x70aa, Constant = 0x0127)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0127)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LIMIT_BAR_POS</c> of the worker's own actor (<see cref="ActorProperty.LimitBarPos"/>).</summary>
+        public int LimitBarPos { [Atel.NativeMember(0x70aa, Constant = 0x0128)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0128)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CENTER_CHR_FLAG</c> of the worker's own actor (<see cref="ActorProperty.CenterChrFlag"/>).</summary>
+        public int CenterChrFlag { [Atel.NativeMember(0x70aa, Constant = 0x0129)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0129)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SAME_TARGET_CHECK</c> of the worker's own actor (<see cref="ActorProperty.SameTargetCheck"/>).</summary>
+        public int SameTargetCheck { [Atel.NativeMember(0x70aa, Constant = 0x012a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_AP</c> of the worker's own actor (<see cref="ActorProperty.GetAp"/>).</summary>
+        public int GetAp { [Atel.NativeMember(0x70aa, Constant = 0x012b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_OVER_AP</c> of the worker's own actor (<see cref="ActorProperty.GetOverAp"/>).</summary>
+        public int GetOverAp { [Atel.NativeMember(0x70aa, Constant = 0x012c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_GET_GILL</c> of the worker's own actor (<see cref="ActorProperty.GetGill"/>).</summary>
+        public int GetGill { [Atel.NativeMember(0x70aa, Constant = 0x012d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_STR_UP</c> of the worker's own actor (<see cref="ActorProperty.StrUp"/>).</summary>
+        public int StrUp { [Atel.NativeMember(0x70aa, Constant = 0x012e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VIT_UP</c> of the worker's own actor (<see cref="ActorProperty.VitUp"/>).</summary>
+        public int VitUp { [Atel.NativeMember(0x70aa, Constant = 0x012f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x012f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_MAG_UP</c> of the worker's own actor (<see cref="ActorProperty.MagUp"/>).</summary>
+        public int MagUp { [Atel.NativeMember(0x70aa, Constant = 0x0130)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0130)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_SPIRIT_UP</c> of the worker's own actor (<see cref="ActorProperty.SpiritUp"/>).</summary>
+        public int SpiritUp { [Atel.NativeMember(0x70aa, Constant = 0x0131)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0131)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEX_UP</c> of the worker's own actor (<see cref="ActorProperty.DexUp"/>).</summary>
+        public int DexUp { [Atel.NativeMember(0x70aa, Constant = 0x0132)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0132)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LUCK_UP</c> of the worker's own actor (<see cref="ActorProperty.LuckUp"/>).</summary>
+        public int LuckUp { [Atel.NativeMember(0x70aa, Constant = 0x0133)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0133)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_AVOID_UP</c> of the worker's own actor (<see cref="ActorProperty.AvoidUp"/>).</summary>
+        public int AvoidUp { [Atel.NativeMember(0x70aa, Constant = 0x0134)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0134)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_HIT_UP</c> of the worker's own actor (<see cref="ActorProperty.HitUp"/>).</summary>
+        public int HitUp { [Atel.NativeMember(0x70aa, Constant = 0x0135)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0135)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_MP</c> of the worker's own actor (<see cref="ActorProperty.UseMp"/>).</summary>
+        public int UseMp { [Atel.NativeMember(0x70aa, Constant = 0x0136)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0136)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_LIMIT</c> of the worker's own actor (<see cref="ActorProperty.UseLimit"/>).</summary>
+        public int UseLimit { [Atel.NativeMember(0x70aa, Constant = 0x0137)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0137)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_USE_LIMIT_ALL</c> of the worker's own actor (<see cref="ActorProperty.UseLimitAll"/>).</summary>
+        public int UseLimitAll { [Atel.NativeMember(0x70aa, Constant = 0x0138)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0138)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_CONTINUE_MAGIC</c> of the worker's own actor (<see cref="ActorProperty.ContinueMagic"/>).</summary>
+        public int ContinueMagic { [Atel.NativeMember(0x70aa, Constant = 0x0139)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0139)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM</c> of the worker's own actor (<see cref="ActorProperty.Item1Com"/>).</summary>
+        public int Item1Com { [Atel.NativeMember(0x70aa, Constant = 0x013a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE</c> of the worker's own actor (<see cref="ActorProperty.Item1Rare"/>).</summary>
+        public int Item1Rare { [Atel.NativeMember(0x70aa, Constant = 0x013b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM</c> of the worker's own actor (<see cref="ActorProperty.Item2Com"/>).</summary>
+        public int Item2Com { [Atel.NativeMember(0x70aa, Constant = 0x013c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE</c> of the worker's own actor (<see cref="ActorProperty.Item2Rare"/>).</summary>
+        public int Item2Rare { [Atel.NativeMember(0x70aa, Constant = 0x013d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_OVER_KILL</c> of the worker's own actor (<see cref="ActorProperty.Item1ComOverKill"/>).</summary>
+        public int Item1ComOverKill { [Atel.NativeMember(0x70aa, Constant = 0x013e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_OVER_KILL</c> of the worker's own actor (<see cref="ActorProperty.Item1RareOverKill"/>).</summary>
+        public int Item1RareOverKill { [Atel.NativeMember(0x70aa, Constant = 0x013f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x013f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_OVER_KILL</c> of the worker's own actor (<see cref="ActorProperty.Item2ComOverKill"/>).</summary>
+        public int Item2ComOverKill { [Atel.NativeMember(0x70aa, Constant = 0x0140)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0140)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_OVER_KILL</c> of the worker's own actor (<see cref="ActorProperty.Item2RareOverKill"/>).</summary>
+        public int Item2RareOverKill { [Atel.NativeMember(0x70aa, Constant = 0x0141)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0141)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item1ComNum"/>).</summary>
+        public int Item1ComNum { [Atel.NativeMember(0x70aa, Constant = 0x0142)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0142)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item1RareNum"/>).</summary>
+        public int Item1RareNum { [Atel.NativeMember(0x70aa, Constant = 0x0143)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0143)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item2ComNum"/>).</summary>
+        public int Item2ComNum { [Atel.NativeMember(0x70aa, Constant = 0x0144)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0144)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item2RareNum"/>).</summary>
+        public int Item2RareNum { [Atel.NativeMember(0x70aa, Constant = 0x0145)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0145)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_COM_OVER_KILL_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item1ComOverKillNum"/>).</summary>
+        public int Item1ComOverKillNum { [Atel.NativeMember(0x70aa, Constant = 0x0146)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0146)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM1_RARE_OVER_KILL_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item1RareOverKillNum"/>).</summary>
+        public int Item1RareOverKillNum { [Atel.NativeMember(0x70aa, Constant = 0x0147)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0147)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_COM_OVER_KILL_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item2ComOverKillNum"/>).</summary>
+        public int Item2ComOverKillNum { [Atel.NativeMember(0x70aa, Constant = 0x0148)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0148)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ITEM2_RARE_OVER_KILL_NUM</c> of the worker's own actor (<see cref="ActorProperty.Item2RareOverKillNum"/>).</summary>
+        public int Item2RareOverKillNum { [Atel.NativeMember(0x70aa, Constant = 0x0149)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0149)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_DEATH_RETURN</c> of the worker's own actor (<see cref="ActorProperty.DeathReturn"/>).</summary>
+        public int DeathReturn { [Atel.NativeMember(0x70aa, Constant = 0x014a)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014a)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_LINEAR_MOVE_RESET</c> of the worker's own actor (<see cref="ActorProperty.LinearMoveReset"/>).</summary>
+        public int LinearMoveReset { [Atel.NativeMember(0x70aa, Constant = 0x014b)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014b)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_BODYHIT_DIRECT</c> of the worker's own actor (<see cref="ActorProperty.BodyhitDirect"/>).</summary>
+        public int BodyhitDirect { [Atel.NativeMember(0x70aa, Constant = 0x014c)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014c)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_JOIN</c> of the worker's own actor (<see cref="ActorProperty.Join"/>).</summary>
+        public int Join { [Atel.NativeMember(0x70aa, Constant = 0x014d)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014d)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_ETERNAL_RELIFE</c> of the worker's own actor (<see cref="ActorProperty.EternalRelife"/>).</summary>
+        public int EternalRelife { [Atel.NativeMember(0x70aa, Constant = 0x014e)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014e)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NECK_TARGET_FLAG</c> of the worker's own actor (<see cref="ActorProperty.NeckTargetFlag"/>).</summary>
+        public int NeckTargetFlag { [Atel.NativeMember(0x70aa, Constant = 0x014f)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x014f)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_VISIBLE_OUT_ON</c> of the worker's own actor (<see cref="ActorProperty.VisibleOutOn"/>).</summary>
+        public int VisibleOutOn { [Atel.NativeMember(0x70aa, Constant = 0x0150)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0150)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_REGEN_DAMAGE_FLAG</c> of the worker's own actor (<see cref="ActorProperty.RegenDamageFlag"/>).</summary>
+        public int RegenDamageFlag { [Atel.NativeMember(0x70aa, Constant = 0x0151)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0151)] set => throw Atel.Runtime.NotRunnable(); }
+
+        /// <summary><c>STAT_NUM_PRINT_ELEMENT</c> of the worker's own actor (<see cref="ActorProperty.NumPrintElement"/>).</summary>
+        public int NumPrintElement { [Atel.NativeMember(0x70aa, Constant = 0x0152)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0152)] set => throw Atel.Runtime.NotRunnable(); }
+    }
+
     /// <summary>Waiting: frames, for ever.</summary>
     public static partial class Wait
     {
@@ -726,45 +2794,23 @@ namespace Ffx
             [Atel.NativeMember(0x6049)] 
             public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>Shakes the camera's eye, shake kind 1 (as <see cref="Cam.EyeShakeKind2"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x605d</c>, <c>Cam.EyeShakeKind1</c> (164 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x605d)] 
-            public static int ShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6067: no args -&gt; the shake with (1, 2); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 1, kind 2)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6067</c>, <c>Cam.EyeShakeKind2</c> (7 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6067)] 
-            public static int ShakeKind2(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6082: no args -&gt; the shake with (1, 7); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 1, kind 7)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6082</c>, <c>Cam.EyeShakeKind7</c> (4 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6082)] 
-            public static int ShakeKind7(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>Shakes the camera's eye, shake kind 8 (as <see cref="Cam.EyeShakeKind2"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6084</c>, <c>Cam.EyeShakeKind8</c> (42 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6084)] 
-            public static int ShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+            /// <summary>Starts a shake of the eye (the camera's position): the angle of its wave steps by <paramref name="speed"/> each frame, scaled by <paramref name="amplitude"/> (MsCameraShake). The kind picks the native; <see cref="ShakeKind"/> says how each moves.</summary>
+            /// <param name="kind">How it moves: the wave and whether it fades out, fades in or stays (each kind is its own native).</param>
+            /// <param name="which">The axes to shake, bits 0-2 (x, y, z).</param>
+            /// <param name="speed">The angle the wave advances each frame.</param>
+            /// <param name="frames">The shake's length in frames.</param>
+            /// <param name="amplitude">The amplitude.</param>
+            /// <param name="jitter">A random range for the amplitude (each frame scaled by (32 + j) / 32, j within it); 0 for none.</param>
+            /// <remarks>Kind 1 calls native <c>0x605d</c>, <c>Cam.EyeShakeKind1</c> (164 calls in the shipped scripts). Kind 2 calls native <c>0x6067</c>, <c>Cam.EyeShakeKind2</c> (7 calls in the shipped scripts). Kind 3 calls native <c>0x606a</c>, <c>Cam.EyeShakeKind3</c> (0 calls in the shipped scripts). Kind 4 calls native <c>0x606d</c>, <c>Cam.EyeShakeKind4</c> (0 calls in the shipped scripts). Kind 5 calls native <c>0x6070</c>, <c>Cam.EyeShakeKind5</c> (0 calls in the shipped scripts). Kind 6 calls native <c>0x6073</c>, <c>Cam.EyeShakeKind6</c> (0 calls in the shipped scripts). Kind 7 calls native <c>0x6082</c>, <c>Cam.EyeShakeKind7</c> (4 calls in the shipped scripts). Kind 8 calls native <c>0x6084</c>, <c>Cam.EyeShakeKind8</c> (42 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605d, Choice = 1)] 
+            [Atel.NativeMember(0x6067, Choice = 2)] 
+            [Atel.NativeMember(0x606a, Choice = 3)] 
+            [Atel.NativeMember(0x606d, Choice = 4)] 
+            [Atel.NativeMember(0x6070, Choice = 5)] 
+            [Atel.NativeMember(0x6073, Choice = 6)] 
+            [Atel.NativeMember(0x6082, Choice = 7)] 
+            [Atel.NativeMember(0x6084, Choice = 8)] 
+            public static int Shake(ShakeKind kind, int which, float speed, int frames, int amplitude, int jitter) => throw Atel.Runtime.NotRunnable();
 
             /// <summary>Stops the shakes of the camera's eye.</summary>
             /// <remarks>Calls native <c>0x6060</c>, <c>Cam.EyeResetShake</c> (353 calls in the shipped scripts).</remarks>
@@ -972,65 +3018,23 @@ namespace Ffx
             [Atel.NativeMember(0x604b)] 
             public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>Shakes the camera's focus point, shake kind 1 (as <see cref="Cam.FocusShakeKind2"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x605c</c>, <c>Cam.FocusShakeKind1</c> (171 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x605c)] 
-            public static int ShakeKind1(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6066: no args -&gt; the shake with (0, 2); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 2)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6066</c>, <c>Cam.FocusShakeKind2</c> (3 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6066)] 
-            public static int ShakeKind2(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6069: no args -&gt; MsAtelCameraShake(worker, args, stack, 0, 3) (0x007bb8c0); ported in native_chr (script round 12); name from MsAtelCameraShake(.., side 0, kind 3)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6069</c>, <c>Cam.FocusShakeKind3</c> (10 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6069)] 
-            public static int ShakeKind3(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x606c: no args -&gt; the shake with (0, 4); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 4)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x606c</c>, <c>Cam.FocusShakeKind4</c> (2 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x606c)] 
-            public static int ShakeKind4(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6081: no args -&gt; the shake with (0, 7); ported in native_chr (script round 12); name from dump: MsAtelCameraShake(.., side 0, kind 7)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6081</c>, <c>Cam.FocusShakeKind7</c> (6 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6081)] 
-            public static int ShakeKind7(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>Shakes the camera's focus point, shake kind 8 (as <see cref="Cam.FocusShakeKind2"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <remarks>Calls native <c>0x6083</c>, <c>Cam.FocusShakeKind8</c> (42 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6083)] 
-            public static int ShakeKind8(int a0, float a1, int a2, int a3, int a4) => throw Atel.Runtime.NotRunnable();
+            /// <summary>Starts a shake of the focus (the point the camera looks at): the angle of its wave steps by <paramref name="speed"/> each frame, scaled by <paramref name="amplitude"/> (MsCameraShake). The kind picks the native; <see cref="ShakeKind"/> says how each moves.</summary>
+            /// <param name="kind">How it moves: the wave and whether it fades out, fades in or stays (each kind is its own native).</param>
+            /// <param name="which">The axes to shake, bits 0-2 (x, y, z).</param>
+            /// <param name="speed">The angle the wave advances each frame.</param>
+            /// <param name="frames">The shake's length in frames.</param>
+            /// <param name="amplitude">The amplitude.</param>
+            /// <param name="jitter">A random range for the amplitude (each frame scaled by (32 + j) / 32, j within it); 0 for none.</param>
+            /// <remarks>Kind 1 calls native <c>0x605c</c>, <c>Cam.FocusShakeKind1</c> (171 calls in the shipped scripts). Kind 2 calls native <c>0x6066</c>, <c>Cam.FocusShakeKind2</c> (3 calls in the shipped scripts). Kind 3 calls native <c>0x6069</c>, <c>Cam.FocusShakeKind3</c> (10 calls in the shipped scripts). Kind 4 calls native <c>0x606c</c>, <c>Cam.FocusShakeKind4</c> (2 calls in the shipped scripts). Kind 5 calls native <c>0x606f</c>, <c>Cam.FocusShakeKind5</c> (0 calls in the shipped scripts). Kind 6 calls native <c>0x6072</c>, <c>Cam.FocusShakeKind6</c> (0 calls in the shipped scripts). Kind 7 calls native <c>0x6081</c>, <c>Cam.FocusShakeKind7</c> (6 calls in the shipped scripts). Kind 8 calls native <c>0x6083</c>, <c>Cam.FocusShakeKind8</c> (42 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605c, Choice = 1)] 
+            [Atel.NativeMember(0x6066, Choice = 2)] 
+            [Atel.NativeMember(0x6069, Choice = 3)] 
+            [Atel.NativeMember(0x606c, Choice = 4)] 
+            [Atel.NativeMember(0x606f, Choice = 5)] 
+            [Atel.NativeMember(0x6072, Choice = 6)] 
+            [Atel.NativeMember(0x6081, Choice = 7)] 
+            [Atel.NativeMember(0x6083, Choice = 8)] 
+            public static int Shake(ShakeKind kind, int which, float speed, int frames, int amplitude, int jitter) => throw Atel.Runtime.NotRunnable();
 
             /// <summary>Stops the shakes of the camera's focus point.</summary>
             /// <remarks>Calls native <c>0x605f</c>, <c>Cam.FocusResetShake</c> (60 calls in the shipped scripts).</remarks>
@@ -1047,60 +3051,22 @@ namespace Ffx
         public static partial class Screen
         {
 
-            /// <summary>0x605e: no args -&gt; 0x007bb840(..., 1); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 1) -&gt; MsScreenShake kind 1</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <param name="a5"></param>
-            /// <remarks>Calls native <c>0x605e</c>, <c>Cam.ScreenShakeKind1</c> (2 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x605e)] 
-            public static int ShakeKind1(int a0, int a1, int a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>Shakes the screen, shake kind 3 (as <see cref="Cam.ScreenShakeKind4"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <param name="a5"></param>
-            /// <remarks>Calls native <c>0x606b</c>, <c>Cam.ScreenShakeKind3</c> (72 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x606b)] 
-            public static int ShakeKind3(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x606e: no args -&gt; 0x007bb840(..., 4); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 4)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <param name="a5"></param>
-            /// <remarks>Calls native <c>0x606e</c>, <c>Cam.ScreenShakeKind4</c> (11 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x606e)] 
-            public static int ShakeKind4(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>Shakes the screen, shake kind 5 (as <see cref="Cam.ScreenShakeKind4"/>).</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <param name="a5"></param>
-            /// <remarks>Calls native <c>0x6071</c>, <c>Cam.ScreenShakeKind5</c> (73 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6071)] 
-            public static int ShakeKind5(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
-
-            /// <summary>0x6074: no args -&gt; 0x007bb840(worker, args, stack, 6); 0; ported in native_chr (script round 12); name from MsAtelScreenShake(.., 6)</summary>
-            /// <param name="a0"></param>
-            /// <param name="a1"></param>
-            /// <param name="a2"></param>
-            /// <param name="a3"></param>
-            /// <param name="a4"></param>
-            /// <param name="a5"></param>
-            /// <remarks>Calls native <c>0x6074</c>, <c>Cam.ScreenShakeKind6</c> (12 calls in the shipped scripts).</remarks>
-            [Atel.NativeMember(0x6074)] 
-            public static int ShakeKind6(int a0, int a1, float a2, int a3, int a4, int a5) => throw Atel.Runtime.NotRunnable();
+            /// <summary>Starts a shake of a screen: the angle of its wave steps by <paramref name="speed"/> each frame, scaled by <paramref name="amplitude"/> (MsScreenShake). The kind picks the native; <see cref="ShakeKind"/> says how each moves.</summary>
+            /// <param name="kind">How it moves: the wave and whether it fades out, fades in or stays (each kind is its own native).</param>
+            /// <param name="screen">The screen, 0-2.</param>
+            /// <param name="which">The axes to shake, bits 0-1 (x, y).</param>
+            /// <param name="speed">The angle the wave advances each frame.</param>
+            /// <param name="frames">The shake's length in frames.</param>
+            /// <param name="amplitude">The amplitude.</param>
+            /// <param name="jitter">A random range for the amplitude (each frame scaled by (32 + j) / 32, j within it); 0 for none.</param>
+            /// <remarks>Kind 1 calls native <c>0x605e</c>, <c>Cam.ScreenShakeKind1</c> (2 calls in the shipped scripts). Kind 2 calls native <c>0x6068</c>, <c>Cam.ScreenShakeKind2</c> (0 calls in the shipped scripts). Kind 3 calls native <c>0x606b</c>, <c>Cam.ScreenShakeKind3</c> (72 calls in the shipped scripts). Kind 4 calls native <c>0x606e</c>, <c>Cam.ScreenShakeKind4</c> (11 calls in the shipped scripts). Kind 5 calls native <c>0x6071</c>, <c>Cam.ScreenShakeKind5</c> (73 calls in the shipped scripts). Kind 6 calls native <c>0x6074</c>, <c>Cam.ScreenShakeKind6</c> (12 calls in the shipped scripts).</remarks>
+            [Atel.NativeMember(0x605e, Choice = 1)] 
+            [Atel.NativeMember(0x6068, Choice = 2)] 
+            [Atel.NativeMember(0x606b, Choice = 3)] 
+            [Atel.NativeMember(0x606e, Choice = 4)] 
+            [Atel.NativeMember(0x6071, Choice = 5)] 
+            [Atel.NativeMember(0x6074, Choice = 6)] 
+            public static int Shake(ShakeKind kind, int screen, int which, float speed, int frames, int amplitude, int jitter) => throw Atel.Runtime.NotRunnable();
 
             /// <summary>0x6061: args (v) -&gt; MsScreenResetShake(v) (0x007c56c0); ported in native_chr (script round 12); name from MsScreenResetShake(v)</summary>
             /// <param name="v"></param>

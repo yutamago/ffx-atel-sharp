@@ -8,6 +8,6 @@ namespace Ffx.Atel.Analyzers;
 /// <summary>The analyzers that make C# into Atel, for hosts that attach them by hand (<c>atel compile --check</c>).</summary>
 public static class AtelAnalyzers {
     public static ImmutableArray<DiagnosticAnalyzer> All { get; } = [
-        new SubsetAnalyzer(), new RequestAnalyzer(), new CallAnalyzer(), new RegisterAnalyzer(), new InlineAnalyzer(), new ModAnalyzer(), new SavedAnalyzer(), new LibraryAliasAnalyzer(),
+        new SubsetAnalyzer(), new RequestAnalyzer(), new CallAnalyzer(), new RegisterAnalyzer(), new InlineAnalyzer(), new ModAnalyzer(), new SavedAnalyzer(), new MemberAnalyzer(), new LibraryAliasAnalyzer(),
     ];
 }
