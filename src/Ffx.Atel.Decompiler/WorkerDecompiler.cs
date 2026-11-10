@@ -517,6 +517,9 @@ internal sealed partial class WorkerDecompiler {
     public int AsmInstructions => Units.Where(u => u.Stmt is null).Sum(u => u.End - u.Start);
 
     /// <summary>The integer and float registers the C# statements use.</summary>
+    /// <summary>Names for the worker's registers (<see cref="Naming.RegisterRoles"/>); the others are <c>I0</c>, <c>F3</c>.</summary>
+    public Dictionary<(RegKind Kind, int Number), string> RegisterNames => _printer.RegisterNames;
+
     public SortedSet<(RegKind Kind, int Number)> Registers() {
         SortedSet<(RegKind Kind, int Number)> used = [];
         void Walk(Expr e) {

@@ -42,6 +42,9 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
     /// <summary>Registers the printed statements use: (kind, number) for the integer and float registers.</summary>
     public SortedSet<(RegKind Kind, int Number)> Registers { get; } = [];
 
+    /// <summary>Names for the worker's registers other than <c>I0</c>, <c>F3</c> (<see cref="Naming.RegisterRoles"/>).</summary>
+    public Dictionary<(RegKind Kind, int Number), string> RegisterNames { get; } = [];
+
     /// <summary>Names placed by domain (<c>story</c>, an enum's name; <c>…-cast</c> for a value without a member), while <see cref="Counting"/>.</summary>
     public Dictionary<string, int> Names { get; } = new(StringComparer.Ordinal);
 
@@ -305,10 +308,10 @@ internal sealed partial class StatementPrinter(VarInfo[] vars, NativeSignatures 
         switch (r.Kind) {
             case RegKind.Int:
                 Registers.Add((r.Kind, r.Number));
-                return new E(string.Create(CultureInfo.InvariantCulture, $"I{r.Number}"), CType.Int, PPrimary);
+                return new E(RegisterNames.GetValueOrDefault((r.Kind, r.Number)) ?? string.Create(CultureInfo.InvariantCulture, $"I{r.Number}"), CType.Int, PPrimary);
             case RegKind.Float:
                 Registers.Add((r.Kind, r.Number));
-                return new E(string.Create(CultureInfo.InvariantCulture, $"F{r.Number}"), CType.Float, PPrimary);
+                return new E(RegisterNames.GetValueOrDefault((r.Kind, r.Number)) ?? string.Create(CultureInfo.InvariantCulture, $"F{r.Number}"), CType.Float, PPrimary);
             case RegKind.A: return new E("RegA", CType.Int, PPrimary);
             case RegKind.B: return new E("RegB", CType.Int, PPrimary);
             default: return new E("LastResult", CType.Int, PPrimary);

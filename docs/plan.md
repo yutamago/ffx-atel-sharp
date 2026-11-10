@@ -1151,7 +1151,12 @@ replaces and the round trip stays byte for byte.
   declarations named; `TriggerEntries` 454); function workers named 435; library classes `SharedNNNN` 417 → 175 (551 classes, 3,334 workers derive
   from them, 3,000 before); `Save_xxxx` 1,538 (unchanged); workers `Wnn` 5,677 → 5,242.
   1621/1621 round-trip, 0 C# errors, the 221 ATL2006 warnings.
-- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), register names, empty entries
+- **More names by rule** (2026-11-10): party members by `SetPartyIndex`, `BattleLine`/`Box`,
+  `WarpLine`/`Box`, `MapSetup`, registers by the getter stored in them, long entries by
+  three quarters of their calls ([research/variable-names.md](research/variable-names.md)).
+  Numbers: workers `Wnn` 5,025 → 4,427; `SharedNNNN` 175 → 147; entries `E<n>` 20,772 →
+  20,082; registers named 0 → 416 of 9,181.
+- Not done yet: `AsBool`/`AsInt` (40,771 and 3,349 left), most registers, empty entries
   that are no trigger entry (8,649), long entries that mix kinds of natives and requests,
   storage 1 offsets whose writers do not say what they hold.
 - Numbers (2026-11-02): 13,248 `Model` members (21 casts); 3,684 of 15,010
