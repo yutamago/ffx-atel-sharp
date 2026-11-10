@@ -82,8 +82,13 @@ public sealed class TemplateTests(SdkFeed sdk) {
         string dir = Path.Combine(sdk.Root, "new", "Thunder");
         DotNet.Run(sdk.Root, sdk.Env, ["new", "atel-mod", "-n", "Thunder Mod", "--script", "kami0000", "--authors", "Someone", "-o", dir, "--debug:custom-hive", hive]);
 
-        Assert.Equal([".gitignore", "Kami0000.cs", "README.md", "Thunder Mod.csproj", "global.json", "mod.toml", "nuget.config"], DotNet.Files(dir));
+        Assert.Equal([".gitignore", "Kami0000.cs", "LICENSE", "README.md", "Thunder Mod.csproj", "global.json", "mod.toml", "nuget.config"], DotNet.Files(dir));
         string cs = File.ReadAllText(Path.Combine(dir, "Kami0000.cs"));
+        // MIT by default (--license): the licence file with the year and the authors, an SPDX header, the project's expression.
+        Assert.StartsWith("// SPDX-License-Identifier: MIT\n\nusing Ffx;", cs.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+        string license = File.ReadAllText(Path.Combine(dir, "LICENSE"));
+        Assert.StartsWith("MIT License", license, StringComparison.Ordinal);
+        Assert.Contains($"Copyright (c) {DateTime.Now.Year} Someone", license, StringComparison.Ordinal);
         Assert.Contains("namespace Events.Ka_ThunderPlains.Kami0000;", cs, StringComparison.Ordinal);
         Assert.Contains("using static Events.Ka_ThunderPlains.Kami0000.Kami0000;", cs, StringComparison.Ordinal);
         Assert.Contains("public static partial class Kami0000", cs, StringComparison.Ordinal);
@@ -93,14 +98,36 @@ public sealed class TemplateTests(SdkFeed sdk) {
         Assert.Contains("<AtelModName>Thunder Mod</AtelModName>", project, StringComparison.Ordinal);
         Assert.Contains("<Authors>Someone</Authors>", project, StringComparison.Ordinal);
         Assert.Contains(">../atel-vanilla</AtelVanillaSource>", project, StringComparison.Ordinal);
+        Assert.Contains("<PackageLicenseExpression>MIT</PackageLicenseExpression>", project, StringComparison.Ordinal);
         using (JsonDocument global = JsonDocument.Parse(File.ReadAllText(Path.Combine(dir, "global.json")))) {
-            Assert.Equal(sdk.Version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("Ffx.Atel.Sdk").GetString());
+            Assert.Equal(sdk.Version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("AtelSharp.Sdk").GetString());
         }
         Assert.Contains("value=\"../atel-feed\"", File.ReadAllText(Path.Combine(dir, "nuget.config")), StringComparison.Ordinal);
         string readme = File.ReadAllText(Path.Combine(dir, "README.md"));
-        Assert.Contains($"ffx.atel.sdk/{sdk.Version}/tools/atel/atel.dll decompile kami0000 -o ../atel-vanilla", readme, StringComparison.Ordinal);
+        Assert.Contains($"atelsharp.sdk/{sdk.Version}/tools/atel/atel.dll decompile kami0000 -o ../atel-vanilla", readme, StringComparison.Ordinal);
         // No token of the template is left.
-        foreach (string f in Directory.GetFiles(dir)) Assert.DoesNotMatch("Atel(Script|ModIdentifier)|atel-(script-name|mod-|sdk-version|vanilla-dir|feed-dir)|ModTemplateName|@AtelSdkVersion@", File.ReadAllText(f));
+        foreach (string f in Directory.GetFiles(dir)) Assert.DoesNotMatch(LeftoverTokens, File.ReadAllText(f));
+    }
+
+    /// <summary>The template's placeholders and conditions, none of which may reach a mod.</summary>
+    private const string LeftoverTokens =
+        "Atel(Script|ModIdentifier)|atel-(script-name|mod-|sdk-version|vanilla-dir|feed-dir|license-)|ModTemplateName|@AtelSdkVersion@|#if|#endif|mitLicense";
+
+    [Fact]
+    public void TheLicenceIsAnOption() {
+        string hive = Install();
+        // Without --authors, the copyright holder is "the authors of this mod", not the default author "you".
+        string mit = Path.Combine(sdk.Root, "new", "DefaultAuthors");
+        DotNet.Run(sdk.Root, sdk.Env, ["new", "atel-mod", "-n", "DefaultAuthors", "-o", mit, "--debug:custom-hive", hive]);
+        Assert.Contains($"Copyright (c) {DateTime.Now.Year} the authors of this mod", File.ReadAllText(Path.Combine(mit, "LICENSE")), StringComparison.Ordinal);
+
+        string none = Path.Combine(sdk.Root, "new", "Unlicensed");
+        DotNet.Run(sdk.Root, sdk.Env, ["new", "atel-mod", "-n", "Unlicensed", "--license", "none", "-o", none, "--debug:custom-hive", hive]);
+        Assert.Equal([".gitignore", "M209.cs", "README.md", "Unlicensed.csproj", "global.json", "mod.toml", "nuget.config"], DotNet.Files(none));
+        Assert.StartsWith("using Ffx;", File.ReadAllText(Path.Combine(none, "M209.cs")), StringComparison.Ordinal);
+        Assert.DoesNotContain("License", File.ReadAllText(Path.Combine(none, "Unlicensed.csproj")), StringComparison.Ordinal);
+        Assert.DoesNotContain("## Licence", File.ReadAllText(Path.Combine(none, "README.md")), StringComparison.Ordinal);
+        foreach (string f in Directory.GetFiles(none)) Assert.DoesNotMatch(LeftoverTokens, File.ReadAllText(f));
     }
 
     [Fact]
@@ -113,7 +140,7 @@ public sealed class TemplateTests(SdkFeed sdk) {
 
         // The README's steps: restore (the SDK package into NuGet's folder), decompile with its atel beside the mod, build.
         DotNet.Run(mod, sdk.Env, ["restore", .. DotNet.BuildFlags]);
-        string atel = Path.Combine(sdk.Env["NUGET_PACKAGES"]!, "ffx.atel.sdk", sdk.Version, "tools", "atel", "atel.dll");
+        string atel = Path.Combine(sdk.Env["NUGET_PACKAGES"]!, "atelsharp.sdk", sdk.Version, "tools", "atel", "atel.dll");
         DotNet.Run(mod, sdk.Env, [atel, "decompile", "m209", "-o", "../atel-vanilla"]);
         Assert.True(File.Exists(Path.Combine(work, "atel-vanilla", "Monsters", "M209", "M209.cs")));
         DotNet.Run(mod, sdk.Env, ["build", .. DotNet.BuildFlags]);

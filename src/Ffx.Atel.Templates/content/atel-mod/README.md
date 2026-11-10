@@ -8,7 +8,7 @@ loaded through [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) and t
 
 - the .NET 10 SDK;
 - your own copy of the game, with `FFX_GAME_DIR` set to its folder (the one with `FFX.exe`);
-- the `Ffx.Atel.Sdk` package, version `atel-sdk-version` (`global.json`).
+- the `AtelSharp.Sdk` package, version `atel-sdk-version` (`global.json`).
 
 ### The SDK package
 
@@ -20,7 +20,7 @@ ffx-atel-sharp at the commit of that version:
 dotnet pack src/Ffx.Atel.Sdk -c Release -o <this project>/atel-feed-dir
 ```
 
-The package's file is `Ffx.Atel.Sdk.atel-sdk-version.nupkg`. Another version of the SDK is another
+The package's file is `AtelSharp.Sdk.atel-sdk-version.nupkg`. Another version of the SDK is another
 `global.json`; NuGet caches a version once and never reads it again.
 
 ## 1. Decompile the vanilla source
@@ -30,7 +30,7 @@ The mod adds to the decompiled source of the script it changes, so it needs that
 
 ```bash
 dotnet restore
-dotnet ~/.nuget/packages/ffx.atel.sdk/atel-sdk-version/tools/atel/atel.dll decompile atel-script-name -o atel-vanilla-dir
+dotnet ~/.nuget/packages/atelsharp.sdk/atel-sdk-version/tools/atel/atel.dll decompile atel-script-name -o atel-vanilla-dir
 ```
 
 `dotnet restore` puts the SDK package into NuGet's package folder (`~/.nuget/packages/`, or
@@ -63,3 +63,11 @@ per script the mod changes under `atel/`.
 
 Copy `bin/Debug/net10.0/mods/` into your Fahrenheit folder and add `atel-mod-id` to `mods/loadorder`,
 after `yuta.atel`. The loader links the mod onto your own files when the game starts.
+<!--#if (mitLicense) -->
+
+## Licence
+
+The mod's code is under the MIT licence (`LICENSE`); the `.cs` files say so in their first line
+(`SPDX-License-Identifier: MIT`). Give `LICENSE` along with the mod folder. `dotnet new atel-mod --license none`
+writes a mod without a licence.
+<!--#endif -->

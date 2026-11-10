@@ -214,7 +214,8 @@ Checks:
   same for two names (a member and a cast) from a made-up `.atel/names`: the hint with its speaker, the hover with
   the speaker and the language links. On Linux under `xvfb-run -a`;
 - `npm run package` writes `atel-text.vsix`; `code --install-extension atel-text.vsix` installs it. CI builds
-  and packages it (no publishing).
+  and packages it (`.github/workflows/editors.yml`, artifact `vscode-extension`); it is not on the Marketplace, and
+  a release attaches it to its GitHub release as `atel-text-vscode-<version>.vsix` ([release.md](release.md)).
 
 By hand: decompile a script and export its text, install the `.vsix`, open the source folder and a
 worker file with `Text[n]` (`Events/Bj/Bjyt0400/W17.cs`); the message follows each index, hovering shows
@@ -290,14 +291,15 @@ plugin, as option 3 below.
   test projects from JetBrains' platform feed (`test/data/nuget.config`) into `~/.local/share/JetBrains`.
 
 Checks: `./gradlew check` (the backend tests) and `./gradlew buildPlugin` (the zip,
-`build/distributions/atel-text-<version>.zip`); CI's `rider` job runs both on Ubuntu and keeps the zip as an
-artifact. Nothing is published. Neither starts Rider: `buildSearchableOptions` (which would start the IDE
+`build/distributions/atel-text-<version>.zip`); CI's `rider` job (`.github/workflows/editors.yml`) runs both on
+Ubuntu and keeps the zip as an artifact. It is not on the JetBrains Marketplace; a release attaches it to its GitHub
+release as `atel-text-rider-<version>.zip` ([release.md](release.md)). Neither starts Rider: `buildSearchableOptions` (which would start the IDE
 headless to index the settings page) is off.
 
 ### Installing
 
 1. Build the zip (`./gradlew buildPlugin` in `editors/rider`; JDK 21 and the .NET 10 SDK), or take it from a
-   CI run's `rider-plugin` artifact.
+   GitHub release or a CI run's `rider-plugin` artifact.
 2. Rider: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, choose
    `atel-text-<version>.zip`, restart Rider.
 3. Export the text (`atel text export -o src`) and open the decompiled solution (`src/Atel.slnx`).

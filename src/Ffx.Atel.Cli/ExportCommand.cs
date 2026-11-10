@@ -260,7 +260,7 @@ internal static class ExportCommand {
         folders, but have projects of their own (`Events/Te/`, or one per script
         inside its area's folder, which the area's project leaves out) that only
         `Variants.slnx` holds, so the other solutions show what the game plays.
-        The projects use the `Ffx.Atel.Sdk` package (the reference assembly the
+        The projects use the `AtelSharp.Sdk` package (the reference assembly the
         source compiles against, and the analyzers), of the version
         in `global.json`, from the same ffx-atel-sharp build as the source; the
         package is in `.atel/packages/`, which `nuget.config` names (MIT, our

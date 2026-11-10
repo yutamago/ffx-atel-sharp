@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: MIT
+# The editor extensions for message text (docs/editor.md), built and tested; each job keeps its package as an
+# artifact (vscode-extension: atel-text.vsix; rider-plugin: atel-text-<version>.zip). Called by build.yml on every
+# push and pull request, and by release-sdk.yml, which attaches both to the GitHub release of a tag.
+name: Editors
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  vscode:
+    # The editor extension for message text (editors/vscode, docs/editor.md): built, unit-tested, checked in a
+    # real VS Code (made-up text) and packaged; a release attaches the .vsix to its GitHub release.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: editors/vscode/package-lock.json
+
+    - name: Install
+      run: npm ci
+
+    - name: Test
+      run: npm test
+
+    - name: Test in VS Code
+      run: xvfb-run -a npm run test:integration
+
+    - name: Package
+      run: npm run package
+
+    - name: Upload the extension
+      uses: actions/upload-artifact@v6
+      with:
+        name: vscode-extension
+        path: editors/vscode/atel-text.vsix
+        if-no-files-found: error
+
+  rider:
+    # The Rider plugin for message text (editors/rider, docs/editor.md): the backend's tests (the ReSharper test
+    # framework, headless, on made-up text) and the plugin zip; a release attaches the zip to its GitHub release.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/rider
+
+    steps:
+    # The Rider SDK (several GB unpacked) and Gradle's caches don't fit next to the runner image's
+    # preinstalled toolchains; drop the ones this job doesn't use.
+    - name: Free disk space
+      working-directory: /
+      run: |
+        df -h /
+        sudo rm -rf /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+          /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft/msedge
+        sudo docker image prune --all --force > /dev/null || true
+        df -h /
+
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 21
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v5
+
+    # The Rider SDK's NuGet packages (about 3 GB) and the reference assemblies the test framework downloads.
+    - name: Cache NuGet
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.nuget/packages
+          ~/.local/share/JetBrains
+        key: rider-nuget-${{ runner.os }}-${{ hashFiles('editors/rider/src/dotnet/**/*.csproj', 'editors/rider/src/dotnet/*.props') }}
+
+    - name: Test
+      run: ./gradlew check --no-daemon
+
+    - name: Build the plugin
+      run: ./gradlew buildPlugin --no-daemon
+
+    - name: Upload the plugin
+      uses: actions/upload-artifact@v6
+      with:
+        name: rider-plugin
+        path: editors/rider/build/distributions/*.zip
+        if-no-files-found: error

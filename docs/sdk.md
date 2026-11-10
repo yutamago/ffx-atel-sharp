@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-# Making a mod: Ffx.Atel.Sdk
+# Making a mod: AtelSharp.Sdk
 
 An Atel mod is a C# project. `dotnet build` checks it against the game's
 decompiled source and writes a Fahrenheit mod folder. That folder holds only
@@ -19,7 +19,7 @@ mod's saved field).
   folder, the one with `FFX.exe`.
 - [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) and the Atel
   loader (`yuta.atel`) to play the mod.
-- The `Ffx.Atel.Sdk` package from a NuGet source. It is not published yet.
+- The `AtelSharp.Sdk` package from a NuGet source. It is not published yet.
   Until it is, pack it from a checkout of this repo and add a local source:
 
   ```bash
@@ -28,11 +28,11 @@ mod's saved field).
   ```
 
   The package's version is the commit's (see "Versions" below), for example
-  `Ffx.Atel.Sdk.0.1.0-alpha.0.117.g5e8c870545.nupkg`. Pin that version in
+  `AtelSharp.Sdk.0.1.0-alpha.0.117.g5e8c870545.nupkg`. Pin that version in
   your mod (step 2).
 
 The package also carries the `atel` tool (`tools/atel/atel.dll`):
-`dotnet ~/.nuget/packages/ffx.atel.sdk/<version>/tools/atel/atel.dll --help`.
+`dotnet ~/.nuget/packages/atelsharp.sdk/<version>/tools/atel/atel.dll --help`.
 
 ### Versions
 
@@ -58,7 +58,7 @@ that package.
 Uncommitted changes do not change the version: the build of a commit is
 reproducible, so a dirty checkout packs under the commit's version. When you
 pack a changed SDK without committing, delete
-`~/.nuget/packages/ffx.atel.sdk/<version>/` (and the copy in a decompiled
+`~/.nuget/packages/atelsharp.sdk/<version>/` (and the copy in a decompiled
 tree's `.atel/packages/`), or commit and pack again.
 
 ## 1. Decompile the vanilla source
@@ -76,7 +76,7 @@ it goes into the mod: it is the game's code.
 
 `atel decompile -o` writes projects that use the SDK, so the vanilla source
 opens in the IDE with the analyzers. The projects are
-`<Project Sdk="Ffx.Atel.Sdk">`, with the SDK's version in `global.json` (the
+`<Project Sdk="AtelSharp.Sdk">`, with the SDK's version in `global.json` (the
 version of the `atel` that wrote them, "Versions" above). When `atel` finds the package beside
 itself (run from the package, or from a checkout after `dotnet pack
 src/Ffx.Atel.Sdk`), or is given it with `--sdk <dir or .nupkg>`, it copies the
@@ -91,7 +91,7 @@ without the analyzers. `dotnet build` of a vanilla project only checks the C#.
 With the template (below, "`dotnet new atel-mod`"), or by hand:
 
 ```xml
-<Project Sdk="Ffx.Atel.Sdk">
+<Project Sdk="AtelSharp.Sdk">
     <PropertyGroup>
         <AtelModId>yuta.larvahp</AtelModId>
         <AtelModName>Larva HP</AtelModName>
@@ -107,10 +107,10 @@ The SDK's version goes in a `global.json` next to the project or in a folder
 above it, the version of the package you packed or installed:
 
 ```json
-{ "msbuild-sdks": { "Ffx.Atel.Sdk": "0.1.0-alpha.0.117.g5e8c870545" } }
+{ "msbuild-sdks": { "AtelSharp.Sdk": "0.1.0-alpha.0.117.g5e8c870545" } }
 ```
 
-(or in the project: `<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha.0.117.g5e8c870545">`).
+(or in the project: `<Project Sdk="AtelSharp.Sdk/0.1.0-alpha.0.117.g5e8c870545">`).
 A new SDK is a new version: change it here to update.
 
 A `.cs` file per script you change, in that script's namespace:
@@ -185,12 +185,12 @@ fixes, which run in the IDE and on build ([analyzers.md](analyzers.md)).
 
 ### `dotnet new atel-mod`
 
-`Ffx.Atel.Templates` (`src/Ffx.Atel.Templates`) is a `dotnet new` template package, packed beside the SDK with the
+`AtelSharp.Templates` (`src/Ffx.Atel.Templates`) is a `dotnet new` template package, packed beside the SDK with the
 same version and not published either. Install it from the local folder, then make a mod:
 
 ```bash
 dotnet pack src/Ffx.Atel.Templates -c Release -o ~/atel-feed
-dotnet new install ~/atel-feed/Ffx.Atel.Templates.<version>.nupkg
+dotnet new install ~/atel-feed/AtelSharp.Templates.<version>.nupkg
 dotnet new atel-mod -n MyMod --script m209 --feed ~/atel-feed
 ```
 
@@ -200,12 +200,19 @@ It writes `MyMod/` as `examples/LarvaHp` is laid out, for the script `--script` 
 MyMod/
   MyMod.csproj      AtelModId <authors>.<name> (--authors, --mod-id), AtelVanillaSource (--vanilla, ../atel-vanilla)
   M209.cs           namespace Monsters.M209; a new variable in the script class, and a patch as a comment
-  global.json       Ffx.Atel.Sdk of the template's own version (--sdk-version)
+  global.json       AtelSharp.Sdk of the template's own version (--sdk-version)
   nuget.config      the local package folder as a source (--feed, ../atel-feed)
   mod.toml
   README.md         decompiling the vanilla source, building, installing
+  LICENSE           MIT, the year and --authors (--license none: no LICENSE)
   .gitignore
 ```
+
+A mod is MIT by default (`--license MIT`): `LICENSE` names the current year and `--authors` as the copyright holder
+("the authors of this mod" when `--authors` is left at `you`), the project has
+`<PackageLicenseExpression>MIT</PackageLicenseExpression>`, the `.cs` file starts with
+`// SPDX-License-Identifier: MIT` and the README says so. `--license none` writes none of them, for a modder who
+chooses other terms.
 
 `--script` is the script's file name (`m209`, `kami0000`, `kami00_00`); the template gives it the namespace, class
 and folder `atel decompile` gives it (`kami0000` → `Events.Ka_ThunderPlains.Kami0000`), by regex steps that
@@ -304,20 +311,21 @@ the same package works on Windows, Linux and macOS.
 
 ## Not yet
 
-- The packages are not published yet; CI only packs them. Publishing is prepared (below) and waits
-  for the user's decisions.
+- The packages are not published yet; CI only packs them. The release is decided and ready (below)
+  and waits for the user's nuget.org setup and tag.
 - `atel compile-mod` reads every `.cs` under the project folder (but `obj/`
   and `bin/`), not the project's `Compile` items.
 
 ## Publishing
 
-Prepared, not done: [release.md](release.md) has the versions, the release workflow
-(`.github/workflows/release-sdk.yml`, only on a pushed tag `v<version>`, and pushing only once the repository
-variable `ATEL_NUGET_TARGET` says where), the package metadata and the decisions left to the user. Before the first
-push:
+Ready, not yet done: the first release is `0.1.0-alpha.1`, to nuget.org as `AtelSharp.Sdk` and
+`AtelSharp.Templates`, with a GitHub release that also carries the editors' packages. [release.md](release.md) has
+the decisions (2026-11-10), the versions, the release workflow (`.github/workflows/release-sdk.yml`, only on a pushed
+tag `v<version>`, pushing only once the repository variable `ATEL_NUGET_TARGET` says where), the account setup and
+the package metadata.
 
 - A nuget.org package is public and permanent (a version can be unlisted, not deleted). The package
-  holds the reference assembly, whose enums carry names from Fahrenheit's ID tables (used with
-  permission from their lead for this project); check that the permission covers a public package.
+  holds the reference assembly, whose enums carry names from Fahrenheit's ID tables, used with the
+  Fahrenheit project's permission.
 - NuGet orders `0.1.0-alpha` below every commit's `0.1.0-alpha.0.<commits>…`. A release must sort above
   the builds before it: `0.1.0-alpha.1`, then `0.1.0-alpha.2`, and so on. Never tag a version twice.

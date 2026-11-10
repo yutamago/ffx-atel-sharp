@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
-    <!-- Ffx.Atel.Sdk, an MSBuild project SDK (docs/sdk.md): <Project Sdk="Ffx.Atel.Sdk/<version>">, the version
+    <!-- AtelSharp.Sdk, an MSBuild project SDK (docs/sdk.md): <Project Sdk="AtelSharp.Sdk/<version>">, the version
          one per commit (0.1.0-alpha.0.<commits>.g<commit>, Directory.Build.targets).
          The package holds no assembly of its own:
            Sdk/Sdk.props, Sdk/Sdk.targets     what a project using the SDK imports
@@ -8,8 +8,11 @@
            analyzers/dotnet/cs/               the analyzers and code fixes
            tools/atel/                        the atel CLI (framework-dependent, net10.0), which the
                                               targets run for compile-mod; usable by hand too
-         It is only packed here (dotnet pack), not published anywhere. -->
+         Packed on every build; published to nuget.org only by a release (docs/release.md). -->
     <PropertyGroup>
+        <!-- The package id (docs/release.md, decision of 2026-11-10): the AtelSharp prefix, reserved on nuget.org for the owner.
+             The project, its folder and the assemblies keep their Ffx.Atel names. A project SDK resolves by package id: <Project Sdk="AtelSharp.Sdk">. -->
+        <PackageId>AtelSharp.Sdk</PackageId>
         <Description>Build Atel mods with dotnet build: the game's reference assembly, the analyzers and the targets that write the mod package.</Description>
         <PackageType>MSBuildSdk</PackageType>
         <PackageTags>ffx;atel;fahrenheit;msbuild-sdk</PackageTags>

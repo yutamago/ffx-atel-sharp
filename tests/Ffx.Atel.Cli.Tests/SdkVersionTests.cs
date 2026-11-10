@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace Ffx.Atel.Cli.Tests;
 
 /// <summary>
-///     The SDK version atel pins (global.json) and looks up (<c>Ffx.Atel.Sdk.&lt;version&gt;.nupkg</c>): this build's
+///     The SDK version atel pins (global.json) and looks up (<c>AtelSharp.Sdk.&lt;version&gt;.nupkg</c>): this build's
 ///     version, one per commit (Directory.Build.targets, docs/sdk.md "Versions").
 /// </summary>
 public sealed partial class SdkVersionTests {
@@ -40,9 +40,9 @@ public sealed partial class SdkVersionTests {
         try {
             const string version = "0.1.0-alpha.0.12.gabcdef0123";
             // NuGet's cache names the file in lower case.
-            string package = Path.Combine(dir, $"ffx.atel.sdk.{version}.nupkg");
+            string package = Path.Combine(dir, $"atelsharp.sdk.{version}.nupkg");
             File.WriteAllBytes(package, []);
-            File.WriteAllBytes(Path.Combine(dir, "Ffx.Atel.Sdk.0.1.0-alpha.0.11.g0123456789.nupkg"), []);
+            File.WriteAllBytes(Path.Combine(dir, "AtelSharp.Sdk.0.1.0-alpha.0.11.g0123456789.nupkg"), []);
             Assert.Equal(package, SourceCommands.FindSdkPackage(dir, version));
             Assert.Equal(package, SourceCommands.FindSdkPackage(package, version));
             // Another commit's package is not this atel's.

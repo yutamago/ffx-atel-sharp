@@ -176,6 +176,22 @@ and moved here when work began.
   `[Saved(Mod = …, Key = …)]` declaration and the other mod in `mod.toml`'s `requires`, checked by the
   linker; below, "Phase 9: mods").
 
+2026-11-10, the release ([release.md](release.md#decisions-user-2026-11-10); these answer its former list of
+decisions for the user):
+
+- **Packages go to nuget.org**, through the release workflow's switch (`ATEL_NUGET_TARGET`, the secret
+  `NUGET_API_KEY`).
+- **Package ids `AtelSharp.Sdk` and `AtelSharp.Templates`**, the prefix `AtelSharp` reserved on nuget.org. A mod is
+  `<Project Sdk="AtelSharp.Sdk">`; projects, assemblies and namespaces keep their `Ffx.Atel` names, the template's
+  short name stays `atel-mod`.
+- **The first version is `0.1.0-alpha.1`**; the user pushes the tag `v0.1.0-alpha.1` (tags stay `v*`).
+- **The template ships as its own package** with every release.
+- **Mods from the template are MIT by default** (`LICENSE`, `PackageLicenseExpression`, SPDX headers);
+  `--license none` opts out.
+- **Fahrenheit's names**: used with the Fahrenheit project's permission, which covers the public package.
+- **Each tag gets a GitHub release** with both packages, the VS Code `.vsix`, the Rider plugin `.zip` and the
+  CHANGELOG section as notes; a prerelease version is a GitHub pre-release.
+
 ## What the bytecode says about the original language
 
 From all 758 scripts (17.3 million instructions, 57.9 MB of script
@@ -1484,8 +1500,8 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Linker` | applies compiled mod packages to vanilla scripts in load order; a library the loader mod uses |
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
 | `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-all`, `atel roundtrip`, `atel export`, `atel text export`, `atel names export`, `atel compile-mod`, `atel link`, `atel survey`, `atel disasm`/`asm` |
-| `Ffx.Atel.Sdk` | NuGet package, an MSBuild project SDK: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package ([sdk.md](sdk.md)) |
-| `Ffx.Atel.Templates` | NuGet package of `dotnet new` templates: `atel-mod`, a mod project for one script ([sdk.md](sdk.md#dotnet-new-atel-mod)) |
+| `AtelSharp.Sdk` | NuGet package, an MSBuild project SDK: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package ([sdk.md](sdk.md)) |
+| `AtelSharp.Templates` | NuGet package of `dotnet new` templates: `atel-mod`, a mod project for one script ([sdk.md](sdk.md#dotnet-new-atel-mod)) |
 
 ## Compiler output
 
@@ -1959,8 +1975,8 @@ count, names placed.
    its member; both editors show the name after `Target.*`, `Command.*`,
    `Map.*`, `Battle.*` and casts of a constant to them. English: 357
    monsters, 1,163 commands, 332 maps, 811 battles.
-   SDK done 2026-11-02 ([sdk.md](sdk.md)): `Ffx.Atel.Sdk` is an MSBuild
-   project SDK (`<Project Sdk="Ffx.Atel.Sdk/0.1.0-alpha">`) holding
+   SDK done 2026-11-02 ([sdk.md](sdk.md)): `AtelSharp.Sdk` is an MSBuild
+   project SDK (`<Project Sdk="AtelSharp.Sdk/0.1.0-alpha">`) holding
    `Ffx.Atel.Game` with its docs, the analyzers and code fixes, Atel's
    settings and the `atel` CLI (framework-dependent, 4.4 MB packed). In a mod
    project, `dotnet build` adds the vanilla source of the scripts the mod's
@@ -1977,7 +1993,7 @@ count, names placed.
    package as `atel compile-mod`. CI packs it on all three OSes; it is not
    published anywhere yet.
    Template done 2026-11-09 ([sdk.md](sdk.md#dotnet-new-atel-mod)):
-   `Ffx.Atel.Templates`, packed beside the SDK with its version, holds
+   `AtelSharp.Templates`, packed beside the SDK with its version, holds
    `dotnet new atel-mod -n MyMod --script m209`: a project laid out as
    `examples/LarvaHp` for the named script (namespace, class and folder as
    `atel decompile` gives them, from `tools/gen-template.cs` and
@@ -1999,8 +2015,12 @@ count, names placed.
    2026-11-09; `sdk-v*` before), checks the tag is on `main` and in
    `CHANGELOG.md`, packs both packages with the tag's version and pushes only
    when the repository variable `ATEL_NUGET_TARGET` names nuget.org or GitHub
-   Packages. Open, for the user: where to publish, the package ids, the first
-   version, whether the template ships, licence headers ([release.md](release.md#decisions-for-the-user)).
+   Packages. Decided 2026-11-10 (Decisions above): nuget.org, the ids
+   `AtelSharp.Sdk` and `AtelSharp.Templates` (renamed from `Ffx.Atel.*`), first
+   version `0.1.0-alpha.1`, the template with every release, MIT mods from the
+   template (`--license`), and a GitHub release per tag with the packages, the
+   `.vsix` and the Rider zip. Left for the user: the nuget.org account, the
+   prefix reservation, the API key and the tag.
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":
@@ -2015,7 +2035,7 @@ count, names placed.
     encoding rules, a first-mod tutorial. Done 2026-11-02:
     [language.md](language.md), [encoding.md](encoding.md),
     [tutorial.md](tutorial.md). The tutorial builds the mod with the SDK
-    (`dotnet build` of an `Ffx.Atel.Sdk` project) since 2026-11-02, with
+    (`dotnet build` of an `AtelSharp.Sdk` project) since 2026-11-02, with
     `atel compile-mod` as the way without it; its steps were run up to the
     linked file.
 

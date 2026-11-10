@@ -1,13 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
-    <!-- Ffx.Atel.Templates, the `dotnet new` templates for Atel (docs/sdk.md, "dotnet new atel-mod"):
-           dotnet new install Ffx.Atel.Templates.<version>.nupkg
+    <!-- AtelSharp.Templates, the `dotnet new` templates for Atel (docs/sdk.md, "dotnet new atel-mod"):
+           dotnet new install AtelSharp.Templates.<version>.nupkg
            dotnet new atel-mod -n MyMod (with the option script, m209 by default)
          content/atel-mod/ is the template. The package has the SDK's version (the commit's, as every package of
-         this repo), and the template's global.json pins Ffx.Atel.Sdk of that same version: the pack writes it into
-         template.json (the default of sdkVersion, @AtelSdkVersion@ in the source). Packed beside the SDK, not
-         published anywhere. The namespace steps in template.json come from tools/gen-template.cs. -->
+         this repo), and the template's global.json pins AtelSharp.Sdk of that same version: the pack writes it into
+         template.json (the default of sdkVersion, @AtelSdkVersion@ in the source). Packed beside the SDK and
+         published with it by a release (docs/release.md). The namespace steps in template.json come from tools/gen-template.cs. -->
     <PropertyGroup>
+        <!-- The package id (docs/release.md, decision of 2026-11-10): the AtelSharp prefix, reserved on nuget.org for the owner.
+             The project, its folder and the assemblies keep their Ffx.Atel names. -->
+        <PackageId>AtelSharp.Templates</PackageId>
         <Description>dotnet new templates for Atel mods of Final Fantasy X: dotnet new atel-mod -n MyMod --script m209.</Description>
         <PackageType>Template</PackageType>
         <PackageTags>ffx;atel;fahrenheit;dotnet-new;templates</PackageTags>

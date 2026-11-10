@@ -188,8 +188,8 @@ public sealed class LayoutTests {
     [Fact]
     public void SdkProjectsNameTheSdkAndItsVersion() {
         List<SourceFile> files = ProjectLayout.Files(["Monsters", "Events/Bj"], ["Library"], GameReference.Sdk, "1.2.3-alpha", localFeed: true);
-        Assert.StartsWith("<Project Sdk=\"Ffx.Atel.Sdk\">", files.Single(f => f.RelativePath == "Monsters/Monsters.csproj").Text, StringComparison.Ordinal);
-        Assert.Contains("\"Ffx.Atel.Sdk\": \"1.2.3-alpha\"", files.Single(f => f.RelativePath == "global.json").Text, StringComparison.Ordinal);
+        Assert.StartsWith("<Project Sdk=\"AtelSharp.Sdk\">", files.Single(f => f.RelativePath == "Monsters/Monsters.csproj").Text, StringComparison.Ordinal);
+        Assert.Contains("\"AtelSharp.Sdk\": \"1.2.3-alpha\"", files.Single(f => f.RelativePath == "global.json").Text, StringComparison.Ordinal);
         Assert.Contains("<AtelProjectKind>Vanilla</AtelProjectKind>", files.Single(f => f.RelativePath == "Directory.Build.props").Text, StringComparison.Ordinal);
         Assert.Contains("value=\".atel/packages\"", files.Single(f => f.RelativePath == "nuget.config").Text, StringComparison.Ordinal);
         Assert.DoesNotContain(files, f => f.Text.Contains("HintPath", StringComparison.Ordinal));

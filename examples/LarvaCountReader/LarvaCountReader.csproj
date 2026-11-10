@@ -1,4 +1,4 @@
-<Project Sdk="Ffx.Atel.Sdk">
+<Project Sdk="AtelSharp.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
     <!-- An Atel mod: reads LarvaCount's saved field from another mod. docs/sdk.md -->
     <PropertyGroup>

@@ -6,16 +6,28 @@
     "FFX",
     "Mod"
   ],
-  "identity": "Ffx.Atel.Templates.Mod",
+  "identity": "AtelSharp.Templates.Mod",
   "name": "Atel mod",
   "shortName": "atel-mod",
-  "description": "An Atel mod for Final Fantasy X: a project of the Ffx.Atel.Sdk that changes one script (--script), with global.json, nuget.config for a local package folder and a README.",
+  "description": "An Atel mod for Final Fantasy X: a project of the AtelSharp.Sdk that changes one script (--script), with global.json, nuget.config for a local package folder, a README and an MIT LICENSE (--license).",
   "tags": {
     "language": "C#",
     "type": "project"
   },
   "sourceName": "ModTemplateName",
   "preferNameDirectory": true,
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "condition": "(!mitLicense)",
+          "exclude": [
+            "LICENSE"
+          ]
+        }
+      ]
+    }
+  ],
   "symbols": {
     "script": {
       "type": "parameter",
@@ -1263,6 +1275,20 @@
       "description": "The mod's authors (Authors), and the first part of the default mod id.",
       "replaces": "atel-mod-author"
     },
+    "licenseHolder": {
+      "type": "generated",
+      "generator": "regex",
+      "parameters": {
+        "source": "authors",
+        "steps": [
+          {
+            "regex": "^[Yy]ou$",
+            "replacement": "the authors of this mod"
+          }
+        ]
+      },
+      "replaces": "atel-license-holder"
+    },
     "authorLower": {
       "type": "generated",
       "generator": "casing",
@@ -1348,15 +1374,43 @@
       "type": "parameter",
       "datatype": "text",
       "defaultValue": "../atel-feed",
-      "description": "The local folder with the Ffx.Atel.Sdk package, written into nuget.config (relative to the project or absolute).",
+      "description": "The local folder with the AtelSharp.Sdk package, written into nuget.config (relative to the project or absolute).",
       "replaces": "atel-feed-dir"
     },
     "sdkVersion": {
       "type": "parameter",
       "datatype": "text",
       "defaultValue": "@AtelSdkVersion@",
-      "description": "The Ffx.Atel.Sdk version written into global.json. Default: the version this template was packed with.",
+      "description": "The AtelSharp.Sdk version written into global.json. Default: the version this template was packed with.",
       "replaces": "atel-sdk-version"
+    },
+    "license": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "MIT",
+          "description": "The MIT licence: a LICENSE file, PackageLicenseExpression and an SPDX header in the .cs file."
+        },
+        {
+          "choice": "none",
+          "description": "No licence file or header: choose the mod's terms yourself."
+        }
+      ],
+      "defaultValue": "MIT",
+      "description": "The mod's licence. Default: MIT, with the year and --authors as the copyright holder."
+    },
+    "mitLicense": {
+      "type": "computed",
+      "value": "(license == 'MIT')"
+    },
+    "licenseYear": {
+      "type": "generated",
+      "generator": "now",
+      "parameters": {
+        "format": "yyyy"
+      },
+      "replaces": "atel-license-year"
     }
   }
 }
