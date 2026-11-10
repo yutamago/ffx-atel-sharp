@@ -1,0 +1,14 @@
+<Project Sdk="AtelSharp.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod of the Besaid course: The old woman walking around Besaid village (bsvr0000) dances after you talk to her. docs/sdk.md, examples/Besaid/README.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id: the build writes bin/<configuration>/net10.0/mods/yuta.dancingvillager/. -->
+        <AtelModId>yuta.dancingvillager</AtelModId>
+        <AtelModName>Dancing Villager</AtelModName>
+        <Description>The old woman walking around Besaid village (bsvr0000) dances after you talk to her. An example Atel mod.</Description>
+        <Authors>Yutamago</Authors>
+        <Version>0.1.0</Version>
+        <!-- The vanilla source this mod changes: the folder `atel decompile bsvr0000 -o <dir>` wrote. Never inside this project. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>

@@ -6,14 +6,17 @@ using System.Text.Json;
 namespace Ffx.Atel.Sdk.Tests;
 
 /// <summary>
-///     The SDK as a modder uses it (docs/sdk.md): packed to a local feed (SdkFeed), the vanilla source of m209
-///     decompiled by the packed atel, the example mods (examples/LarvaHp, ToughLarva, LarvaInject, LarvaCount,
-///     LarvaCountReader) built with
-///     <c>dotnet build</c>, and their packages compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
+///     The SDK as a modder uses it (docs/sdk.md): packed to a local feed (SdkFeed), the vanilla source of the scripts
+///     the examples change decompiled by the packed atel, the example mods (examples/LarvaHp, ToughLarva, LarvaInject,
+///     LarvaCount, LarvaCountReader and the Besaid course's, examples/Besaid/) built with <c>dotnet build</c>, and their
+///     packages compared with what <c>atel compile-mod</c> writes. Needs the game (FFX_GAME_DIR).
 /// </summary>
 [Collection(SdkFeedCollection.Name)]
 public sealed class ExampleModTests(SdkFeed sdk) {
     private const string GameDirVariable = "FFX_GAME_DIR";
+
+    /// <summary>The scripts the Besaid course's examples change (examples/Besaid/README.md).</summary>
+    private static readonly string[] BesaidScripts = ["bsvr0000", "bsvr0001", "bsil0000", "bsil0700", "m009", "m016", "m028"];
 
     [Fact]
     public void ExampleModBuildsToTheCompileModPackage() {
@@ -31,7 +34,7 @@ public sealed class ExampleModTests(SdkFeed sdk) {
 
             // The vanilla source, as the modder gets it: decompiled with the SDK's atel, projects using the SDK.
             string vanilla = Path.Combine(root, "vanilla");
-            DotNet.Run(root, env, [atel, "decompile", "m209", "-o", vanilla, "--sdk", feed]);
+            DotNet.Run(root, env, [atel, "decompile", "m209", .. BesaidScripts, "-o", vanilla, "--sdk", feed]);
             // atel pins the package of its own version: the CLI and the package agree.
             using (JsonDocument global = JsonDocument.Parse(File.ReadAllText(Path.Combine(vanilla, "global.json")))) {
                 Assert.Equal(version, global.RootElement.GetProperty("msbuild-sdks").GetProperty("AtelSharp.Sdk").GetString());
@@ -45,22 +48,35 @@ public sealed class ExampleModTests(SdkFeed sdk) {
                 { "msbuild-sdks": { "AtelSharp.Sdk": "{{version}}" } }
                 """);
             // Each example mod, copied out of the repo, built, and compared with atel compile-mod's package.
-            // In this order: LarvaCountReader reads LarvaCount's saved field.
-            foreach ((string example, string id, string shows) in new[] {
-                         ("LarvaHp", "yuta.larvahp", "\"postfix\""), ("ToughLarva", "yuta.toughlarva", "\"monsterStats\""), ("LarvaInject", "yuta.larvainject", "\"inject\""),
-                         ("LarvaCount", "yuta.larvacount", "\"saved\": \"LarvaCount.Progress.LarvasMet\""),
-                         ("LarvaCountReader", "yuta.larvacountreader", "\"saved\": \"yuta.larvacount/LarvaCount.Progress.LarvasMet\""),
+            // In this order: LarvaCountReader reads LarvaCount's saved field, BesaidTallyReader BesaidTally's.
+            const string m209 = "battle/mon/_m209/m209.bin", bsvr0000 = "event/obj/bs/bsvr0000/bsvr0000.ebp";
+            foreach ((string example, string id, string script, string shows, string? reads) in new (string, string, string, string, string?)[] {
+                         ("LarvaHp", "yuta.larvahp", m209, "\"postfix\"", null), ("ToughLarva", "yuta.toughlarva", m209, "\"monsterStats\"", null),
+                         ("LarvaInject", "yuta.larvainject", m209, "\"inject\"", null),
+                         ("LarvaCount", "yuta.larvacount", m209, "\"saved\": \"LarvaCount.Progress.LarvasMet\"", null),
+                         ("LarvaCountReader", "yuta.larvacountreader", m209, "\"saved\": \"yuta.larvacount/LarvaCount.Progress.LarvasMet\"", "yuta.larvacount"),
+                         ("Besaid/GiantWakka", "yuta.giantwakka", "event/obj/bs/bsvr0001/bsvr0001.ebp", "\"postfix\"", null),
+                         ("Besaid/ToughDingo", "yuta.toughdingo", "battle/mon/_m009/m009.bin", "\"monsterStats\"", null),
+                         ("Besaid/BesaidGossip", "yuta.besaidgossip", bsvr0000, "\"newMessage\"", null),
+                         ("Besaid/DancingVillager", "yuta.dancingvillager", bsvr0000, "\"postfix\"", null),
+                         ("Besaid/BeachQuake", "yuta.beachquake", "event/obj/bs/bsil0000/bsil0000.ebp", "\"inject\"", null),
+                         ("Besaid/FastTidus", "yuta.fasttidus", "event/obj/bs/bsil0700/bsil0700.ebp", "\"postfix\"", null),
+                         ("Besaid/GenerousVillager", "yuta.generousvillager", bsvr0000, "\"saved\": \"GenerousVillager.Gift.Given\"", null),
+                         ("Besaid/CleverFlan", "yuta.cleverflan", "battle/mon/_m016/m016.bin", "\"inject\"", null),
+                         ("Besaid/BesaidTally", "yuta.besaidtally", "battle/mon/_m028/m028.bin", "\"saved\": \"BesaidTally.Tally.Defeated\"", null),
+                         ("Besaid/BesaidTallyReader", "yuta.besaidtallyreader", "battle/mon/_m009/m009.bin", "\"saved\": \"yuta.besaidtally/BesaidTally.Tally.Defeated\"", "yuta.besaidtally"),
+                         ("Besaid/WhereAmI", "yuta.whereami", bsvr0000, "\"debugStrings\"", null),
                      }) {
-                string mod = Path.Combine(root, "mod", example);
+                string mod = Path.Combine(root, "mod", Path.GetFileName(example));
                 Directory.CreateDirectory(mod);
                 foreach (string f in Directory.GetFiles(Path.Combine(repo, "examples", example))) File.Copy(f, Path.Combine(mod, Path.GetFileName(f)));
                 DotNet.Run(mod, env, ["build", mod, $"-p:AtelVanillaSource={vanilla}", .. DotNet.BuildFlags]);
 
                 string built = Path.Combine(mod, "bin", "Debug", "net10.0", "mods", id);
-                string expected = Path.Combine(root, "expected", example);
+                string expected = Path.Combine(root, "expected", Path.GetFileName(example));
                 DotNet.Run(root, env, [atel, "compile-mod", mod, "--vanilla", vanilla, "-o", expected]);
 
-                string package = Path.Combine("atel", "ffx_ps2", "ffx", "master", "jppc", "battle", "mon", "_m209", "m209.bin.json");
+                string package = Path.Combine(["atel", "ffx_ps2", "ffx", "master", "jppc", .. $"{script}.json".Split('/')]);
                 Assert.Equal(DotNet.Files(expected), DotNet.Files(built).Where(f => !f.EndsWith(".manifest.json", StringComparison.Ordinal)));
                 Assert.Contains(package, DotNet.Files(built));
                 foreach (string f in DotNet.Files(expected)) Assert.Equal(File.ReadAllBytes(Path.Combine(expected, f)), File.ReadAllBytes(Path.Combine(built, f)));
@@ -69,7 +85,7 @@ public sealed class ExampleModTests(SdkFeed sdk) {
                 // A file-only Fahrenheit mod that depends on the loader; no DLL (it would hold vanilla code).
                 using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(built, $"{id}.manifest.json")));
                 Assert.Equal(id, manifest.RootElement.GetProperty("Id").GetString());
-                string[] dependencies = example == "LarvaCountReader" ? ["yuta.atel", "yuta.larvacount"] : ["yuta.atel"];
+                string[] dependencies = reads is null ? ["yuta.atel"] : ["yuta.atel", reads];
                 Assert.Equal(dependencies, manifest.RootElement.GetProperty("Dependencies").EnumerateArray().Select(e => e.GetString()));
                 Assert.Empty(Directory.GetFiles(Path.Combine(mod, "bin"), "*.dll", SearchOption.AllDirectories));
             }
