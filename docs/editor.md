@@ -54,7 +54,7 @@ codes"):
 
 | Bytes | Shown |
 |---|---|
-| `03` | a line break (`⏎` in a hint) |
+| `03` | a line break (a space in a hint) |
 | `01` | `{break}` |
 | `07 e0+n` / `07 '2'` / `07 40+n` | `{space:n}` / `{right}` / `{tab:n}` |
 | `09 '0'+n` / `09 c0+n` | `{wait:n}` / `{scroll:n}` |
@@ -157,6 +157,33 @@ In the editors, a name shows after `Type.Member` (also `Ffx.Type.Member`) and af
 regex outside `//` comments; Rider: the C# PSI, without resolving), like `Text[n]`. Values without an entry
 (`Target.Own`, a map with no save location) get no hint. The language is the message text's.
 
+## How a message shows
+
+Both editors show a message the same way (the rules are `messageParts`/`messageHint` in `resolve.ts` and
+`TextResolver.MessageParts`/`MessageHint` in the Rider plugin, with the same tests):
+
+- **The speaker.** A message window's first line holds the speaker when it is a character's name code alone,
+  `{name:Tidus}` (after any `{wait:n}`): the hint puts it in front, `Tidus: "A made-up line, and its second line."`,
+  and the hover or quick documentation names it in its heading. A first line left empty (`"\nA made-up question?"`, a
+  speaker the window does not name) is dropped. Any other first line stays text: plain names (`Datto`), choices,
+  codes, as nothing says they are a speaker. In the player's English tables over 5,000 of the 21,699 messages of more
+  than one line start with a name code, 8,691 with an empty line.
+- **One line in the hint.** The window's line breaks are layout, so the hint joins the lines with spaces (it showed
+  ` ⏎ ` before) and cuts at a word, 40 characters by default (60 before; the speaker does not count).
+- **Every line in the tooltip.** Hovering the hint shows the whole message with its line breaks and codes, the
+  speaker on a line of its own; a library class's hint shows each script's. The hover (VS Code) or quick
+  documentation (Rider) on `Text[n]` shows the lines as a block under the heading.
+- **The language.** A message is shown in the language of the setting. When the export has no folder for it, the
+  hover and the quick documentation say so and name the languages the export has (`atel text export --lang de`
+  exports it); with more than one, they list them, and VS Code's hover links each to switch to it (the command
+  **Atel#: Select the message language** does the same with a pick of the exported languages). In Rider, a hint's
+  context menu has **Message language** with the exported languages (the shown one checked), next to
+  **Configure…** (the settings page) and **Hide Atel# message text hints**.
+- **Big files.** Only a file's first 64 KB are read for its script (the decompiler's first line, the attribute, the
+  namespace, a library class's users), not the whole text of a multi-megabyte worker; VS Code keeps the result per
+  document version and the nearest `.atel` folders per folder, and Rider reads each table once per daemon run
+  instead of checking the file on disk for every `Text[n]`.
+
 ## VS Code
 
 `editors/vscode`, TypeScript, about 300 lines; the [README](../editors/vscode/README.md) has setup and
@@ -171,7 +198,8 @@ text with a regex: `Text[12]` outside a `//` comment.
 - The text: `<nearest .atel/text above the file>/<atel.textLanguage>/<script>.json`, or under
   `atel.textDirectory`. Changes to the JSON files and to the settings refresh the hints.
 - Settings: `atel.textLanguage` (`en` …), `atel.textDirectory`, `atel.inlayHints.enabled`,
-  `atel.inlayHints.maxLength`.
+  `atel.inlayHints.maxLength` (40). Commands: **Atel#: Select the message language** (`atel.selectTextLanguage`);
+  `atel.setTextLanguage`, which the hover's language links run.
 - Names ("Names" above): an inlay hint with the name after each typed value with an entry, and a hover with
   the value, its id and the name, from `<nearest .atel/names above the file>/<atel.textLanguage>/<table>.json`
   or `atel.namesDirectory`; `atel.inlayHints.names` turns the hints off.
@@ -182,8 +210,9 @@ Checks:
 - `npm run test:integration`: starts VS Code through `@vscode/test-electron` (downloaded into
   `.vscode-test`, or `VSCODE_EXECUTABLE`) on a made-up source tree with a made-up text file, and checks
   the inlay hint and the hover through `vscode.executeInlayHintProvider` and `vscode.executeHoverProvider`,
-  in English and, after changing `atel.textLanguage`, German, and the same for two names (a member and a
-  cast) from a made-up `.atel/names`. On Linux under `xvfb-run -a`;
+  in English and, after switching to German with `atel.setTextLanguage` (as the hover's link does), German, and the
+  same for two names (a member and a cast) from a made-up `.atel/names`: the hint with its speaker, the hover with
+  the speaker and the language links. On Linux under `xvfb-run -a`;
 - `npm run package` writes `atel-text.vsix`; `code --install-extension atel-text.vsix` installs it. CI builds
   and packages it (no publishing).
 
@@ -216,18 +245,20 @@ built against Rider 2026.3 (the SDK `2026.3-EAP8-SNAPSHOT` / `JetBrains.Rider.SD
 The same as the VS Code extension, from the same `.atel/text/<lang>/<script>.json` files and with the same
 resolution rules (a C# port of `resolve.ts`):
 
-- an **inlay hint** after each `Text[n]` with the message on one line (`"{name:Tidus} ⏎ Hey, …"`), cut at
-  the configured length; a library class shows its first user's message, `(+n)` when the others differ.
-  Hovering the hint shows the whole message;
+- an **inlay hint** after each `Text[n]` with the speaker and the message on one line (`Tidus: "A made-up line…"`,
+  "How a message shows" above), cut at the configured length; a library class shows its first user's message,
+  `(+n)` when the others differ. Hovering the hint shows the whole message;
 - **quick documentation** on `Text[n]` (Ctrl+Q, and Rider's documentation on mouse hover): the whole
-  message of each script the file belongs to, or why there is none (no export found, no text, no message
-  *n* in the language, a monster);
+  message of each script the file belongs to, with its speaker, or why there is none (no export found, no export in
+  the language and which languages there are, no text, no message *n* in the language, a monster);
 - an **inlay hint with the game's name** after `Target.Biran`, `(Command)0x3000` and the other typed values of
   "Names" above, from `.atel/names`; hovering the hint shows the value, its id and the name (no quick
   documentation of its own: Ctrl+Q stays the member's own documentation);
+- a **context menu on each hint** (right-click): **Message language** (the languages the export has; the
+  machine's setting, as Rider's own hint menus write theirs), **Configure…**, **Hide Atel# message text hints**;
 - **Settings → Tools → Atel# message text**: the language (`en` … `zh`), the text folder (empty: the nearest
   `.atel/text` above the file; relative paths are from the solution's folder), hints on or off, their length,
-  the names folder (empty: the nearest `.atel/names`) and the name hints on or off. The settings are ReSharper
+  the names folder (empty: the nearest `.atel/names`) and the name hints on or off. The hints' length is 40 by default. The settings are ReSharper
   settings (saved per machine by default; per solution in its `.DotSettings` layers if wanted). A new export
   or another language's files refresh the hints by themselves (a file watcher on the text
   and names folders).
@@ -249,10 +280,10 @@ plugin, as option 3 below.
   the backend's options page under Tools. No protocol model of our own: hints, documentation and settings go
   over the protocol Rider already has, so the template's `protocol` (rdgen) module is left out.
 - **Tests** (`src/dotnet/Ffx.Atel.Rider.Tests`, the ReSharper test framework, headless): the daemon on
-  made-up sources and tables (hints, their labels and tooltips: event, attribute, library class with
-  `(+1)`, German with a short length, hints off), quick documentation through a test text control (an
-  event, a library class, no export, not on `Text[n]`) and the resolution rules (the cases of
-  `resolve.test.ts`). They run under `dotnet test` on Linux, macOS and Windows: the template targets
+  made-up sources and tables (hints, their labels, tooltips and menu languages: event with a speaker and a
+  message whose first line is empty, attribute, library class with `(+1)`, German with a short length, hints off),
+  quick documentation through a test text control (an event, a library class, a language the export lacks, no
+  export, not on `Text[n]`) and the resolution and message rules (the cases of `resolve.test.ts`). They run under `dotnet test` on Linux, macOS and Windows: the template targets
   Windows (net472 under NUnit with STA threads), so `HeadlessTests.targets` sets up what Rider's own
   backend uses off Windows (JetBrains' NUnit build with emulated STA threads, the Unix WPF stub, the
   .NET Core builds of the SDK's assemblies). The test framework downloads the reference assemblies of its

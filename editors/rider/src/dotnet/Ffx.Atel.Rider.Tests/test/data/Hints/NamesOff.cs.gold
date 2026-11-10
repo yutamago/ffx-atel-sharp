@@ -12,7 +12,8 @@ public sealed class W02
 }
 
 ---------------------------------------------------------
-(0): Atel# Message Text Hint: {name:Tidus}
+(0): Atel# Message Text Hint: Tidus:
 Made-up line.
 Labels:
-  "{name:Tidus} ⏎ Made-up line."
+  Tidus: "Made-up line."
+Language: en of de, en

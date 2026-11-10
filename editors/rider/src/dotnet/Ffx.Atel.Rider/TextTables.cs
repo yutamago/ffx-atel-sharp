@@ -16,6 +16,7 @@ using JetBrains.ProjectModel;
 using JetBrains.ReSharper.Feature.Services.Daemon;
 using JetBrains.ReSharper.Psi;
 using JetBrains.Util;
+using JetBrains.DocumentModel;
 
 namespace Ffx.Atel.Rider
 {
@@ -47,6 +48,19 @@ namespace Ffx.Atel.Rider
         public string NamesRoot { get; }
 
         public bool ShowNameHints { get; }
+
+        /// <summary>The tables this context has read, by path: one daemon run looks each up once, not once per use
+        /// (each lookup would otherwise check the file on disk, slow on a big file with thousands of uses).</summary>
+        internal ConcurrentDictionary<string, object> Read { get; } = new ConcurrentDictionary<string, object>(StringComparer.Ordinal);
+
+        private IReadOnlyList<string> myTextLanguages;
+        private IReadOnlyList<string> myNameLanguages;
+
+        /// <summary>The languages the text export has (read once per context).</summary>
+        public IReadOnlyList<string> TextLanguages => myTextLanguages ?? (myTextLanguages = Root == null ? new string[0] : TextResolver.ExportedLanguages(Root));
+
+        /// <summary>The languages the names export has (read once per context).</summary>
+        public IReadOnlyList<string> NameLanguages => myNameLanguages ?? (myNameLanguages = NamesRoot == null ? new string[0] : TextResolver.ExportedLanguages(NamesRoot));
     }
 
     /// <summary>One script's message <c>n</c>: <see cref="Found" /> false when the script has no table or no entry
@@ -102,7 +116,9 @@ namespace Ffx.Atel.Rider
         public TextContext ContextOf(IPsiSourceFile sourceFile, IContextBoundSettingsStore settings)
         {
             var path = sourceFile.GetLocation();
-            var text = sourceFile.Document.GetText();
+            // Only the file's start names the script (TextResolver.HeadLength): no copy of a big worker's whole text.
+            var document = sourceFile.Document;
+            var text = document.GetText(new TextRange(0, Math.Min(document.GetTextLength(), TextResolver.HeadLength)));
             var key = settings.GetKey<AtelTextSettings>(SettingsOptimization.OptimizeDefault);
             var language = string.IsNullOrWhiteSpace(key.Language) ? "en" : key.Language.Trim();
             var scripts = TextResolver.ScriptsOf(text, path.IsEmpty ? "" : path.FullPath);
@@ -159,7 +175,7 @@ namespace Ffx.Atel.Rider
         {
             return context.Scripts.Select(script =>
             {
-                var file = context.Root == null ? null : Load(TextResolver.TextFilePath(context.Root, context.Language, script.Name));
+                var file = context.Root == null ? null : Load(context, TextResolver.TextFilePath(context.Root, context.Language, script.Name), TextResolver.ParseTextFile);
                 return file != null && file.Has(index)
                     ? new Lookup(script, true, file.Messages[index])
                     : new Lookup(script, false, null);
@@ -170,10 +186,14 @@ namespace Ffx.Atel.Rider
         public NameEntry FindName(TextContext context, string type, string member, int? id)
         {
             var path = context.NamesRoot == null ? null : NameResolver.NamesFilePath(context.NamesRoot, context.Language, type);
-            return path == null ? null : Load(path, NameResolver.ParseNamesFile)?.Find(member, id);
+            return path == null ? null : Load(context, path, NameResolver.ParseNamesFile)?.Find(member, id);
         }
 
-        private TextFile Load(string path) => Load(path, TextResolver.ParseTextFile);
+        /// <summary>A table, read at most once per context (daemon run).</summary>
+        private T Load<T>(TextContext context, string path, Func<string, T> parse) where T : class =>
+            context.Read.GetOrAdd(path, p => (object)Load(p, parse) ?? Missing) as T;
+
+        private static readonly object Missing = new object();
 
         private T Load<T>(string path, Func<string, T> parse) where T : class
         {

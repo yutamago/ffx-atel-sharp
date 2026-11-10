@@ -6,9 +6,14 @@ import * as assert from "node:assert/strict";
 import * as path from "node:path";
 import { test } from "node:test";
 import {
+    exportedLanguages,
     findNamesRoot,
     findTextRoot,
+    HEAD_LENGTH,
     hintLabel,
+    messageFull,
+    messageHint,
+    messageParts,
     lookupName,
     namesFilePath,
     nameUses,
@@ -79,8 +84,45 @@ test("reads text files and shortens hints", () => {
     assert.equal(file?.messages[0], "{name:Tidus}\nHello!");
     assert.equal(file?.messages[1], null);
     assert.equal(parseTextFile("not json"), undefined);
-    assert.equal(hintLabel("One\nTwo", 60), "One ⏎ Two");
+    assert.equal(hintLabel("One\nTwo", 60), "One Two");
     assert.equal(hintLabel("abcdefghij", 5), "abcd…");
+    // Cut at the last space in the second half, else in the word.
+    assert.equal(hintLabel("A made-up line that is long", 20), "A made-up line that…");
+    assert.equal(hintLabel("Abcdefghijklmnop qrstuvwxyz", 20), "Abcdefghijklmnop…");
+});
+
+test("a message's speaker and lines", () => {
+    assert.deepEqual(messageParts("{name:Tidus}\nMade-up line.\nAnd another."), { speaker: "Tidus", lines: ["Made-up line.", "And another."] });
+    assert.deepEqual(messageParts("{wait:0}{name:Wakka}\nMade-up."), { speaker: "Wakka", lines: ["Made-up."] });
+    // A first line left empty: a speaker the window does not name.
+    assert.deepEqual(messageParts("\nMade-up question?"), { lines: ["Made-up question?"] });
+    // Anything else on the first line is text: a plain name, a choice, codes.
+    assert.deepEqual(messageParts("Someone\nMade-up."), { lines: ["Someone", "Made-up."] });
+    assert.deepEqual(messageParts("{wait:0}\nMade-up."), { lines: ["{wait:0}", "Made-up."] });
+    assert.deepEqual(messageParts("{name:Tidus}"), { lines: ["{name:Tidus}"] });
+    assert.deepEqual(messageParts("{name:Tidus} and {name:Yuna}\nMade-up."), { lines: ["{name:Tidus} and {name:Yuna}", "Made-up."] });
+
+    assert.equal(messageHint("{name:Tidus}\nMade-up line.\nAnd \"another\".", 60), 'Tidus: "Made-up line. And \\"another\\"."');
+    assert.equal(messageHint("\nMade-up question?", 60), '"Made-up question?"');
+    assert.equal(messageHint("First.", 60), '"First."');
+    assert.equal(messageFull("{name:Tidus}\nMade-up line.\nAnd another."), "Tidus:\nMade-up line.\nAnd another.");
+    assert.equal(messageFull("\nMade-up question?"), "Made-up question?");
+});
+
+test("lists the exported languages", () => {
+    assert.deepEqual(exportedLanguages("/r", () => ["de", "en"]), ["de", "en"]);
+    assert.deepEqual(
+        exportedLanguages("/r", () => {
+            throw new Error("missing");
+        }),
+        [],
+    );
+});
+
+test("reads only the start of a big file for its script", () => {
+    const filler = "// " + "x".repeat(100) + "\n";
+    const big = "namespace Events.Aa.Aaaa0100;\n" + filler.repeat(Math.ceil((HEAD_LENGTH * 4) / filler.length)) + '[Event("zzzz9999")]\n';
+    assert.deepEqual(scriptsOf(big, "/x.cs"), [{ name: "aaaa0100", category: "event" }]);
 });
 
 test("finds typed values with a name table outside comments", () => {

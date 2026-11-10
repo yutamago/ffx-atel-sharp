@@ -1,0 +1,2 @@
+# Atel's settings for this mod, all optional: the mods it loads after, needs, or cannot run with.
+after = []

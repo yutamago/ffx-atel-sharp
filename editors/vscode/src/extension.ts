@@ -9,9 +9,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import {
+    exportedLanguages,
+    HEAD_LENGTH,
     findNamesRoot,
     findTextRoot,
     hintLabel,
+    messageFull,
+    messageHint,
+    messageParts,
     lookupName,
     NameEntry,
     namesFilePath,
@@ -57,6 +62,38 @@ function loadNamesFile(file: string): NamesFile | undefined {
     return parsed;
 }
 
+/** The nearest `.atel/text` and `.atel/names` by folder: looked up once per folder, not per request. */
+const textRoots = new Map<string, string | undefined>();
+const namesRoots = new Map<string, string | undefined>();
+
+function nearest(roots: Map<string, string | undefined>, file: string, find: (p: string) => string | undefined): string | undefined {
+    const dir = path.dirname(file);
+    if (!roots.has(dir)) roots.set(dir, find(file));
+    return roots.get(dir);
+}
+
+/** A document's scripts by its version: found once per change, not on every scroll. */
+const scriptCache = new Map<string, { version: number; scripts: ScriptRef[] }>();
+
+function scriptsOfDocument(document: vscode.TextDocument): ScriptRef[] {
+    const key = document.uri.toString();
+    const cached = scriptCache.get(key);
+    if (cached && cached.version === document.version) return cached.scripts;
+    // Only the file's start: getText() of a whole big worker is megabytes.
+    const head = document.getText(new vscode.Range(new vscode.Position(0, 0), document.positionAt(HEAD_LENGTH)));
+    const scripts = scriptsOf(head, document.uri.fsPath);
+    scriptCache.set(key, { version: document.version, scripts });
+    return scripts;
+}
+
+function clearCaches(): void {
+    cache.clear();
+    namesCache.clear();
+    textRoots.clear();
+    namesRoots.clear();
+    scriptCache.clear();
+}
+
 interface Settings {
     language: string;
     directory: string;
@@ -74,7 +111,7 @@ function settings(scope: vscode.Uri): Settings {
         namesDirectory: c.get<string>("namesDirectory", ""),
         hints: c.get<boolean>("inlayHints.enabled", true),
         nameHints: c.get<boolean>("inlayHints.names", true),
-        maxLength: c.get<number>("inlayHints.maxLength", 60),
+        maxLength: c.get<number>("inlayHints.maxLength", 40),
     };
 }
 
@@ -84,7 +121,7 @@ function textRoot(document: vscode.TextDocument, s: Settings): string | undefine
         const folder = vscode.workspace.getWorkspaceFolder(document.uri);
         return folder ? path.join(folder.uri.fsPath, s.directory) : undefined;
     }
-    return findTextRoot(document.uri.fsPath);
+    return nearest(textRoots, document.uri.fsPath, (p) => findTextRoot(p));
 }
 
 function namesRoot(document: vscode.TextDocument, s: Settings): string | undefined {
@@ -93,7 +130,7 @@ function namesRoot(document: vscode.TextDocument, s: Settings): string | undefin
         const folder = vscode.workspace.getWorkspaceFolder(document.uri);
         return folder ? path.join(folder.uri.fsPath, s.namesDirectory) : undefined;
     }
-    return findNamesRoot(document.uri.fsPath);
+    return nearest(namesRoots, document.uri.fsPath, (p) => findNamesRoot(p));
 }
 
 /** The game's name for a typed value, from `<names root>/<language>/<table>.json`. */
@@ -114,7 +151,7 @@ interface Context {
 
 function context(document: vscode.TextDocument): Context {
     const s = settings(document.uri);
-    return { root: textRoot(document, s), scripts: scriptsOf(document.getText(), document.uri.fsPath), s };
+    return { root: textRoot(document, s), scripts: scriptsOfDocument(document), s };
 }
 
 /** The message of each script the file may belong to (one, or several for a library class). */
@@ -156,9 +193,16 @@ class TextHints implements vscode.InlayHintsProvider {
                 if (found.length === 0) continue;
                 const first = found[0].text as string;
                 const others = new Set(found.map((f) => f.text)).size - 1;
-                const label = JSON.stringify(hintLabel(first, ctx.s.maxLength)) + (others > 0 ? ` (+${others})` : "");
+                const label = messageHint(first, ctx.s.maxLength) + (others > 0 ? ` (+${others})` : "");
                 const hint = new vscode.InlayHint(new vscode.Position(line, use.end), label, vscode.InlayHintKind.Parameter);
                 hint.paddingLeft = true;
+                // The whole message (each script's, for a library class) when the hint is hovered.
+                const tooltip = new vscode.MarkdownString();
+                for (const f of found.slice(0, 8)) {
+                    if (found.length > 1) tooltip.appendMarkdown(`**${f.script.name}**\n\n`);
+                    tooltip.appendCodeblock(messageFull(f.text as string), "text");
+                }
+                hint.tooltip = tooltip;
                 hints.push(hint);
             }
         }
@@ -179,8 +223,21 @@ class NameHover implements vscode.HoverProvider {
         const what = entry.member ? `${use.type}.${entry.member}` : `(${use.type})${hex(entry.id)}`;
         md.appendMarkdown(`**${what}** (${hex(entry.id)}, ${s.language})\n\n`);
         md.appendCodeblock(entry.name, "text");
+        const root = namesRoot(document, s);
+        if (root) languageLinks(md, root, s.language);
         return new vscode.Hover(md, new vscode.Range(position.line, use.start, position.line, use.end));
     }
+}
+
+/** The other exported languages as links that switch to them: `Language: en · [de](…) · [fr](…)`. */
+function languageLinks(md: vscode.MarkdownString, root: string, current: string): void {
+    const languages = exportedLanguages(root);
+    if (languages.length < 2) return;
+    const links = languages.map((l) =>
+        l === current ? `**${l}**` : `[${l}](command:atel.setTextLanguage?${encodeURIComponent(JSON.stringify([l]))} "Show ${l}")`,
+    );
+    md.appendMarkdown(`Language: ${links.join(" · ")}\n\n`);
+    md.isTrusted = { enabledCommands: ["atel.setTextLanguage"] };
 }
 
 class TextHover implements vscode.HoverProvider {
@@ -199,24 +256,63 @@ class TextHover implements vscode.HoverProvider {
             );
             return new vscode.Hover(md, range);
         }
+        const languages = exportedLanguages(ctx.root);
+        if (!languages.includes(ctx.s.language)) {
+            const have = languages.length > 0 ? `; exported: ${languages.join(", ")}` : "";
+            md.appendMarkdown(
+                `Message ${use.index}: no \`${ctx.s.language}\` text (\`atel text export --lang ${ctx.s.language}\` exports it)${have}.\n\n`,
+            );
+            languageLinks(md, ctx.root, ctx.s.language);
+            return new vscode.Hover(md, range);
+        }
         for (const { script, text } of lookup(ctx, use.index).slice(0, 8)) {
-            md.appendMarkdown(`**${script.name}**, message ${use.index} (${ctx.s.language})\n\n`);
-            if (typeof text === "string") md.appendCodeblock(text, "text");
+            const parts = typeof text === "string" ? messageParts(text) : undefined;
+            const speaker = parts?.speaker ? `: ${parts.speaker}` : "";
+            md.appendMarkdown(`**${script.name}**, message ${use.index} (${ctx.s.language})${speaker}\n\n`);
+            if (parts) md.appendCodeblock(parts.lines.join("\n"), "text");
             else if (script.category === "monster")
                 md.appendMarkdown("_A monster has no message table: the index is into the current battle's._\n\n");
             else if (text === null) md.appendMarkdown("_No text in this message._\n\n");
             else md.appendMarkdown(`_No message ${use.index} for ${script.name} in \`${ctx.s.language}\`._\n\n`);
         }
+        languageLinks(md, ctx.root, ctx.s.language);
         return new vscode.Hover(md, range);
     }
+}
+
+/** Where the language setting is saved: where it is set already, else the user's settings. */
+async function setLanguage(language: string): Promise<void> {
+    const c = vscode.workspace.getConfiguration("atel");
+    const where = c.inspect<string>("textLanguage");
+    const target =
+        where?.workspaceFolderValue !== undefined
+            ? vscode.ConfigurationTarget.WorkspaceFolder
+            : where?.workspaceValue !== undefined
+              ? vscode.ConfigurationTarget.Workspace
+              : vscode.ConfigurationTarget.Global;
+    await c.update("textLanguage", language, target);
+}
+
+/** A pick of the languages the active file's text folder has (all eight when there is none). */
+async function selectLanguage(): Promise<void> {
+    const document = vscode.window.activeTextEditor?.document;
+    const s = document ? settings(document.uri) : undefined;
+    const root = document && s ? textRoot(document, s) : undefined;
+    const exported = root ? exportedLanguages(root) : [];
+    const all = ["en", "ja", "fr", "es", "de", "it", "ko", "zh"];
+    const items = (exported.length > 0 ? exported : all).map((l) => ({
+        label: l,
+        description: l === (s?.language ?? "en") ? "current" : undefined,
+    }));
+    const picked = await vscode.window.showQuickPick(items, { placeHolder: "The language of the message text and names" });
+    if (picked) await setLanguage(picked.label);
 }
 
 export function activate(extension: vscode.ExtensionContext): void {
     const selector: vscode.DocumentSelector = { language: "csharp", scheme: "file" };
     const hints = new TextHints();
     const refresh = () => {
-        cache.clear();
-        namesCache.clear();
+        clearCaches();
         hints.changed.fire();
     };
     const watcher = vscode.workspace.createFileSystemWatcher("**/.atel/{text,names}/**/*.json");
@@ -231,11 +327,15 @@ export function activate(extension: vscode.ExtensionContext): void {
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration("atel")) refresh();
         }),
+        vscode.workspace.onDidCloseTextDocument((d) => scriptCache.delete(d.uri.toString())),
+        vscode.commands.registerCommand("atel.selectTextLanguage", selectLanguage),
+        vscode.commands.registerCommand("atel.setTextLanguage", (language: unknown) =>
+            typeof language === "string" ? setLanguage(language) : selectLanguage(),
+        ),
         hints.changed,
     );
 }
 
 export function deactivate(): void {
-    cache.clear();
-    namesCache.clear();
+    clearCaches();
 }

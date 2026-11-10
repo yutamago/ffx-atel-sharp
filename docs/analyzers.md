@@ -41,7 +41,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL2001](#atl2001) | hint | request neither awaited nor discarded | `_ =`, `await` |
 | [ATL2002](#atl2002) | error | request to an entry that is not `async` | |
 | [ATL2003](#atl2003) | hint | `await` on something that is not a request | |
-| [ATL2004](#atl2004) | error | awaited request to the worker's own entry at the same or a lower level | |
+| [ATL2004](#atl2004) | error | awaited request to the worker's own entry that never runs: at the same level (refused), a lower one (waits for ever), or entry 0 | |
 | [ATL2005](#atl2005) | warning | awaited request to the worker's own entry | |
 | [ATL2006](#atl2006) | warning | priority the engine uses (0, 7, 8) | |
 | [ATL2007](#atl2007) | error | `async` method that does not return `Ffx.Atel.Task` | |
@@ -261,9 +261,19 @@ completes at once and the compiler drops the `await`. (.NET awaitables are ATL10
 
 ### ATL2004
 
-**Awaited request to the worker's own entry at the same or a lower level** (error). A worker runs
-one level at a time: an awaited request to its own entry starts only if its level is above the
-caller's, else the caller waits for ever (plan, "Requests between workers").
+**Awaited request to the worker's own entry that never runs** (error). A worker starts a request only
+when its level is above the running one; `Init` runs at level 7, `Main` at level 0. What an awaited
+request (`reqe0`) to the worker's own entry does, from FFX.exe ([corpus.md](corpus.md#requests)):
+
+| The request's level | What happens |
+|---|---|
+| above the caller's | it runs at once and the caller waits for its end: a call (not reported) |
+| the caller's | refused, as that level's own request is still queued (always so in `Init`, `Main` and a requested entry): `reqe0` gives 0 at once, the entry never runs and nothing waits. Only after `end1`/`endp1` reset the level does it register, and then never starts while the caller waits for ever |
+| below the caller's | refused (0 at once) if that level has a request queued already; else it never starts, and the caller waits for ever (the worker stays at that level; its `Main` never runs again) |
+| any, to entry 0 | it never registers: 0 at once, the entry does not run |
+
+All but the first are bugs, so all are errors; the message says which. (Before 2026-11-09 this rule
+said the caller always waits for ever; at the same level it does not.)
 
 Reported where both levels are known: the decompiler's raw forms `RequestWaitEnd(level, worker,
 entry)` and `RequestWaitStart(…)` with constant operands, to the caller's own worker (its index in
@@ -273,7 +283,9 @@ the call.
 
 ```csharp
 [Entry(0)]
-void E0() { RequestWaitEnd(7, 0, 3); }   // ATL2004 (in worker 0): level 7 from Init's level 7
+void E0() { RequestWaitEnd(7, 0, 3); }   // ATL2004 (in worker 0): level 7 from Init's level 7, refused
+[Entry(1)]
+void E1() { RequestWaitEnd(1, 0, 3); }   // fine: level 1 above Main's level 0, a call
 ```
 
 Fix: a helper method, or a higher level.
@@ -281,8 +293,9 @@ Fix: a helper method, or a higher level.
 ### ATL2005
 
 **Awaited request to the worker's own entry** (warning): `await OwnEntryAsync()` (or its
-`.Finished`/`.Started`), where the levels are not known. Fix: a helper method, which runs
-synchronously.
+`.Finished`/`.Started`), where the levels are not known. It runs only if the request's level is
+above the caller's; at the same level it is refused and below it the caller waits for ever
+(ATL2004). Fix: a helper method, which runs synchronously.
 
 The decompiler's raw forms are only checked where the levels are known (ATL2004): vanilla awaits
 its own entries 130 times, outside `Init` and `Main` at levels the analyzer cannot see.

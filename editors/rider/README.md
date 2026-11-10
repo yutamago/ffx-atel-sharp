@@ -7,7 +7,7 @@ counterpart of the VS Code extension (`editors/vscode`); [docs/editor.md](../../
 details.
 
 ```csharp
-Common.MsgSetText(0, Text[3]);  "{name:Tidus} ⏎ Hey, wait! …"
+Common.MsgSetText(0, Text[3]);  Tidus: "A made-up line, cut at a…"
 Btl.UseCommand(Target.Biran "…", Command.Attack "…");
 ```
 
@@ -30,6 +30,9 @@ monsters), and casts of a constant to them (`(Command)0x3000`), from `atel names
 
 3. Open `src/Atel.slnx` and a script's `.cs` file.
 
+Right-click a hint for **Message language** (the languages your export has), **Configure…** and **Hide Atel#
+message text hints**.
+
 ## Settings
 
 **Settings → Tools → Atel# message text**:
@@ -41,7 +44,7 @@ monsters), and casts of a constant to them (`(Command)0x3000`), from `atel names
 | Show inlay hints | on | hints on or off (the quick documentation stays) |
 | Show the game's name after Target, Command, Map and Battle values | on | name hints on or off (hovering a hint shows the value and the name) |
 | Names folder | (empty) | `atel names export`'s folder; empty: the nearest `.atel/names` above the file |
-| Shorten inlay hints to | 60 | characters |
+| Shorten inlay hints to | 40 | characters, at a word |
 
 ## Building
 

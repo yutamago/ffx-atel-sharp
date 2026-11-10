@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
-    <!-- Packs Ffx.Atel.Sdk and builds the example mod with it, as a modder would (needs the game). -->
+    <!-- Packs Ffx.Atel.Sdk and Ffx.Atel.Templates and builds the example mods and a mod from the template with them, as a
+         modder would (needs the game); checks the template's namespaces against the decompiler's. -->
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
@@ -9,6 +10,10 @@
         <PackageReference Include="xunit.v3" Version="3.2.2" />
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- SourceNames and the area table, for the template's namespaces. -->
+        <ProjectReference Include="../../src/Ffx.Atel.Decompiler/Ffx.Atel.Decompiler.csproj" />
     </ItemGroup>
     <ItemGroup>
         <!-- The test packs the SDK in the configuration it was built in. -->

@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- Ffx.Atel.Templates, the `dotnet new` templates for Atel (docs/sdk.md, "dotnet new atel-mod"):
+           dotnet new install Ffx.Atel.Templates.<version>.nupkg
+           dotnet new atel-mod -n MyMod (with the option script, m209 by default)
+         content/atel-mod/ is the template. The package has the SDK's version (the commit's, as every package of
+         this repo), and the template's global.json pins Ffx.Atel.Sdk of that same version: the pack writes it into
+         template.json (the default of sdkVersion, @AtelSdkVersion@ in the source). Packed beside the SDK, not
+         published anywhere. The namespace steps in template.json come from tools/gen-template.cs. -->
+    <PropertyGroup>
+        <Description>dotnet new templates for Atel mods of Final Fantasy X: dotnet new atel-mod -n MyMod --script m209.</Description>
+        <PackageType>Template</PackageType>
+        <PackageTags>ffx;atel;fahrenheit;dotnet-new;templates</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IsPackable>true</IsPackable>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <!-- The template's .template.config and .gitignore start with a dot. -->
+        <NoDefaultExcludes>true</NoDefaultExcludes>
+        <!-- NU5128: no lib/ or ref/, as a template package has none. -->
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);AtelTemplateFiles</TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" />
+        <!-- Shown in the IDE; packed by AtelTemplateFiles. -->
+        <None Include="content/**/*" Pack="false" />
+    </ItemGroup>
+
+    <!-- The template's files, template.json with the SDK's version as sdkVersion's default. -->
+    <!-- Runs in the per-framework instance of the project, so the version is computed there too. -->
+    <Target Name="AtelTemplateFiles" DependsOnTargets="AtelVersion">
+        <PropertyGroup>
+            <_AtelTemplateJson>content/atel-mod/.template.config/template.json</_AtelTemplateJson>
+            <_AtelTemplateStage>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'template'))</_AtelTemplateStage>
+            <_AtelTemplateText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/$(_AtelTemplateJson)').Replace('@AtelSdkVersion@', '$(PackageVersion)'))</_AtelTemplateText>
+        </PropertyGroup>
+        <Error Condition="!$(_AtelTemplateText.Contains('&quot;$(PackageVersion)&quot;'))" Text="template.json has no @AtelSdkVersion@ to replace" />
+        <!-- WriteLinesToFile writes items, and MSBuild on Linux and macOS turns their backslashes into slashes. -->
+        <Error Condition="$(_AtelTemplateText.Contains('\'))" Text="template.json must not hold a backslash: write [|] or [.] in its regexes (tools/gen-template.cs)" />
+        <WriteLinesToFile File="$(_AtelTemplateStage)template.json" Lines="$([MSBuild]::Escape('$(_AtelTemplateText)'))" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <!-- NuGet adds each file's RecursiveDir (below content/) to its PackagePath. -->
+            <_AtelTemplateFile Include="content/**/*" Exclude="$(_AtelTemplateJson)" />
+            <TfmSpecificPackageFile Include="@(_AtelTemplateFile)" PackagePath="content/" />
+            <TfmSpecificPackageFile Include="$(_AtelTemplateStage)template.json" PackagePath="content/atel-mod/.template.config/" />
+        </ItemGroup>
+    </Target>
+</Project>

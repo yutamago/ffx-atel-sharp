@@ -107,8 +107,8 @@ and moved here when work began.
   story order: `Story.S02385_MacalaniaTempleDone`, not
   `Story.MacalaniaTempleDone`.
 - **No NuGet release yet.** The release workflow stays ready (it runs only
-  on an `sdk-v*` tag); the user tags a release once they're confident it's
-  ready for others to use.
+  on an `sdk-v*` tag; a `v*` tag since 2026-11-09, [release.md](release.md));
+  the user tags a release once they're confident it's ready for others to use.
 - **CI stays off** on the private repos (no GitHub billing): local
   verification is the merge gate. (ffx-atel-sharp went public the same
   day, so its CI runs again.)
@@ -1469,6 +1469,7 @@ A .NET 10 solution in this repo (Roslyn is MIT):
 | `Ffx.Atel.Loader` | the Fahrenheit mod: finds the enabled Atel mods, links them, serves the linked scripts and message tables to the game, provides the `Debug.*` natives |
 | `Ffx.Atel.Cli` | `atel decompile`, `atel compile`, `atel compile-all`, `atel roundtrip`, `atel export`, `atel text export`, `atel names export`, `atel compile-mod`, `atel link`, `atel survey`, `atel disasm`/`asm` |
 | `Ffx.Atel.Sdk` | NuGet package, an MSBuild project SDK: reference assembly, analyzers and MSBuild targets, so `dotnet build` of a mod project writes the mod package ([sdk.md](sdk.md)) |
+| `Ffx.Atel.Templates` | NuGet package of `dotnet new` templates: `atel-mod`, a mod project for one script ([sdk.md](sdk.md#dotnet-new-atel-mod)) |
 
 ## Compiler output
 
@@ -1920,7 +1921,11 @@ count, names placed.
    extension for message text (VS Code, Rider). No grammar, parser or
    language server of our own. Analyzers done 2026-11-02
    ([analyzers.md](analyzers.md)): 21 rules, run by `atel compile --check`;
-   on the vanilla source no errors, ATL0001 136 times. Message text done
+   on the vanilla source no errors, ATL0001 136 times. ATL2004 corrected
+   2026-11-09 from FFX.exe ([analyzers.md](analyzers.md#atl2004)): an
+   awaited request to the worker's own entry at the running level is
+   refused (0 at once, the entry never runs), below it the caller waits for
+   ever, and entry 0 never registers; the message says which. Message text done
    2026-11-02 ([editor.md](editor.md)): `atel text export` (the player's
    tables, decoded, as `.atel/text/<lang>/<script>.json`, never committed),
    the VS Code extension (`editors/vscode`: inlay hint and hover, language
@@ -1954,8 +1959,32 @@ count, names placed.
    `examples/LarvaHp`; `tests/Ffx.Atel.Sdk.Tests` packs the SDK, decompiles
    m209, builds the vanilla project and the example, and gets the same
    package as `atel compile-mod`. CI packs it on all three OSes; it is not
-   published anywhere yet. Open: publishing the package, a `dotnet new`
-   template.
+   published anywhere yet.
+   Template done 2026-11-09 ([sdk.md](sdk.md#dotnet-new-atel-mod)):
+   `Ffx.Atel.Templates`, packed beside the SDK with its version, holds
+   `dotnet new atel-mod -n MyMod --script m209`: a project laid out as
+   `examples/LarvaHp` for the named script (namespace, class and folder as
+   `atel decompile` gives them, from `tools/gen-template.cs` and
+   `data/areas.json`; all 1,621 scripts match), `global.json` with the SDK of
+   the template's version, `nuget.config` for a local package folder and a
+   README on decompiling and building. `TemplateTests` installs it from the
+   local feed into a custom hive and, with the game, follows that README for
+   m209 up to the package.
+   Editors, 2026-11-09 (the Rider hints were "alright, but could be better";
+   [editor.md](editor.md#how-a-message-shows)): both editors show the
+   speaker (`Tidus: "…"`, from a `{name:…}` first line), join a message's
+   lines into one hint cut at a word (40 characters), show the whole message
+   with its lines in the tooltip, say which languages an export has when the
+   setting's is missing (VS Code: links and a command to switch), and read
+   only a file's first 64 KB for its script, with lookups cached per document
+   (VS Code) or daemon run (Rider).
+   Release prepared 2026-11-09, not done ([release.md](release.md)): the
+   release workflow runs only on a pushed tag `v<version>` (the brief of
+   2026-11-09; `sdk-v*` before), checks the tag is on `main` and in
+   `CHANGELOG.md`, packs both packages with the tag's version and pushes only
+   when the repository variable `ATEL_NUGET_TARGET` names nuget.org or GitHub
+   Packages. Open, for the user: where to publish, the package ids, the first
+   version, whether the template ships, licence headers ([release.md](release.md#decisions-for-the-user)).
 9. **Mod system.** Package format, `Ffx.Atel.Linker`, the loader's link
    step and file serving, `mod.toml`, patch attributes, per-field data
    edits, the conflict report. Started 2026-11-02, see "Phase 9: mods":

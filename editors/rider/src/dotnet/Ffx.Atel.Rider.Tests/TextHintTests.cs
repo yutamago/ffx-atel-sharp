@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 //
 // The inlay hints, through ReSharper's daemon on made-up sources, text and names (test/data/Hints, with its .atel): the
-// gold files list each hint's place and tooltip, then the labels the hints show.
+// gold files list each hint's place and tooltip, then the labels the hints show and the languages of their menu.
 
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +17,7 @@ namespace Ffx.Atel.Rider.Tests
     public abstract class TextHintTestBase : CSharpHighlightingTestBase
     {
         private readonly List<string> myLabels = new List<string>();
+        private string myLanguages;
 
         protected override string RelativeTestDataPath => "Hints";
 
@@ -25,15 +26,19 @@ namespace Ffx.Atel.Rider.Tests
         {
             if (!(highlighting is TextHint hint)) return false;
             if (!myLabels.Contains(hint.Label)) myLabels.Add(hint.Label);
+            myLanguages = myLanguages ?? hint.Language + " of " + string.Join(", ", hint.Languages);
             return true;
         }
 
         protected override void DumpHighlightings(IPsiSourceFile sourceFile, TextWriter goldWriter)
         {
             myLabels.Clear();
+            myLanguages = null;
             base.DumpHighlightings(sourceFile, goldWriter);
             goldWriter.WriteLine("Labels:");
             foreach (var label in myLabels) goldWriter.WriteLine("  " + label);
+            // What the hints' context menu offers.
+            if (myLanguages != null) goldWriter.WriteLine("Language: " + myLanguages);
         }
     }
 

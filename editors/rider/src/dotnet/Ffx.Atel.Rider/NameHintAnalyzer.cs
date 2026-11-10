@@ -22,7 +22,7 @@ namespace Ffx.Atel.Rider
             if (entry == null) return;
             var label = TextResolver.Quote(TextResolver.HintLabel(entry.Name, context.MaxLength));
             consumer.AddHighlighting(new TextHint(element, element.GetDocumentEndOffset(), label,
-                NameResolver.Describe(type, entry, context.Language)));
+                NameResolver.Describe(type, entry, context.Language), context.Language, context.NameLanguages));
         }
     }
 

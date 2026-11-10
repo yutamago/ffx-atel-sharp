@@ -26,7 +26,7 @@ namespace Ffx.Atel.Rider
         [SettingsEntry(true, "Show the game's name after Target, Command, Map and Battle values as an inlay hint")]
         public bool ShowNameHints;
 
-        [SettingsEntry(60, "Inlay hints longer than this are cut with an ellipsis")]
+        [SettingsEntry(40, "Inlay hints longer than this are cut with an ellipsis")]
         public int MaxLength;
     }
 }

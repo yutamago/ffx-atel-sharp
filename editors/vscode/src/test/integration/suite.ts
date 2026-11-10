@@ -39,20 +39,24 @@ export async function run(): Promise<void> {
     const en = await hintsAndHover(uri);
     console.log("en:", JSON.stringify(en));
     assert.deepEqual(en.hints, [
-        JSON.stringify("{name:Tidus} ⏎ Made-up line."),
+        `Tidus: ${JSON.stringify("Made-up line.")}`,
         JSON.stringify("Made-up monster"),
         JSON.stringify("Made-up command"),
     ]);
     assert.match(en.hover, /aaaa0100/);
     assert.match(en.hover, /Made-up line\./);
+    assert.match(en.hover, /\(en\): Tidus/);
+    // The other exported language as a link that switches to it.
+    assert.match(en.hover, /\[de\]\(command:atel\.setTextLanguage/);
     assert.match(en.nameHover, /Target\.Aaaa/);
     assert.match(en.nameHover, /Made-up monster/);
 
-    await vscode.workspace.getConfiguration("atel").update("textLanguage", "de", vscode.ConfigurationTarget.Global);
+    // As the hover's link does.
+    await vscode.commands.executeCommand("atel.setTextLanguage", "de");
     const de = await hintsAndHover(uri);
     console.log("de:", JSON.stringify(de));
     assert.deepEqual(de.hints, [
-        JSON.stringify("{name:Tidus} ⏎ Erfundene Zeile."),
+        `Tidus: ${JSON.stringify("Erfundene Zeile.")}`,
         JSON.stringify("Erfundenes Monster"),
         JSON.stringify("Made-up command"),
     ]);

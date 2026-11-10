@@ -90,6 +90,10 @@ namespace Ffx.Atel.Rider
         private static readonly Regex Namespace =
             new Regex(@"^\s*namespace\s+([\w.]+)", RegexOptions.Multiline | RegexOptions.CultureInvariant);
 
+        /// <summary>How much of a file's start names its script (both editors read only this much): a decompiled worker
+        /// can be megabytes (bltz0000's W36), and what names the script is always at the top.</summary>
+        public const int HeadLength = 65536;
+
         private static ScriptCategory CategoryOf(string rootNamespace)
         {
             switch (rootNamespace)
@@ -111,7 +115,8 @@ namespace Ffx.Atel.Rider
         }
 
         /// <summary>
-        /// The scripts whose message table a file's <c>Text[n]</c> reads, most certain first:
+        /// The scripts whose message table a file's <c>Text[n]</c> reads, most certain first (all from the file's first
+        /// <see cref="HeadLength" /> characters):
         /// 1. the first line <c>atel decompile</c> writes: <c>// event/obj/bj/bjyt0400/bjyt0400.ebp, decompiled by atel.</c>;
         /// 2. the script attribute: <c>[Event("bjyt0400")]</c>, <c>[Battle("…")]</c>, <c>[Monster("…")]</c>;
         /// 3. a library class (<c>Library/Shared0001.cs</c>), shared by workers of several scripts: each listed user
@@ -121,7 +126,7 @@ namespace Ffx.Atel.Rider
         /// </summary>
         public static IReadOnlyList<ScriptRef> ScriptsOf(string text, string filePath)
         {
-            var head = text.Length > 4096 ? text.Substring(0, 4096) : text;
+            var head = text.Length > HeadLength ? text.Substring(0, HeadLength) : text;
             var decompiled = Decompiled.Match(head);
             if (decompiled.Success)
             {
@@ -135,7 +140,7 @@ namespace Ffx.Atel.Rider
                 return new[] { new ScriptRef(name, category) };
             }
 
-            var attribute = Attribute.Match(text);
+            var attribute = Attribute.Match(head);
             if (attribute.Success)
             {
                 var category = (ScriptCategory)Enum.Parse(typeof(ScriptCategory), attribute.Groups[1].Value);
@@ -155,7 +160,7 @@ namespace Ffx.Atel.Rider
                 return users;
             }
 
-            var ns = Namespace.Match(text);
+            var ns = Namespace.Match(head);
             var fromNamespace = ns.Success ? FromNamespace(ns.Groups[1].Value) : null;
             if (fromNamespace != null) return new[] { fromNamespace };
 
@@ -200,14 +205,74 @@ namespace Ffx.Atel.Rider
             }
         }
 
-        /// <summary>A message on one line for an inlay hint: line breaks as <c> ⏎ </c>, cut to <paramref name="max" />
-        /// characters with an ellipsis.</summary>
-        public static string HintLabel(string text, int max)
+        private static readonly Regex Lines = new Regex("\r?\n", RegexOptions.CultureInvariant);
+        private static readonly Regex LeadingWaits = new Regex(@"^(?:\s|\{wait:\d+\})+", RegexOptions.CultureInvariant);
+        private static readonly Regex NameCode = new Regex(@"^\{name:([^{}]+)\}\s*$", RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// A message split for showing: who speaks it, when its first line says so, and its lines. A window's first line
+        /// is the speaker when it is a character's name code alone (<c>{name:Tidus}</c>, after any <c>{wait:n}</c>); a
+        /// first line left empty is a speaker the window does not name. Other first lines (plain names, choices) stay
+        /// part of the text. As the VS Code extension's <c>messageParts</c>.
+        /// </summary>
+        public static (string Speaker, IReadOnlyList<string> Lines) MessageParts(string text)
         {
-            var line = Regex.Replace(text, "\r?\n", " ⏎ ");
-            var info = new System.Globalization.StringInfo(line);
-            if (info.LengthInTextElements <= max) return line;
-            return info.SubstringByTextElements(0, Math.Max(1, max - 1)) + "…";
+            var lines = Lines.Split(text);
+            if (lines.Length < 2) return (null, lines);
+            var first = LeadingWaits.Replace(lines[0], "");
+            var name = NameCode.Match(first);
+            if (name.Success) return (name.Groups[1].Value, lines.Skip(1).ToList());
+            if (first.Trim().Length == 0 && lines[0].IndexOf('{') < 0) return (null, lines.Skip(1).ToList());
+            return (null, lines);
+        }
+
+        /// <summary>Text cut to <paramref name="max" /> characters with an ellipsis; a word the cut would split goes, when a
+        /// space is in the second half.</summary>
+        public static string Shorten(string text, int max)
+        {
+            var info = new System.Globalization.StringInfo(text);
+            if (info.LengthInTextElements <= max) return text;
+            var keep = Math.Max(1, max - 1);
+            var cut = info.SubstringByTextElements(0, keep);
+            // Inside a word: back to the space before it.
+            var space = cut.LastIndexOf(' ');
+            if (info.SubstringByTextElements(keep, 1) != " " && space >= max / 2) cut = cut.Substring(0, space);
+            return cut.TrimEnd() + "…";
+        }
+
+        /// <summary>A message on one line for an inlay hint: its lines joined by spaces (the window's breaks are only
+        /// layout), cut to <paramref name="max" /> characters.</summary>
+        public static string HintLabel(string text, int max) =>
+            Shorten(string.Join(" ", Lines.Split(text).Select(l => l.Trim()).Where(l => l.Length > 0)), max);
+
+        /// <summary>The inlay hint of a message: <c>Tidus: "Hey, wait! …"</c>, or only the quoted text without a speaker.</summary>
+        public static string MessageHint(string text, int max)
+        {
+            var (speaker, lines) = MessageParts(text);
+            var quoted = Quote(HintLabel(string.Join("\n", lines), max));
+            return speaker != null ? speaker + ": " + quoted : quoted;
+        }
+
+        /// <summary>The whole message for a tooltip: the speaker on a line of its own, then the message's lines.</summary>
+        public static string MessageFull(string text)
+        {
+            var (speaker, lines) = MessageParts(text);
+            return (speaker != null ? speaker + ":\n" : "") + string.Join("\n", lines);
+        }
+
+        /// <summary>The languages a text (or names) folder has an export for: its subfolders, sorted.</summary>
+        public static IReadOnlyList<string> ExportedLanguages(string root)
+        {
+            try
+            {
+                return Directory.Exists(root)
+                    ? Directory.GetDirectories(root).Select(Path.GetFileName).OrderBy(l => l, StringComparer.Ordinal).ToList()
+                    : (IReadOnlyList<string>)Array.Empty<string>();
+            }
+            catch (Exception)
+            {
+                return Array.Empty<string>();
+            }
         }
 
         /// <summary>A string as a C#/JSON literal, as the VS Code hint shows it: <c>"…"</c>.</summary>

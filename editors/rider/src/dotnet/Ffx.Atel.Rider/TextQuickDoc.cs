@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 using JetBrains.Application.DataContext;
@@ -97,16 +98,32 @@ namespace Ffx.Atel.Rider
                 return (title, body.ToString());
             }
 
+            var languages = context.TextLanguages;
+            var lang = WebUtility.HtmlEncode(context.Language);
+            if (!languages.Contains(context.Language))
+            {
+                body.Append($"<p>No <code>{lang}</code> text (<code>atel text export --lang {lang}</code> exports it)");
+                if (languages.Count > 0) body.Append("; exported: ").Append(WebUtility.HtmlEncode(string.Join(", ", languages)));
+                body.Append(". The language is in Settings → Tools → Atel# message text.</p>");
+                return (title, body.ToString());
+            }
+
             var shown = 0;
             foreach (var lookup in lookups)
             {
                 if (shown++ == 8) break;
                 var name = WebUtility.HtmlEncode(lookup.Script.Name);
-                var lang = WebUtility.HtmlEncode(context.Language);
-                body.Append($"<p><b>{name}</b>, message {index} ({lang})</p>");
                 if (lookup.Found && lookup.Text != null)
-                    body.Append("<pre>").Append(WebUtility.HtmlEncode(lookup.Text)).Append("</pre>");
-                else if (lookup.Script.Category == ScriptCategory.Monster)
+                {
+                    var (speaker, lines) = TextResolver.MessageParts(lookup.Text);
+                    var by = speaker != null ? ": " + WebUtility.HtmlEncode(speaker) : "";
+                    body.Append($"<p><b>{name}</b>, message {index} ({lang}){by}</p>");
+                    body.Append("<pre>").Append(WebUtility.HtmlEncode(string.Join("\n", lines))).Append("</pre>");
+                    continue;
+                }
+
+                body.Append($"<p><b>{name}</b>, message {index} ({lang})</p>");
+                if (lookup.Script.Category == ScriptCategory.Monster)
                     body.Append("<p><i>A monster has no message table: the index is into the current battle's.</i></p>");
                 else if (lookup.Found)
                     body.Append("<p><i>No text in this message.</i></p>");
@@ -114,6 +131,11 @@ namespace Ffx.Atel.Rider
                     body.Append($"<p><i>No message {index} for {name} in <code>{lang}</code>.</i></p>");
             }
 
+            // The other languages there are, as the VS Code hover's links (here the setting switches them).
+            if (languages.Count > 1)
+                body.Append("<p>Languages: ")
+                    .Append(string.Join(", ", languages.Select(l => l == context.Language ? $"<b>{WebUtility.HtmlEncode(l)}</b>" : WebUtility.HtmlEncode(l))))
+                    .Append(" (Settings → Tools → Atel# message text)</p>");
             return (title, body.ToString());
         }
     }

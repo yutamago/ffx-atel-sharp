@@ -126,16 +126,16 @@ public static class Rules {
         "Only requests (and their .Finished and .Started) wait for another worker. Natives that wait do so anyway, and functions and helpers run synchronously.");
 
     public static readonly DiagnosticDescriptor SelfRequestDeadlock = Rule(
-        "ATL2004", "Awaited request to the worker's own entry at the same or a lower priority",
-        "Awaited request to entry {0} of this worker at level {1} from code that runs at level {2} ({3}): it cannot start while this entry waits",
+        "ATL2004", "Awaited request to the worker's own entry that never runs",
+        "Awaited request to entry {0} of this worker at level {1} from code that runs at level {2} ({3}): {4}",
         RequestCategory, DiagnosticSeverity.Error,
-        "A worker runs one level at a time. An awaited request to its own entry starts only if its level is above the caller's; at the same or a lower level the caller waits for ever. A helper method is usually the better choice.");
+        "A worker starts a request only when its level is above the running one. An awaited request to the worker's own entry at the running level is refused (that level's request is still queued): it gives 0 at once and the entry never runs. Below the running level it never starts, and the caller waits for ever. A request to entry 0 never registers. A helper method is usually the better choice.");
 
     public static readonly DiagnosticDescriptor SelfRequest = Rule(
         "ATL2005", "Awaited request to the worker's own entry",
-        "Awaiting '{0}', an entry of this worker, waits for ever unless the request's priority is above the caller's; consider a helper method",
+        "Awaiting '{0}', an entry of this worker, runs it only if the request's priority is above the caller's (at the same level it is refused, below it the caller waits for ever); consider a helper method",
         RequestCategory, DiagnosticSeverity.Warning,
-        "A worker runs one level at a time. An awaited request to its own entry starts only if its level is above the caller's.");
+        "A worker starts a request only when its level is above the running one. An awaited request to its own entry at the caller's level is refused and gives 0 at once; below it, it never starts and the caller waits for ever.");
 
     public static readonly DiagnosticDescriptor Priority = Rule(
         "ATL2006", "Priority reserved for the engine",

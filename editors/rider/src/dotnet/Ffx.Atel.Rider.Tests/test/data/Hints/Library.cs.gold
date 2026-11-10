@@ -15,12 +15,17 @@ public static class Shared0001
 }
 
 ---------------------------------------------------------
-(0): Atel# Message Text Hint: aaaa0100: First.
+(0): Atel# Message Text Hint: aaaa0100:
+First.
 
-bbbb0200: First.
-(1): Atel# Message Text Hint: aaaa0100: A made-up line that is long enough to be cut short in the inlay hint, but not in the documentation.
+bbbb0200:
+First.
+(1): Atel# Message Text Hint: aaaa0100:
+A made-up line that is long enough to be cut short in the inlay hint, but not in the documentation.
 
-bbbb0200: Other fourth.
+bbbb0200:
+Other fourth.
 Labels:
   "First."
-  "A made-up line that is long enough to be cut short in the i…" (+1)
+  "A made-up line that is long enough to…" (+1)
+Language: en of de, en
