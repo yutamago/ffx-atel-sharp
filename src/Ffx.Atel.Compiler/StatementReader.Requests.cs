@@ -93,7 +93,7 @@ internal sealed partial class StatementReader {
             (workerNumber, entryNumber) = (tw, te);
         }
         else {
-            if (!workers.TryGetValue(worker, out int w)) throw Error(m.Expression, $"no worker {worker} in [Workers]");
+            if (!workers.TryGetValue(worker, out int w)) throw NoWorker(m.Expression, worker);
             if (!EntryMethods.TryGetValue(worker, out Dictionary<string, int>? methods) || !methods.TryGetValue(method.Identifier.ValueText, out int entry)) {
                 throw Error(method, $"{worker} has no entry method {method.Identifier.ValueText}");
             }

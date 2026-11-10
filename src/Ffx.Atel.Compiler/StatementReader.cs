@@ -361,7 +361,7 @@ internal sealed partial class StatementReader(
                 return new RequestStmt(op, ReadExpr(positional[0].Expression), ReadExpr(positional[1].Expression), ReadExpr(positional[2].Expression));
             }
             case GenericNameSyntax { Identifier.ValueText: "Call", TypeArgumentList.Arguments: [TypeSyntax t] } when args.Count == 0:
-                return new CallWorkerStmt(workers.TryGetValue(TypeNameOf(t), out int w) ? w : throw Error(t, $"no worker {t} in [Workers]"));
+                return new CallWorkerStmt(workers.TryGetValue(TypeNameOf(t), out int w) ? w : throw NoWorker(t, TypeNameOf(t)));
             case IdentifierNameSyntax { Identifier.ValueText: "Halt" } when args.Count == 0:
                 return new OpStmt(Opcodes.Op54);
             case IdentifierNameSyntax { Identifier.ValueText: "Breakpoint" } when args.Count == 0:
@@ -372,7 +372,7 @@ internal sealed partial class StatementReader(
                     [.. args.Select(a => ReadExpr(a.Expression))]);
             // `WaitForEntry<Lulu>(5);`: op_77 with the worker's number.
             case GenericNameSyntax { Identifier.ValueText: "WaitForEntry", TypeArgumentList.Arguments: [TypeSyntax wt] } when args.Count == 1:
-                return new OpArgsStmt(Opcodes.Op77, [new IntLit(workers.TryGetValue(TypeNameOf(wt), out int ww) ? ww : throw Error(wt, $"no worker {wt} in [Workers]")),
+                return new OpArgsStmt(Opcodes.Op77, [new IntLit(workers.TryGetValue(TypeNameOf(wt), out int ww) ? ww : throw NoWorker(wt, TypeNameOf(wt))),
                     ReadExpr(args[0].Expression)]);
             case IdentifierNameSyntax { Identifier.ValueText: "End" } when args.Count is 1 or 2: {
                 bool reset = args.Count == 2 && (Constant(args[1].Expression) ?? throw Error(args[1], "reset is true or false"));
@@ -392,6 +392,10 @@ internal sealed partial class StatementReader(
             case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Run", Expression: IdentifierNameSyntax fw }
                 when args.Count == 0 && workers.TryGetValue(fw.Identifier.ValueText, out int callee):
                 return new CallWorkerStmt(callee);
+            // `MoveTalkDefaults.Run();` where no worker or several derive from the library class.
+            case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Run", Expression: IdentifierNameSyntax lib }
+                when args.Count == 0 && (workers as WorkerTable)?.WhyNot(lib.Identifier.ValueText) is string why:
+                throw Error(lib, why);
             case MemberAccessExpressionSyntax:
                 (ushort id2, IReadOnlyList<Expr> a2) = Native(call);
                 return new CallStmt(id2, a2);
@@ -399,6 +403,9 @@ internal sealed partial class StatementReader(
                 throw Error(call, $"no ATEL call {call.Expression}");
         }
     }
+
+    /// <summary>The error for a worker name the script does not have (a library class with no or several deriving workers says so).</summary>
+    private CompileException NoWorker(SyntaxNode at, string name) => Error(at, (workers as WorkerTable)?.WhyNot(name) ?? $"no worker {name} in [Workers]");
 
     private static string TypeNameOf(TypeSyntax t) => t switch {
         QualifiedNameSyntax q => q.Right.Identifier.ValueText,
@@ -533,7 +540,7 @@ internal sealed partial class StatementReader(
     private Expr LinkNumber(InvocationExpressionSyntax link) {
         GenericNameSyntax g = (GenericNameSyntax)((MemberAccessExpressionSyntax)link.Expression).Name;
         if (g.Identifier.ValueText == "Worker" && g.TypeArgumentList.Arguments is [TypeSyntax t] && link.ArgumentList.Arguments.Count == 0) {
-            return workers.TryGetValue(TypeNameOf(t), out int w) ? new IntLit(w) : throw Error(t, $"no worker {t} in [Workers]");
+            return workers.TryGetValue(TypeNameOf(t), out int w) ? new IntLit(w) : throw NoWorker(t, TypeNameOf(t));
         }
         throw Error(link, "Link.Entry gives an entry's number in a mod (atel compile-mod); in a script write the number");
     }

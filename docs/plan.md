@@ -1321,7 +1321,10 @@ how `atel compile` reads it:
   compiler reads as that worker (`ScriptCompiler.LibraryAliases`). Library classes
   without a hand name are named by rule from their users' place and name
   (`Bjyt0000CameraLine`, `ThunderPlainsSystemRequests2`, `IdleActor`;
-  source-repo.md, "Library names"). Not done: near-duplicates with parameters.
+  source-repo.md, "Library names"). `atel compile-mod` (and so the SDK build) resolves
+  the same aliases in a mod's own code (2026-11-10, `WorkerTable`, shared with `atel
+  compile`); a library class with no or several deriving workers is a compile error and
+  [ATL3007](analyzers.md#atl3007) in the IDE. Not done: near-duplicates with parameters.
 - **Layout and data parts** (2026-11-03, review proposal P16): what only
   pins the compiled layout is in `<Script>.Layout.cs`, the data areas in
   `<Script>.Data.cs`, and neither in the files people read: the layout part

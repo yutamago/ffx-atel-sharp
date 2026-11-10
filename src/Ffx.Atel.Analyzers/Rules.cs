@@ -184,6 +184,12 @@ public static class Rules {
         CallCategory, DiagnosticSeverity.Error,
         "Wait.Seconds(s) compiles to Wait.Frames(n), n = s × 30 rounded to the nearest frame. Scripts run once a frame (30 a second), so a wait lasts at least one frame; a value that rounds to 0 frames, a negative one, or one beyond int's range is an error.");
 
+    public static readonly DiagnosticDescriptor LibraryClassWorker = Rule(
+        "ATL3007", "Library class that names no worker of this script",
+        "{0} names the one worker of this script that derives from it; {1}",
+        CallCategory, DiagnosticSeverity.Error,
+        "In a script's code (and a mod's), a library class's name used as a worker (MoveTalkDefaults.Run(), Call<T>(), WaitForEntry<T>(), a request) is the one worker of the script that derives from it. With no such worker, or several, it names none: name the worker.");
+
     // ----- ATL4xxx: mods ----------------------------------------------------------------------
 
     public static readonly DiagnosticDescriptor InitialValue = Rule(

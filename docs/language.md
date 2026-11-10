@@ -134,7 +134,10 @@ public sealed partial class Larva : BattleWorker
 - **Library classes**: workers that are identical across scripts derive from a shared class in
   `Library/` (`public sealed partial class W03 : Shared0001 { }`); the compiler lays the library
   class's members out before the worker's own. `atel compile` finds the nearest `Library/` above
-  the script folder, or takes `--library <dir>`.
+  the script folder, or takes `--library <dir>`. In code, a library class's name used as a worker
+  (`MoveTalkDefaults.Run()`, `Call<MoveTalkDefaults>()`, a request) is the one worker of the script
+  deriving from it, in vanilla source and in a mod alike; with none or several it is an error
+  ([ATL3007](analyzers.md#atl3007)).
 
 ## Entries
 
