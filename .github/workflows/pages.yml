@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MIT
+# The website in site/ (docs/website.md): built on every PR that touches it, deployed to GitHub Pages
+# from main.
+name: Pages
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push to main replaces a queued one, a running one finishes.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: site/.nvmrc
+        cache: npm
+        cache-dependency-path: site/package-lock.json
+
+    - name: Install
+      run: npm ci
+
+    # starlight-links-validator fails the build on a broken internal link.
+    - name: Build
+      run: npx astro build
+
+    - name: Upload the site
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      uses: actions/upload-pages-artifact@v5
+      with:
+        path: site/dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Deploy
+      id: deployment
+      uses: actions/deploy-pages@v5
