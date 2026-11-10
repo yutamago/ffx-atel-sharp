@@ -1231,10 +1231,19 @@ replaces and the round trip stays byte for byte.
     `ShowStatIcon`/`ShowStatIconOfCurrent`, differ by a parameter). It would
     pay only for hand-written helpers.
   - 1,621/1,621 round-trip, 0 C# errors, 221 warnings (ATL2006).
-  - Open: an `[Inject]` anchor is a call as written, so a property
-    (`Self.Hp = 1;`, now 45,069 places in battle scripts, and `Yaw = …`
-    before) is no anchor; anchoring on a member property's name would need
-    the compiler to find its assignments too.
+  - **`[Inject]` anchors on members** (2026-11-10, was "Open"): an anchor can now be a member
+    named in full (`nameof(Self.Hp)`, `nameof(Yaw)`, `"Camera.Eye.Position"`, `"Actors.Hp"`), and its
+    reads and assignments are its places. A native or a member named in full stands for the natives
+    it compiles to. Each call, read or assignment that compiles to one of them counts, whichever form
+    the source writes, so `Self.Hp = 1;` is also the n-th call to `Btl.SetActorProperty`, and
+    re-exports that write more natives as members do not move an anchor. The compiler records each
+    native's source place while it compiles the vanilla source (`NativeSite`). ATL4002 counts by name
+    and reports only places that are surely missing. A corpus test (`InjectCorpusTests`) puts an
+    inject at a property in the middle of each worker's first 6 methods. That is 28,348 methods in
+    1,583 scripts (38 have no property; the 5 blitzball methods of worker 36 have too many labels to
+    copy). For each inject it checks that the member's anchor and the native's anchor land on the
+    same statement, then links every package. Most of the anchors are on `Camera` (6,475), `Hidden`
+    (4,366) and `Yaw` (2,674).
 - **More names by rule** (2026-11-10): party members by `SetPartyIndex`, `BattleLine`/`Box`,
   `WarpLine`/`Box`, `MapSetup`, registers by the getter stored in them, long entries by
   three quarters of their calls ([research/variable-names.md](research/variable-names.md)).
@@ -1413,7 +1422,14 @@ how `atel compile` reads it:
   source-repo.md, "Library names"). `atel compile-mod` (and so the SDK build) resolves
   the same aliases in a mod's own code (2026-11-10, `WorkerTable`, shared with `atel
   compile`); a library class with no or several deriving workers is a compile error and
-  [ATL3007](analyzers.md#atl3007) in the IDE. Not done: near-duplicates with parameters.
+  [ATL3007](analyzers.md#atl3007) in the IDE.
+- **Near-duplicates with parameters** (2026-11-10): measured, not built
+  ([research/repeats.md](research/repeats.md#near-duplicate-workers)). After the library is built, the
+  workers that differ only in at most 4 numbers come to 86 groups of 246 bodies (558 workers). One class per
+  group would save 5,997 lines, 8,011 with up to 8 numbers, about 0.2 % of the 3.92 million lines of worker
+  bodies. The groups are small, and their numbers (dobj and model IDs, flags, coordinates) have no names to
+  give the parameters. A third of the numbers are in `static` requested entries, which no override can feed
+  in C#. `SharedWorkers.MeasureNearDuplicates` keeps the count, and the corpus roundtrip prints it.
 - **Layout and data parts** (2026-11-03, review proposal P16): what only
   pins the compiled layout is in `<Script>.Layout.cs`, the data areas in
   `<Script>.Data.cs`, and neither in the files people read: the layout part

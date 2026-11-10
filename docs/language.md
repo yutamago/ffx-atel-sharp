@@ -996,7 +996,7 @@ public sealed partial class Helper : BattleWorker  // a new worker
 | `[Prefix(nameof(M))]` | runs before vanilla method `M`; `return;` ends the entry, so `M` does not run |
 | `[Postfix(nameof(M))]` | runs after `M`, wherever `M` ends the entry |
 | `[Replace(nameof(M))]` | runs instead of `M` |
-| `[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` | runs inside `M`, before (or `After =`) the statement with its n-th call to `X` ("Injecting code" below) |
+| `[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` | runs inside `M`, before (or `After =`) the statement with its n-th call to `X` or use of the member `X` ("Injecting code" below) |
 | an `async` method without attribute | a new entry; its number is given when linking |
 | a plain method without attribute | a helper (above): a new function worker of the mod |
 | a new class deriving from a worker type (`Actor`, `BattleWorker`, …, or `Worker0` … `Worker6`) | a new worker |
@@ -1072,7 +1072,7 @@ partial class Boy                                // an event's worker
 ### Injecting code
 
 **Available.** `[Inject]` runs a mod's method at a point inside a vanilla method, not only before or
-after it. The point is a statement of the decompiled source, named by a call it holds:
+after it. The point is a statement of the decompiled source, named by a call or a member it holds:
 
 ```csharp
 partial class Ai
@@ -1087,15 +1087,30 @@ partial class Ai
     // Before the statement with the 1st call to Common.Random16.
     [Inject(nameof(OnTurn), Before = "Common.Random16")]
     void Count() { Turns += 1; }
+
+    // After the statement with the 2nd use of Self.Hp (`Self.Hp = 1;`, `if (Self.Hp < 100)`).
+    [Inject(nameof(OnTurn), After = nameof(Self.Hp), Occurrence = 2)]
+    void Healed() { Turns = 0; }
 }
 ```
 
 - **The anchor** is a call as it is written in the source: `nameof(Btl.UseCommand)` or `"Btl.UseCommand"` for a
   native, `"Motion.Play"` for a member, `nameof(Dialogue.Say)` for an inline method, `"W02.OpenAsync"` for a
-  request, `"Helper"` for a helper. `Occurrence` (1 by default) counts the calls of that name in the method, in
-  the order they stand in the file. A shorter name matches longer ones (`"UseCommand"` matches
-  `Btl.UseCommand`). A property's read or assignment (`Self.Hp = 1;`, `Yaw = 1.5f;`) is written as no call, so it
-  is no anchor: anchor on a call before or after it. The statement is the innermost one holding the call: for a call in an `if`'s condition, the
+  request, `"Helper"` for a helper. `Occurrence` (1 by default) counts its places in the method, in the order they
+  stand in the file. A shorter name matches longer ones (`"UseCommand"` matches `Btl.UseCommand`).
+- **A member** ("Members" above) is an anchor too, named in full: `nameof(Self.Hp)`, `nameof(Yaw)`,
+  `"Camera.Eye.Position"`, `nameof(Motion)` (`Motion = id`), `"Actors.Hp"` for `Actors[…].Hp` (or the item's class,
+  `nameof(PickedActors.Hp)`). Its places are its reads and its assignments alike (`Self.Hp = 1;`, `F0 = Self.Hp;`),
+  and its calls for a method (`"Turn.Start"`); a `Vector3`'s components count for the property (`Pos.X` is a use of
+  `Pos`).
+- **By native.** A native or a member named in full stands for the natives it compiles to (`Self.Hp`:
+  `Btl.GetSelfProperty` and `Btl.SetActorProperty` with `ActorProperty.Hp`), and every call, read or assignment in
+  the method that compiles to one of them is a place, whichever way the source writes it:
+  `Btl.SetActorProperty(ActorProperty.Hp, 1);` is a use of `Self.Hp`, and `Self.Hp = 1;` a call to
+  `Btl.SetActorProperty`. So a re-export that writes more natives as members (as #69, #72 and #83 did) moves no
+  anchor. A member written with a worker (`Tidus.Yaw`) or a short name (`"Hp"`) matches only the places written
+  so.
+- The statement is the innermost one holding the place: for a place in an `if`'s condition, the
   whole `if` with its branches; for one inside a branch, that statement only.
 - **Before** runs as the statement is entered, **after** as it is left by its end. Jumps that stay inside the
   statement do not run the code again: a loop's back edge to its head does not repeat the code before the loop,
@@ -1107,7 +1122,7 @@ partial class Ai
   built, and the package holds its code range in the method with the method's hash: a mod built on another
   game version's method is left out (a hash mismatch), and a vanilla source written differently (a call folded
   into an inline method) is a build error naming the anchor, not code in the wrong place.
-  [ATL4002](analyzers.md#atl4002) shows a missing call in the IDE.
+  [ATL4002](analyzers.md#atl4002) shows a missing call or member in the IDE.
 - Several mods' injects, prefixes and postfixes on one method combine: at one point the code after the statement
   that ends there runs before the code before the one that starts there, each in load order. A `[Replace]` of
   the method takes the code an inject points into: the inject is a reported conflict and is left out.

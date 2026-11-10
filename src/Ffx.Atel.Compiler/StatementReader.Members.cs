@@ -114,7 +114,7 @@ internal sealed partial class StatementReader {
             if (Members.Find(m.Path, MemberUse.Call).Count > 0) throw Error(call, $"{m.Path} takes no {argc} arguments");
             return null;
         }
-        return (native.Id, NativeArgs(sig, m.Path, call, args, fixedArg, receiver, native.Constant));
+        return (native.Id, Site(call, native.Id, NativeArgs(sig, m.Path, call, args, fixedArg, receiver, native.Constant)));
     }
 
     /// <summary>A member read (<c>Yaw</c>, <c>Tidus.Pos.X</c>, <c>Move.YawToTarget</c>): the native's result; null if it is no member.</summary>
@@ -126,7 +126,7 @@ internal sealed partial class StatementReader {
             }
             return null;
         }
-        return new CallExpr(native.Id, NativeArgs(sig, m.Path, e, default, fixedArg, receiver, native.Constant));
+        return new CallExpr(native.Id, Site(e, native.Id, NativeArgs(sig, m.Path, e, default, fixedArg, receiver, native.Constant)));
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ internal sealed partial class StatementReader {
             values = [a.Right];
         }
         SeparatedSyntaxList<ArgumentSyntax> args = SyntaxFactory.SeparatedList(values.Select(SyntaxFactory.Argument));
-        return new CallStmt(native.Id, NativeArgs(sig, m.Path, a, args, fixedArg, receiver, native.Constant));
+        return new CallStmt(native.Id, Site(a.Left, native.Id, NativeArgs(sig, m.Path, a, args, fixedArg, receiver, native.Constant)));
     }
 
     /// <summary>
@@ -210,6 +210,18 @@ internal sealed partial class StatementReader {
         }
         if (constant is int c) values.Insert(0, new IntLit(c));
         return first is null ? values : [first, .. values];
+    }
+
+    /// <summary>
+    ///     Where the native calls of the code read here come from (<see cref="NativeSite"/>), for <c>[Inject]</c>: a native's
+    ///     or member's call, a member's read or the target of a member's assignment; null when not wanted.
+    /// </summary>
+    public List<NativeSite>? Sites { get; init; }
+
+    /// <summary>Notes that <paramref name="node"/> compiles to native <paramref name="id"/> with <paramref name="args"/>.</summary>
+    private List<Expr> Site(SyntaxNode node, ushort id, List<Expr> args) {
+        Sites?.Add(new NativeSite(node, id, Members.Of(id, args)?.Constant));
+        return args;
     }
 
     /// <summary>Whether a member read or call gives a <c>bool</c> (a native typed so).</summary>

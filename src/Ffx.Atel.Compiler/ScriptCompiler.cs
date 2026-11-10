@@ -43,6 +43,9 @@ public sealed class CompiledScript(ScriptCategory category, string name, ScriptI
     /// </summary>
     internal IReadOnlyList<IReadOnlyList<SourceSpan>> SourceMap { get; init; } = [];
 
+    /// <summary>The source's native calls, members and member assignments with the native each compiles to, for <c>[Inject]</c>'s anchors.</summary>
+    internal IReadOnlyList<NativeSite> NativeSites { get; init; } = [];
+
     /// <summary>The script block's bytes.</summary>
     public byte[] Block() => Image.Write();
 
@@ -219,10 +222,11 @@ public static partial class ScriptCompiler {
         inlines.Script = new InlineMethods.ScriptContext(variables, named, cls => InlineRegisters(cls, byName, library)) {
             EntryMethods = entryMethods, Signatures = SignatureOf,
         };
+        List<NativeSite> sites = [];
         List<CompiledWorker> compiled = [];
         foreach ((string workerName, int number) in workerIndex) {
             List<ClassDeclarationSyntax> parts = byName[workerName].ToList();
-            CompiledWorker cw = Worker(parts, library, variables, named, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers, signatures: SignatureOf);
+            CompiledWorker cw = Worker(parts, library, variables, named, entryMethods, debug: debug, name: workerName, number: number, helpers: helpers, signatures: SignatureOf, sites: sites);
             compiled.Add(cw);
             image.Workers.Add(cw.Image);
         }
@@ -273,7 +277,7 @@ public static partial class ScriptCompiler {
             sourceMap.Add(Assemble(wi, items, label, where, intIndex, floatIndex));
         }
         hidden.Lay();
-        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings], SourceMap = sourceMap };
+        return new CompiledScript(scriptCategory, name, image) { DebugStrings = [.. debug.Strings], Warnings = [.. debug.Warnings], SourceMap = sourceMap, NativeSites = sites };
     }
 
     /// <summary>Compiles one script from source text.</summary>
@@ -442,7 +446,7 @@ public static partial class ScriptCompiler {
         List<ClassDeclarationSyntax> own, ScriptLibrary library, IReadOnlyDictionary<string, VariableSymbol> variables, IReadOnlyDictionary<string, int> workers,
         IReadOnlyDictionary<string, Dictionary<string, int>> entryMethods, Func<InvocationExpressionSyntax, Expr?>? links = null, DebugCalls? debug = null,
         string? name = null, int number = -1, HelperTable? helpers = null, Func<string, string, EntrySignature?>? signatures = null,
-        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null, bool constructors = false) {
+        Func<string, string, (Expr, Expr)?>? requestTargets = null, Func<string, Expr>? newTexts = null, bool constructors = false, List<NativeSite>? sites = null) {
         (List<ClassDeclarationSyntax> parts, ushort type) = WorkerParts(own, library);
         WorkerImage wi = new() { Type = type };
         foreach (AttributeSyntax a in parts.SelectMany(Attributes)) {
@@ -467,7 +471,7 @@ public static partial class ScriptCompiler {
             EntryMethods = entryMethods, DebugCalls = debug ?? new(DebugMode.Natives),
             Class = name, Helpers = helpers is null ? null : helpers.Find, ScriptClass = helpers?.ScriptClass, Inlines = helpers?.Inlines,
             InlineClasses = [.. parts.Select(p => p.Identifier.ValueText).Distinct(StringComparer.Ordinal).Reverse()],
-            Signatures = signatures, RequestTargets = requestTargets, NewTexts = newTexts,
+            Signatures = signatures, RequestTargets = requestTargets, NewTexts = newTexts, Sites = sites,
         };
 
         // Entry methods in declaration order: each places its entries, then its code follows. The

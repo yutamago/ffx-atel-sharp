@@ -680,7 +680,7 @@ internal sealed partial class StatementReader(
             position[k] = p;
         }
         List<Expr> values = ReadArgs(args.Select(a => a.Expression));
-        if (position.Select((p, k) => p == k).All(same => same)) return (sig.Id, values);
+        if (position.Select((p, k) => p == k).All(same => same)) return (sig.Id, Site(call, sig.Id, values));
         int at = _pre.Count;
         for (int k = 0; k < values.Count; k++) {
             int before = _pre.Count;
@@ -689,6 +689,6 @@ internal sealed partial class StatementReader(
         }
         Expr[] ordered = new Expr[sig.Argc];
         for (int k = 0; k < values.Count; k++) ordered[position[k]] = values[k];
-        return (sig.Id, ordered);
+        return (sig.Id, Site(call, sig.Id, [.. ordered]));
     }
 }

@@ -3,6 +3,10 @@
         <Description>Atel (C#) source to ATEL bytecode, through a Roslyn compilation.</Description>
     </PropertyGroup>
     <ItemGroup>
+        <!-- The corpus test of [Inject]'s member anchors resolves them as the compiler does (ScriptCompiler.AnchorPlaces). -->
+        <InternalsVisibleTo Include="Ffx.Atel.Compiler.Tests" />
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
         <ProjectReference Include="../Ffx.Atel.Bytecode/Ffx.Atel.Bytecode.csproj" />
         <ProjectReference Include="../Ffx.Atel.Game/Ffx.Atel.Game.csproj" />

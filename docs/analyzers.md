@@ -54,7 +54,7 @@ Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0
 | [ATL3006](#atl3006) | error | `Wait.Seconds` shorter than one frame (or longer than `int`) | at least `1f / 30` |
 | [ATL3007](#atl3007) | error | a library class named as a worker with no or several deriving workers in the script | name the worker |
 | [ATL4001](#atl4001) | error | a static constructor that is not initial values | |
-| [ATL4002](#atl4002) | error | `[Inject]` names no call of its method | |
+| [ATL4002](#atl4002) | error | `[Inject]` names no call or member of its method | |
 | [ATL4003](#atl4003) | error | a `[Saved]` field that cannot be saved | |
 | [ATL4004](#atl4004) | error | a write to another mod's `[Saved]` field | |
 
@@ -461,13 +461,17 @@ static M209()
 
 ### ATL4002
 
-`[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` runs at the statement with the n-th call to `X` in
-the vanilla method `M` ([language.md](language.md#injecting-code)). Reported when `M` has fewer calls to `X`
-(counted as the compiler counts them: in the source, in order, by the name as written), and when the
-attribute names neither or both of `Before` and `After`, or an `Occurrence` below 1.
+`[Inject(nameof(M), Before = nameof(X), Occurrence = n)]` runs at the statement with the n-th place of `X` in
+the vanilla method `M` ([language.md](language.md#injecting-code)): a call to `X`, or a use of the member `X`
+(`nameof(Self.Hp)`), or anything that compiles to a native `X` names. Reported when `M` has fewer places of `X`
+(counted as the compiler counts them: in the source, in order), and when the attribute names neither or both of
+`Before` and `After`, or an `Occurrence` below 1. The analyzer finds a member's places by name, without the
+compiler's lowering, so it may count one more than the compiler (a variable of the member's name, another
+property's native call): it reports only what is surely missing, and the build says the rest.
 
 ```csharp
 [Inject(nameof(OnTurn), After = nameof(Btl.UseCommand), Occurrence = 4)]   // ATL4002: OnTurn has 3 call(s) to Btl.UseCommand, not 4
+[Inject(nameof(OnTurn), Before = nameof(Self.Mp))]                         // ATL4002: OnTurn has no use of Self.Mp
 ```
 
 ### ATL4003

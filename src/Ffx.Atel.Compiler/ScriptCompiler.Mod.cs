@@ -88,6 +88,8 @@ public static partial class ScriptCompiler {
             List<(string Name, int[] Entries, uint Start)> list = [];
             foreach (MethodDeclarationSyntax m in parts.SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>()) {
                 int[] entries = [.. EntriesOf(m, wi.Type == 0)];
+                // A helper or an inline method of the worker: no entry, no code range of its own here.
+                if (entries.Length == 0) continue;
                 list.Add((m.Identifier.ValueText, entries, wi.Entries[entries[0]]));
             }
             Dictionary<string, (int[], uint, uint)> byMethod = new(StringComparer.Ordinal);
@@ -446,7 +448,7 @@ public static partial class ScriptCompiler {
             int w = workers[worker];
             MethodDeclarationSyntax vanillaMethod = vanillaParts[worker].SelectMany(p => p.Members).OfType<MethodDeclarationSyntax>().First(m => m.Identifier.ValueText == anchor.Method);
             (_, uint start, uint end) = methods[worker][anchor.Method];
-            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], start, end);
+            patch.At = ResolveInject(anchor, vanillaMethod, w < vanilla.SourceMap.Count ? vanilla.SourceMap[w] : [], vanilla.NativeSites, start, end);
         }
 
         // ----- Initial values -------------------------------------------------------------------
