@@ -65,7 +65,8 @@ One screen, then links.
 
 - One sentence: Atel# decompiles FFX's event and battle scripts to C#, and
   compiles your C# back into the game through Fahrenheit.
-- The hero clip (shot 1) next to the 15 lines of `ToughLarva` that make it.
+- The hero clip (shot 1, giant Wakka in Besaid village) next to the few
+  lines that make it.
 - Three steps with links: decompile, write a `partial` class, `dotnet build`
   and drop the package into Fahrenheit.
 - The install commands, the latest release and the NuGet badges.
@@ -80,29 +81,39 @@ One screen, then links.
 - **Install.** `dotnet tool install -g AtelSharp.Cli`,
   `dotnet new install AtelSharp.Templates`, the editor extensions.
 - **Quickstart.** `atel decompile`, `dotnet new atel-mod`, build, install, see
-  it in game. Five minutes, no explanation beyond what each command does.
-- **Your first mod.** The tougher Larva, one page per step with a "next" link.
-  Written new from `tutorial.md`.
+  it in game: Wakka in Besaid village, twice his size. Five minutes, no
+  explanation beyond what each command does.
+- **Your first mod.** A tougher Dingo on the Besaid island path, one page per
+  step with a "next" link. Written new from `tutorial.md`.
 
-### Guides
+### Guides: the Besaid course
 
-Task pages, each built around one project in `examples/`.
+The guides teach on one island everyone knows and reaches about 1.5 hours into
+the game: Besaid. Each guide adds one mod there, and each mod is a project in
+`examples/Besaid/` that CI builds. The Larva examples stay in `examples/` for
+the tests; the site doesn't use them.
 
-| Guide | Example | Based on |
-|---|---|---|
-| Change a monster's stats and rewards | `ToughLarva` | tutorial.md, language.md "Initial values and data edits" |
-| Run code after a vanilla entry (`[Postfix]`) | `LarvaHp` | tutorial.md |
-| Add code inside a vanilla function (`[Inject]`) | `LarvaInject` | language.md, plan.md Phase 9 |
-| Keep data in the save (`[Saved]`) | `LarvaCount` | research/mod-saves.md |
-| Read another mod's saved data | `LarvaCountReader` | research/mod-saves.md |
-| Print debug text in game | `LarvaCount` | formats/debug.md |
-| Change what a character says | (new example) | editor.md |
-| Switch a dead `if (false)` block on | (new example) | sdk.md, research/dead-code.md |
-| Find the script you want to change | | research/handlers.md, corpus.md |
-| Work next to a Fahrenheit code mod | | sdk.md |
-| Set up VS Code or Rider | | editor.md |
+| Guide | Example | What you see | Based on |
+|---|---|---|---|
+| Quickstart: change an actor when a map loads | `GiantWakka` | Wakka at twice his size in the village | language.md "Workers", "MapSetup" |
+| First mod: a monster's stats and rewards | `ToughDingo` | Scan shows the new HP; the victory screen 999 gil | tutorial.md, language.md "Initial values and data edits" |
+| Change what someone says | `BesaidGossip` | a villager's new line of dialogue | editor.md |
+| Run code when you talk to someone (`[Postfix]` on `OnTalk`) | `DancingVillager` | the villager plays a motion after talking | language.md "Entries" |
+| Shake the camera | `BeachQuake` | the camera shakes as Tidus steps onto the beach | language.md, research/oo-surface.md |
+| Move faster | `FastTidus` | Tidus runs twice as fast on the island path | language.md |
+| Keep data in the save (`[Saved]`) | `GenerousVillager` | a villager gives 1,000 gil, once per save | research/mod-saves.md |
+| Add code inside a monster's turn (`[Inject]`) | `CleverFlan` | the Water Flan heals itself below half HP | language.md, plan.md Phase 9 |
+| Count things across battles, read another mod's data | `BesaidTally` (+ a reader) | the F6 overlay counts Besaid battles, kept in the save | research/mod-saves.md |
+| Print debug text in game | `WhereAmI` | the F6 overlay shows Tidus's position and the map, live | formats/debug.md |
+| Switch a dead `if (false)` block on | (one found in Besaid, if any) | what the block does | sdk.md, research/dead-code.md |
+| Find the script you want to change | | | research/handlers.md, corpus.md |
+| Work next to a Fahrenheit code mod | | | sdk.md |
+| Set up VS Code or Rider | | | editor.md |
 
-A guide without an example gets one in `examples/` first.
+Before any guide is written, each example is checked: the Besaid maps and the
+monster scripts decompiled, the worker found (which one is Wakka, which one a
+given villager), the mod built and seen working in game. An idea that doesn't
+work in game is replaced by another visual one in Besaid, not dropped.
 
 ### Concepts
 
@@ -209,24 +220,31 @@ For all of them:
 - Into `~/ffx-work/site-media/`, named by the number below (`01-hero.mp4`).
   They are reviewed there before any goes into the repo.
 
+A save in Besaid village, after the first night (Wakka, the villagers and the
+island path are all reachable), serves every game shot.
+
 | # | Shot | Mod linked | What it shows | Used on |
 |---|---|---|---|---|
-| 1 | Clip, ~10 s | `ToughLarva` | the Larva battle (battle 34): a party member attacks the Larva and the damage barely dents it; then the victory screen with 999 gil | Home, hero |
-| 2 | Screenshot | none | Scan or Sensor on the Larva: HP 1498 | First mod: before |
-| 3 | Screenshot | `ToughLarva` | the same, HP 4321 | First mod: after |
-| 4 | Screenshot | `ToughLarva` | the victory screen with 999 gil | Stats guide |
-| 5 | Clip, ~10 s | `LarvaInject` | the Larva casts Thundara on a party member, then the next hit kills it (its HP was set to 1) | `[Inject]` guide |
-| 6 | Screenshot | `LarvaCount` | the `Debug.Print` overlay (F6) in battle showing "Larvas met: N" | Debug guide, `[Saved]` guide |
-| 7 | Screenshot | `LarvaCount` | the same after a second battle, the number one higher (it was kept) | `[Saved]` guide |
-| 8 | Screenshot | `LarvaCount`, `LarvaCountReader` | both mods' lines on the overlay | Reading another mod's data |
-| 9 | Screenshot | any | Fahrenheit's mod list with `yuta.atel` and the Atel# mod loaded | Install, Quickstart |
-| 10 | Screenshot | `LarvaCount` with an error on purpose | Rider or VS Code showing an `ATL` error with its message and the help link | Analyzers reference |
-| 11 | Screenshot | none | VS Code with a decompiled script open and a message's text shown next to its id | Editors guide |
-| 12 | Later | the text example | the changed line of dialogue on screen | Text guide (after the example exists) |
-| 13 | Later | the dead-code example | what the switched-on block does | Dead code guide (after the example exists) |
+| 1 | Clip, ~10 s | `GiantWakka` | Tidus walks up to a giant Wakka in the village | Home, hero |
+| 2 | Screenshot | `GiantWakka` | the same, a still with both in frame | Quickstart |
+| 3 | Screenshot | none | Scan on a Dingo: its vanilla HP | First mod: before |
+| 4 | Screenshot | `ToughDingo` | the same, the new HP | First mod: after |
+| 5 | Screenshot | `ToughDingo` | the victory screen with 999 gil | First mod |
+| 6 | Screenshot | `BesaidGossip` | the villager's new line in the dialogue box | Text guide |
+| 7 | Clip, ~8 s | `DancingVillager` | talking to the villager, then the motion | `OnTalk` guide |
+| 8 | Clip, ~8 s | `BeachQuake` | Tidus steps onto the beach, the camera shakes | Camera guide |
+| 9 | Clip, ~10 s | `FastTidus` | Tidus running on the island path, twice as fast | Speed guide |
+| 10 | Screenshot | `GenerousVillager` | the "Obtained 1,000 gil" message | `[Saved]` guide |
+| 11 | Screenshot | `GenerousVillager` | talking again: the villager's "already gave" line | `[Saved]` guide |
+| 12 | Clip, ~10 s | `CleverFlan` | a Water Flan below half HP heals itself | `[Inject]` guide |
+| 13 | Screenshot | `BesaidTally` + reader | the F6 overlay after a few battles, both mods' lines | Tally guide |
+| 14 | Screenshot | `WhereAmI` | the F6 overlay with Tidus's position and the map name | Debug guide |
+| 15 | Screenshot | any | Fahrenheit's mod list with `yuta.atel` and the Atel# mod loaded | Install, Quickstart |
+| 16 | Screenshot | an error on purpose | Rider or VS Code showing an `ATL` error with its message and the help link | Analyzers reference |
+| 17 | Screenshot | none | VS Code with a Besaid script open and a message's text shown next to its id | Editors guide |
 
-12 and 13 wait for their example mods. I set up and launch the game with the
-right mods linked for each shot.
+Each shot waits until its example works in game; then I link the mods and
+launch the game for it. The list changes if an example is replaced.
 
 ## Steps
 
@@ -235,20 +253,23 @@ right mods linked for each shot.
    when the site is live and builds on every PR.
 2. **CLI tool.** `AtelSharp.Cli` packed and published by the release
    workflow; released as `0.1.0-alpha.2`.
-3. **Get started.** Requirements, install, the Quickstart, the first mod.
-   Uses shots 2, 3 and 9.
-4. **Reference.** The API pages and the pass over the most-used XML comments,
+3. **Besaid examples.** Decompile the Besaid maps and the Dingo, Condor and
+   Water Flan scripts, find the workers, write the mods in `examples/Besaid/`,
+   check each in game. Replace what doesn't work.
+4. **Get started.** Requirements, install, the Quickstart, the first mod.
+   Uses shots 1 to 5 and 15.
+5. **Reference.** The API pages and the pass over the most-used XML comments,
    one page per analyzer rule with `HelpLinkUri` set, the CLI pages, the
    language reference, `site/snippets/`.
-5. **Concepts and guides.** The concept pages, the missing examples, one page
-   per guide. Uses shots 4 to 8 and 10 to 13.
-6. **How it works.** The overview pages with their diagrams.
-7. **Home and polish.** The real home page with shot 1, a social preview image,
+6. **Concepts and guides.** The concept pages, one page per guide. Uses shots
+   6 to 14, 16 and 17.
+7. **How it works.** The overview pages with their diagrams.
+8. **Home and polish.** The real home page with shot 1, a social preview image,
    a 404 page, a check at phone width and in light and dark.
 
-Each step is one PR with CI green and `origin/main` merged in. Steps 3 to 6 can
-run in parallel once step 1 is merged; the shots can be taken any time before
-the step that uses them.
+Each step is one PR with CI green and `origin/main` merged in. Steps 2, 3, 5
+and 7 can run in parallel once step 1 is merged; 4 and 6 need the examples
+from 3.
 
 ## Decisions
 
@@ -261,3 +282,5 @@ The user, 2026-11-10:
    follow, with links to `docs/` in the repo for the details. `docs/` is not
    rendered on the site.
 5. Screenshots and clips: the plan lists what's needed, the user captures them.
+6. The examples on the site are visual and in a beginner area: the Besaid
+   course replaces the Larva (a rare monster reached after about 20 hours).
