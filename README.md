@@ -24,6 +24,7 @@ How it works:
 - [`docs/encoding.md`](docs/encoding.md): how each construct compiles to bytecode, and what the
   compiler reproduces from the original compiler.
 - [`docs/plan.md`](docs/plan.md): the plan, the decisions per phase and their numbers.
+- [`docs/website.md`](docs/website.md): the plan for the GitHub Pages site.
 - [`docs/corpus.md`](docs/corpus.md): the shipped scripts, measured; [`docs/survey.md`](docs/survey.md)
   is the generated survey behind it.
 - [`docs/formats/script-block.md`](docs/formats/script-block.md): the script block, byte for byte.
