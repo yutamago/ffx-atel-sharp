@@ -4,7 +4,8 @@ using Ffx.Atel;
 
 namespace Ffx;
 
-/// <summary>The party's characters as one call. Each method is an inline method (<see cref="InlineAttribute"/>).</summary>
+/// <summary>The party's characters: heal them all, as a save sphere does, and similar steps of the game's own scripts.</summary>
+/// <remarks>Each method is an inline method (<see cref="InlineAttribute"/>): the compiler writes the natives it stands for in place of the call.</remarks>
 public static class Party {
     /// <summary>
     ///     Restores the HP and the MP of characters 0-6 and 8-17 (<c>CharRestoreHp</c>, <c>CharRestoreMp</c>), in the

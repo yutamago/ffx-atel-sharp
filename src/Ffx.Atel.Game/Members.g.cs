@@ -13,26 +13,26 @@ namespace Ffx.Atel
         /// </summary>
         protected static WorkerList Workers => throw Runtime.NotRunnable();
 
-        /// <summary>The worker's turn: set it up (<see cref="TurnControl.Yaw"/>, <see cref="TurnControl.SetFrames"/>), start it (<see cref="TurnControl.Start"/>), wait for it (<see cref="TurnControl.Wait"/>).</summary>
+        /// <summary>Turns the worker over several frames: set the angle (<see cref="TurnControl.Yaw"/>) and the time (<see cref="TurnControl.SetFrames"/>), then <see cref="TurnControl.Start"/> the turn and <see cref="TurnControl.Wait"/> for it.</summary>
         protected static TurnControl Turn => throw Runtime.NotRunnable();
 
-        /// <summary>The worker's move: set it up (<see cref="MoveControl.Target"/>, <see cref="MoveControl.Speed"/>), start it (<see cref="MoveControl.Start"/>), wait for it (<see cref="MoveControl.Wait"/>).</summary>
+        /// <summary>Moves the worker to a point over several frames: set the point (<see cref="MoveControl.Target"/>) and the speed (<see cref="MoveControl.Speed"/>), then <see cref="MoveControl.Start"/> the move and <see cref="MoveControl.Wait"/> for it.</summary>
         protected static MoveControl Move => throw Runtime.NotRunnable();
 
-        /// <summary>The motion of the worker's model. Assign a motion id to set it (<c>Motion = 0x71050;</c>, <c>Chr.SetMotion</c>); its members play, wait for and release motions.</summary>
+        /// <summary>The animation the worker's model plays. Assign a motion to set it (<c>Motion = 0x71050;</c>); the members play a motion, wait for it to end and give the model its own stand, walk and run motions back.</summary>
         /// <remarks>Setting it calls native <c>0x5000</c>, <c>Chr.SetMotion</c> (38040 calls in the shipped scripts).</remarks>
         protected static MotionControl Motion { get => throw Runtime.NotRunnable(); [NativeMember(0x5000)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>The neck of the worker's model: where it looks and how fast it turns there.</summary>
+        /// <summary>The head of the worker's model: what it looks at and how fast it turns there.</summary>
         protected static NeckControl Neck => throw Runtime.NotRunnable();
 
         /// <summary>The screen's sprites by slot (0-127): <c>Sprites[3].Show(V12)</c>.</summary>
         protected static SpriteList Sprites => throw Runtime.NotRunnable();
 
-        /// <summary>The battle's actors by selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks (<c>Btl.SetActorsProperty</c>), <c>Actors[Target.Own].Hp</c> reads it (<c>Btl.GetActorProperty</c>, averaged over the picked actors).</summary>
+        /// <summary>The battle's actors, picked by a selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks, <c>Actors[Target.Own].Hp</c> reads it (averaged over the picked actors).</summary>
         protected static ActorList Actors => throw Runtime.NotRunnable();
 
-        /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads a property of it (<c>Btl.GetSelfProperty</c>), <c>Self.Hp = 0;</c> sets it (<c>Btl.SetActorProperty</c>).</summary>
+        /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads its HP, <c>Self.Hp = 0;</c> sets it.</summary>
         protected static OwnActor Self => throw Runtime.NotRunnable();
 
         /// <summary>Moves the worker (and its model) to (x, y, z) at once. Its <c>X</c>, <c>Y</c> and <c>Z</c> read the worker's position.</summary>
@@ -67,11 +67,11 @@ namespace Ffx.Atel
         /// <remarks>Setting it calls native <c>0x006c</c>, <c>Common.SetMoveSpeed</c> (5765 calls in the shipped scripts).</remarks>
         protected static float MoveSpeed { [NativeMember(0x006c)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>0x0061: args (range: float, truncated); pos block (FUN_0086c2b0) +0x40; talk check 0x00866980: dist &lt;= ctx+0x1f0 + range; usually 13.0</summary>
+        /// <summary>Sets how close the player has to come to talk to the worker; most scripts use 13.</summary>
         /// <remarks>Setting it calls native <c>0x0061</c>, <c>Common.SetTalkRange</c> (1197 calls in the shipped scripts).</remarks>
         protected static float TalkRange { [NativeMember(0x0061)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>0x0063: args (radians); pos block +0x3c; talk check passes it to FUN_0088b780 with the player yaw; usually 1.047 (60 degrees); ported in native_btl/native_move (script round 10)</summary>
+        /// <summary>Sets the angle, in radians, within which the player has to face the worker to talk to it; most scripts use 1.047 (60 degrees).</summary>
         /// <remarks>Setting it calls native <c>0x0063</c>, <c>Common.SetTalkAngle</c> (512 calls in the shipped scripts).</remarks>
         protected static float TalkAngle { [NativeMember(0x0063)] set => throw Runtime.NotRunnable(); }
 
@@ -91,11 +91,11 @@ namespace Ffx.Atel
         /// <remarks>Setting it calls native <c>0x5009</c>, <c>Chr.SetPushWeight</c> (4084 calls in the shipped scripts).</remarks>
         protected static float PushWeight { [NativeMember(0x5009)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>0x5017: args (mode) -&gt; 0; chr +0x182: 0 clamp to ground, 1 snap to ground, 2 float/bob (water) (height update in 0x00832f..)</summary>
+        /// <summary>Sets how the worker's model keeps to the ground: 0 holds it at the ground's height, 1 snaps it onto the ground, 2 lets it float and bob, as on water.</summary>
         /// <remarks>Setting it calls native <c>0x5017</c>, <c>Chr.SetGroundMode</c> (2992 calls in the shipped scripts).</remarks>
         protected static int GroundMode { [NativeMember(0x5017)] set => throw Runtime.NotRunnable(); }
 
-        /// <summary>0x5076: args (on int (popped only for a model)) -&gt; 0: Ch_MouthSetAutoTalk(model, on) (0x00834770); ported in native_chr (script round 12); name from Ch_MouthSetAutoTalk(model, on)</summary>
+        /// <summary>Turns the automatic mouth movement of the worker's model on or off.</summary>
         /// <remarks>Setting it calls native <c>0x5076</c>, <c>Chr.SetAutoTalk</c> (689 calls in the shipped scripts). Setting it calls native <c>0x507e</c>, <c>Chr.SetAutoTalkOf</c> (16838 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         protected static bool AutoTalk { [NativeMember(0x5076)] [NativeMember(0x507e, Worker = true)] set => throw Runtime.NotRunnable(); }
 
@@ -111,7 +111,7 @@ namespace Ffx.Atel
         [NativeMember(0x0035)] 
         protected static int DisableTrigger(int kind) => throw Runtime.NotRunnable();
 
-        /// <summary>0x0005: no args; pushes 0, FUN_0085ca00 releases the attachment (+0xaa: 1 model, 2 ?camera 0x007ba9c0, 4/5 0x0086f4c0) without disposing data</summary>
+        /// <summary>Releases what the worker is attached to (a model, a camera) without freeing its data.</summary>
         /// <remarks>Calls native <c>0x0005</c>, <c>Common.WorkerDetach</c> (1547 calls in the shipped scripts).</remarks>
         [NativeMember(0x0005)] 
         protected static int Detach() => throw Runtime.NotRunnable();
@@ -127,7 +127,7 @@ namespace Ffx.Atel
 namespace Ffx
 {
 
-    /// <summary>The worker's turn: set it up (<see cref="TurnControl.Yaw"/>, <see cref="TurnControl.SetFrames"/>), start it (<see cref="TurnControl.Start"/>), wait for it (<see cref="TurnControl.Wait"/>).</summary>
+    /// <summary>Turns the worker over several frames: set the angle (<see cref="TurnControl.Yaw"/>) and the time (<see cref="TurnControl.SetFrames"/>), then <see cref="TurnControl.Start"/> the turn and <see cref="TurnControl.Wait"/> for it.</summary>
     /// <remarks>The worker's <c>Turn</c> property (<c>Turn.…</c>; another worker's: <c>Tidus.Turn.…</c>, <c>Workers[n].Turn.…</c>).</remarks>
     public sealed partial class TurnControl
     {
@@ -145,11 +145,11 @@ namespace Ffx
         /// <remarks>Setting it calls native <c>0x002a</c>, <c>Common.TurnSetRoll</c> (477 calls in the shipped scripts).</remarks>
         public float Roll { [Atel.NativeMember(0x002a)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x002e: args (rad/frame); turn struct +0x10 (FUN_00871580), the turn step (0x00869xxx; +0x14 when flag 0x200); default pi/64; scripts 0.1047</summary>
+        /// <summary>Sets how fast the worker turns, in radians a frame; the default is π/64.</summary>
         /// <remarks>Setting it calls native <c>0x002e</c>, <c>Common.TurnSetSpeed</c> (8627 calls in the shipped scripts).</remarks>
         public float Speed { [Atel.NativeMember(0x002e)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x002f: args (rad/frame); turn struct +0x18 (FUN_00871560); default pi/64; ?second-axis or in-motion turn speed; scripts 0.1745</summary>
+        /// <summary>Sets a second turn speed, in radians a frame (default π/64). What the game uses it for is not known yet.</summary>
         /// <remarks>Setting it calls native <c>0x002f</c>, <c>Common.TurnSetSpeed2</c> (11364 calls in the shipped scripts).</remarks>
         public float Speed2 { [Atel.NativeMember(0x002f)] set => throw Atel.Runtime.NotRunnable(); }
 
@@ -178,7 +178,7 @@ namespace Ffx
         [Atel.NativeMember(0x0078, Worker = true)] 
         public int Stop() => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x00c6: args () -&gt; bit0 = remaining turn angle (turn block +0x2c at ctx+0x890+level*0x44) &gt; 0, bit1 = |angle| beyond the threshold g_01327124 (degrees, via 0x00873ad0); used as `func 0x00c6; popi3; pushi3; func 0x00c7; func_facc 0x5000`</summary>
+        /// <summary>Returns which kind of turn the worker has left: bit 0 is set while it still has to turn, bit 1 when the turn is a large one.</summary>
         /// <remarks>Calls native <c>0x00c6</c>, <c>Common.GetTurnKind</c> (6048 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x00c6)] 
         public int GetKind() => throw Atel.Runtime.NotRunnable();
@@ -189,7 +189,7 @@ namespace Ffx
         [Atel.NativeMember(0x00c7)] 
         public int GetMotion(int kind) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x00c8: args (kind, small, large) -&gt; int frames; d = |Angle_Wrap(turn target yaw (ctx+0x884+level*0x44) - transform yaw +0x34)|; kind&amp;2: clamp(1-(1-d/pi)*1.2) * large, else clamp(d/(pi/2)) * small; scripts push (i3, 15, 30); ported in native_move (script round 11)</summary>
+        /// <summary>Returns how many frames the worker's turn takes, given the frames for a small turn and for a large one.</summary>
         /// <param name="kind"></param>
         /// <param name="small"></param>
         /// <param name="large"></param>
@@ -197,7 +197,7 @@ namespace Ffx
         [Atel.NativeMember(0x00c8)] 
         public int GetFrames(int kind, int small, int large) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x00c5: args (m0, m1, m2, m3) -&gt; 0; ctx+0xae0..0xaec = the four motion ids in push order (e.g. 69735/69736/69733/69734 = 0x1106x); indexed by 0x00c6&apos;s kind</summary>
+        /// <summary>Sets the four motions the worker's model plays when it turns, one per kind of turn.</summary>
         /// <param name="m0"></param>
         /// <param name="m1"></param>
         /// <param name="m2"></param>
@@ -207,7 +207,7 @@ namespace Ffx
         public int SetMotions(int m0, int m1, int m2, int m3) => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The worker's move: set it up (<see cref="MoveControl.Target"/>, <see cref="MoveControl.Speed"/>), start it (<see cref="MoveControl.Start"/>), wait for it (<see cref="MoveControl.Wait"/>).</summary>
+    /// <summary>Moves the worker to a point over several frames: set the point (<see cref="MoveControl.Target"/>) and the speed (<see cref="MoveControl.Speed"/>), then <see cref="MoveControl.Start"/> the move and <see cref="MoveControl.Wait"/> for it.</summary>
     /// <remarks>The worker's <c>Move</c> property (<c>Move.…</c>; another worker's: <c>Tidus.Move.…</c>, <c>Workers[n].Move.…</c>).</remarks>
     public sealed partial class MoveControl
     {
@@ -217,15 +217,15 @@ namespace Ffx
         /// <remarks>Setting it calls native <c>0x0015</c>, <c>Common.MoveSetTarget</c> (16109 calls in the shipped scripts).</remarks>
         public Vector3 Target { [Atel.NativeMember(0x0015)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x0016: args (speed) -&gt; speed; current move slot +0x10 (move mode 2 step = speed, 0x00869xxx); usually 16.0</summary>
+        /// <summary>Sets the speed of the worker's move; most scripts use 16.</summary>
         /// <remarks>Setting it calls native <c>0x0016</c>, <c>Common.MoveSetSpeed</c> (2603 calls in the shipped scripts).</remarks>
         public float Speed { [Atel.NativeMember(0x0016)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x0017: args (radius) -&gt; radius; current move slot +0x38 (FUN_00870d10), the radius 0x002d sets for all slots; 0 adds 0x800 in 0x0018</summary>
+        /// <summary>Sets how close to its target the worker has to come for its move to end.</summary>
         /// <remarks>Setting it calls native <c>0x0017</c>, <c>Common.SetArriveRadius</c> (4418 calls in the shipped scripts).</remarks>
         public float ArriveRadius { [Atel.NativeMember(0x0017)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x0021 (float): (float yaw): wrapped (0x0088bc20) into the move block +0x44 (worker +0x5fc + level*0x4c); ST0 it; ported in native_btl/native_move (script round 10); name from Math_WrapAngle (0x0088bc20) into the move block +0x44 (worker +0x5fc + level * 0x4c)</summary>
+        /// <summary>Sets the direction of the worker's move, in radians, wrapped into one turn.</summary>
         /// <remarks>Setting it calls native <c>0x0021</c>, <c>Common.MoveSetYaw</c> (626 calls in the shipped scripts).</remarks>
         public float Yaw { [Atel.NativeMember(0x0021)] set => throw Atel.Runtime.NotRunnable(); }
 
@@ -233,11 +233,11 @@ namespace Ffx
         /// <remarks>Reading it calls native <c>0x001f</c>, <c>Common.GetYawToMoveTarget</c> (13643 calls in the shipped scripts).</remarks>
         public float YawToTarget { [Atel.NativeMember(0x001f)] get => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x0020: no args -&gt; float; second result of FUN_0088b4d0 (vertical angle to the move target); scripts feed it to 0x0029; ported in native_move (script round 11)</summary>
+        /// <summary>Returns the vertical angle from the worker to its move target.</summary>
         /// <remarks>Reading it calls native <c>0x0020</c>, <c>Common.GetPitchToMoveTarget</c> (2440 calls in the shipped scripts).</remarks>
         public float PitchToTarget { [Atel.NativeMember(0x0020)] get => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x001c: args (elapsed, frames); current move slot (worker+0x5b8+slot*0x4c, slot = worker+0x32) +0x08 = elapsed, +0x0c = frame count; timed modes 5/6/7/9 finish when +0x0c &lt; +0x08 (0x00870540); scripts &quot;pushimm 0; pushimm 4/19&quot;</summary>
+        /// <summary>Sets how long the worker's next move takes, for the timed moves: the frames done so far and the total.</summary>
         /// <param name="elapsed"></param>
         /// <param name="frames"></param>
         /// <remarks>Calls native <c>0x001c</c>, <c>Common.MoveSetFrames</c> (2466 calls in the shipped scripts).</remarks>
@@ -268,7 +268,7 @@ namespace Ffx
         public int StopAllLevels() => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The motion of the worker's model. Assign a motion id to set it (<c>Motion = 0x71050;</c>, <c>Chr.SetMotion</c>); its members play, wait for and release motions.</summary>
+    /// <summary>The animation the worker's model plays. Assign a motion to set it (<c>Motion = 0x71050;</c>); the members play a motion, wait for it to end and give the model its own stand, walk and run motions back.</summary>
     /// <remarks>The worker's <c>Motion</c> property (<c>Motion.…</c>; another worker's: <c>Tidus.Motion.…</c>, <c>Workers[n].Motion.…</c>).</remarks>
     public sealed partial class MotionControl
     {
@@ -277,7 +277,7 @@ namespace Ffx
         /// <summary>Assigning a value to the worker's <c>Motion</c> calls <c>Chr.SetMotion</c>: <c>Motion = …;</c>.</summary>
         public static implicit operator MotionControl(int motion) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x505d: no args -&gt; current motion id (chr +0x72c, &quot;Motion : %x&quot; in CHRINFO)</summary>
+        /// <summary>The motion the worker's model plays now.</summary>
         /// <remarks>Reading it calls native <c>0x505d</c>, <c>Chr.GetMotion</c> (1021 calls in the shipped scripts).</remarks>
         public int Current { [Atel.NativeMember(0x505d)] get => throw Atel.Runtime.NotRunnable(); }
 
@@ -289,11 +289,11 @@ namespace Ffx
         /// <remarks>Setting it calls native <c>0x505c</c>, <c>Chr.SetNextMotionBlend</c> (30539 calls in the shipped scripts).</remarks>
         public int NextBlend { [Atel.NativeMember(0x505c)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x5018: args (v int) -&gt; 0: Ch_SetMotionSpeed(model, v) (0x0082b380); ported in native_chr (script round 12); name from Ch_SetMotionSpeed(model, v)</summary>
+        /// <summary>Sets the speed of the worker's model's motion.</summary>
         /// <remarks>Setting it calls native <c>0x5018</c>, <c>Chr.SetMotionSpeed</c> (206 calls in the shipped scripts). Setting it calls native <c>0x504c</c>, <c>Chr.MotionSpeedOf</c> (212 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         public int Speed { [Atel.NativeMember(0x5018)] [Atel.NativeMember(0x504c, Worker = true)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x5051: no args -&gt; current motion frame (chr +0x740, 8.8 fixed; the &quot;frame=&quot; of the CHRINFO debug view)</summary>
+        /// <summary>The frame the worker's model's motion is at, in 256ths of a frame.</summary>
         /// <remarks>Reading it calls native <c>0x5051</c>, <c>Chr.GetMotionFrame</c> (2487 calls in the shipped scripts). Reading it calls native <c>0x5075</c>, <c>Chr.GetMotionFrameOf</c> (804 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         public int Frame { [Atel.NativeMember(0x5051)] [Atel.NativeMember(0x5075, Worker = true)] get => throw Atel.Runtime.NotRunnable(); }
 
@@ -328,7 +328,7 @@ namespace Ffx
         [Atel.NativeMember(0x5005)] 
         public int Release() => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x5032: no args -&gt; 0; SG_PlaySlotMotion(chr, chr +0x185, 0)</summary>
+        /// <summary>Plays the model's own motion for what it is doing (standing, walking or running).</summary>
         /// <remarks>Calls native <c>0x5032</c>, <c>Chr.PlayDefaultMotion</c> (1292 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x5032)] 
         public int PlayDefault() => throw Atel.Runtime.NotRunnable();
@@ -347,29 +347,29 @@ namespace Ffx
         public int SetSpeed(int speed) => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The neck of the worker's model: where it looks and how fast it turns there.</summary>
+    /// <summary>The head of the worker's model: what it looks at and how fast it turns there.</summary>
     /// <remarks>The worker's <c>Neck</c> property (<c>Neck.…</c>; another worker's: <c>Tidus.Neck.…</c>, <c>Workers[n].Neck.…</c>).</remarks>
     public sealed partial class NeckControl
     {
         private NeckControl() { }
 
-        /// <summary>0x5079: args (on int) -&gt; 0: Ch_NeckSetEnable(model, on) (0x00834f60); ported in native_chr (script round 12); name from Ch_NeckSetEnable(model, on)</summary>
+        /// <summary>Turns the neck control of the worker's model on or off: when it is on, the head turns towards the neck's target.</summary>
         /// <remarks>Setting it calls native <c>0x5079</c>, <c>Chr.SetNeckEnable</c> (333 calls in the shipped scripts).</remarks>
         public bool Enabled { [Atel.NativeMember(0x5079)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x507a: args (worker int) -&gt; 0: Ch_NeckSetTarget(model, that worker&apos;s model) (0x00835050); ported in native_chr (script round 12); name from Ch_NeckSetTarget(model, that worker&apos;s model)</summary>
+        /// <summary>Makes the worker's model look at another worker, by its number.</summary>
         /// <remarks>Setting it calls native <c>0x507a</c>, <c>Chr.SetNeckTarget</c> (315 calls in the shipped scripts).</remarks>
         public int Target { [Atel.NativeMember(0x507a)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x507b: args (x f, y f, z f) -&gt; Ch_NeckSetTargetPos(model, &amp;[x, y, z]) (0x008350a0); ported in native_chr (script round 12); name from Ch_NeckSetTargetPos(model, &amp;[x, y, z])</summary>
+        /// <summary>Makes the worker's model look at a point.</summary>
         /// <remarks>Setting it calls native <c>0x507b</c>, <c>Chr.NeckTargetPos</c> (34 calls in the shipped scripts).</remarks>
         public Vector3 TargetPos { [Atel.NativeMember(0x507b)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x5084: args (v f) -&gt; Ch_NeckSetSpeed(model, v) (0x00835020); ported in native_chr (script round 12); name from Ch_NeckSetSpeed(model, v)</summary>
+        /// <summary>Sets how fast the head of the worker's model turns towards its target.</summary>
         /// <remarks>Setting it calls native <c>0x5084</c>, <c>Chr.SetNeckSpeed</c> (97 calls in the shipped scripts).</remarks>
         public float Speed { [Atel.NativeMember(0x5084)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x507c: no args -&gt; Ch_NeckSetTargetCamera(model) (0x00835080); ported in native_chr (script round 12); name from Ch_NeckSetTargetCamera(model)</summary>
+        /// <summary>Makes the worker's model look at the camera.</summary>
         /// <remarks>Calls native <c>0x507c</c>, <c>Chr.NeckTargetCam</c> (3 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x507c)] 
         public int TargetCamera() => throw Atel.Runtime.NotRunnable();
@@ -430,7 +430,7 @@ namespace Ffx
         public int SetColor(int red, int blue, int green) => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The battle's actors by selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks (<c>Btl.SetActorsProperty</c>), <c>Actors[Target.Own].Hp</c> reads it (<c>Btl.GetActorProperty</c>, averaged over the picked actors).</summary>
+    /// <summary>The battle's actors, picked by a selector: <c>Actors[Target.AllPly].Hp = 0;</c> sets the property of every actor the selector picks, <c>Actors[Target.Own].Hp</c> reads it (averaged over the picked actors).</summary>
     public sealed partial class ActorList
     {
         private ActorList() { }
@@ -1465,7 +1465,7 @@ namespace Ffx
         public int NumPrintElement { [Atel.NativeMember(0x700f, Constant = 0x0152)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x7018, Constant = 0x0152)] set => throw Atel.Runtime.NotRunnable(); }
     }
 
-    /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads a property of it (<c>Btl.GetSelfProperty</c>), <c>Self.Hp = 0;</c> sets it (<c>Btl.SetActorProperty</c>).</summary>
+    /// <summary>The worker's own battle actor: <c>Self.Hp</c> reads its HP, <c>Self.Hp = 0;</c> sets it.</summary>
     /// <remarks>The worker's <c>Self</c> property (<c>Self.…</c>; another worker's: <c>Tidus.Self.…</c>, <c>Workers[n].Self.…</c>).</remarks>
     public sealed partial class OwnActor
     {
@@ -2492,7 +2492,7 @@ namespace Ffx
         public int NumPrintElement { [Atel.NativeMember(0x70aa, Constant = 0x0152)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x70ab, Constant = 0x0152)] set => throw Atel.Runtime.NotRunnable(); }
     }
 
-    /// <summary>Waiting: frames, for ever.</summary>
+    /// <summary>Pauses the entry: for some frames (<see cref="Wait.Frames"/>), some seconds (<see cref="Wait.Seconds"/>) or for ever. Scripts run at 30 frames a second.</summary>
     public static partial class Wait
     {
 
@@ -2514,7 +2514,7 @@ namespace Ffx
         public static void Forever() => throw Atel.Runtime.NotRunnable();
     }
 
-    /// <summary>The camera: its eye (<see cref="Camera.Eye"/>), the point it looks at (<see cref="Camera.Focus"/>), the screens it draws to (<see cref="Camera.Screen"/>), roll, screen depth and blur.</summary>
+    /// <summary>The camera: where it is (<see cref="Camera.Eye"/>), the point it looks at (<see cref="Camera.Focus"/>), the screens it draws to (<see cref="Camera.Screen"/>), and its roll, zoom and blur.</summary>
     public static partial class Camera
     {
 
@@ -2534,26 +2534,26 @@ namespace Ffx
         /// <remarks>Setting it calls native <c>0x607e</c>, <c>Cam.SetDepthMaskMode</c> (608 calls in the shipped scripts).</remarks>
         public static int DepthMaskMode { [Atel.NativeMember(0x607e)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>?0x607f: args (plane 0/1, z) -&gt; cam; camera +0xcb0/+0xcb4 -&gt; 0x0082ce20 -&gt; full-screen Z rectangle (0x0082bb90, 0x006430f0 z/16.77M) that hides geometry beyond z</summary>
+        /// <summary>Hides everything on the screen beyond depth <paramref name="z"/>, with a full-screen mask (plane 0 or 1).</summary>
         /// <param name="plane01"></param>
         /// <param name="z"></param>
         /// <remarks>Calls native <c>0x607f</c>, <c>Cam.SetDepthMask</c> (626 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x607f)] 
         public static int SetDepthMask(int plane01, int z) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x6000: args (worker) -&gt; camera handle; marks that worker&apos;s camera channel suspended (Cam_SetChannelSuspended 0x007c0010, flag 1); worker via Script_GetWorker, handle at worker +0x3c (allocated on demand by Cam_GetHandle 0x007ba780)</summary>
+        /// <summary>Suspends the camera channel of worker <paramref name="worker"/>; <see cref="Camera.Resume"/> starts it again.</summary>
         /// <param name="worker"></param>
         /// <remarks>Calls native <c>0x6000</c>, <c>Cam.Suspend</c> (863 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x6000)] 
         public static int Suspend(int worker) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x6001: args (worker) -&gt; camera handle; same as 0x6000 with flag 0 (0x007c0010); scripts push a worker index (e.g. 2)</summary>
+        /// <summary>Starts the camera channel of worker <paramref name="worker"/> again after <see cref="Camera.Suspend"/>.</summary>
         /// <param name="worker"></param>
         /// <remarks>Calls native <c>0x6001</c>, <c>Cam.Resume</c> (986 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x6001)] 
         public static int Resume(int worker) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>The camera's eye (side 1 of its channel, FFX.exe's <c>cam</c>): where it is, how it moves there, its limits, path and shakes.</summary>
+        /// <summary>The camera's eye, the point the camera sits at: where it is, how it moves there, the limits it keeps to, its path and its shakes.</summary>
         public static partial class Eye
         {
 
@@ -2623,7 +2623,7 @@ namespace Ffx
             [Atel.NativeMember(0x6008)] 
             public static int AimShortOf(float x, float y, float z, float pitchDivisor, float length, float lengthDivisor) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x601e: args (var, deg f) -&gt; 0x007bf520(cam, 1, 0, &amp;var, deg * pi / 180); the camera; ported in native_chr (script round 12); name from 0x007bf520 = MsCameraSetFocusList (cam, 1, 0, &amp;var, deg * pi / 180)</summary>
+            /// <summary>Makes the eye follow the focus list in a variable; <see cref="Camera.Eye.SetFocusList1"/> does the same with flag 1.</summary>
             /// <param name="var"></param>
             /// <param name="degF"></param>
             /// <remarks>Calls native <c>0x601e</c>, <c>Cam.SetFocusList</c> (18 calls in the shipped scripts).</remarks>
@@ -2655,7 +2655,7 @@ namespace Ffx
             [Atel.NativeMember(0x601d)] 
             public static int SetTargetPolar1(int target, float degrees, float y, float x) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6044: same as 0x6040 with mode 2: distance/10 + actor size (absolute); eye half; e.g. (-2, -1, 30, -160, 0, 150)</summary>
+            /// <summary>Circles the eye around two battle actors, at a distance plus the actors' size.</summary>
             /// <param name="a0"></param>
             /// <param name="a1"></param>
             /// <param name="a2"></param>
@@ -2666,7 +2666,7 @@ namespace Ffx
             [Atel.NativeMember(0x6044)] 
             public static int Orbit(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6040: args (actor a, actor b, height, yaw deg, pitch deg, distance) -&gt; cam; 0x007badb0(half 1, mode 1): eye = mean of actors + height * actor height + orbit at distance/100 * actor size</summary>
+            /// <summary>Places the eye around two battle actors: a height, a yaw and a pitch in degrees, and a distance.</summary>
             /// <param name="actorA"></param>
             /// <param name="actorB"></param>
             /// <param name="height"></param>
@@ -2688,7 +2688,7 @@ namespace Ffx
             [Atel.NativeMember(0x604d)] 
             public static int OrbitPolar(int actorA, int actorB, float height, float yawDeg, float pitchDeg, float distance) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6010: args (frames) -&gt; 0; starts the eye (side 1) moving to its set position over n frames, linear (Cam_StartMove 0x007bde50, mode 0)</summary>
+            /// <summary>Starts the eye's move to its set position over <paramref name="frames"/> frames, at an even speed.</summary>
             /// <param name="frames"></param>
             /// <remarks>Calls native <c>0x6010</c>, <c>Cam.Move</c> (2776 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x6010)] 
@@ -2715,7 +2715,7 @@ namespace Ffx
             [Atel.NativeMember(0x6011)] 
             public static int MoveMode1(int frames) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6015: like 0x6014 but mode byte 1 (side +1); ?mode 1 = relative/continuous move</summary>
+            /// <summary>As <see cref="Camera.Eye.MoveEased"/>, with move mode 1.</summary>
             /// <param name="a0"></param>
             /// <param name="a1"></param>
             /// <param name="a2"></param>
@@ -2789,7 +2789,7 @@ namespace Ffx
             [Atel.NativeMember(0x6048)] 
             public static int ClearPath() => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6049: () -&gt; cam; 0x007baac0(cam, 1): appends the eye&apos;s yaw/pitch/distance and roll to path list 1 (0x01136b60, max 32), used by the path move 0x007ba020 (&gt;= 3 points)</summary>
+            /// <summary>Adds the eye's current place to its built-in path (at most 32 points; a path needs 3 or more).</summary>
             /// <remarks>Calls native <c>0x6049</c>, <c>Cam.PathAddEye</c> (3236 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x6049)] 
             public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
@@ -2839,7 +2839,7 @@ namespace Ffx
             public static int AddHeightLimitScaled(int low, int high, int keep) => throw Atel.Runtime.NotRunnable();
         }
 
-        /// <summary>The point the camera looks at (side 0 of its channel, FFX.exe's <c>ref</c>): where it is, how it moves there, its limits, path and shakes.</summary>
+        /// <summary>The point the camera looks at: where it is, how it moves there, the limits it keeps to, its path and its shakes.</summary>
         public static partial class Focus
         {
 
@@ -2847,11 +2847,11 @@ namespace Ffx
             /// <remarks>Setting it calls native <c>0x6020</c>, <c>Cam.RefSetPos</c> (19674 calls in the shipped scripts).</remarks>
             public static Vector3 Position { [Atel.NativeMember(0x6020)] set => throw Atel.Runtime.NotRunnable(); }
 
-            /// <summary>0x6042: args (v) -&gt; 0x007bdf90(cam, 0, v ^ 0xffff); the camera; ported in native_chr (script round 12); name from 0x007bdf90 = MsCameraMoveStat (cam, 0, v ^ 0xffff)</summary>
+            /// <summary>Sets the focus point's move-stat byte (<c>MsCameraMoveStat</c>, the value inverted).</summary>
             /// <remarks>Setting it calls native <c>0x6042</c>, <c>Cam.RefMoveStat</c> (5 calls in the shipped scripts).</remarks>
             public static int MoveStat { [Atel.NativeMember(0x6042)] set => throw Atel.Runtime.NotRunnable(); }
 
-            /// <summary>0x6027: args (target, bone?, y offset) -&gt; 0; ref (side 0) follow mode 3: +0xc = target, +0xe = bone, offset (0,y,0) (0x007beeb0); scripts push (0, -1, y); ?target/bone meaning</summary>
+            /// <summary>Makes the focus point follow worker <paramref name="target"/>, raised by <paramref name="yOffset"/>.</summary>
             /// <param name="target"></param>
             /// <param name="bone"></param>
             /// <param name="yOffset"></param>
@@ -2867,7 +2867,7 @@ namespace Ffx
             [Atel.NativeMember(0x603f)] 
             public static int OnActors(int actorA, int actorB, float lift) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6045: same as 0x6044 for the focus point (half 0, mode 2)</summary>
+            /// <summary>Circles the focus point around two battle actors, at a distance plus the actors' size.</summary>
             /// <param name="a0"></param>
             /// <param name="a1"></param>
             /// <param name="a2"></param>
@@ -2878,7 +2878,7 @@ namespace Ffx
             [Atel.NativeMember(0x6045)] 
             public static int Orbit(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6041: same as 0x6040 for the focus point (half 0, mode 1); most common shot setup, e.g. (-2, -1, 49, 0, 0, -70)</summary>
+            /// <summary>Places the focus point around two battle actors: a height, a yaw and a pitch in degrees, and a distance. The most common battle shot.</summary>
             /// <param name="a0"></param>
             /// <param name="a1"></param>
             /// <param name="a2"></param>
@@ -2889,7 +2889,7 @@ namespace Ffx
             [Atel.NativeMember(0x6041)] 
             public static int OrbitScaled(int a0, int a1, float a2, float a3, float a4, float a5) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x602e: args (frames) -&gt; 0; linear transition time for the battle camera&apos;s focus point (half 0, 0x007bde50 type 1); paired with 0x6010 (eye half)</summary>
+            /// <summary>Starts the focus point's move to its set position over <paramref name="frames"/> frames, at an even speed.</summary>
             /// <param name="frames"></param>
             /// <remarks>Calls native <c>0x602e</c>, <c>Cam.FocusTimeLinear</c> (2495 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x602e)] 
@@ -2910,7 +2910,7 @@ namespace Ffx
             [Atel.NativeMember(0x6032)] 
             public static int MoveEased(int accel, int hold, int decelFrames, int curve) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6033: no args -&gt; 0x007ba5b0(worker, args, stack, 0, 1); 0; ported in native_chr (script round 12); name from 0x007ba5b0 = MsAtelCameraMoveAcc (worker, args, stack, 0, 1); 0</summary>
+            /// <summary>As <see cref="Camera.Focus.MoveEased"/>, with move mode 1.</summary>
             /// <param name="a0"></param>
             /// <param name="a1"></param>
             /// <param name="a2"></param>
@@ -2953,7 +2953,7 @@ namespace Ffx
             [Atel.NativeMember(0x6028)] 
             public static int LineFilter(float x1, float z1, float x2, float z2, float r) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6029: args (x1, z1, x2, z2, r) floats -&gt; 0; adds a segment constraint (max 5, count at side +0xc4) to the ref (0x007bf0b0 stores dir, origin, -dot, |dir|^2, r); ?keeps the ref within r of the segment</summary>
+            /// <summary>Adds a line limit to the focus point: the segment from (<paramref name="x1"/>, <paramref name="z1"/>) to (<paramref name="x2"/>, <paramref name="z2"/>) with radius <paramref name="r"/>; at most 5.</summary>
             /// <param name="x1"></param>
             /// <param name="z1"></param>
             /// <param name="x2"></param>
@@ -2979,7 +2979,7 @@ namespace Ffx
             [Atel.NativeMember(0x602a)] 
             public static int AddHeightLimitSoft(float low, float high, float keep) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x602d: no args -&gt; camera handle; clears the ref&apos;s constraint count (byte 0x01137634 + side/channel, 0x007bed10)</summary>
+            /// <summary>Removes the focus point's limits (the line, height and path limits added before).</summary>
             /// <remarks>Calls native <c>0x602d</c>, <c>Cam.RefClearAreas</c> (3255 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x602d)] 
             public static int ClearAreas() => throw Atel.Runtime.NotRunnable();
@@ -3013,7 +3013,7 @@ namespace Ffx
             [Atel.NativeMember(0x604a)] 
             public static int ClearPath() => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x604b: () -&gt; cam; 0x007baac0(cam, 0): appends the focus point to path list 0</summary>
+            /// <summary>Adds the focus point's current place to its built-in path.</summary>
             /// <remarks>Calls native <c>0x604b</c>, <c>Cam.PathAddFocus</c> (3182 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x604b)] 
             public static int AddPathPoint() => throw Atel.Runtime.NotRunnable();
@@ -3047,7 +3047,7 @@ namespace Ffx
             public static void WaitShake() => throw Atel.Runtime.NotRunnable();
         }
 
-        /// <summary>The screens the camera draws to, by number (<c>MsScreen…</c>): their shakes and moves.</summary>
+        /// <summary>The screens the camera draws to, by number: their shakes and moves.</summary>
         public static partial class Screen
         {
 
@@ -3068,7 +3068,7 @@ namespace Ffx
             [Atel.NativeMember(0x6074, Choice = 6)] 
             public static int Shake(ShakeKind kind, int screen, int which, float speed, int frames, int amplitude, int jitter) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x6061: args (v) -&gt; MsScreenResetShake(v) (0x007c56c0); ported in native_chr (script round 12); name from MsScreenResetShake(v)</summary>
+            /// <summary>Stops the shakes of a screen.</summary>
             /// <param name="v"></param>
             /// <remarks>Calls native <c>0x6061</c>, <c>Cam.ScreenResetShake</c> (17 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x6061)] 
@@ -3080,7 +3080,7 @@ namespace Ffx
             [Atel.NativeMember(0x6064, Polls = true)] 
             public static void WaitShake(int screen) => throw Atel.Runtime.NotRunnable();
 
-            /// <summary>0x607b (start): args (screen) -&gt; start: into the args word; EAX it; poll: 5 once MsScreenMoveCheck(screen, 0) (0x007bbfc0) is 0; ported in native_chr (script round 12); name from poll: 5 once MsScreenMoveCheck(screen, 0) is 0</summary>
+            /// <summary>Waits until screen <paramref name="screen"/> has stopped moving.</summary>
             /// <param name="screen"></param>
             /// <remarks>Calls native <c>0x607b</c>, <c>Cam.ScreenMoveWait</c> (4 calls in the shipped scripts).</remarks>
             [Atel.NativeMember(0x607b, Polls = true)] 
@@ -3088,7 +3088,7 @@ namespace Ffx
         }
     }
 
-    /// <summary>Sound effects.</summary>
+    /// <summary>Plays sound effects: <c>Sound.Play(sfx)</c>.</summary>
     public static partial class Sound
     {
 
@@ -3115,13 +3115,13 @@ namespace Ffx
         /// <remarks>Reading it calls native <c>0x00d8</c>, <c>Common.VoiceIsPlaying</c> (6396 calls in the shipped scripts).</remarks>
         public static bool IsPlaying { [Atel.NativeMember(0x00d8)] get => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x00d5 int result: &quot;VoiceStandbyResult!&quot;; Voice_Prepare(id) 0x00887570 unless one is already prepared (0x0132ff1c)</summary>
+        /// <summary>Prepares a voice line, so that <see cref="Voice.Play"/> can start it at once; does nothing while one is prepared.</summary>
         /// <param name="a0"></param>
         /// <remarks>Calls native <c>0x00d5</c>, <c>Common.VoiceStandbyEnd</c> (8674 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x00d5, Polls = true)] 
         public static int Prepare(int a0) => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>0x00d6 int result: &quot;VoiceStartResult!&quot;; Voice_Play(0x00873b80(), 0x00873b90()) at 0x00887690; resets 0x01325ae4 (Ghidra misses this function); 120 bytes to its last ret/jmp (the dump says 1; symbols/sizes.tsv); hooked, parity in script.rs size_fixed_natives_match_the_original (natives-size)</summary>
+        /// <summary>Plays the voice line <see cref="Voice.Prepare"/> prepared.</summary>
         /// <remarks>Calls native <c>0x00d6</c>, <c>Common.VoiceStartEnd</c> (8579 calls in the shipped scripts).</remarks>
         [Atel.NativeMember(0x00d6, Polls = true)] 
         public static int Play() => throw Atel.Runtime.NotRunnable();
@@ -3137,13 +3137,13 @@ public sealed class WorkerHandle
 {
     private WorkerHandle() { }
 
-        /// <summary>The worker's turn: set it up (<see cref="TurnControl.Yaw"/>, <see cref="TurnControl.SetFrames"/>), start it (<see cref="TurnControl.Start"/>), wait for it (<see cref="TurnControl.Wait"/>).</summary>
+        /// <summary>Turns the worker over several frames: set the angle (<see cref="TurnControl.Yaw"/>) and the time (<see cref="TurnControl.SetFrames"/>), then <see cref="TurnControl.Start"/> the turn and <see cref="TurnControl.Wait"/> for it.</summary>
         public TurnControl Turn => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>The worker's move: set it up (<see cref="MoveControl.Target"/>, <see cref="MoveControl.Speed"/>), start it (<see cref="MoveControl.Start"/>), wait for it (<see cref="MoveControl.Wait"/>).</summary>
+        /// <summary>Moves the worker to a point over several frames: set the point (<see cref="MoveControl.Target"/>) and the speed (<see cref="MoveControl.Speed"/>), then <see cref="MoveControl.Start"/> the move and <see cref="MoveControl.Wait"/> for it.</summary>
         public MoveControl Move => throw Atel.Runtime.NotRunnable();
 
-        /// <summary>The motion of the worker's model. Assign a motion id to set it (<c>Motion = 0x71050;</c>, <c>Chr.SetMotion</c>); its members play, wait for and release motions.</summary>
+        /// <summary>The animation the worker's model plays. Assign a motion to set it (<c>Motion = 0x71050;</c>); the members play a motion, wait for it to end and give the model its own stand, walk and run motions back.</summary>
         public MotionControl Motion => throw Atel.Runtime.NotRunnable();
 
         /// <summary>Moves the worker (and its model) to (x, y, z) at once.</summary>
@@ -3154,7 +3154,7 @@ public sealed class WorkerHandle
         /// <remarks>Setting it calls native <c>0x0095</c>, <c>Common.SetYaw</c> (14294 calls in the shipped scripts). Reading it calls native <c>0x0091</c>, <c>Common.GetYaw</c> (534 calls in the shipped scripts). Reading it calls native <c>0x0093</c>, <c>Common.GetWorkerYaw</c> (166 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         public float Yaw { [Atel.NativeMember(0x0091)] [Atel.NativeMember(0x0093, Worker = true)] get => throw Atel.Runtime.NotRunnable(); [Atel.NativeMember(0x0095)] set => throw Atel.Runtime.NotRunnable(); }
 
-        /// <summary>0x5076: args (on int (popped only for a model)) -&gt; 0: Ch_MouthSetAutoTalk(model, on) (0x00834770); ported in native_chr (script round 12); name from Ch_MouthSetAutoTalk(model, on)</summary>
+        /// <summary>Turns the automatic mouth movement of the worker's model on or off.</summary>
         /// <remarks>Setting it calls native <c>0x5076</c>, <c>Chr.SetAutoTalk</c> (689 calls in the shipped scripts). Setting it calls native <c>0x507e</c>, <c>Chr.SetAutoTalkOf</c> (16838 calls in the shipped scripts) on another worker, written before it (<c>Tidus.…</c>, <c>Workers[n].…</c>).</remarks>
         public bool AutoTalk { [Atel.NativeMember(0x5076)] [Atel.NativeMember(0x507e, Worker = true)] set => throw Atel.Runtime.NotRunnable(); }
 }

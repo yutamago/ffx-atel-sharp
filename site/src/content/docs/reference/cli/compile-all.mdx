@@ -1,0 +1,30 @@
+---
+title: atel compile-all
+description: "Compile every script of a decompiled tree and compare each with the game's file."
+sidebar:
+  hidden: true
+sources: ["docs/source-repo.md#commands"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel compile-all` compiles every script folder of a decompiled tree and compares each with the game's file. It lists the scripts that differ and those the tree lacks.
+
+It checks a whole source tree at once, such as the source repository after a change to its names or its library classes.
+
+## Usage
+
+<CliUsage command="compile-all" />
+
+## Example
+
+```bash
+atel compile-all src --check
+```
+
+Details: [docs/source-repo.md, "Commands"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/source-repo.md#commands) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

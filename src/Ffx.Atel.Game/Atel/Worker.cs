@@ -3,11 +3,14 @@
 namespace Ffx.Atel;
 
 /// <summary>
-///     A worker: a script object with numbered entries. Its base class gives its type (worker
-///     header <c>+0x00</c>); the names after the number come with Phase 5 of the plan.
+///     A worker: one object of a script, such as a villager, a trigger on the ground or a monster's battle AI.
+///     Its methods are its entries, the code the game runs when the worker starts (<see cref="Init"/>), when the
+///     player talks to it or when another worker asks. The members on this page are what a worker's code can use
+///     without a class name: its position, turn, move, motion, the script's messages and more.
 /// </summary>
 /// <remarks>
-///     The members below are what Phase 3 of the plan writes for the machine's own parts: the
+///     The base class gives the worker's type (worker header <c>+0x00</c>): <see cref="Actor"/>,
+///     <see cref="LineTrigger"/>, <see cref="BattleWorker"/> and the rest. The members below are what Phase 3 of the plan writes for the machine's own parts: the
 ///     registers the original kept outside variables, requests, <c>call</c>, and the conversions C#
 ///     needs where ATEL has none. None of them runs on .NET; each compiles to fixed bytecode
 ///     (docs/plan.md, "Phase 3: statements").
@@ -33,15 +36,18 @@ public abstract partial class Worker {
     /// </summary>
     protected static int LastResult => throw Runtime.NotRunnable();
 
-    /// <summary>Entry 0, which the engine runs when the worker starts (at priority 7, docs/plan.md "Workers and entries").</summary>
+    /// <summary>Runs when the worker starts (entry 0): set the worker up here, its model, position and motion.</summary>
+    /// <remarks>The engine runs it at priority 7 (docs/plan.md, "Workers and entries").</remarks>
     protected virtual void Init() {
     }
 
-    /// <summary>Entry 1, the worker's main entry (priority 0).</summary>
+    /// <summary>The worker's main code (entry 1).</summary>
+    /// <remarks>It runs at priority 0, the lowest.</remarks>
     protected virtual void Main() {
     }
 
-    /// <summary>The script's message table: <c>Text[12]</c> is message 12 (docs/plan.md, "Text").</summary>
+    /// <summary>The script's messages: <c>Text[12]</c> is message 12, for <see cref="Dialogue.Say"/>.</summary>
+    /// <remarks>docs/plan.md, "Text".</remarks>
     protected static TextTable Text => throw Runtime.NotRunnable();
 
     /// <summary>

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # The website in site/ (docs/website.md): built on every PR that touches it, deployed to GitHub Pages
-# from main.
+# from main. The reference pages are generated first, from the code: the game library API from
+# Ffx.Atel.Game's XML docs (tools/gen-api-pages.cs), the CLI usage from `atel --help` (tools/gen-cli-usage.cs).
 name: Pages
 
 on:
@@ -8,12 +9,20 @@ on:
     branches: [ "main" ]
     paths:
       - "site/**"
+      - "src/Ffx.Atel.Game/**"
+      - "src/Ffx.Atel.Cli/**"
+      - "tools/**"
+      - "data/**"
       - "examples/**"
       - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "site/**"
+      - "src/Ffx.Atel.Game/**"
+      - "src/Ffx.Atel.Cli/**"
+      - "tools/**"
+      - "data/**"
       - "examples/**"
       - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
@@ -37,6 +46,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        # The version the tools build with counts the commits in HEAD's history (Directory.Build.targets).
+        fetch-depth: 0
 
     - name: Setup Node
       uses: actions/setup-node@v7
@@ -44,6 +56,20 @@ jobs:
         node-version-file: site/.nvmrc
         cache: npm
         cache-dependency-path: site/package-lock.json
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    # Build output, not in git: site/src/content/docs/reference/api/ and site/src/generated/.
+    - name: Generate the API pages
+      working-directory: .
+      run: dotnet run tools/gen-api-pages.cs
+
+    - name: Generate the CLI usage
+      working-directory: .
+      run: dotnet run tools/gen-cli-usage.cs
 
     - name: Install
       run: npm ci
