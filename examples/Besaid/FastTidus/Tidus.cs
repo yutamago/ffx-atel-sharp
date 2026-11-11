@@ -9,12 +9,12 @@ namespace Events.Bs_Besaid.Bsil0700;
 public sealed partial class Tidus
 {
     /// <summary>
-    ///     Runs after the vanilla Init, which makes Tidus the player when the map loads: the player's run speed
-    ///     (speed 2) becomes 68, twice the 34 most maps use.
+    ///     Runs after the vanilla Init, which makes Tidus the player when the map loads: his run speed becomes 76,
+    ///     twice the 38 every map starts with. The beach (bsil0100) changes it the same way, to 40.8.
     /// </summary>
     [Postfix(nameof(Init))]
     void Fast()
     {
-        Screen.PlayerSetSpeed(2, 68f);
+        Screen.PlayerSetSpeed(2, 76f);   // 2: running (1 is walking, 18 swimming)
     }
 }

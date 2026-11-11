@@ -7,6 +7,7 @@ namespace Monsters.M028;
 
 public sealed partial class Ai
 {
+    // The same three lines are in M009.cs and M016.cs: a helper method belongs to one script, so each script has its own.
     /// <summary>Runs after the vanilla OnDeath, which the battle runs when this Condor dies: one more counted.</summary>
     [Postfix(nameof(OnDeath))]
     void Count()

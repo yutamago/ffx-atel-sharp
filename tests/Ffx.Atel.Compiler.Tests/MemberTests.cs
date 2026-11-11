@@ -149,6 +149,18 @@ public sealed class MemberTests {
     [Fact]
     public void MembersCompileToTheNativesBytes() => Assert.Equal(Block(Natives), Block(Members));
 
+    /// <summary>
+    ///     Named arguments go by the member's parameter names (Members.g.cs), which may differ from the native's
+    ///     (<c>Camera.Eye.Shake</c>'s <c>which</c> is the native's <c>a0</c>), and a choice's first argument is not one.
+    /// </summary>
+    [Fact]
+    public void NamedArgumentsUseTheMembersParameterNames() {
+        Assert.Equal(Block("Camera.Eye.Shake(ShakeKind.SineFadeOut, 7, 3.14f, 90, 20, 0);"),
+            Block("Camera.Eye.Shake(ShakeKind.SineFadeOut, which: 7, speed: 3.14f, frames: 90, amplitude: 20, jitter: 0);"));
+        Assert.Equal(Block("Motion.Play(0x71050, 0, 1, 0, -1);"),
+            Block("Motion.Play(0x71050, unused: 0, loops: 1, startFrame: 0, endFrame: -1);"));
+    }
+
     [Fact]
     public void TheDecompilerWritesTheMembersAndTheyCompileBack() {
         byte[] blockBytes = Block(Natives);

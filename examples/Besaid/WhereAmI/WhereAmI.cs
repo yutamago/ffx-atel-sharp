@@ -14,7 +14,6 @@ public sealed partial class WhereAmI : LogicWorker
 {
     protected override void Init()
     {
-        return;
     }
 
     protected override void Main()

@@ -5,6 +5,22 @@ The example mods of the website's Besaid course (docs/website.md, "Guides: the B
 all on the island of Besaid, which the game reaches about an hour and a half in. Each folder is a mod project of
 the Atel SDK, built the way [docs/sdk.md](../../docs/sdk.md) describes.
 
+## What they need
+
+- **FFX only** (`FFX.exe`) from the Steam *FINAL FANTASY X/X-2 HD Remaster*. Atel mods change FFX's scripts; they
+  do nothing in X-2 or Last Mission.
+- **Fahrenheit** with the Atel loader (`yuta.atel`); tested with Fahrenheit 1.0.0-alpha12.
+- **`AtelSharp.Sdk` 0.1.0-alpha.1** or later, and the .NET 10 SDK, to build them.
+
+## Copying one
+
+Each mod id is `your-name.<mod>`, and `Authors` is `Your Name`. A Fahrenheit mod id starts with its author, so put
+your own name or handle in both before you build a copy. `BesaidTallyReader` names `your-name.besaidtally` in four
+places (its `.csproj`, its `mod.toml` twice and its `[Saved(Mod = …)]`): change them with the tally's id.
+
+Only `BesaidTallyReader` has a `mod.toml`: the file is optional, and the others have nothing to put in it
+(`requires` and `after`, [docs/formats/mod-package.md](../../docs/formats/mod-package.md)).
+
 | Mod | What you see | Script | Worker, entry | Shows |
 |---|---|---|---|---|
 | [GiantWakka](GiantWakka) | Wakka at twice his size in the village at night | `bsvr0001` | `Wakka`, `[Postfix]` on `Init` | changing an actor when a map loads |
@@ -82,7 +98,7 @@ for the mods that print (it is on by default).
 - **Expect:** a Dingo takes about ten times as many hits (1,250 HP instead of 125) and hits harder (strength 30
   instead of 13). Each Dingo adds 999 gil on the victory screen, instead of 16. Nobody has Scan this early; with
   a later save and Scan or Sensor, the HP shows 1250.
-- **Log:** `info: yuta.toughdingo: m009: sets MonsterStats.Hp (the monster's stats +0x14, 4 byte(s))`, and the
+- **Log:** `info: your-name.toughdingo: m009: sets MonsterStats.Hp (the monster's stats +0x14, 4 byte(s))`, and the
   same for `Strength` and `Gil`.
 - **Uncertain:** whether the tutorial battles use `m009` too.
 
@@ -92,7 +108,7 @@ for the mods that print (it is on by default).
 - **Do:** talk to the old woman.
 - **Expect:** after her own line, a second window: "They say Wakka once kicked a blitzball all the way to Kilika,
   ya?". It closes with the confirm button; then you can walk again.
-- **Log:** `info: yuta.besaidgossip: bsvr0000: new message 316: …` (the number may differ with other mods).
+- **Log:** `info: your-name.besaidgossip: bsvr0000: new message 316: …` (the number may differ with other mods).
 - **Uncertain:** whether the new window looks like hers (same position and style: `Dialogue.Say`'s defaults,
   which most of the game's lines use). Her mouth does not move on the new line (the vanilla lines set
   `AutoTalk`; this one does not).
@@ -113,7 +129,7 @@ for the mods that print (it is on by default).
 - **Do:** walk from the Crossroads down to the beach, or load a save made at the beach's save sphere.
 - **Expect:** as the screen fades in and Tidus can move, the camera shakes on all three axes for three seconds,
   fading out.
-- **Log:** `info: yuta.beachquake: bsil0000: worker 19's Main: inject Quake, after the statement with the 1st
+- **Log:** `info: your-name.beachquake: bsil0000: worker 19's Main: inject Quake, after the statement with the 1st
   call to Common.ControlEnable in Main`.
 - **Uncertain:** whether a camera line Tidus crosses as he arrives resets the shake (the island's camera
   scripts call `Camera.Eye.ResetShake`); how strong amplitude 20 looks (the values are from a shake the game
@@ -124,10 +140,9 @@ for the mods that print (it is on by default).
 - **Where:** the Village Slope (`bsil0700`), any time.
 - **Do:** leave the village by its gate and run.
 - **Expect:** Tidus runs twice as fast.
-- **Uncertain:** whether speed 2 of `Screen.PlayerSetSpeed` is the run speed (the beach `bsil0100` sets it to
-  40.8, other maps to 34); whether it stays fast on the next maps until one sets it again. If nothing changes,
-  try `MoveSpeed = 68f;` instead, which sets the worker's move speed on all levels (the vanilla `Init` sets
-  `Move.Speed = 34f`, one level).
+- **Why it works:** kind 2 of `Screen.PlayerSetSpeed` is the run speed, which loading a map resets to 38. The
+  beach (`bsil0100`) speeds Tidus up the same way, from his `Init` (`Screen.PlayerSetSpeed(2, 40.8f)`).
+- **Uncertain:** that the next map is back to normal speed (it should be: each map load resets the speed).
 
 ### GenerousVillager
 
@@ -135,7 +150,7 @@ for the mods that print (it is on by default).
 - **Expect:** the first time you talk to her in a save, after her line: "Here, take 1,000 gil, ya? Buy yourself
   something nice.", and the gil in the menu is 1,000 higher. The second time, nothing more. Save, load the save:
   still nothing. Load a save made before: she gives the gil again.
-- **Log:** `info: yuta.generousvillager: 1 saved field(s), 1 bytes at storage 0 …`.
+- **Log:** `info: your-name.generousvillager: 1 saved field(s), 1 bytes at storage 0 …`.
 - **Uncertain:** whether `Common.GiveGil` (native `0x0136`, which the blitzball scouting scripts use to give
   money back) shows any message of its own; whether the gil appears at once in the menu.
 
@@ -146,7 +161,7 @@ for the mods that print (it is on by default).
   let it take a turn.
 - **Expect:** instead of attacking a party member, it casts Water on itself and heals (Water Flans absorb
   water). Above half HP it attacks as before.
-- **Log:** `info: yuta.cleverflan: m016: worker 1's OnTurn: inject HealItself, after the statement with the 1st
+- **Log:** `info: your-name.cleverflan: m016: worker 1's OnTurn: inject HealItself, after the statement with the 1st
   call to Btl.SelectTarget in OnTurn`.
 - **Uncertain:** whether `Btl.UseCommand(Target.Own, …)` aims at the flan itself, and whether its Water heals
   it (if it does not absorb water, it hurts itself instead).
@@ -158,7 +173,7 @@ for the mods that print (it is on by default).
 - **Expect:** each defeat prints `Besaid monsters defeated: N` on the overlay, N one higher each time, and the
   count goes on after loading the save. With BesaidTallyReader, each Dingo that appears prints
   `Besaid Tally Reader: N defeated so far`.
-- **Log:** `info: yuta.besaidtally: m009: worker 1's OnDeath: postfix Count`, and the same for `m016` and `m028`.
+- **Log:** `info: your-name.besaidtally: m009: worker 1's OnDeath: postfix Count`, and the same for `m016` and `m028`.
 - **Uncertain:** whether `OnDeath` runs once per defeated monster in every case (fled battles, an aeon's
   finishing blow).
 - **Why not battles:** the plan said "counts Besaid battles". A battle count needs a patch in each formation's
@@ -170,7 +185,7 @@ for the mods that print (it is on by default).
 - **Where:** Besaid village (`bsvr0000`).
 - **Expect:** once a second, a line on the overlay: `bsvr0000, story 134: Tidus at x 35, y -8, z 419`, the
   numbers changing as you move. Shift+F6 shows more lines. Leaving the village stops it.
-- **Log:** `info: yuta.whereami: bsvr0000: new worker WhereAmI is worker 87`, then `Atel debug: worker 87: …`
+- **Log:** `info: your-name.whereami: bsvr0000: new worker WhereAmI is worker 87`, then `Atel debug: worker 87: …`
   each second.
 - **Uncertain:** whether the game starts a new worker's `Main` with the map's own workers (the linker adds it to
   the worker table).

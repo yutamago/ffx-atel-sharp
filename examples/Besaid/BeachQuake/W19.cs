@@ -10,11 +10,12 @@ public sealed partial class W19
 {
     /// <summary>
     ///     Runs inside the vanilla Main, after the statement that gives the player control: the camera shakes for
-    ///     90 frames (3 seconds), on all three axes, fading out.
+    ///     90 frames (3 seconds) on all three axes (which: 7, the bits for x, y and z), fading out. The values are
+    ///     those of a shake the game itself uses.
     /// </summary>
     [Inject(nameof(Main), After = nameof(Common.ControlEnable))]
     void Quake()
     {
-        Camera.Eye.Shake(ShakeKind.SineFadeOut, 7, 3.14f, 90, 20, 0);
+        Camera.Eye.Shake(ShakeKind.SineFadeOut, which: 7, speed: 3.14f, frames: 90, amplitude: 20, jitter: 0);
     }
 }

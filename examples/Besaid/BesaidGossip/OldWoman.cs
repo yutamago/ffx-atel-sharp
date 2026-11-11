@@ -13,6 +13,7 @@ public sealed partial class SprsHan039_33
     void Gossip()
     {
         Common.ControlDisable();
+        // The first line of a window is the speaker's name ({name:Wakka}); the villagers have none, so it is empty.
         Dialogue.Say(Text.New("\nThey say Wakka once kicked a blitzball\nall the way to Kilika, ya?"));
         Common.ControlEnable();
     }

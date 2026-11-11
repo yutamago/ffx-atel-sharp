@@ -17,6 +17,7 @@ public sealed partial class SprsHan039_33
             GenerousVillager.Gift.Given = 1;
             Common.GiveGil(1000);
             Common.ControlDisable();
+            // The first line of a window is the speaker's name ({name:Wakka}); the villagers have none, so it is empty.
             Dialogue.Say(Text.New("\nHere, take 1,000 gil, ya?\nBuy yourself something nice."));
             Common.ControlEnable();
         }
