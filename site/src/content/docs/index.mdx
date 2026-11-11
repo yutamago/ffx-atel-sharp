@@ -1,9 +1,10 @@
 ---
 title: Atel#
-description: Decompile Final Fantasy X's event and battle scripts to C#, and compile your C# back into the game through Fahrenheit.
+description: Atel# decompiles Final Fantasy X's event and battle scripts to C#, and compiles your C# mods back into the game through Fahrenheit.
 template: splash
+sources: ["README.md", "docs/plan.md", "docs/tutorial.md", "docs/sdk.md", "docs/formats/mod-package.md"]
 hero:
-  tagline: Atel# decompiles Final Fantasy X's event and battle scripts to C#, and compiles your C# back into the game through Fahrenheit.
+  tagline: Atel# decompiles Final Fantasy X's event and battle scripts to C#, and compiles your C# mods back into the game through Fahrenheit.
   actions:
     - text: Get started
       link: /ffx-atel-sharp/get-started/
@@ -18,4 +19,65 @@ hero:
       variant: minimal
 ---
 
-This site is being written. Until it is done, the guides and the reference are in the [repository](https://github.com/yutamago/ffx-atel-sharp).
+import { Card, CardGrid, Code, LinkCard, Steps } from '@astrojs/starlight/components';
+import example from '../../../../examples/ToughLarva/M209.cs?raw';
+
+{/* shot 01 */}
+
+## A mod is a few lines of C#
+
+This mod makes one monster, the Larva, tougher: more HP, more strength, and more gil when you win. It is a `partial` class of the monster's script, and it changes three values of the monster's data.
+
+<Code code={example} lang="csharp" title="M209.cs" />
+
+The game's scripts are compiled bytecode. Atel# turns them into C# you can read, and turns your C# back into bytecode the game runs.
+
+## Three steps
+
+<Steps>
+
+1. **Decompile.** The `atel` tool writes the game's scripts as C# projects, from your own copy of the game. This is the vanilla source.
+
+2. **Write a `partial` class.** Your mod adds to a class of the vanilla source: code that runs before or after a method, new code, new values.
+
+3. **Build and install.** `dotnet build` checks your mod against the vanilla source and writes a Fahrenheit mod folder. Put it into Fahrenheit's `mods` folder and start the game.
+
+</Steps>
+
+[Get started](/ffx-atel-sharp/get-started/) walks you through each step, and the [guides](/ffx-atel-sharp/guides/) show what else a mod can change.
+
+## Install
+
+With the .NET SDK installed, add the template and create a mod:
+
+```sh
+dotnet new install AtelSharp.Templates
+dotnet new atel-mod -n MyMod --script m209
+```
+
+<p class="badges">
+	<a href="https://www.nuget.org/packages/AtelSharp.Sdk"><img src="https://img.shields.io/nuget/vpre/AtelSharp.Sdk?label=AtelSharp.Sdk" alt="AtelSharp.Sdk on NuGet" height="20" /></a>
+	<a href="https://www.nuget.org/packages/AtelSharp.Templates"><img src="https://img.shields.io/nuget/vpre/AtelSharp.Templates?label=AtelSharp.Templates" alt="AtelSharp.Templates on NuGet" height="20" /></a>
+</p>
+
+The [releases page](/ffx-atel-sharp/project/releases/) lists every package and the editor extensions.
+
+## Two things that set it apart
+
+<CardGrid>
+	<Card title="The same bytes back" icon="approve-check">
+		All 1,621 scripts of the game compile back byte for byte. The vanilla source you edit is exactly what the game runs.
+		[How the compiler does it](/ffx-atel-sharp/how-it-works/compiler/).
+	</Card>
+	<Card title="No game files in a mod" icon="puzzle">
+		A mod links onto the player's own game files when the game starts, so it never ships a game file, and several mods can change one script.
+		[How the linker does it](/ffx-atel-sharp/how-it-works/linker/).
+	</Card>
+</CardGrid>
+
+## Look things up
+
+<CardGrid>
+	<LinkCard title="Concepts" description="Scripts, workers, entries and requests: what you need in your head before the reference makes sense." href="/ffx-atel-sharp/concepts/" />
+	<LinkCard title="Reference" description="The language, the game library, the analyzers and the command line." href="/ffx-atel-sharp/reference/" />
+</CardGrid>
