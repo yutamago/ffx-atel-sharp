@@ -1,0 +1,37 @@
+---
+title: "ATL1001: Objects created at run time"
+description: "Using new for an object or a local array, which the game can't hold."
+sidebar:
+  label: "ATL1001: Objects created at run time"
+  order: 1001
+sources: ["docs/analyzers.md#atl1001"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`new` creates an object or a local array, and the game has neither. Error: the build fails until it is fixed.
+
+## What it means
+
+The game's script machine has no objects and no heap. Workers are created by the game, not by code, and arrays
+are variables of the script with a fixed size. So `new` for a class, a struct, an anonymous object or a local array
+has nothing to become.
+
+<Snippet file="Analyzers/Atl1001.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Keep the array as a variable of the script class, with its size, and use it from the entry:
+
+<Snippet file="Analyzers/Atl1001.cs" region="fix" title="Fixed" />
+
+<Snippet file="Analyzers/Atl1001.cs" region="fix-use" />
+
+## When to ignore it
+
+Never. Note one case that is not an object: `new Vector3(x, y, z)` given to a property such as `Pos` is fine, as
+the three numbers go straight to the game's function. A `Vector3` anywhere else is reported.
+
+## Details
+
+[docs/analyzers.md, "ATL1001"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1001).

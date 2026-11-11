@@ -123,6 +123,27 @@ public sealed class CallAndRegisterTests {
         }
         """);
 
+    /// <summary>The decompiler writes registers as <c>static</c> fields (requested entries are static): the rule sees them too.</summary>
+    [Fact]
+    public void StaticRegisterAcrossAWait() => Verify("""
+        public sealed class W00 : Worker1
+        {
+            [Register(0)] public static int I0;
+
+            [Entry(1)]
+            void E1()
+            {
+                for (I0 = 0; I0 < 10; I0++)
+                {
+                    {|ATL0001:Wait.Frames(1)|};
+                }
+            }
+
+            [Entry(3)]
+            void E3() { I0 = 5; }
+        }
+        """);
+
     [Fact]
     public void RegisterAcrossAWaitNobodyElseWrites() => Verify("""
         public sealed class W00 : Worker1

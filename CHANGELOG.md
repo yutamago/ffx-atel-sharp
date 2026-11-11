@@ -7,7 +7,7 @@ reference assembly and the analyzers), `AtelSharp.Templates` (`dotnet new atel-m
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are [SemVer 2](https://semver.org/).
 A release is a tag `v<version>` on `main` with a section `## [<version>]` here ([docs/release.md](docs/release.md)).
 
-Builds between releases have their commit's version (`0.1.0-alpha.0.<commits>.g<commit>`) and are not released.
+Builds between releases have their commit's version (`0.1.0-alpha.1.<commits>.g<commit>` after the first release) and are not released.
 
 ## [Unreleased]
 
@@ -16,6 +16,17 @@ Builds between releases have their commit's version (`0.1.0-alpha.0.<commits>.g<
 - `AtelSharp.Cli`, the `atel` tool as a .NET tool package: `dotnet tool install -g AtelSharp.Cli --prerelease`,
   then `atel`. It has the version of the SDK, and the projects `atel decompile` writes use the SDK of that version.
   The SDK package keeps its copy under `tools/atel/` ([docs/sdk.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#the-atel-tool)).
+
+### Changed
+
+- Each analyzer's help link (the link on the diagnostic in the IDE) opens its page on the website,
+  `https://yutamago.github.io/ffx-atel-sharp/reference/analyzers/atlNNNN/`, instead of a section of
+  `docs/analyzers.md`.
+
+### Fixed
+
+- ATL0001 (a register used across a wait while another entry writes it) checks `static` register fields, the form
+  the decompiler writes; before, it saw only instance fields and never fired on decompiled or new code.
 
 ## [0.1.0-alpha.1] - 2026-11-10
 

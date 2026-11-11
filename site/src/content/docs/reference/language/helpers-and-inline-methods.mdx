@@ -1,0 +1,76 @@
+---
+title: Helpers and inline methods
+description: A plain method of a worker or the script class is a helper the game calls as a subroutine. An [Inline] method is written out in place of each call instead.
+sidebar:
+  order: 9
+sources: ["docs/language.md#helper-methods", "docs/language.md#inline-methods", "docs/language.md#function-workers-and-helpers"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+You can split your code into methods of your own, as in any C#. There are two kinds, and they differ in how the
+game runs them.
+
+## Helper methods
+
+A plain method, with no attribute and not `async`, is a helper. The game runs it as a subroutine, on the worker
+that calls it, and the caller goes on when it returns:
+
+<Snippet file="Language/Helpers/Test0700.cs" region="helper" />
+
+- Parameters and the result are `int`, `float`, `bool` or an enum. Named arguments work; `ref`, `out`, `params`
+  and default values don't yet.
+- A helper may call natives, request entries, wait, and call other helpers.
+- Static or not makes no difference: there is one of each worker.
+- A worker's helper runs with that worker's registers, so it can use its `[Register]` fields.
+
+A helper of the script class can be called from every worker of the script, by its name alone:
+
+<Snippet file="Language/Helpers/Test0700.cs" region="script-helper" />
+
+### Limits
+
+The game keeps only three return addresses per worker. So calls nest at most 3 deep, counting from the entry,
+[ATL3002](/ffx-atel-sharp/reference/analyzers/atl3002/). And a helper can't call itself, directly or through
+others, [ATL3001](/ffx-atel-sharp/reference/analyzers/atl3001/): a subroutine shares its caller's registers and
+has no stack frame of its own. Write a loop instead.
+
+Any other method call, of something that is not a native, a request, a helper or an inline method, is a compile
+error. The .NET library is not there to call, [ATL1003](/ffx-atel-sharp/reference/analyzers/atl1003/).
+
+## Inline methods
+
+A method with `[Inline]` is not called at all. The compiler writes its body in place of each call, with each
+parameter replaced by the argument given for it, much like a C macro:
+
+<Snippet file="Language/Helpers/Test0700.cs" region="inline" />
+
+Use one for a few lines you repeat, when a helper's call would cost a level of nesting, or when the code must be
+exactly what the game's own scripts write. The `Dialogue` methods and `Turn.To` are inline methods of the game
+library. The decompiler also turns code a worker repeats into inline methods of that worker.
+
+- Mark it `[Inline(Waits = true)]` when its body waits: a native that waits, a request, a helper call. The
+  compiler checks.
+- It returns `void`. It may read and assign the script's variables, and the calling worker's registers.
+- A local inside it must live in a register, named with `[InlineLocal]`. Any other local is an error.
+- It can't call itself, directly or through other inline methods,
+  [ATL3003](/ffx-atel-sharp/reference/analyzers/atl3003/).
+- A call is not a subroutine call, so it adds nothing to the 3 levels.
+
+### Arguments are substituted
+
+Since the argument takes the parameter's place, it runs wherever the parameter is used, as often as it is used.
+So an argument is a value: a constant, a variable, `Text[n]`, or arithmetic of them. A call, `x++` or `?:` in an
+argument would run once per use, so it is an error,
+[ATL3004](/ffx-atel-sharp/reference/analyzers/atl3004/). Compute it into a local first:
+
+<Snippet file="Language/Helpers/Test0700.cs" region="inline-argument" />
+
+The exception is a parameter marked `[Eager]`. It is used once, at the very start of the method, so its argument
+may be a native's call. `Turn.To(Common.AngleToPoint(x, z))` is fine for that reason.
+
+## Details
+
+[docs/language.md, "Helper methods"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#helper-methods)
+and ["Inline methods"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#inline-methods),
+with `[InlineLocal]`, `[Eager]` and the repeated-code methods the decompiler writes.

@@ -1,0 +1,33 @@
+---
+title: "ATL2001: Request neither awaited nor discarded"
+description: "A request is called without await or _ =, so it isn't clear whether the caller should wait."
+sidebar:
+  label: "ATL2001: Request neither awaited nor discarded"
+  order: 2001
+sources: ["docs/analyzers.md#atl2001"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A request is called without `await` or `_ =`, so it isn't clear whether the caller should wait. Suggestion: the editor shows it, the build doesn't list it.
+
+## What it means
+
+A call of an `async` entry is a request. Without `await`, the request is queued and the caller goes on at once.
+That is often what you want, but the call alone doesn't say so. C# gives the same hint for .NET tasks (CS4014).
+
+<Snippet file="Analyzers/Atl2001.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Say which you mean: `_ =` to queue it and go on, `await` to wait until it has ended. The editor offers both:
+
+<Snippet file="Analyzers/Atl2001.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+It does no harm: the request is queued either way. Writing `_ =` only makes your intent visible.
+
+## Details
+
+[docs/analyzers.md, "ATL2001"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2001).

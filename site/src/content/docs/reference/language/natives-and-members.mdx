@@ -1,0 +1,95 @@
+---
+title: Natives and members
+description: Natives are the game's own functions. The most used ones are also properties and methods of the worker, so code reads as C#.
+sidebar:
+  order: 6
+sources: ["docs/language.md#natives", "docs/language.md#members"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Everything a script does in the game, it does by calling one of the game's own functions: place a character, play
+an animation, open a dialogue window, use a battle command. These functions are called natives. There are about
+1,500 of them, and the game library has a C# method for each.
+
+## Natives
+
+A native is a static method of a group class: `Common`, `Chr` (characters), `Btl` (battle), `Cam` (camera), `Fx`,
+`Screen`, `Movie` and a few more.
+
+<Snippet file="Language/Members/Test0600.cs" region="natives" />
+
+Hover over a native in your editor to read what is known about it. The most used ones have a summary written for
+modders and named parameters; many others still have parameters called `a0`, `a1`.
+
+A native that waits, such as `Common.WaitFrames`, waits by itself. It returns a number like every native, so it is
+never awaited.
+
+## Members
+
+Most native calls in the game's scripts are one of about two hundred natives. Those are also members of the worker,
+named after what they do. Written as members, the same code reads as C#:
+
+<Snippet file="Language/Members/Test0600.cs" region="members" />
+
+Both forms compile to the same native call, so use whichever reads better. The decompiler writes members wherever
+there is one.
+
+### Properties
+
+A property is a native. Assigning it calls the native that sets it, reading it calls the one that gets it:
+`Yaw = 1.5f;`, `F0 = Yaw;`. Some properties are only set (`Hidden`, `Pos` as a whole) and some only read.
+
+Since a read and a write are two calls, `+=`, `++` and the other compound assignments are errors on a property,
+[ATL1012](/ffx-atel-sharp/reference/analyzers/atl1012/). Write the read and the write out: `Yaw = Yaw + 0.1f;`.
+
+`bool` properties take `true` and `false`:
+
+<Snippet file="Language/Members/Test0600.cs" region="bools" />
+
+### Components
+
+`Turn`, `Move`, `Motion` and `Neck` group the natives of a worker's turning, moving, animation and head:
+
+<Snippet file="Language/Members/Test0600.cs" region="components" />
+
+Some of these are several natives in one. `Turn.To(yaw)` sets the angle, picks the turning animation, starts the
+turn and waits for it, as the game's own code does each time it turns a character.
+
+### Another worker
+
+Written alone, a member acts on the worker the code runs on. Written after another worker's class, it acts on that
+worker. `Workers[n]` picks one by number:
+
+<Snippet file="Language/Members/Test0600.cs" region="other-worker" />
+
+Not every native can act on another worker. Where one only acts on its own worker, `Tidus.Pos = …` compiles as C#
+and the Atel compiler reports it.
+
+### The engine
+
+Natives that don't belong to a worker are static classes: `Wait`, `Camera`, `Sound`, `Voice`.
+
+<Snippet file="Language/Members/Test0600.cs" region="engine-wide" />
+
+### Battle actors
+
+In battle, `Self` is the monster the code runs for, and `Actors[target]` the actors a `Target` picks. Each has a
+property per battle stat:
+
+<Snippet file="Language/Actors/M995.cs" region="actors" />
+
+Reading `Actors[…]` over several actors gives their average. `Self` and `Actors[…]` are not values: they only stand
+before a member, so `var party = Actors[Target.AllPly];` is an error,
+[ATL1013](/ffx-atel-sharp/reference/analyzers/atl1013/).
+
+## Vectors
+
+`Pos`, `Move.Target` and a few other properties take a position as `new Vector3(x, y, z)`. The three numbers go to
+the native as they are. A `Vector3` anywhere else, such as in a local, is an error, since the game has no structs,
+[ATL1001](/ffx-atel-sharp/reference/analyzers/atl1001/). Read one coordinate at a time: `Pos.Y`, `Tidus.Pos.X`.
+
+## Details
+
+[docs/language.md, "Members"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#members)
+lists every group and member with the native it calls.

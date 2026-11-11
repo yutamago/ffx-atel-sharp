@@ -1,0 +1,34 @@
+---
+title: "ATL2007: async method without Ffx.Atel.Task"
+description: "An async method returns void or a .NET task instead of the game library's Task."
+sidebar:
+  label: "ATL2007: async method without Ffx.Atel.Task"
+  order: 2007
+sources: ["docs/analyzers.md#atl2007"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An `async` method returns `void` or a .NET task instead of the game library's `Task`. Error: the build fails until it is fixed.
+
+## What it means
+
+An `async` method is an entry other workers request, and its return type is the request: `Task`, or `Task<int>`
+for one that gives a value, both from `Ffx.Atel`.
+
+<Snippet file="Analyzers/Atl2007.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Return `Task`:
+
+<Snippet file="Analyzers/Atl2007.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. An entry the game runs by itself, such as `Main` or an `[Entry(n)]` method, may be `async void` so that it
+can await requests. That is not reported.
+
+## Details
+
+[docs/analyzers.md, "ATL2007"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2007).

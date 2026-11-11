@@ -1,0 +1,34 @@
+---
+title: "ATL2006: Priority the engine uses"
+description: "A request uses priority level 0, 7 or 8, which belong to the game."
+sidebar:
+  label: "ATL2006: Priority the engine uses"
+  order: 2006
+sources: ["docs/analyzers.md#atl2006"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A request uses priority level 0, 7 or 8, which belong to the game. Warning: the build goes on, and the editor marks the line.
+
+## What it means
+
+Level 0 is `Main`'s, level 7 is `Init`'s and the battle system's, and level 8 is unused. A request at one of them
+competes with the game's own entries. Scripts request at levels 1 to 6.
+
+<Snippet file="Analyzers/Atl2006.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Pick a level from 1 to 6:
+
+<Snippet file="Analyzers/Atl2006.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+The game's own scripts request at level 7 in places, on purpose, and vanilla source keeps that. In new code,
+pick another level unless you know why you need 7.
+
+## Details
+
+[docs/analyzers.md, "ATL2006"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2006).

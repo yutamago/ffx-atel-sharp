@@ -1,0 +1,32 @@
+---
+title: "ATL1005: LINQ"
+description: "LINQ is used, which needs delegates and .NET."
+sidebar:
+  label: "ATL1005: LINQ"
+  order: 1005
+sources: ["docs/analyzers.md#atl1005"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+LINQ is used, which needs delegates and .NET. Error: the build fails until it is fixed.
+
+## What it means
+
+`Sum`, `Select`, `Where` and query expressions are .NET methods that take delegates. The game has neither.
+
+<Snippet file="Analyzers/Atl1005.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write the loop:
+
+<Snippet file="Analyzers/Atl1005.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1005"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1005).

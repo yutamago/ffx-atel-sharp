@@ -1,0 +1,34 @@
+---
+title: "ATL1008: Generic declarations"
+description: "A generic type or method is declared in your code."
+sidebar:
+  label: "ATL1008: Generic declarations"
+  order: 1008
+sources: ["docs/analyzers.md#atl1008"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A generic type or method is declared in your code. Error: the build fails until it is fixed.
+
+## What it means
+
+Each method becomes one body of the game's bytecode, for one set of types. A method generic over types would
+need one body per type, which the compiler doesn't make.
+
+<Snippet file="Analyzers/Atl1008.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write one method per type you need. The game's values are only whole numbers and floats, so that is rarely
+more than two:
+
+<Snippet file="Analyzers/Atl1008.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. The game library's own generics, such as `Call<W>()`, `Task<int>` and `Data.At<T>`, are fine.
+
+## Details
+
+[docs/analyzers.md, "ATL1008"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1008).

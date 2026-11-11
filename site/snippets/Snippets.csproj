@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- The code the website shows (docs/website.md, "Code on the site"): one construct of the language reference, or an
+         analyzer rule's bad example and its fix, between "// region name" and "// endregion" lines that
+         site/src/components/Snippet.astro reads. It builds as a mod project does (docs/sdk.md): the game's reference
+         assembly, the Atel analyzers, no implicit usings, CS0162 and CS1998 off. A bad example's file turns its rule off
+         with #pragma; SnippetTests (tests/Ffx.Atel.Analyzers.Tests) checks that each line marked "// ATLnnnn" raises
+         that rule and nothing else raises one, and compiles the language snippets with the Atel compiler. -->
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <NoWarn>$(NoWarn);CS0162;CS1998</NoWarn>
+        <RootNamespace>Snippets</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../src/Ffx.Atel.Game/Ffx.Atel.Game.csproj" Private="false" />
+        <ProjectReference Include="../../src/Ffx.Atel.Analyzers/Ffx.Atel.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+</Project>

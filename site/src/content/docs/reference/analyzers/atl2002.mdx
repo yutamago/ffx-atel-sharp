@@ -1,0 +1,33 @@
+---
+title: "ATL2002: Request to an entry that is not async"
+description: "An entry is called like a method, but it isn't declared async Task, so it can't be requested."
+sidebar:
+  label: "ATL2002: Request to an entry that is not async"
+  order: 2002
+sources: ["docs/analyzers.md#atl2002"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An entry is called like a method, but it isn't declared `async Task`, so it can't be requested. Error: the build fails until it is fixed.
+
+## What it means
+
+Entries are not functions. Another worker runs them when it gets to them, through a request. Only an entry
+declared `async Task` can be requested from code, and the call of it is the request.
+
+<Snippet file="Analyzers/Atl2002.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Declare the entry `public static async Task NameAsync()`, and request it:
+
+<Snippet file="Analyzers/Atl2002.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. To run some code on your own worker right away, write a helper method instead of an entry.
+
+## Details
+
+[docs/analyzers.md, "ATL2002"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2002).
