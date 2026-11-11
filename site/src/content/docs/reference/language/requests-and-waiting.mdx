@@ -1,0 +1,102 @@
+---
+title: Requests and waiting
+description: A request asks a worker to run one of its entries. In C# it is a call of the entry's async method, awaited or not. Waits count frames, 30 a second.
+sidebar:
+  order: 3
+sources: ["docs/language.md#requests", "docs/language.md#parameters-and-results", "docs/language.md#waiting-in-seconds"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Workers don't call each other's code. One worker asks another to run an entry, and the other worker runs it when
+it gets to it, on its own. That ask is a request. A cutscene is mostly requests: the director worker asks Lulu to
+turn, waits until she has, then asks Wakka to speak.
+
+## The entry
+
+The entry being requested is an `async Task` method:
+
+<Snippet file="Language/Requests/Test0200.cs" region="requestable" />
+
+## The request
+
+A request is a call of that method. What you do with the call decides whether the caller waits:
+
+<Snippet file="Language/Requests/Test0200.cs" region="request-forms" />
+
+| You write | The caller |
+|---|---|
+| `_ = Lulu.LookAroundAsync();` | queues the request and carries on at once |
+| `await Lulu.LookAroundAsync();` | waits until the entry has ended |
+| `await Lulu.LookAroundAsync().Started;` | waits until the entry has begun |
+
+A call with neither `_ =` nor `await` works like `_ =`, but the editor suggests making it explicit,
+[ATL2001](/ffx-atel-sharp/reference/analyzers/atl2001/).
+
+`await` only works with a request. The game's own functions that wait, such as `Wait.Frames` or `Motion.Wait`,
+do so by themselves and return a number, so there is nothing to await.
+
+## Priority
+
+Each worker runs one request at a time per priority level, and a higher level interrupts a lower one. A request
+runs at level 1 unless it says otherwise. To let callers choose, the entry declares a `Priority` parameter, as
+`LookAroundAsync` does above. It is the request's level, not a value the entry sees.
+
+Scripts use levels 1 to 6. Level 0 is `Main`'s, level 7 is `Init`'s and the battle system's, and level 8 is unused.
+Requesting at one of those is a warning, [ATL2006](/ffx-atel-sharp/reference/analyzers/atl2006/).
+
+## Requesting your own worker's entry
+
+A worker can request its own entries, but awaiting one only works when the request's level is above the level
+the caller runs at. At the same level the request is refused and the entry never runs; below it, the caller waits
+for ever. The analyzers warn about it ([ATL2005](/ffx-atel-sharp/reference/analyzers/atl2005/)), and report an
+error where they can tell it never runs ([ATL2004](/ffx-atel-sharp/reference/analyzers/atl2004/)). To run some of
+the worker's own code and wait for it, use a helper method instead.
+
+## Parameters and results
+
+In new code, a requested entry may take parameters and return a value:
+
+<Snippet file="Language/Requests/Test0200.cs" region="parameters" />
+
+<Snippet file="Language/Requests/Test0200.cs" region="parameters-call" title="The request" />
+
+The game's requests carry no values, only the worker, the entry and the level. So the compiler keeps each
+parameter and the result in a hidden variable of the receiving worker: the request writes the arguments there
+first, and `await` reads the result after the entry has ended. The types are those of a local: `int`, `float`,
+`bool` and enums.
+
+Only an `await` of the whole entry gives the result. `_ =` and `.Started` don't wait for the end, so there is no
+value yet.
+
+Because the values sit in one place per entry, two requests that overlap overwrite each other's arguments. The
+analyzers warn where that can happen: requests from several methods, requests that don't wait for the end, and
+requests in a loop, [ATL2008](/ffx-atel-sharp/reference/analyzers/atl2008/).
+
+## Waiting
+
+The game runs scripts once a frame, 30 frames a second. That holds on the field, in events and in battle, whatever
+the screen draws. So a wait counts frames:
+
+<Snippet file="Language/Requests/Test0200.cs" region="wait-seconds" />
+
+`Wait.Seconds(s)` is `Wait.Frames` with the frames counted when the mod is built: `s` times 30, rounded to the
+nearest frame. That is why its argument must be a constant: a literal, a `const`, or arithmetic of them. A variable
+has no value at build time, [ATL3005](/ffx-atel-sharp/reference/analyzers/atl3005/). For a wait that only run
+time knows, count frames with `Wait.Frames`.
+
+The shortest wait is one frame. A `Wait.Seconds` that rounds to less is an error,
+[ATL3006](/ffx-atel-sharp/reference/analyzers/atl3006/).
+
+Frames are game time. With the PC version's speed booster on, the game runs two or four times as fast, and so do
+the waits.
+
+While an entry waits, the worker's other entries can run, on a higher level. That matters for
+[registers](/ffx-atel-sharp/reference/language/variables-and-saved-fields/#registers), not for locals.
+
+## Details
+
+[docs/language.md, "Requests"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#requests)
+has the forms the decompiler writes when the call form can't express a request, and
+["Waiting in seconds"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#waiting-in-seconds)
+the rounding rule.

@@ -1,0 +1,95 @@
+---
+title: Analyzers
+description: The ATL rules mark C# that the game can't run, while you type and in dotnet build. Each has a page with an example and its fix.
+sidebar:
+  label: Overview
+  order: 0
+sources: ["docs/analyzers.md#analyzers", "docs/analyzers.md#numbering"]
+---
+
+The analyzers are the rules that make C# into Atel. They come with the SDK, so your editor (Rider, Visual Studio,
+VS Code) marks a problem as you type, and `dotnet build` reports it. Each diagnostic's link in the editor opens its
+page here.
+
+{/* shot 16 */}
+
+- An error stops the build: the game can't run that code.
+- A warning builds, but the code may not do what you expect in the game.
+- A suggestion only shows in the editor.
+
+The rules run only in a project that references the game library, so they don't touch your other C# projects.
+Like any C# diagnostic, you can turn one off for a few lines with `#pragma warning disable ATL0001`, or for the
+project in `.editorconfig` (`dotnet_diagnostic.ATL0001.severity = none`). Each page says when that is safe.
+
+## ATL0xxx: registers
+
+The worker's registers across waits.
+
+| Rule | Kind | What it reports |
+|---|---|---|
+| [ATL0001](/ffx-atel-sharp/reference/analyzers/atl0001/) | warning | Register used across a wait |
+
+## ATL1xxx: C# the game can't run
+
+Types, objects and .NET features a script has no form for.
+
+| Rule | Kind | What it reports |
+|---|---|---|
+| [ATL1001](/ffx-atel-sharp/reference/analyzers/atl1001/) | error | Objects created at run time |
+| [ATL1002](/ffx-atel-sharp/reference/analyzers/atl1002/) | error | String outside Debug |
+| [ATL1003](/ffx-atel-sharp/reference/analyzers/atl1003/) | error | .NET base library |
+| [ATL1004](/ffx-atel-sharp/reference/analyzers/atl1004/) | error | Collections |
+| [ATL1005](/ffx-atel-sharp/reference/analyzers/atl1005/) | error | LINQ |
+| [ATL1006](/ffx-atel-sharp/reference/analyzers/atl1006/) | error | Exceptions |
+| [ATL1007](/ffx-atel-sharp/reference/analyzers/atl1007/) | error | Lambdas and delegates |
+| [ATL1008](/ffx-atel-sharp/reference/analyzers/atl1008/) | error | Generic declarations |
+| [ATL1009](/ffx-atel-sharp/reference/analyzers/atl1009/) | error | Not a type the game has |
+| [ATL1010](/ffx-atel-sharp/reference/analyzers/atl1010/) | error | checked arithmetic |
+| ATL1011 | retired | `&&` and `\|\|`, before the compiler took them. The number is not used again. |
+| [ATL1012](/ffx-atel-sharp/reference/analyzers/atl1012/) | error | Compound assignment to a member |
+| [ATL1013](/ffx-atel-sharp/reference/analyzers/atl1013/) | error | Member holder used as a value |
+
+## ATL2xxx: requests
+
+How workers ask each other to run entries.
+
+| Rule | Kind | What it reports |
+|---|---|---|
+| [ATL2001](/ffx-atel-sharp/reference/analyzers/atl2001/) | suggestion | Request neither awaited nor discarded |
+| [ATL2002](/ffx-atel-sharp/reference/analyzers/atl2002/) | error | Request to an entry that is not async |
+| [ATL2003](/ffx-atel-sharp/reference/analyzers/atl2003/) | suggestion | await on something that is not a request |
+| [ATL2004](/ffx-atel-sharp/reference/analyzers/atl2004/) | error | Request to your own entry that never runs |
+| [ATL2005](/ffx-atel-sharp/reference/analyzers/atl2005/) | warning | Awaited request to your own entry |
+| [ATL2006](/ffx-atel-sharp/reference/analyzers/atl2006/) | warning | Priority the engine uses |
+| [ATL2007](/ffx-atel-sharp/reference/analyzers/atl2007/) | error | async method without Ffx.Atel.Task |
+| [ATL2008](/ffx-atel-sharp/reference/analyzers/atl2008/) | warning | Overlapping requests to an entry with parameters |
+
+## ATL3xxx: calls
+
+Helpers, function workers and inline methods.
+
+| Rule | Kind | What it reports |
+|---|---|---|
+| [ATL3001](/ffx-atel-sharp/reference/analyzers/atl3001/) | error | Recursion |
+| [ATL3002](/ffx-atel-sharp/reference/analyzers/atl3002/) | error | Calls deeper than 3 |
+| [ATL3003](/ffx-atel-sharp/reference/analyzers/atl3003/) | error | Inline method calls itself |
+| [ATL3004](/ffx-atel-sharp/reference/analyzers/atl3004/) | error | Argument of an inline method with an effect |
+| [ATL3005](/ffx-atel-sharp/reference/analyzers/atl3005/) | error | Argument must be a constant |
+| [ATL3006](/ffx-atel-sharp/reference/analyzers/atl3006/) | error | Wait shorter than one frame |
+| [ATL3007](/ffx-atel-sharp/reference/analyzers/atl3007/) | error | Library class that names no worker |
+
+## ATL4xxx: mods
+
+What a mod writes on top of vanilla source.
+
+| Rule | Kind | What it reports |
+|---|---|---|
+| [ATL4001](/ffx-atel-sharp/reference/analyzers/atl4001/) | error | Static constructor that is not initial values |
+| [ATL4002](/ffx-atel-sharp/reference/analyzers/atl4002/) | error | [Inject] names no call or member of its method |
+| [ATL4003](/ffx-atel-sharp/reference/analyzers/atl4003/) | error | [Saved] field that cannot be saved |
+| [ATL4004](/ffx-atel-sharp/reference/analyzers/atl4004/) | error | Write to another mod's [Saved] field |
+
+## Details
+
+[docs/analyzers.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md) has each rule's exact
+conditions and how often it fires on the game's own scripts.

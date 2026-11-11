@@ -1,0 +1,81 @@
+---
+title: Scripts and workers
+description: A script is a static class with its workers listed in order. Each worker is a class deriving from the kind of worker it is.
+sidebar:
+  order: 1
+sources: ["docs/language.md#scripts", "docs/language.md#workers"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A script is one of the game's programs: the code of one map, one monster or one battle. In C# it is a folder and a
+namespace, with one static class that describes the script and one class per worker.
+
+## The script class
+
+<Snippet file="Language/Scripts/M999.cs" region="script-class" />
+
+- The attribute says which file of the game the script is. `[Monster("m999")]` is a monster, `[Event("…")]` a map
+  (the game calls a map's script an event), `[Battle("…")]` a battle.
+- `[Workers(…)]` lists the workers in order. A worker's number is its place in this list, starting at 0. The game
+  refers to workers by number, so the order matters. The order of files and classes in the folder doesn't.
+- The fields are the script's variables. See
+  [Variables and saved fields](/ffx-atel-sharp/reference/language/variables-and-saved-fields/).
+
+The class is `public static partial class`. It is `partial` because the decompiler spreads it over several files
+(one for the variables, one for the data areas, one for the layout), and because a mod adds its own part to it.
+
+## Every file starts the same way
+
+<Snippet file="Language/Scripts/M999.cs" region="usings" />
+
+`Ffx` and `Ffx.Atel` bring in the game library. The `using static` line brings in the script class, so every
+file can name the script's variables without a prefix. Your mod's files start with the same lines.
+
+## Workers
+
+A worker is one actor of the script: a character on the map, a trigger area, a camera, or a monster's AI. Each
+worker runs its own code, and all of them run every frame, side by side.
+
+<Snippet file="Language/Scripts/Ai.cs" region="worker" />
+
+The base class says what kind of worker it is, which decides what the game does with it each frame:
+
+| Base class | What the game does with it | Found in |
+|---|---|---|
+| `Actor` | moves and turns it as a character on the map, and checks whether the player talks to it or touches it | maps |
+| `LineTrigger` | checks a line on the ground: whether the player talks to it, crosses it or touches it | maps |
+| `BoxTrigger` | the same for a box around its position | maps |
+| `LineSensor`, `BoxSensor` | the same against another worker's movement | maps |
+| `LogicWorker` | nothing each frame: it only runs its entries | maps |
+| `FunctionWorker` | nothing: other workers call it as a subroutine | maps |
+| `BattleWorker` | every worker of a monster or a battle | monsters, battles |
+
+Only an `Actor` can show a model. So a worker that is a person on the map is an `Actor`, and a worker that runs a
+cutscene from behind the scenes is usually a `LogicWorker`.
+
+A worker holds its entries (the methods the game runs, see
+[Entries](/ffx-atel-sharp/reference/language/entries/)) and `[Register]` fields. It holds no other fields: the
+script's variables belong to the script class. Its own helper methods are fine, see
+[Helpers and inline methods](/ffx-atel-sharp/reference/language/helpers-and-inline-methods/).
+
+## Names in decompiled source
+
+The decompiler names each worker after what it can tell: the model it loads (`Wakka`, `TreasureChest_14`), the
+part of a battle it serves (`Ai`, `Cameras`), or what its code does (`Director`). When nothing tells, the worker is
+`W03`, by number. The same goes for entries (`OnTalk`, `OnTurn`, or `E5`). These are only names: the numbers
+in `[Workers]` and `[Entry]` are what the game reads, so you can rename freely in vanilla source you keep for
+yourself.
+
+## Shared workers
+
+Some workers are the same in many scripts. The decompiler puts their code once in a `Library/` folder, and each
+script's worker derives from it: `public sealed partial class W03 : MoveTalkDefaults { }`. Written in a script,
+the library class's name means the one worker of that script that derives from it. If none or several do, that's
+an error, [ATL3007](/ffx-atel-sharp/reference/analyzers/atl3007/).
+
+## Details
+
+[docs/language.md, "Scripts"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#scripts) and
+["Workers"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#workers) have the files the
+decompiler writes, the worker types by number and the trigger entries each type runs.

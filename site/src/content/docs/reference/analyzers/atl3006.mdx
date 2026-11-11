@@ -1,0 +1,33 @@
+---
+title: "ATL3006: Wait shorter than one frame"
+description: "Wait.Seconds is given less than half a frame, a negative value, or a value too large to count."
+sidebar:
+  label: "ATL3006: Wait shorter than one frame"
+  order: 3006
+sources: ["docs/analyzers.md#atl3006"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`Wait.Seconds` is given less than half a frame, a negative value, or a value too large to count. Error: the build fails until it is fixed.
+
+## What it means
+
+Scripts run once a frame, 30 times a second, so the shortest wait is one frame. `Wait.Seconds(s)` rounds `s`
+times 30 to the nearest frame, and a value that rounds to 0 frames waits for nothing.
+
+<Snippet file="Analyzers/Atl3006.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Wait at least one frame:
+
+<Snippet file="Analyzers/Atl3006.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3006"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3006).

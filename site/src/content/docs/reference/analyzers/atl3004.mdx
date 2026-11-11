@@ -1,0 +1,34 @@
+---
+title: "ATL3004: Argument of an inline method with an effect"
+description: "An argument of an inline method calls something, assigns or increments."
+sidebar:
+  label: "ATL3004: Argument of an inline method with an effect"
+  order: 3004
+sources: ["docs/analyzers.md#atl3004"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An argument of an inline method calls something, assigns or increments. Error: the build fails until it is fixed.
+
+## What it means
+
+An inline method's argument is put in place of its parameter, like a C macro's. So it runs wherever the
+parameter is used, perhaps several times, perhaps not at all. A call or `x++` in it would run that many times.
+
+<Snippet file="Analyzers/Atl3004.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Compute the value into a local first, and pass the local:
+
+<Snippet file="Analyzers/Atl3004.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. A parameter marked `[Eager]` takes a call, because it is used once at the start of the method;
+`Turn.To(Common.AngleToPoint(x, z))` is fine.
+
+## Details
+
+[docs/analyzers.md, "ATL3004"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3004).

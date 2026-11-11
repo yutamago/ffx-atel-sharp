@@ -1,0 +1,33 @@
+---
+title: "ATL2003: await on something that is not a request"
+description: "An await on something that completes at once, so it waits for nothing."
+sidebar:
+  label: "ATL2003: await on something that is not a request"
+  order: 2003
+sources: ["docs/analyzers.md#atl2003"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`await` is used on something that completes at once, so it waits for nothing. Suggestion: the editor shows it, the build doesn't list it.
+
+## What it means
+
+Only a request (and its `.Finished` or `.Started`) waits for another worker. Anything else from the game
+library that C# lets you await completes at once, and the compiler drops the `await`. You'll rarely see this one.
+
+<Snippet file="Analyzers/Atl2003.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+To wait, use a native that waits, or await a request:
+
+<Snippet file="Analyzers/Atl2003.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+It does no harm, as the `await` is dropped. Removing it makes the code say what it does.
+
+## Details
+
+[docs/analyzers.md, "ATL2003"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2003).

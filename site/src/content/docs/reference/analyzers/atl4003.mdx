@@ -1,0 +1,35 @@
+---
+title: "ATL4003: [Saved] field that cannot be saved"
+description: "A [Saved] field has a type, a place or a key the loader can't save."
+sidebar:
+  label: "ATL4003: [Saved] field that cannot be saved"
+  order: 4003
+sources: ["docs/analyzers.md#atl4003"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A `[Saved]` field has a type, a place or a key the loader can't save. Error: the build fails until it is fixed.
+
+## What it means
+
+A saved field is a variable in the save game's mod area, which the loader lays out when the game starts. So it
+must be a static field of a plain number type (`byte` to `int`, or `float`), or an array of one with its size,
+in a static class of your mod or your part of a script class. Its key must be unique and hold no `/` or space. The
+message says which rule the field breaks.
+
+<Snippet file="Analyzers/Atl4003.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Give the array its size:
+
+<Snippet file="Analyzers/Atl4003.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL4003"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl4003).

@@ -1,0 +1,38 @@
+---
+title: "ATL2004: Request to your own entry that never runs"
+description: "A worker waits for one of its own entries at a level where that entry can never start."
+sidebar:
+  label: "ATL2004: Request to your own entry that never runs"
+  order: 2004
+sources: ["docs/analyzers.md#atl2004"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A worker waits for one of its own entries at a level where that entry can never start. Error: the build fails until it is fixed.
+
+## What it means
+
+A worker starts a request only when its priority level is above the level it is running at. `Init` runs at
+level 7 and `Main` at level 0. So when `Init` requests one of its own worker's entries at level 7 and waits, the
+request is refused at once and the entry never runs. Below the running level the request never starts, and the
+caller waits for ever. A request to entry 0 never registers at all.
+
+The rule checks the decompiler's request form, `RequestWaitEnd(level, worker, entry)`, where it knows both
+levels. The worker here is worker 0 of its script:
+
+<Snippet file="Analyzers/Atl2004.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Request at a level above the caller's, or, better, call a helper method, which runs at once:
+
+<Snippet file="Analyzers/Atl2004.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never: each case it reports is a request that does nothing or never returns.
+
+## Details
+
+[docs/analyzers.md, "ATL2004"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2004).

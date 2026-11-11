@@ -1,0 +1,34 @@
+---
+title: "ATL3007: Library class that names no worker"
+description: "A shared library class is used as a worker, but none or several of the script's workers derive from it."
+sidebar:
+  label: "ATL3007: Library class that names no worker"
+  order: 3007
+sources: ["docs/analyzers.md#atl3007"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A shared library class is used as a worker, but none or several of the script's workers derive from it. Error: the build fails until it is fixed.
+
+## What it means
+
+The decompiler keeps workers that are the same in many scripts in a `Library/` folder, and each script's worker
+derives from the library class. Written in a script, the library class's name means the one worker of that script
+that derives from it. When two do, as here, or none, the name means no worker.
+
+<Snippet file="Analyzers/Atl3007.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Name the worker you mean:
+
+<Snippet file="Analyzers/Atl3007.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3007"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3007).

@@ -1,0 +1,35 @@
+---
+title: "ATL4004: Write to another mod's [Saved] field"
+description: "Code assigns a field that another mod saves."
+sidebar:
+  label: "ATL4004: Write to another mod's [Saved] field"
+  order: 4004
+sources: ["docs/analyzers.md#atl4004"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Code assigns a field that another mod saves. Error: the build fails until it is fixed.
+
+## What it means
+
+`[Saved(Mod = "…", Key = "…")]` declares a field another mod owns, so that your mod can read it. Only the owner
+writes it: two mods writing one value would each undo the other.
+
+<Snippet file="Analyzers/Atl4004.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Read it, and keep what your mod needs in a saved field of its own:
+
+<Snippet file="Analyzers/Atl4004.cs" region="fix" title="Fixed" />
+
+<Snippet file="Analyzers/Atl4004.cs" region="fix-use" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL4004"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl4004).

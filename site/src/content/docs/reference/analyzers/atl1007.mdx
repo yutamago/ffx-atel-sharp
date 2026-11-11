@@ -1,0 +1,33 @@
+---
+title: "ATL1007: Lambdas and delegates"
+description: "A lambda, delegate, local function or method group is used as a value."
+sidebar:
+  label: "ATL1007: Lambdas and delegates"
+  order: 1007
+sources: ["docs/analyzers.md#atl1007"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A lambda, delegate, local function or method group is used as a value. Error: the build fails until it is fixed.
+
+## What it means
+
+The game calls only fixed targets: natives, helpers and entries, each known when the mod is built. A function
+kept in a variable, or a local function inside a method, has no form there.
+
+<Snippet file="Analyzers/Atl1007.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Make it a helper method of the worker:
+
+<Snippet file="Analyzers/Atl1007.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1007"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1007).

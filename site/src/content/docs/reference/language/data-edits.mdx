@@ -1,0 +1,63 @@
+---
+title: Data edits
+description: A mod's static constructor sets values the script starts with, such as a monster's HP or a table's element. The loader writes them into the player's file in place.
+sidebar:
+  order: 11
+sources: ["docs/language.md#initial-values-and-data-edits"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Some changes need no code at all: a monster with more HP, more gil after a battle, a different starting value for
+a variable. A mod writes them in a static constructor, the place C# sets a class's static fields before anything
+uses them:
+
+<Snippet file="Language/DataEdits/Mod/M996.cs" region="data-edits" />
+
+Each line is one value of the script's data. The loader writes the values into the player's file in place, and
+leaves the rest of the file as it was. A mod with only data edits changes nothing else.
+
+## What you can set
+
+| Line | Sets |
+|---|---|
+| `MonsterStats.Hp = 4321;` | a monster's stat: `Hp`, `Mp`, `Strength`, `Defense`, `Magic`, `MagicDefense`, `Agility`, `Luck`, `Evasion`, `Accuracy`, `OverkillThreshold` |
+| `MonsterRewards.Gil = 999;` | a reward: `Gil`, `Ap`, `OverkillAp`, `DropChance1`, `DropChance2`, `StealChance`, `EquipmentDropChance` |
+| `Rage = 2;` | a shared or event variable's starting value |
+| `Odds[3] = 7;` | one element of an array variable |
+| `Data.At<ushort>(DataArea.Other, 0x20) = 7;` | bytes of a data area that no variable covers, by offset |
+
+The battle reads a monster's stats and rewards from the monster's own file, so a data edit there changes that
+monster everywhere it appears.
+
+## A worker's own data
+
+In a map's script, a worker's private variables have starting values too. Set them in the worker's own static
+constructor:
+
+<Snippet file="Language/EventData/Mod/Boy.cs" region="worker-data" />
+
+In battle the game clears a worker's private data when it sets the worker up, so a monster's worker has no starting
+values to set. That is an error.
+
+## The rules
+
+- Each line assigns a constant: a number, a `const`, a game constant such as `Story.*`, or an enum member.
+  Arithmetic of constants is fine.
+- A whole number must fit the field. A `float` field takes any number.
+- Each field is set once per mod.
+- `MonsterStats` and `MonsterRewards` are only in a monster's script, and go in the script class's constructor.
+- A save or common variable is not the script's data, so it has no starting value to set.
+
+Anything else in a static constructor, such as a call, a loop, or a value read from a variable, is an error,
+[ATL4001](/ffx-atel-sharp/reference/analyzers/atl4001/). Code that should run when the battle starts goes in a
+`[Postfix]` of `Init`, see [Patches](/ffx-atel-sharp/reference/language/patches/).
+
+## Two mods, one value
+
+Two mods that set the same value conflict. The loader's report lists it, and the later mod in the load order
+wins. Two mods that set different values of the same script both apply.
+
+## Details
+
+[docs/language.md, "Initial values and data edits"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#initial-values-and-data-edits).

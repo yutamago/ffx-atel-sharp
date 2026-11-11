@@ -1,0 +1,35 @@
+---
+title: "ATL1002: String outside Debug"
+description: "A string is used where the game has none."
+sidebar:
+  label: "ATL1002: String outside Debug"
+  order: 1002
+sources: ["docs/analyzers.md#atl1002"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A string is used where the game has none. Error: the build fails until it is fixed.
+
+## What it means
+
+The game has no strings. A line the player reads is a message of the script's table, referred to by number,
+and text for yourself goes to the log through `Debug.Print`. A `string` field, local, parameter, or a string value
+made anywhere else, is reported.
+
+<Snippet file="Analyzers/Atl1002.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Show a message by its number, or print debug text:
+
+<Snippet file="Analyzers/Atl1002.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. Strings are allowed in attributes, `nameof`, and as the argument of `Debug.Print`, `Text.New` and
+`Asm`.
+
+## Details
+
+[docs/analyzers.md, "ATL1002"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1002).

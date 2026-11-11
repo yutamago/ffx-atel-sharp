@@ -1,0 +1,35 @@
+---
+title: "ATL4002: [Inject] names no call or member of its method"
+description: "An [Inject] points at a call or member the vanilla method doesn't have, or doesn't have that many times."
+sidebar:
+  label: "ATL4002: [Inject] names no call or member of its method"
+  order: 4002
+sources: ["docs/analyzers.md#atl4002"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An `[Inject]` points at a call or member the vanilla method doesn't have, or doesn't have that many times. Error: the build fails until it is fixed.
+
+## What it means
+
+`[Inject]` runs your code at the statement holding the n-th place of a call or member in a vanilla method. Here
+`OnTurn` calls `Btl.UseCommand` twice, so there is no third place to inject after. The rule also reports an
+`[Inject]` that names neither `Before` nor `After`, or both.
+
+<Snippet file="Analyzers/Atl4002.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Count the places in the vanilla source, and name one that is there:
+
+<Snippet file="Analyzers/Atl4002.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. A game update can move code around: when the vanilla source you build against changes, check your
+injects again. The build reports the same error.
+
+## Details
+
+[docs/analyzers.md, "ATL4002"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl4002).

@@ -8,6 +8,12 @@ rules below (docs/plan.md, "The language"). They are Roslyn analyzers
 typing and `dotnet build` reports them; code fixes are in `src/Ffx.Atel.Analyzers.CodeFixes`.
 `atel compile --check` and `atel roundtrip --check` run them too (`ScriptCompiler.Check`).
 
+Each rule's help link (`DiagnosticDescriptor.HelpLinkUri`, the link on the diagnostic in the IDE's error list)
+opens its page on the website, `https://yutamago.github.io/ffx-atel-sharp/reference/analyzers/atlNNNN/`
+(`site/src/content/docs/reference/analyzers/`), with a bad example and its fix from `site/snippets/Analyzers/`.
+`SnippetTests` (`tests/Ffx.Atel.Analyzers.Tests`) checks that every rule has its link, its page and its examples,
+and that each example raises its rule. A new rule needs all three; this page stays the full reference.
+
 The rules run only in a compilation that references `Ffx.Atel.Game` (it has `Ffx.Atel.Worker`).
 Like any C# diagnostic they can be suppressed with `#pragma warning disable ATL0001` or set in
 `.editorconfig` (`dotnet_diagnostic.ATL0001.severity = none`).
@@ -92,7 +98,7 @@ holds a value: written before the wait on some path, read after it before being 
 and another entry of the same worker writes the field.
 
 ```csharp
-[Register(0)] public int I0;
+[Register(0)] public static int I0;
 
 [Entry(1)]
 void E1()
@@ -108,7 +114,9 @@ void E3() { I0 = 5; }
 Waits are `await`, natives with `Polls` (`[Native(…, Polls = true)]`) and `RequestWaitStart`,
 `RequestWaitEnd`, directly in the method (not through helpers). Liveness is per method, over
 Roslyn's control flow graph. Function workers (`FunctionWorker`, `Worker0`) are left out: they run on their
-caller's level and registers.
+caller's level and registers. Register fields are `static`, as the decompiler writes them (language.md,
+"Registers"), or instance fields. Until 2026-11-11 the rule saw only instance fields, so the count in "On the
+vanilla source" predates static registers and needs measuring again.
 
 Fix: use a local (the compiler saves locals across waits), another register, or suppress where
 the entries cannot interleave.

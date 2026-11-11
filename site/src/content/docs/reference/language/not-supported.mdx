@@ -1,0 +1,55 @@
+---
+title: What is not supported
+description: The C# a script can't use, why, and what to write instead. Most of it is caught by an analyzer while you type.
+sidebar:
+  order: 12
+sources: ["docs/language.md#statements-and-expressions", "docs/analyzers.md#numbering"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Your mod is compiled to the game's bytecode, not to .NET, and nothing of .NET is there when the game runs it.
+The game's script machine has whole numbers, floats, fixed-size arrays in its storage areas, its own functions,
+and requests between workers. C# that needs anything more has no form in a script.
+
+The analyzers mark such code in the editor while you type, and `dotnet build` fails on it. Here is a typical
+case and its fix:
+
+<Snippet file="Analyzers/Atl1001.cs" region="bad" title="Refused: an array made at run time" />
+
+<Snippet file="Analyzers/Atl1001.cs" region="fix" title="Instead: a variable of the script" />
+
+## Not in a script at all
+
+| C# | Why | Instead | Rule |
+|---|---|---|---|
+| `new` for an object or a local array | the game has no objects or heap | a variable of the script class | [ATL1001](/ffx-atel-sharp/reference/analyzers/atl1001/) |
+| `string` | the game has no strings | `Text[n]` for a message, `Debug.Print` for a log line | [ATL1002](/ffx-atel-sharp/reference/analyzers/atl1002/) |
+| `Math`, `Console` and the rest of .NET | .NET isn't there when the script runs | the game's natives, or arithmetic | [ATL1003](/ffx-atel-sharp/reference/analyzers/atl1003/) |
+| `List<T>` and other collections | nothing in a script can grow | a fixed-size array | [ATL1004](/ffx-atel-sharp/reference/analyzers/atl1004/) |
+| LINQ | it needs delegates and .NET | a loop | [ATL1005](/ffx-atel-sharp/reference/analyzers/atl1005/) |
+| `try`, `catch`, `throw` | the game has no exceptions | test before you act | [ATL1006](/ffx-atel-sharp/reference/analyzers/atl1006/) |
+| lambdas, delegates, local functions | the game calls only fixed targets | a helper method | [ATL1007](/ffx-atel-sharp/reference/analyzers/atl1007/) |
+| your own generic types and methods | each method is one body of bytecode | one method per type | [ATL1008](/ffx-atel-sharp/reference/analyzers/atl1008/) |
+| `long`, `double`, `decimal`, `char`, `object` | values are 32 bits | `int`, `float` (`1.5f`, not `1.5`) | [ATL1009](/ffx-atel-sharp/reference/analyzers/atl1009/) |
+| `checked` | integers always wrap | plain arithmetic | [ATL1010](/ffx-atel-sharp/reference/analyzers/atl1010/) |
+| recursion | a subroutine has no stack frame | a loop | [ATL3001](/ffx-atel-sharp/reference/analyzers/atl3001/) |
+| calls more than 3 deep | the game keeps 3 return addresses | fewer levels, or inline methods | [ATL3002](/ffx-atel-sharp/reference/analyzers/atl3002/) |
+| `async` methods returning anything but `Ffx.Atel.Task` | an `async` method is a requested entry | `async Task` | [ATL2007](/ffx-atel-sharp/reference/analyzers/atl2007/) |
+
+The game library's own generics, such as `Call<W>()` and `Task<int>`, are fine. So are `unchecked`, `&&` and `||`,
+and constants like `int.MaxValue`.
+
+## Not compiled yet
+
+The analyzers allow these, but the Atel compiler doesn't compile them yet. The build says so.
+
+- `foreach`.
+- An assignment used as a value: `a = b = 0`.
+- `ref`, `out`, `params` and default values in your own helper methods.
+
+## Details
+
+[docs/analyzers.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md) has every rule, and
+[docs/language.md, "Statements and expressions"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#statements-and-expressions)
+what the compiler takes.
