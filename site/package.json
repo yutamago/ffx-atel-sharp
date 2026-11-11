@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "gen": "cd .. && dotnet run tools/gen-api-pages.cs && dotnet run tools/gen-cli-usage.cs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "7.3.4",

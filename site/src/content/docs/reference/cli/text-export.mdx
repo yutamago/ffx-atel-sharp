@@ -1,0 +1,28 @@
+---
+title: atel text export
+description: "Write the game's messages next to your decompiled source, for the editor extensions."
+sidebar:
+  hidden: true
+sources: ["docs/editor.md#atel-text-export"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel text export` writes the game's messages, the lines of dialogue and the other texts the scripts show, as JSON files next to your decompiled source. The editor extensions read them and show a message's text where the code says `Text[12]`.
+
+Run it after `atel decompile`, with the same `-o` folder. Without script names it exports every event and battle script. Without `--lang` it exports every language.
+
+The files are the game's text: they stay on your machine. Don't commit or share them.
+
+## Usage
+
+<CliUsage command="text-export" />
+
+## Example
+
+```bash
+atel text export -o vanilla
+atel text export bjyt0400 -o vanilla --lang en
+```
+
+Details: [docs/editor.md, "atel text export"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/editor.md#atel-text-export) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

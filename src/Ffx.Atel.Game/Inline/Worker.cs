@@ -2,10 +2,11 @@
 
 namespace Ffx.Atel;
 
-/// <summary>
-///     Inline methods every worker has, called without a class name (<c>ChangeMap(Map.Bsvr0100, 2);</c>).
-///     The compiler writes the natives below in place of the call, as the game's scripts have them.
-/// </summary>
+/// <remarks>
+///     The inline methods (<see cref="InlineAttribute"/>) every worker has, such as <c>ChangeMap(Map.Bsvr0100, 2);</c>,
+///     are called without a class name; the compiler writes the natives they stand for in place of the call, as the
+///     game's scripts have them.
+/// </remarks>
 public abstract partial class Worker {
     /// <summary>
     ///     Changes to map <paramref name="map"/> at entrance <paramref name="entrance"/> with a fade:

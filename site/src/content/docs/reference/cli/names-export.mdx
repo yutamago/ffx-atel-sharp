@@ -1,0 +1,25 @@
+---
+title: atel names export
+description: "Write the game's names of monsters, commands, places and battles, for the editor extensions."
+sidebar:
+  hidden: true
+sources: ["docs/editor.md#names-atel-names-export"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel names export` writes the game's own names for monsters, commands and items, places and battles next to your decompiled source. The editor extensions read them and show, next to a value such as `Target.…` or `Map.…` in the code, its name in the game.
+
+It takes the same `-o` folder and `--lang` list as `atel text export`. The files are the game's text: they stay on your machine.
+
+## Usage
+
+<CliUsage command="names-export" />
+
+## Example
+
+```bash
+atel names export -o vanilla
+```
+
+Details: [docs/editor.md, "Names"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/editor.md#names-atel-names-export) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

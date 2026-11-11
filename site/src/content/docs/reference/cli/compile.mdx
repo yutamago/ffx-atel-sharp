@@ -1,0 +1,27 @@
+---
+title: atel compile
+description: "Compile one decompiled script back into the game's script file."
+sidebar:
+  hidden: true
+sources: ["docs/encoding.md"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel compile` compiles one decompiled script back into the game's script file, byte for byte the same when you changed nothing.
+
+A mod doesn't need it: mods go through `atel compile-mod`, and the loader puts them into the player's own files. Use it when you change a decompiled script itself and want the whole file, for example to try an edit by hand.
+
+`--check` builds the C# with the Atel analyzers first. `--debug` decides what `Debug.Print` and the other debug calls become.
+
+## Usage
+
+<CliUsage command="compile" />
+
+## Example
+
+```bash
+atel compile vanilla/Monsters/M209 -o m209.bin --check
+```
+
+Details: [docs/encoding.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/encoding.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

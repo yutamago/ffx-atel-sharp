@@ -5,11 +5,15 @@ using Ffx.Atel;
 namespace Ffx;
 
 /// <summary>
-///     A line of dialogue as one call. Each method is an inline method (<see cref="InlineAttribute"/>): the
-///     compiler writes the message natives below in place of the call, exactly as the game's own scripts
-///     have them, so <c>Dialogue.Say(Text[71]);</c> compiles to the same bytes as the 18 lines it stands for.
+///     Shows a line of dialogue in a text box: <c>Dialogue.Say(Text[71]);</c> opens the box with message 71 of the
+///     script, waits until the player has read it and closes the box.
 /// </summary>
 /// <remarks>
+///     <para>
+///         Each method is an inline method (<see cref="InlineAttribute"/>): the compiler writes the message natives
+///         it stands for in place of the call, exactly as the game's own scripts have them, so
+///         <c>Dialogue.Say(Text[71]);</c> compiles to the same bytes as the 18 lines it stands for.
+///     </para>
 ///     <para>
 ///         A message window is one of the game's text boxes, numbered from 0 (the shipped scripts use 0-6;
 ///         0 is the usual one). Its text is a message of the script's table (<c>Text[12]</c>) or, in a mod, a
@@ -73,10 +77,14 @@ public static class Dialogue {
     }
 
     /// <summary>
-    ///     A line of dialogue without voice: opens the window with <paramref name="text"/> (<see cref="Open"/>),
-    ///     waits until it is ready (<see cref="WaitUntilReady"/>), waits for the player (<c>MsgWaitEnd</c>), then
-    ///     closes the window and waits until it is closed (<c>MsgClose</c>, <c>MsgWaitExEnd</c>).
+    ///     Shows a line of dialogue without voice and waits until the player has read it and the box has closed:
+    ///     <c>Dialogue.Say(Text[71]);</c>.
     /// </summary>
+    /// <remarks>
+    ///     Opens the window with <paramref name="text"/> (<see cref="Open"/>), waits until it is ready
+    ///     (<see cref="WaitUntilReady"/>), waits for the player (<c>MsgWaitEnd</c>), then closes the window and waits
+    ///     until it is closed (<c>MsgClose</c>, <c>MsgWaitExEnd</c>).
+    /// </remarks>
     /// <param name="text">The message to show.</param>
     /// <param name="window">The message window, 0 for the usual one.</param>
     /// <param name="x">Where the window goes on the screen, horizontally.</param>
@@ -97,12 +105,16 @@ public static class Dialogue {
     }
 
     /// <summary>
-    ///     A voiced line the player can cut short: opens the window with <paramref name="text"/>
-    ///     (<see cref="Open"/>), waits until it is open (<see cref="WaitUntilOpen"/>), plays the voice prepared
-    ///     with <c>Voice.Prepare</c> (<c>Voice.Play</c>) and waits while it plays; once the window is
-    ///     ready, a press of button bit 32 (<c>PadPressed() &amp; 32</c>) stops the voice (<c>Voice.Stop</c>).
-    ///     Then waits for the sound (<c>SoundWaitPoll</c>), closes the window and waits until it is closed.
+    ///     Shows a voiced line and waits until the box has closed; the player can cut the voice short. Prepare the
+    ///     voice first with <c>Voice.Prepare</c>, or use <see cref="SayWithVoice"/>.
     /// </summary>
+    /// <remarks>
+    ///     Opens the window with <paramref name="text"/> (<see cref="Open"/>), waits until it is open
+    ///     (<see cref="WaitUntilOpen"/>), plays the voice prepared with <c>Voice.Prepare</c> (<c>Voice.Play</c>) and
+    ///     waits while it plays; once the window is ready, a press of button bit 32 (<c>PadPressed() &amp; 32</c>)
+    ///     stops the voice (<c>Voice.Stop</c>). Then waits for the sound (<c>SoundWaitPoll</c>), closes the window and
+    ///     waits until it is closed.
+    /// </remarks>
     /// <param name="text">The message to show.</param>
     /// <param name="window">The message window, 0 for the usual one.</param>
     /// <param name="x">Where the window goes on the screen, horizontally.</param>
@@ -157,9 +169,10 @@ public static class Dialogue {
     private static bool AsBool(int value) => throw Runtime.NotRunnable();
 
     /// <summary>
-    ///     A voiced line, its voice prepared first, as the game does: <c>Voice.Prepare(voice)</c>,
-    ///     <c>WaitFramesUnlessHddMode(5)</c>, then <see cref="SayVoiced"/>.
+    ///     Shows a voiced line with voice <paramref name="voice"/>, preparing the voice first as the game does, and
+    ///     waits until the box has closed.
     /// </summary>
+    /// <remarks><c>Voice.Prepare(voice)</c>, <c>WaitFramesUnlessHddMode(5)</c>, then <see cref="SayVoiced"/>.</remarks>
     /// <param name="voice">The voice to prepare and play (<c>Voice.Prepare</c>'s value).</param>
     /// <param name="text">The message to show.</param>
     /// <param name="window">The message window, 0 for the usual one.</param>

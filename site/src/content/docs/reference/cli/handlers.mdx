@@ -1,0 +1,30 @@
+---
+title: atel handlers
+description: "Print the battle's handler tables: which worker and entry run for which battle event."
+sidebar:
+  hidden: true
+sources: ["docs/research/handlers.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel handlers` prints the handler tables of monster and battle scripts: which worker and entry the battle runs for which event, such as a monster's turn, a hit or its death.
+
+The decompiler already names these entries (`OnTurn`, `OnHit`, `OnDeath`), so a mod rarely needs the table. It is for research into the battle system.
+
+## Usage
+
+<CliUsage command="handlers" />
+
+## Example
+
+```bash
+atel handlers m209
+```
+
+Details: [docs/research/handlers.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/handlers.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

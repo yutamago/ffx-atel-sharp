@@ -1,0 +1,27 @@
+---
+title: atel link
+description: "Link mods onto the game's script files, as the loader does, to check them before you play."
+sidebar:
+  hidden: true
+sources: ["docs/tutorial.md#5-build-the-mod-package"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel link` does on your machine what the loader does when the game starts. It links one or more mod packages onto the game's own script files, writes the linked files to a folder and prints what each mod changed.
+
+Use it to check a mod, or two mods together, before you start the game. It links the mods in the order you give them.
+
+Nothing it writes is needed to play: the loader links again at every start, from the player's own game files.
+
+## Usage
+
+<CliUsage command="link" />
+
+## Example
+
+```bash
+atel link my-mod/bin/Debug/net10.0/mods/my.mod -o linked
+```
+
+Details: [docs/tutorial.md, "5. Build the mod package"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/tutorial.md#5-build-the-mod-package) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

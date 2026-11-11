@@ -339,7 +339,9 @@ void WriteMembers(Container c, string indent, string modifiers, string atel, boo
         Accessor? get = p.Accessors.FirstOrDefault(a => a.Kind == "get");
         Accessor? set = p.Accessors.FirstOrDefault(a => a.Kind == "set");
         Accessor main = set ?? get!;
-        string summary = Summary(main.Spec, main.Native, propertyOf: true);
+        // A member's own "doc" summary (data/native-members.json) wins over the native's, the setter's first.
+        string summary = main.Spec.DocSummary ?? p.Accessors.Select(a => a.Spec.DocSummary).FirstOrDefault(d => d is not null)
+            ?? Summary(main.Spec, main.Native, propertyOf: true);
         if (vectorRoots.Contains(name) && c.Name == "") summary += " Its <c>X</c>, <c>Y</c> and <c>Z</c> read the worker's position.";
         cs.Append(CultureInfo.InvariantCulture, $"\n{indent}/// <summary>{summary}</summary>\n");
         cs.Append(Remarks(indent, [.. p.Accessors.Select(a => (a.Spec, a.Native, a.Component is null ? a.Kind : $"{a.Kind} {a.Component}"))]));

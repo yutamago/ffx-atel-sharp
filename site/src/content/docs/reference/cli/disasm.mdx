@@ -1,0 +1,30 @@
+---
+title: atel disasm
+description: "Print a script as ATEL assembly, the instructions the game runs."
+sidebar:
+  hidden: true
+sources: ["docs/formats/script-block.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel disasm` prints a script as ATEL assembly: the instructions the game's script machine runs, one per line.
+
+To write a mod you read the decompiled C# instead. The assembly is for work on the decompiler and the compiler, and for checking what a piece of C# compiles to.
+
+## Usage
+
+<CliUsage command="disasm" />
+
+## Example
+
+```bash
+atel disasm m209 -o m209.asm
+```
+
+Details: [docs/formats/script-block.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/formats/script-block.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

@@ -4,11 +4,11 @@ using Ffx.Atel;
 
 namespace Ffx;
 
-/// <summary>
-///     The worker's turn as one call (<c>Turn.To(1.57f)</c>). Each method is an inline method
-///     (<see cref="InlineAttribute"/>): the compiler writes the natives below in place of the call, as the
-///     game's scripts have them, so the call compiles to the same bytes as the lines it stands for.
-/// </summary>
+/// <remarks>
+///     <c>Turn.To(1.57f)</c> and the other inline methods (<see cref="InlineAttribute"/>) are a whole turn as one
+///     call: the compiler writes the natives they stand for in place of the call, as the game's scripts have them,
+///     so the call compiles to the same bytes as those lines.
+/// </remarks>
 public sealed partial class TurnControl {
     /// <summary>
     ///     Turns the worker to <paramref name="yaw"/> with the model's turning motion, and waits until it has

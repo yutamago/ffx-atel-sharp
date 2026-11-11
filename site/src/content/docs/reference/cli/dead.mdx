@@ -1,0 +1,30 @@
+---
+title: atel dead
+description: "List the dead if (false) blocks of the game's scripts, code the game never runs."
+sidebar:
+  hidden: true
+sources: ["docs/research/dead-code.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel dead` lists the dead blocks of the game's scripts: code the original compiler kept behind an `if (false)`, which the game never runs. It writes a table of the blocks, a summary per area and each block's C# with the text of its messages.
+
+The names a mod uses to switch a block on come from this catalogue. The files hold the game's code and text: they stay on your machine.
+
+## Usage
+
+<CliUsage command="dead" />
+
+## Example
+
+```bash
+atel dead -o dead
+```
+
+Details: [docs/research/dead-code.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/dead-code.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

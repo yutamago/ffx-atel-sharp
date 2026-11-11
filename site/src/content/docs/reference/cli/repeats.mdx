@@ -1,0 +1,30 @@
+---
+title: atel repeats
+description: "Find statement sequences the game's scripts repeat with only different values."
+sidebar:
+  hidden: true
+sources: ["docs/research/repeats.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel repeats` finds statement sequences that recur in the game's scripts with only different values. They are the candidates for the inline helpers that make the decompiled source shorter, such as `Dialogue.Say`.
+
+`--verify` folds the first helpers into the decompiler and checks that the bytes stay the same.
+
+## Usage
+
+<CliUsage command="repeats" />
+
+## Example
+
+```bash
+atel repeats -o repeats
+```
+
+Details: [docs/research/repeats.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/repeats.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

@@ -1,0 +1,28 @@
+---
+title: atel decompile
+description: "Turn the game's scripts into C# you can read and build a mod on."
+sidebar:
+  hidden: true
+sources: ["docs/sdk.md#1-decompile-the-vanilla-source", "docs/tutorial.md#3-decompile-the-larva"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel decompile` turns the game's scripts into C# you can read and build on. A mod is written as additions to this decompiled code, the vanilla source, so this is the first command you run.
+
+Give it one or more script names, such as `bjyt0400` for an event or `m209` for a monster, or `all` for every script, and a folder with `-o`. Each script becomes a folder of C# files, one file per worker, with a project and a solution that any C# IDE opens.
+
+Keep that folder outside your mod's folder, and don't commit or share it: it is the game's code. Your mod project points at it, and `dotnet build` reads it from there.
+
+## Usage
+
+<CliUsage command="decompile" />
+
+## Example
+
+```bash
+atel decompile m209 -o vanilla
+atel decompile all -o vanilla
+```
+
+Details: [docs/sdk.md, "1. Decompile the vanilla source"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#1-decompile-the-vanilla-source) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

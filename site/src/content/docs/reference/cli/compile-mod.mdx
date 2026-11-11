@@ -1,0 +1,27 @@
+---
+title: atel compile-mod
+description: "Compile a mod's C# into the package the loader reads."
+sidebar:
+  hidden: true
+sources: ["docs/tutorial.md#without-the-sdk-atel-compile-mod", "docs/sdk.md#3-build"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel compile-mod` compiles your mod's C# into the mod package the loader reads. You rarely type it: a project that uses the Atel# SDK runs it at the end of `dotnet build`. Run it yourself to build a mod from a folder of `.cs` files without a project file.
+
+`--vanilla` is the folder `atel decompile` wrote. The namespaces in your mod tell it which scripts the mod changes. `-o` is the mod folder it writes.
+
+`--id` names the mod and writes a Fahrenheit manifest if the folder has none. `--check` first builds the mod and the vanilla source together as C#, with the Atel analyzers, and stops on an error.
+
+## Usage
+
+<CliUsage command="compile-mod" />
+
+## Example
+
+```bash
+atel compile-mod my-mod --vanilla vanilla -o out/my.mod --id my.mod --check
+```
+
+Details: [docs/tutorial.md, "Without the SDK"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/tutorial.md#without-the-sdk-atel-compile-mod) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).
