@@ -1,0 +1,31 @@
+---
+title: atel roundtrip
+description: "Decompile and compile every script and compare the result with the game's bytes."
+sidebar:
+  hidden: true
+sources: ["docs/corpus.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel roundtrip` decompiles every script, or those whose path contains the filter, compiles each back and compares it with the game's own bytes. It is the project's main check that the compiler gives back exactly what the game shipped.
+
+Without a filter it reads the whole game and needs several GB of memory.
+
+## Usage
+
+<CliUsage command="roundtrip" />
+
+## Example
+
+```bash
+atel roundtrip bjyt
+atel roundtrip --check
+```
+
+Details: [docs/corpus.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/corpus.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

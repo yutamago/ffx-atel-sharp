@@ -4,11 +4,11 @@ using Ffx.Atel;
 
 namespace Ffx;
 
-/// <summary>
-///     The worker's move as one call (<c>Move.To(10.7f, 0f, -13.66f, 0.31415927f)</c>). Each method is an
-///     inline method (<see cref="InlineAttribute"/>): the compiler writes the natives below in place of the
-///     call, as the game's scripts have them.
-/// </summary>
+/// <remarks>
+///     <c>Move.To(10.7f, 0f, -13.66f, 0.31415927f)</c> and the other inline methods (<see cref="InlineAttribute"/>)
+///     are a whole move as one call: the compiler writes the natives they stand for in place of the call, as the
+///     game's scripts have them.
+/// </remarks>
 public sealed partial class MoveControl {
     /// <summary>
     ///     Moves the worker to (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>), turning it

@@ -1,0 +1,19 @@
+---
+// SPDX-License-Identifier: MIT
+// The usage text of one atel command, as `atel --help` prints it. tools/gen-cli-usage.cs writes the files at
+// build time (site/src/generated/cli/, not in git); the Pages workflow runs it before `astro build`.
+import { Code } from '@astrojs/starlight/components';
+
+interface Props {
+	command: string;
+}
+
+const files = import.meta.glob<string>('../generated/cli/*.txt', { query: '?raw', import: 'default', eager: true });
+const { command } = Astro.props;
+const text = files[`../generated/cli/${command}.txt`];
+if (text === undefined) {
+	throw new Error(`No usage text for atel ${command}: run \`dotnet run tools/gen-cli-usage.cs\` first.`);
+}
+---
+
+<Code code={text.trimEnd()} lang="text" />

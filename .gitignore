@@ -25,3 +25,6 @@ TestResults/
 site/node_modules/
 site/dist/
 site/.astro/
+# Generated at build time from the code (tools/gen-api-pages.cs, tools/gen-cli-usage.cs).
+site/src/content/docs/reference/api/
+site/src/generated/

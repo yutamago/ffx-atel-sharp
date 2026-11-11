@@ -6,19 +6,24 @@ namespace Ffx;
 
 public static partial class Wait
 {
-    /// <summary>
-    ///     The script frames in one second: 30. A script frame is one tick of the world update (field, events,
-    ///     battle), which FFX.exe runs 30 times a second at its own speed (docs/research/frame-timing.md).
-    /// </summary>
+    /// <summary>The script frames in one second: 30.</summary>
+    /// <remarks>
+    ///     A script frame is one tick of the world update (field, events, battle), which FFX.exe runs 30 times a
+    ///     second at its own speed (docs/research/frame-timing.md).
+    /// </remarks>
     public const int FramesPerSecond = 30;
 
     /// <summary>
-    ///     Waits <paramref name="seconds"/> seconds of game time: <see cref="Frames"/> of
-    ///     <paramref name="seconds"/> × <see cref="FramesPerSecond"/>, rounded to the nearest frame (halves away
-    ///     from zero). The compiler writes the frames in place of the call: <c>Wait.Seconds(1.23f)</c> compiles to
-    ///     <c>Wait.Frames(37)</c> (36.9 frames), byte for byte; the decompiler writes <c>Wait.Frames</c>.
+    ///     Waits <paramref name="seconds"/> seconds of game time, rounded to whole frames:
+    ///     <c>Wait.Seconds(1.5f)</c> waits 45 frames.
     /// </summary>
     /// <remarks>
+    ///     <para>
+    ///         It is <see cref="Frames"/> of <paramref name="seconds"/> × <see cref="FramesPerSecond"/>, rounded to the
+    ///         nearest frame (halves away from zero). The compiler writes the frames in place of the call:
+    ///         <c>Wait.Seconds(1.23f)</c> compiles to <c>Wait.Frames(37)</c> (36.9 frames), byte for byte; the
+    ///         decompiler writes <c>Wait.Frames</c>.
+    ///     </para>
     ///     <para>
     ///         <paramref name="seconds"/> is a constant (a literal, a <c>const</c>, or arithmetic of them;
     ///         ATL3005 otherwise, docs/analyzers.md): the frames are counted when the

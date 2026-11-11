@@ -5,13 +5,19 @@ using Ffx.Atel;
 namespace Ffx;
 
 /// <summary>
-///     The save game as the scripts see it: the known fields of storage 0 (<c>Storage.Save</c>), as
-///     storage 0 offsets. Storage 0 starts at <c>g_SaveData + 0x1ec</c> (<c>AtelSetUpCtrlWork</c>,
-///     docs/corpus.md "Story progress"), so a field at save offset X is storage 0 offset X - 0x1ec; the
-///     save offsets are in each field's summary. A script declares the variable it uses with the
-///     constant: <c>[Var(Storage.Save, Save.StoryProgress)] public static ushort StoryProgress;</c>.
+///     The fields of the save game a script can read and write, such as the story progress, by name. A script
+///     declares the variable it uses with the constant:
+///     <c>[Var(Storage.Save, Save.StoryProgress)] public static ushort StoryProgress;</c>. A mod that keeps data
+///     of its own in the save uses <see cref="SavedAttribute"/> instead.
 /// </summary>
 /// <remarks>
+///     <para>
+///     The constants are the known fields of storage 0 (<c>Storage.Save</c>), as
+///     storage 0 offsets. Storage 0 starts at <c>g_SaveData + 0x1ec</c> (<c>AtelSetUpCtrlWork</c>,
+///     docs/corpus.md "Story progress"), so a field at save offset X is storage 0 offset X - 0x1ec; the
+///     save offsets are in each field's summary.
+///     </para>
+///     <para>
 ///     Names: Fahrenheit's <c>SaveData</c> (<c>core/ffx/savedata.cs</c>, Fahrenheit f7e2258; used with
 ///     the Fahrenheit project's permission), in C# case, as listed in ffx-rust's <c>docs/formats/save.md</c>. Only
 ///     fields at or after save offset <c>0x1ec</c> are reachable from a script. Storage 0 offsets the
@@ -20,6 +26,7 @@ namespace Ffx;
 ///     dialogue around it (their summaries say "ours"); the evidence is in docs/research/save-fields.md.
 ///     The nested classes name the bits of bit-flag fields (<see cref="LightningReward"/>); <see cref="BitsAttribute"/>
 ///     says which field has which.
+///     </para>
 /// </remarks>
 public static class Save
 {
