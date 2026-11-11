@@ -13,6 +13,8 @@ on:
       - "src/Ffx.Atel.Cli/**"
       - "tools/**"
       - "data/**"
+      - "examples/**"
+      - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
@@ -21,6 +23,8 @@ on:
       - "src/Ffx.Atel.Cli/**"
       - "tools/**"
       - "data/**"
+      - "examples/**"
+      - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

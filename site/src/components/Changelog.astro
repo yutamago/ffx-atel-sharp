@@ -1,0 +1,28 @@
+---
+// SPDX-License-Identifier: MIT
+// Renders the repository's CHANGELOG.md, so the site never holds a second copy of it. The file's title and
+// its notes for maintainers (everything before the first "## " section) are left out, an empty section is
+// skipped, and links into the repository point at GitHub.
+import { createMarkdownProcessor } from '@astrojs/markdown-remark';
+import changelog from '../../../CHANGELOG.md?raw';
+
+const repo = 'https://github.com/yutamago/ffx-atel-sharp/blob/main/';
+const releases = 'https://github.com/yutamago/ffx-atel-sharp/releases/tag/';
+
+const sections = changelog
+	.slice(changelog.indexOf('\n## ') + 1)
+	.split(/^(?=## )/m)
+	.filter((section) => section.replace(/^## .*$/m, '').trim() !== '');
+
+const markdown = sections
+	.join('')
+	// Relative links (docs/release.md) are relative to the repository root.
+	.replace(/\]\((?!https?:|#)([^)]+)\)/g, (_, path) => `](${repo}${path})`)
+	// A released version's heading links to its GitHub release.
+	.replace(/^## \[(\d[^\]]*)\]/gm, (_, version) => `## [${version}](${releases}v${version})`);
+
+const processor = await createMarkdownProcessor();
+const { code } = await processor.render(markdown);
+---
+
+<Fragment set:html={code} />
