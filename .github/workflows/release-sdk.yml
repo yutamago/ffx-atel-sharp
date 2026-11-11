@@ -2,14 +2,15 @@
 # The release (docs/release.md). Runs only when the user pushes a tag v<version>
 # (git tag v0.1.0-alpha.1 && git push origin v0.1.0-alpha.1); nothing else starts it, and no other workflow publishes.
 #
-# packages  packs AtelSharp.Sdk and AtelSharp.Templates with the tag's version (-p:Version, instead of the per-commit
-#           version of every other build), checks them and keeps them as an artifact;
+# packages  packs AtelSharp.Sdk, AtelSharp.Templates and AtelSharp.Cli (the atel .NET tool) with the tag's version
+#           (-p:Version, instead of the per-commit version of every other build), checks them, installs and runs the
+#           tool, and keeps them as an artifact;
 # editors   builds the VS Code extension (.vsix) and the Rider plugin (.zip) (editors.yml, as build.yml does);
-# publish   pushes both packages to where the repository variable ATEL_NUGET_TARGET names:
+# publish   pushes the packages to where the repository variable ATEL_NUGET_TARGET names:
 #             nuget.org   through Trusted Publishing: a short-lived key for the account in the variable NUGET_USER;
 #             github      GitHub Packages of this repository's owner, with the job's GITHUB_TOKEN;
 #           unset, it stops before pushing anything. The templates go along unless ATEL_PUBLISH_TEMPLATES=false;
-# release   creates the GitHub release of the tag, once the packages are pushed: both .nupkg, the .vsix and the
+# release   creates the GitHub release of the tag, once the packages are pushed: the .nupkg files, the .vsix and the
 #           Rider zip, the version's CHANGELOG.md section as notes; a version with a suffix (-alpha.1) is a pre-release.
 name: Release SDK
 
@@ -76,11 +77,12 @@ jobs:
       run: |
         dotnet pack -c Release src/Ffx.Atel.Sdk -p:Version=${{ env.VERSION }} -o artifacts/release
         dotnet pack -c Release src/Ffx.Atel.Templates -p:Version=${{ env.VERSION }} -o artifacts/release
+        dotnet pack -c Release src/Ffx.Atel.Cli -p:Version=${{ env.VERSION }} -o artifacts/release
 
     - name: Check the packages
       shell: bash
       run: |
-        for id in AtelSharp.Sdk AtelSharp.Templates; do
+        for id in AtelSharp.Sdk AtelSharp.Templates AtelSharp.Cli; do
           test -f "artifacts/release/$id.$VERSION.nupkg" || { echo "no $id.$VERSION.nupkg"; exit 1; }
         done
         for pkg in artifacts/release/*.nupkg; do
@@ -89,6 +91,13 @@ jobs:
         # The template pins the SDK of the release's version.
         unzip -p "artifacts/release/AtelSharp.Templates.$VERSION.nupkg" content/atel-mod/.template.config/template.json \
           | grep -qF "\"defaultValue\": \"$VERSION\"" || { echo "the template does not pin $VERSION"; exit 1; }
+
+    # As a modder installs it from nuget.org: from the packed file only, into a tool path of its own.
+    - name: Install and run the atel tool
+      shell: bash
+      run: |
+        dotnet tool install AtelSharp.Cli --version "$VERSION" --tool-path artifacts/atel-tool --add-source artifacts/release
+        artifacts/atel-tool/atel --help
 
     - name: Keep the packages
       uses: actions/upload-artifact@v6
@@ -139,7 +148,7 @@ jobs:
         NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        packages=("artifacts/release/AtelSharp.Sdk.$VERSION.nupkg")
+        packages=("artifacts/release/AtelSharp.Sdk.$VERSION.nupkg" "artifacts/release/AtelSharp.Cli.$VERSION.nupkg")
         if [ "$TEMPLATES" != "false" ]; then packages+=("artifacts/release/AtelSharp.Templates.$VERSION.nupkg"); fi
         case "$TARGET" in
           nuget.org)

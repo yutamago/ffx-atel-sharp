@@ -2,13 +2,20 @@
 # Changelog
 
 The released packages of Atel#: `AtelSharp.Sdk` (the MSBuild project SDK, with the `atel` tool, the game's
-reference assembly and the analyzers) and `AtelSharp.Templates` (`dotnet new atel-mod`). The format follows
+reference assembly and the analyzers), `AtelSharp.Templates` (`dotnet new atel-mod`) and, from 0.1.0-alpha.2,
+`AtelSharp.Cli` (the `atel` tool on its own). The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are [SemVer 2](https://semver.org/).
 A release is a tag `v<version>` on `main` with a section `## [<version>]` here ([docs/release.md](docs/release.md)).
 
 Builds between releases have their commit's version (`0.1.0-alpha.0.<commits>.g<commit>`) and are not released.
 
 ## [Unreleased]
+
+### Added
+
+- `AtelSharp.Cli`, the `atel` tool as a .NET tool package: `dotnet tool install -g AtelSharp.Cli --prerelease`,
+  then `atel`. It has the version of the SDK, and the projects `atel decompile` writes use the SDK of that version.
+  The SDK package keeps its copy under `tools/atel/` ([docs/sdk.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#the-atel-tool)).
 
 ## [0.1.0-alpha.1] - 2026-11-10
 

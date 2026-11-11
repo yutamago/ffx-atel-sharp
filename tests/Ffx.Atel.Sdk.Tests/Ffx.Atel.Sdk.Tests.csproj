@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <!-- SPDX-License-Identifier: MIT -->
-    <!-- Packs AtelSharp.Sdk and AtelSharp.Templates and builds the example mods and a mod from the template with them, as a
+    <!-- Packs AtelSharp.Sdk, AtelSharp.Templates and AtelSharp.Cli, installs the atel tool, and builds the example mods and a mod from the template with them, as a
          modder would (needs the game); checks the template's namespaces against the decompiler's. -->
     <PropertyGroup>
         <OutputType>Exe</OutputType>
