@@ -104,7 +104,9 @@ public sealed class TemplateTests(SdkFeed sdk) {
         }
         Assert.Contains("value=\"../atel-feed\"", File.ReadAllText(Path.Combine(dir, "nuget.config")), StringComparison.Ordinal);
         string readme = File.ReadAllText(Path.Combine(dir, "README.md"));
-        Assert.Contains($"atelsharp.sdk/{sdk.Version}/tools/atel/atel.dll decompile kami0000 -o ../atel-vanilla", readme, StringComparison.Ordinal);
+        Assert.Contains($"dotnet tool install -g AtelSharp.Cli --version {sdk.Version}", readme, StringComparison.Ordinal);
+        Assert.Contains("atel decompile kami0000 -o ../atel-vanilla", readme, StringComparison.Ordinal);
+        Assert.Contains($"atelsharp.sdk/{sdk.Version}/tools/atel/atel.dll", readme, StringComparison.Ordinal);
         // No token of the template is left.
         foreach (string f in Directory.GetFiles(dir)) Assert.DoesNotMatch(LeftoverTokens, File.ReadAllText(f));
     }

@@ -12,29 +12,29 @@ loaded through [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) and t
 
 ### The SDK package
 
-The package is not on nuget.org yet. Until it is, `nuget.config` names a local folder,
-`atel-feed-dir` (relative to this project), as a package source. Pack the SDK into it from a clone of
-ffx-atel-sharp at the commit of that version:
+`dotnet restore` gets `AtelSharp.Sdk` from nuget.org. `nuget.config` also names a local folder,
+`atel-feed-dir` (relative to this project), as a package source, for an SDK built from a clone of
+ffx-atel-sharp between releases. NuGet skips the folder while it doesn't exist. To use one:
 
 ```bash
 dotnet pack src/Ffx.Atel.Sdk -c Release -o <this project>/atel-feed-dir
 ```
 
-The package's file is `AtelSharp.Sdk.atel-sdk-version.nupkg`. Another version of the SDK is another
-`global.json`; NuGet caches a version once and never reads it again.
+Another version of the SDK is another `global.json`; NuGet caches a version once and never reads it again.
 
 ## 1. Decompile the vanilla source
 
 The mod adds to the decompiled source of the script it changes, so it needs that source. Decompile it
-**outside this folder**, with the `atel` tool the SDK package carries:
+**outside this folder**, with the `atel` tool:
 
 ```bash
-dotnet restore
-dotnet ~/.nuget/packages/atelsharp.sdk/atel-sdk-version/tools/atel/atel.dll decompile atel-script-name -o atel-vanilla-dir
+dotnet tool install -g AtelSharp.Cli --version atel-sdk-version
+atel decompile atel-script-name -o atel-vanilla-dir
 ```
 
-`dotnet restore` puts the SDK package into NuGet's package folder (`~/.nuget/packages/`, or
-`NUGET_PACKAGES`). `atel decompile all -o <dir>` decompiles every script. A clone of the source repository
+The `atel` tool has the SDK's version. The SDK package carries the same tool, so without installing it:
+`dotnet restore`, then `dotnet ~/.nuget/packages/atelsharp.sdk/atel-sdk-version/tools/atel/atel.dll`.
+`atel decompile all -o <dir>` decompiles every script. A clone of the source repository
 works as well. None of it goes into this mod: it is the game's code.
 
 `AtelVanillaSource` in `ModTemplateName.csproj` points at that folder (`atel-vanilla-dir`). Open the vanilla

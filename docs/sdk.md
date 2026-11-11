@@ -64,7 +64,7 @@ that version again. So every commit of this repo builds its own version, and
 everything built from one commit has the same one:
 
 ```
-0.1.0-alpha.0.<commits>.g<commit>
+0.1.0-alpha.1.<commits>.g<commit>
 ```
 
 `<commits>` is the number of commits in the history of the commit built
