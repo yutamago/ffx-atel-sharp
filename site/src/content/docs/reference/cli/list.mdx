@@ -1,0 +1,25 @@
+---
+title: atel list
+description: "List the game's scripts, to find the name to decompile."
+sidebar:
+  hidden: true
+sources: ["docs/tutorial.md#8-next-steps"]
+---
+
+import CliUsage from '../../../../components/CliUsage.astro';
+
+`atel list` prints the paths of the game's scripts: events, monsters and battle scripts. Give it part of a name to see fewer, such as `bjyt` or `_m209`.
+
+Use it to find the script you pass to `atel decompile`. The last part of a path, without its extension, is the script's name.
+
+## Usage
+
+<CliUsage command="list" />
+
+## Example
+
+```bash
+atel list bjyt
+```
+
+Details: [docs/tutorial.md, "8. Next steps"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/tutorial.md#8-next-steps) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

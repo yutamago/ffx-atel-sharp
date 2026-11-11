@@ -1,0 +1,30 @@
+---
+title: atel export
+description: "Decompile every script into the project's source repository and check it compiles back."
+sidebar:
+  hidden: true
+sources: ["docs/source-repo.md#commands"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel export` decompiles every script into a git repository: the project's private source repository, which keeps the decompiled source with its hand-written names and notes. It commits the new output on one branch, merges it into the main branch and checks with `atel compile-all` that everything compiles back.
+
+It is for the maintainers of that repository.
+
+## Usage
+
+<CliUsage command="export" />
+
+## Example
+
+```bash
+atel export ~/ffx-atel-src --check
+```
+
+Details: [docs/source-repo.md, "Commands"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/source-repo.md#commands) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

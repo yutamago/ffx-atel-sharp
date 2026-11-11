@@ -10,9 +10,8 @@ namespace Ffx.Atel;
 // constructor sets initial values (Data, and Ffx.MonsterStats / Ffx.MonsterRewards).
 
 /// <summary>
-///     Runs this method before the vanilla entry method <paramref name="method"/>
-///     (<c>[Prefix(nameof(Init))]</c>); then the vanilla method runs. A <c>return;</c> ends the entry,
-///     so the vanilla method does not run.
+///     Runs this method before the vanilla entry method <paramref name="method"/>, then the vanilla method:
+///     <c>[Prefix(nameof(Init))]</c>. A <c>return;</c> in it ends the entry, so the vanilla method does not run.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class PrefixAttribute(string method) : Attribute {
@@ -20,28 +19,30 @@ public sealed class PrefixAttribute(string method) : Attribute {
 }
 
 /// <summary>
-///     Runs this method after the vanilla entry method <paramref name="method"/>, wherever it ends the
-///     entry (<c>return;</c> in the vanilla code). It runs off its end into the entry's end.
+///     Runs this method after the vanilla entry method <paramref name="method"/>: <c>[Postfix(nameof(OnTalk))]</c>.
+///     It runs wherever the vanilla method ends, a <c>return;</c> in it included.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class PostfixAttribute(string method) : Attribute {
     public string Method { get; } = method;
 }
 
-/// <summary>Runs this method instead of the vanilla entry method <paramref name="method"/>.</summary>
+/// <summary>Runs this method instead of the vanilla entry method <paramref name="method"/>: <c>[Replace(nameof(Main))]</c>.</summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false)]
 public sealed class ReplaceAttribute(string method) : Attribute {
     public string Method { get; } = method;
 }
 
 /// <summary>
-///     Runs this method at a point inside the vanilla entry method <paramref name="method"/>: before or after the
-///     statement that holds the <see cref="Occurrence"/>-th place of <see cref="Before"/> or <see cref="After"/>, counted
-///     in the order they stand in the decompiled source
-///     (<c>[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand), Occurrence = 2)]</c>, <c>[Inject(nameof(Main), After = nameof(Self.Hp))]</c>).
+///     Runs this method at a point inside the vanilla entry method <paramref name="method"/>, before or after a
+///     statement that uses a given call or member:
+///     <c>[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand))]</c>.
 /// </summary>
 /// <remarks>
-///     A call is named as it is written there: <c>nameof(Btl.UseCommand)</c> or <c>"Btl.UseCommand"</c> for a native,
+///     The statement is the one that holds the <see cref="Occurrence"/>-th place of <see cref="Before"/> or
+///     <see cref="After"/>, counted in the order they stand in the decompiled source
+///     (<c>[Inject(nameof(OnTurn), Before = nameof(Btl.UseCommand), Occurrence = 2)]</c>,
+///     <c>[Inject(nameof(Main), After = nameof(Self.Hp))]</c>). A call is named as it is written there: <c>nameof(Btl.UseCommand)</c> or <c>"Btl.UseCommand"</c> for a native,
 ///     <c>"Motion.Play"</c> for a member, <c>nameof(Dialogue.Say)</c> for an inline method, <c>"W02.OpenAsync"</c> for a
 ///     request. A member property is named in full (<c>nameof(Self.Hp)</c>, <c>nameof(Yaw)</c>,
 ///     <c>"Camera.Eye.Position"</c>, <c>"Actors.Hp"</c>): its places are its reads and assignments. A native or a member
@@ -117,11 +118,14 @@ public static class Link {
 }
 
 /// <summary>
-///     A field whose value is kept with the save game: <c>[Saved] public static ushort LarvasMet;</c> in a mod's plain static
-///     class (state several scripts share) or in its part of a script class (docs/language.md, "Saved fields"). It is a
-///     variable like any other in code. Its initializer is the value on a new game and in a save made without it.
+///     Keeps a field's value in the player's save game: <c>[Saved] public static ushort LarvasMet;</c>. In code it is a
+///     variable like any other; its initializer is the value on a new game and in a save made without the mod.
 /// </summary>
 /// <remarks>
+///     <para>
+///         The field goes in a mod's plain static class (state several scripts share) or in its part of a script class
+///         (docs/language.md, "Saved fields").
+///     </para>
 ///     <para>
 ///         The field is a storage 0 variable in the save's free tail (<see cref="Ffx.Save.ModArea"/>). The loader gives each
 ///         enabled mod's fields their offsets there when the game starts, and keeps their values by key in its own file per

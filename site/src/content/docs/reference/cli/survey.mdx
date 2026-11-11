@@ -1,0 +1,30 @@
+---
+title: atel survey
+description: "Measure every script of the game, the numbers the compiler's rules come from."
+sidebar:
+  hidden: true
+sources: ["docs/corpus.md", "docs/survey.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel survey` reads every script of the game and measures how the original compiler wrote them: the stack, jumps, loops, constants, workers and more. The compiler's encoding rules are based on these numbers.
+
+It reads the whole game and needs several GB of memory.
+
+## Usage
+
+<CliUsage command="survey" />
+
+## Example
+
+```bash
+atel survey -o survey.txt
+```
+
+Details: [docs/corpus.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/corpus.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).

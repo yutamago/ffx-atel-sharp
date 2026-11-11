@@ -133,18 +133,31 @@ What a modder needs in their head before the reference makes sense:
   per construct, what you write, what it does in game, what the analyzers
   refuse. Based on `language.md`.
 - **Game library API.** Generated from `Ffx.Atel.Game`'s XML docs (7,115
-  `<summary>` comments). `docfx metadata` with `outputFormat: markdown` writes
-  one Markdown page per type into `site/src/content/docs/api/` at build time;
-  if its output doesn't fit Starlight, a small tool in `tools/` reads the XML
-  file and the assembly and writes the pages instead. The XML comments are the
-  text of these pages, so this step includes a pass over the comments of the
-  classes a modder uses most (`Btl`, `Actors`, `Camera`, `Text`, `Save`,
-  `Wait`, `Debug`, the enums) to make them read well.
+  `<summary>` comments). `tools/gen-api-pages.cs` reads the assembly and its
+  XML file and writes one Markdown page per type, and one per namespace, into
+  `site/src/content/docs/reference/api/` at build time (not in git). docfx's
+  Markdown output was tried first: it has no front matter, links to `.md`
+  files and lists the inherited `object` members on every page, so a page
+  needed as much rework as a generator. The hand-written landing page
+  (`reference/api.md`) lists the types a modder uses most; the type pages
+  are hidden from the sidebar. On a page the summary comes first; the remarks
+  and the natives' research notes (id, call count, the reverse-engineering
+  note) sit in a collapsed "Details" block. The XML comments are the text of
+  these pages, so this step includes a pass over the comments of the classes
+  a modder uses most (`Btl`, `Actors`, `Camera`, `Text`, `Save`, `Wait`,
+  `Debug`, `Dialogue`, `MonsterStats`, the mod attributes): the summary is a
+  plain sentence, the fine print moves to `<remarks>`. The comments that
+  `tools/gen-natives.cs` writes from `data/native-types.json` are not part of
+  that pass: regenerating `Natives.g.cs` needs the game and a scan of every
+  script.
 - **Analyzers.** One page per rule (`ATL0001` … `ATL4004`): what it means, an
   example that triggers it, the fix. Each analyzer has a `HelpLinkUri` to its
   page, so the link in the IDE's error list opens the site.
-- **CLI.** One page per command, with the `--help` text generated at build
-  time from the tool itself.
+- **CLI.** One page per command (`reference/cli/<command>.mdx`, written by
+  hand), with the usage text generated at build time from the tool itself:
+  `tools/gen-cli-usage.cs` cuts `atel --help` into
+  `site/src/generated/cli/<command>.txt`, which the `CliUsage` component
+  shows. A command without a page, or a page without a command, fails it.
 - **SDK properties** and **`mod.toml`.** Based on `sdk.md` and
   `formats/mod-package.md`.
 
@@ -192,8 +205,10 @@ A new workflow, `.github/workflows/pages.yml`:
 1. **Build** on every PR and on `main`, filtered to `site/**`, `examples/**`,
    `src/Ffx.Atel.Game/**`, `src/Ffx.Atel.Analyzers/**` and
    `src/Ffx.Atel.Cli/**`.
-   - `dotnet build` of `Ffx.Atel.Game` (XML docs), the CLI and
-     `site/snippets/`; the API pages and the CLI `--help` pages.
+   - `dotnet run tools/gen-api-pages.cs` (builds `Ffx.Atel.Game` with its
+     XML docs) and `dotnet run tools/gen-cli-usage.cs` (builds and runs the
+     CLI); `npm run gen` in `site/` runs both for a local build. The path
+     filter also takes `tools/**` and `data/**`, which the pages come from.
    - `npm ci` and `astro build` in `site/`, with Starlight's link validation
      (`starlight-links-validator`), so a broken internal link fails the PR.
    - An external link check (lychee) runs weekly, not on every PR, so a slow

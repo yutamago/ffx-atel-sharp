@@ -1,0 +1,29 @@
+---
+title: atel asm
+description: "Assemble an assembly file onto the original script and write the whole script file."
+sidebar:
+  hidden: true
+sources: ["docs/formats/script-block.md"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import CliUsage from '../../../../components/CliUsage.astro';
+
+<Aside title="For contributors">
+You don't need this command to write a mod. It is part of the work on Atel# itself.
+</Aside>
+
+`atel asm` reads a file in the syntax `atel disasm` writes, assembles it onto the original script and writes the whole script file. Together with `atel disasm` it lets you change a script at the level of single instructions, to test what the game does with them.
+
+## Usage
+
+<CliUsage command="asm" />
+
+## Example
+
+```bash
+atel disasm m209 -o m209.asm
+atel asm m209 m209.asm -o m209.bin
+```
+
+Details: [docs/formats/script-block.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/formats/script-block.md) on GitHub. All commands: [CLI](/ffx-atel-sharp/reference/cli/).
