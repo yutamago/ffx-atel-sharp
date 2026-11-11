@@ -8,10 +8,14 @@ on:
     branches: [ "main" ]
     paths:
       - "site/**"
+      - "examples/**"
+      - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "site/**"
+      - "examples/**"
+      - "CHANGELOG.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
