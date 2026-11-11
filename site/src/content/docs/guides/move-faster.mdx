@@ -32,7 +32,7 @@ The Village Slope, the script `bsil0700`, at any point in the story. Leave the v
 
 `[Postfix(nameof(Init))]` runs `Fast` after Tidus's vanilla `Init`. `Init` runs once, when the map loads, and it is where the vanilla code makes Tidus the player. Setting the speed after it means nothing in the vanilla `Init` sets it back.
 
-`Screen.PlayerSetSpeed(2, 76f)` sets one of the player's speeds. The first argument says which: 1 is walking, 2 running, 18 swimming. Every map load starts the run speed at 38, so 76 is twice as fast.
+`Screen.PlayerSetSpeed(kind: 2, speed: 76f)` sets one of the player's speeds. `kind` says which: 1 is walking, 2 running, 18 swimming. Every map load starts the run speed at 38, so 76 is twice as fast.
 
 The game does the same thing in a few places. The beach's `Tidus` sets his run speed to 40.8 in his `Init`, for example. Reading the vanilla source for a call like this is often the quickest way to find out how to change something: find a place where the game already does it.
 
