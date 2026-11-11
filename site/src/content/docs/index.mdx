@@ -20,15 +20,15 @@ hero:
 ---
 
 import { Card, CardGrid, Code, LinkCard, Steps } from '@astrojs/starlight/components';
-import example from '../../../../examples/ToughLarva/M209.cs?raw';
+import example from '../../../../examples/Besaid/GiantWakka/Wakka.cs?raw';
 
 {/* shot 01 */}
 
 ## A mod is a few lines of C#
 
-This mod makes one monster, the Larva, tougher: more HP, more strength, and more gil when you win. It is a `partial` class of the monster's script, and it changes three values of the monster's data.
+This mod makes Wakka twice his size in Besaid village, on the night after the trial. It is a `partial` class of Wakka's worker in the village's script, with one method that runs after his own `Init`, when the map loads.
 
-<Code code={example} lang="csharp" title="M209.cs" />
+<Code code={example} lang="csharp" title="Wakka.cs" />
 
 The game's scripts are compiled bytecode. Atel# turns them into C# you can read, and turns your C# back into bytecode the game runs.
 
@@ -48,11 +48,11 @@ The game's scripts are compiled bytecode. Atel# turns them into C# you can read,
 
 ## Install
 
-With the .NET SDK installed, add the template and create a mod:
+With the .NET SDK installed, add the template and create a mod. [Install](/ffx-atel-sharp/get-started/install/) lists everything else you need.
 
 ```sh
 dotnet new install AtelSharp.Templates
-dotnet new atel-mod -n MyMod --script m209
+dotnet new atel-mod -n GiantWakka --script bsvr0001
 ```
 
 <p class="badges">

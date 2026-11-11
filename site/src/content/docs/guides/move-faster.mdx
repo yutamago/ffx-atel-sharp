@@ -1,0 +1,74 @@
+---
+title: Move faster
+description: Set the player's run speed when the Village Slope loads, with a postfix on Tidus's Init.
+sidebar:
+  order: 4
+sources:
+  - "docs/language.md#entries"
+  - "docs/language.md#natives"
+  - "examples/Besaid/README.md#fasttidus"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import fast from '../../../../../examples/Besaid/FastTidus/Tidus.cs?raw';
+
+## What you'll make
+
+On the Village Slope, the path just outside Besaid village's gate, Tidus runs twice as fast.
+
+{/* shot 09 */}
+
+## Where in the game
+
+The Village Slope, the script `bsil0700`, at any point in the story. Leave the village by its gate and run.
+
+## The code
+
+<Code code={fast} lang="csharp" title="Tidus.cs" />
+
+## Line by line
+
+`namespace Events.Bs_Besaid.Bsil0700;` is the Village Slope. On this map, the worker of the character you control is named `Tidus`.
+
+`[Postfix(nameof(Init))]` runs `Fast` after Tidus's vanilla `Init`. `Init` runs once, when the map loads, and it is where the vanilla code makes Tidus the player. Setting the speed after it means nothing in the vanilla `Init` sets it back.
+
+`Screen.PlayerSetSpeed(2, 76f)` sets one of the player's speeds. The first argument says which: 1 is walking, 2 running, 18 swimming. Every map load starts the run speed at 38, so 76 is twice as fast.
+
+The game does the same thing in a few places. The beach's `Tidus` sets his run speed to 40.8 in his `Init`, for example. Reading the vanilla source for a call like this is often the quickest way to find out how to change something: find a place where the game already does it.
+
+The speed holds until the next map loads, so it only applies to this map.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsil0700 -o atel-vanilla
+dotnet new atel-mod -n FastTidus --script bsil0700 --authors your-name
+```
+
+Delete the sample `Bsil0700.cs`, add `Tidus.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.fasttidus/` into Fahrenheit's `mods` folder, and add `your-name.fasttidus` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game: Tidus should run twice as fast on the Village Slope, and at his usual speed again on the next map.
+
+In Fahrenheit's log, a line that ends with `postfix Fast`, for Tidus's `Init`.
+
+## Known limitations
+
+This mod hasn't been run in the game yet. Each map load resets the speed, so the next map should be back to normal speed, but that hasn't been seen yet.
+
+## What can go wrong
+
+- **He runs as before.** Check the log for the `postfix Fast` line. If the line is there, something after `Init` may set the speed again. Search the vanilla source of `bsil0700` for `PlayerSetSpeed`.
+To make him faster everywhere, a mod needs the same postfix in every map's script. Each map is a separate script, and a mod changes only the scripts it names.
+
+## Next
+
+[Keep data in the save](/ffx-atel-sharp/guides/keep-data-in-the-save/) makes a villager remember something across saves.
+
+## Details
+
+- [Entries](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#entries) (docs/language.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#fasttidus) (examples/Besaid/README.md)

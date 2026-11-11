@@ -1,0 +1,38 @@
+---
+title: "3. Change the Dingo's stats"
+description: Three lines in a static constructor change the Dingo's HP, strength and gil.
+sidebar:
+  order: 3
+sources:
+  - "docs/language.md#initial-values-and-data-edits"
+  - "docs/language.md#mods"
+  - "examples/Besaid/README.md#toughdingo"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import dingo from '../../../../../../examples/Besaid/ToughDingo/M009.cs?raw';
+
+Replace the contents of `M009.cs` with this:
+
+<Code code={dingo} lang="csharp" title="M009.cs" />
+
+## Line by line
+
+`namespace Monsters.M009;` says which script the file changes. Every script has its namespace: `Monsters.M009` is the Dingo, `Events.Bs_Besaid.Bsvr0001` was the night village of the Quickstart. A mod that changes several scripts has a file per script, each in that script's namespace.
+
+`public static partial class M009` is the Dingo's script class. The vanilla source declares it too, and `partial` makes your file a second part of the same class. That's how your code can use everything the vanilla script declares.
+
+`static M009()` is a static constructor. In C#, it is where a class gives its static fields their first values. Here it means the same: each line sets a value the script's data starts with. The build turns each line into a change of one field in the Dingo's file. No code runs in the game for it.
+
+`MonsterStats.Hp = 1250;` sets the HP in the Dingo's stats. `MonsterStats.Strength` is its strength, and `MonsterRewards.Gil` the gil it drops. Type `MonsterStats.` in your editor to see the other stats you can set: MP, defense, magic, agility and more. `MonsterRewards` has AP and the drop and steal chances.
+
+## The rules
+
+A static constructor in a mod may only set values. Each line assigns a constant, and each field once. If you put anything else in it, such as a method call or an `if`, the analyzers mark it as an error in the editor and the build stops.
+
+The changes apply to every Dingo, in every battle that uses this script. They don't change the save. Remove the mod from the load order and the next battle has vanilla Dingos again.
+
+## Details
+
+- [Initial values and data edits](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#initial-values-and-data-edits) (docs/language.md)
+- [What a mod can declare](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#mods) (docs/language.md)

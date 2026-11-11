@@ -1,0 +1,116 @@
+---
+title: Keep data in the save
+description: A [Saved] field makes a villager give you 1,000 gil once per save, and remember it across saving and loading.
+sidebar:
+  order: 5
+sources:
+  - "docs/language.md#saved-fields"
+  - "docs/research/mod-saves.md"
+  - "docs/formats/mod-package.md#saved-fields"
+  - "examples/Besaid/README.md#generousvillager"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import gift from '../../../../../examples/Besaid/GenerousVillager/Gift.cs?raw';
+import oldWoman from '../../../../../examples/Besaid/GenerousVillager/OldWoman.cs?raw';
+
+## What you'll make
+
+The first time you talk to the old woman in Besaid village, she gives you 1,000 gil. After that she doesn't, in this save, even after you save, quit and load it again. In an older save, made before she gave it, she gives it again.
+
+{/* shot 10 */}
+
+## Where in the game
+
+Besaid village, the script `bsvr0000`, the same old woman as in [Change what someone says](/ffx-atel-sharp/guides/change-dialogue/). She is there at every visit from Tidus's arrival on, except on the morning he wakes up in Wakka's tent and on the morning of the farewell.
+
+## The code
+
+The mod has two files. The first declares the value it keeps:
+
+<Code code={gift} lang="csharp" title="Gift.cs" />
+
+The second uses it:
+
+<Code code={oldWoman} lang="csharp" title="OldWoman.cs" />
+
+## Why it needs a saved field
+
+The mod has to remember one thing: whether she has given the gil. Where it keeps that decides how long it lasts.
+
+A [script field](/ffx-atel-sharp/concepts/variables/#script-fields) of the village script would forget it every time the village loads again: walk out and back in, and she would give the gil again. The game's own save variables last, but they belong to the game, and writing one could change the player's progress.
+
+A [saved field](/ffx-atel-sharp/concepts/variables/#saved-fields) is the mod's own variable, kept with each save game. That is what this mod needs.
+
+## Line by line
+
+`Gift.cs` is not in a script's namespace. It is a plain static class of the mod, so every script the mod changes could use it. The build knows it changes no script.
+
+`[Saved] public static byte Given;` is the saved field. It is 0 on a new game, and in a save made without the mod. The loader keeps its value under its name, `GenerousVillager.Gift.Given`.
+
+In `OldWoman.cs`, `[Postfix(nameof(OnTalk))]` runs `GiveGil` after her vanilla `OnTalk`, as in the earlier guides.
+
+`if (GenerousVillager.Gift.Given == 0)` reads the field like any other variable. Only the first time is it 0.
+
+`GenerousVillager.Gift.Given = 1;` sets it first, before anything that waits, so the gift can't happen twice.
+
+`Common.GiveGil(1000)` adds 1,000 gil. The blitzball scouting scripts use the same call to give money back.
+
+The rest is a new line of dialogue, as in [Change what someone says](/ffx-atel-sharp/guides/change-dialogue/).
+
+## Where the value is kept
+
+The save file the game writes stays vanilla. [The loader](/ffx-atel-sharp/concepts/mods/#the-loader) keeps your mod's values in its own file next to each save, under the field's name, and puts them back when you load. Two things follow:
+
+- Removing the mod leaves the save as it was. Enabling it again brings its value back.
+- Renaming the field or its class makes it a new field, and the old value isn't found. `[Saved(Key = "GenerousVillager.Gift.Given")]` on the renamed field keeps the old name.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsvr0000 -o atel-vanilla
+dotnet new atel-mod -n GenerousVillager --script bsvr0000 --authors your-name
+```
+
+Delete the sample `Bsvr0000.cs`, add `Gift.cs` and `OldWoman.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.generousvillager/` into Fahrenheit's `mods` folder, and add `your-name.generousvillager` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game:
+
+1. Talk to her. After her own line: "Here, take 1,000 gil, ya? Buy yourself something nice." The gil in the menu should be 1,000 higher.
+2. Talk to her again. Nothing more.
+3. Save, quit to the title, and load that save. Talk to her: still nothing.
+4. Load a save from before step 1. She gives the gil again.
+
+{/* shot 11 */}
+
+In Fahrenheit's log, a line that says the mod has one saved field:
+
+```
+info: your-name.generousvillager: 1 saved field(s), 1 bytes at storage 0 …
+```
+
+## Known limitations
+
+This mod hasn't been run in the game yet, and two things aren't known:
+
+- Whether `Common.GiveGil` shows a message of its own, such as an "obtained" window, next to hers.
+- Whether the new total shows in the menu at once.
+
+## What can go wrong
+
+- **She gives the gil every time.** The saved field isn't kept. Check the log for the `saved field(s)` line. A class of saved fields may hold only saved fields, and they must be static.
+- **The log says the mod's saved fields don't fit.** All mods share a small area for saved fields, in load order. A mod whose fields don't fit after the earlier mods' fields is left out, all of it. Keep saved fields small: a `byte` for a flag, arrays only as long as needed.
+
+## Next
+
+[Add code inside a monster's turn](/ffx-atel-sharp/guides/inject-into-a-turn/) changes what a monster decides to do.
+
+## Details
+
+- [Saved fields](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#saved-fields) (docs/language.md)
+- [Where saved fields live](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/mod-saves.md) (docs/research/mod-saves.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#generousvillager) (examples/Besaid/README.md)

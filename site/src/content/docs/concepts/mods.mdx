@@ -14,6 +14,9 @@ sources:
   - "docs/research/loader.md#how-the-loader-serves-files"
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import wakka from '../../../../../examples/Besaid/GiantWakka/Wakka.cs?raw';
+
 The Quickstart's mod makes Wakka twice his size on the night after the trial. It is a few lines of C#. Between those lines and Wakka on the screen there are four steps: the vanilla source, your mod, the mod package, and the loader that puts the package into the game when it starts. This page follows the mod through them.
 
 <figure>
@@ -86,7 +89,7 @@ The vanilla source stays on your machine. It is the game's code, so you never co
 
 Your mod is a separate C# project that builds against the vanilla source. It adds to the vanilla classes with `partial` classes in the same namespace. The giant Wakka mod is one class, `partial class Wakka`, in the namespace of `bsvr0001`, with one method. That method has `[Postfix(nameof(Init))]` on it and calls `Chr.SetScaleAll(2)`. C# sees one `Wakka` class made of two parts, so your code can use everything the vanilla part declares, and the IDE completes the names for you.
 
-{/* Show examples/Besaid/GiantWakka/Wakka.cs here with <Code> once it is in main (PR #91). */}
+<Code code={wakka} lang="csharp" title="Wakka.cs" />
 
 The attribute says where your code goes:
 

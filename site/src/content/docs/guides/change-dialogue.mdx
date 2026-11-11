@@ -1,0 +1,102 @@
+---
+title: Change what someone says
+description: Give a villager in Besaid a new line of dialogue with Text.New and Dialogue.Say.
+sidebar:
+  order: 1
+sources:
+  - "docs/language.md#text"
+  - "docs/language.md#inline-methods"
+  - "docs/formats/mod-package.md#messages"
+  - "docs/editor.md#how-a-message-shows"
+  - "examples/Besaid/README.md#besaidgossip"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import gossip from '../../../../../examples/Besaid/BesaidGossip/OldWoman.cs?raw';
+
+## What you'll make
+
+An old woman walks a long loop through Besaid village. Talk to her, and after her own line she says one more:
+
+> They say Wakka once kicked a blitzball all the way to Kilika, ya?
+
+The line is new. The mod adds it to the village's messages when the game starts.
+
+{/* shot 06 */}
+
+## Where in the game
+
+Besaid village, the script `bsvr0000`. She is there at every visit from Tidus's arrival on, except on the morning he wakes up in Wakka's tent and on the morning of the farewell. Talk to her as you catch up with her on her walk.
+
+## The code
+
+<Code code={gossip} lang="csharp" title="OldWoman.cs" />
+
+## Line by line
+
+`namespace Events.Bs_Besaid.Bsvr0000;` is the village's script. The old woman's worker is `SprsHan039_33`. The decompiler names an actor after the model it loads, and hers is `SprsHan039`. [Find the script you want to change](/ffx-atel-sharp/guides/find-a-script/) shows how to find a worker like hers.
+
+`[Postfix(nameof(OnTalk))]` runs `Gossip` after her vanilla `OnTalk`, the [entry](/ffx-atel-sharp/concepts/atel/#entries) the game starts when you talk to her. Her own line has closed by then.
+
+`Common.ControlDisable()` takes control away from the player while the window is open, so Tidus can't walk off in the middle of the line. `Common.ControlEnable()` gives it back at the end. The game's own conversations do the same.
+
+`Text.New("…")` is a new message. The game's messages are tables, one per script and language, and a line of dialogue is a number in that table. You can't know which numbers are free in the player's game, so you don't pick one. The loader gives your message the next free number when it links the mod, in every language.
+
+The text is written the way the game stores it. `\n` breaks the line. The first line of a dialogue window is the speaker's name, written as a name code such as `{name:Wakka}`. Villagers have no name in their windows, so the first line is empty, and the string starts with `\n`.
+
+`Dialogue.Say(…)` opens the usual dialogue window with the message, waits for the player to press confirm, and closes it. It is the same sequence the game's own lines use, written as one call.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsvr0000 -o atel-vanilla
+dotnet new atel-mod -n BesaidGossip --script bsvr0000 --authors your-name
+```
+
+Delete the sample `Bsvr0000.cs`, add `OldWoman.cs` from above, and build:
+
+```sh
+cd BesaidGossip
+dotnet build
+```
+
+Copy `bin/Debug/net10.0/mods/your-name.besaidgossip/` into Fahrenheit's `mods` folder, and add `your-name.besaidgossip` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game: after her own line, a second window with the new line. It closes with the confirm button, and then you can walk again.
+
+In Fahrenheit's log, a line like:
+
+```
+info: your-name.besaidgossip: bsvr0000: new message 316: …
+```
+
+The number is the one the loader gave the message. It may be another one in your game, especially with other mods installed.
+
+## Known limitations
+
+This mod hasn't been run in the game yet.
+
+- Her mouth doesn't move on the new line. The game's own lines turn on her talking animation, and this one doesn't.
+- The new window uses `Dialogue.Say`'s default position and style, which most of the game's lines use. It may not sit exactly where her own window does.
+
+## What can go wrong
+
+- **No new line.** Check the log for the `new message` line. If it is missing, the mod isn't in `mods/loadorder`, or its package was left out. The log says why.
+- **The text shows codes or odd characters.** Braces start a code in the game's text. Write `{{` and `}}` for a brace.
+- **`Text.New` is an error.** It only works in event and battle scripts. Monster scripts have no messages of their own.
+
+The text is in English in every language of the game. A mod can name the language it is written in, and the loader's log lists the other languages as untranslated.
+
+## Next
+
+[Run code when you talk to someone](/ffx-atel-sharp/guides/run-code-on-talk/) uses the same entry to make her dance.
+
+## Details
+
+- [Text](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#text) (docs/language.md)
+- [New messages in a package](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/formats/mod-package.md#messages) (docs/formats/mod-package.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#besaidgossip) (examples/Besaid/README.md)

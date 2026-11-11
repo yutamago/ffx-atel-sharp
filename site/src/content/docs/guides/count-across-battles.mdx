@@ -1,0 +1,131 @@
+---
+title: Count across battles, read another mod's data
+description: A saved counter shared by three monster scripts, and a second mod that reads it.
+sidebar:
+  order: 7
+sources:
+  - "docs/language.md#saved-fields"
+  - "docs/research/mod-saves.md"
+  - "docs/formats/mod-package.md#saved-fields"
+  - "docs/sdk.md#3-build"
+  - "examples/Besaid/README.md#besaidtally-and-besaidtallyreader"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import tally from '../../../../../examples/Besaid/BesaidTally/Tally.cs?raw';
+import m009 from '../../../../../examples/Besaid/BesaidTally/M009.cs?raw';
+import readerTally from '../../../../../examples/Besaid/BesaidTallyReader/Tally.cs?raw';
+import readerM009 from '../../../../../examples/Besaid/BesaidTallyReader/M009.cs?raw';
+import readerToml from '../../../../../examples/Besaid/BesaidTallyReader/mod.toml?raw';
+import readerProj from '../../../../../examples/Besaid/BesaidTallyReader/BesaidTallyReader.csproj?raw';
+
+## What you'll make
+
+Two mods. The first, BesaidTally, counts the Dingos, Water Flans and Condors you defeat, and keeps the count with your save. Each defeat prints the new count on the screen.
+
+The second, BesaidTallyReader, reads that count. Each time a Dingo appears, it prints how many monsters you have defeated so far.
+
+{/* shot 13 */}
+
+## Where in the game
+
+Random battles on the Village Slope and the Waterfall Way, where these three monsters live. Their scripts are `m009` for the Dingo, `m016` for the Water Flan and `m028` for the Condor.
+
+## The counter
+
+The count is a [saved field](/ffx-atel-sharp/concepts/variables/#saved-fields), as in [Keep data in the save](/ffx-atel-sharp/guides/keep-data-in-the-save/):
+
+<Code code={tally} lang="csharp" title="BesaidTally/Tally.cs" />
+
+`ushort` holds up to 65,535, enough for any number of Dingos.
+
+The class is in the mod's own namespace, not in a script's. All three monster scripts use it, and it is the same field in all of them.
+
+## Counting each defeat
+
+Each monster's script gets a postfix on its `OnDeath`, the entry the battle runs when that monster dies. Here is the Dingo's:
+
+<Code code={m009} lang="csharp" title="BesaidTally/M009.cs" />
+
+`M016.cs` and `M028.cs` are the same, in the namespaces `Monsters.M016` and `Monsters.M028`. A method belongs to one script, so each script gets its own copy of the three lines. The saved field is what they share.
+
+`Debug.Print` writes the line to Fahrenheit's log and shows it at the top left of the screen for a few seconds. [Print debug text in the game](/ffx-atel-sharp/guides/debug-text/) explains it.
+
+## Reading the count from another mod
+
+A mod can read another mod's saved field, but only read it. The field is the other mod's to write. The reader declares the field with the other mod's id and the field's key:
+
+<Code code={readerTally} lang="csharp" title="BesaidTallyReader/Tally.cs" />
+
+The key is the full name of the field in the other mod: its namespace, class and field. The loader finds the value by that key and the mod id, so the reader's own class can have any name.
+
+The reader shows it when a Dingo enters a battle, in a postfix on the Dingo's `Init`:
+
+<Code code={readerM009} lang="csharp" title="BesaidTallyReader/M009.cs" />
+
+The reader needs BesaidTally, and must load after it. It says so twice. Once for Fahrenheit, in the project:
+
+<Code code={readerProj} lang="xml" title="BesaidTallyReader.csproj" />
+
+`AtelModDependencies` goes into Fahrenheit's manifest. And once for the Atel# loader, in `mod.toml`:
+
+<Code code={readerToml} lang="toml" title="BesaidTallyReader/mod.toml" />
+
+`requires` leaves the reader out when BesaidTally isn't linked. `after` makes the loader report a load order that has them the wrong way round.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile m009 m016 m028 -o atel-vanilla
+dotnet new atel-mod -n BesaidTally --script m009 --authors your-name
+dotnet new atel-mod -n BesaidTallyReader --script m009 --authors your-name
+```
+
+In `BesaidTally`, replace `M009.cs` with the one above and add `M016.cs`, `M028.cs` and `Tally.cs`. In `BesaidTallyReader`, replace `M009.cs`, add `Tally.cs` and `mod.toml`, and add the `AtelModDependencies` line to the project. Wherever the reader names `your-name.besaidtally`, use the tally's real id: in the project, twice in `mod.toml`, and in `[Saved(Mod = …)]`.
+
+Build both with `dotnet build`, copy both mod folders into Fahrenheit's `mods` folder, and list them in `mods/loadorder` in this order:
+
+```
+yuta.atel
+your-name.besaidtally
+your-name.besaidtallyreader
+```
+
+## What to look for
+
+In the game:
+
+1. Defeat a Dingo, a Water Flan or a Condor. The overlay shows `Besaid monsters defeated: 1`, and one more after each defeat.
+2. With the reader installed, each Dingo that appears prints `Besaid Tally Reader: N defeated so far`.
+3. Save, quit to the title, load, and fight again. The count goes on from where it was.
+
+In Fahrenheit's log, one line per monster script, such as:
+
+```
+info: your-name.besaidtally: m009: worker 1's OnDeath: postfix Count
+```
+
+## Known limitations
+
+These mods haven't been run in the game yet.
+
+- They count defeated monsters, not battles. A battle count would need a change in each battle's script, a dozen of them on the island. The monster scripts are shared by all those battles, so three files cover them.
+- Whether `OnDeath` runs once for every defeated monster in every case isn't known: a monster you flee from, or one an aeon finishes, may count differently.
+- The tutorial battles on the island may use the game's other copies of these monsters, which these mods don't change.
+
+## What can go wrong
+
+- **The reader prints nothing.** Check the log: if BesaidTally isn't linked, the loader leaves the reader out. Also check that the reader's id for the tally is the tally's real id.
+- **The count starts at 0 again after loading.** The saved field wasn't kept. Check the log for the tally's `saved field(s)` line.
+
+## Next
+
+[Print debug text in the game](/ffx-atel-sharp/guides/debug-text/) shows the overlay these mods print to.
+
+## Details
+
+- [Saved fields, and another mod's field](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#saved-fields) (docs/language.md)
+- [Where saved fields live](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/mod-saves.md) (docs/research/mod-saves.md)
+- [The examples' in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#besaidtally-and-besaidtallyreader) (examples/Besaid/README.md)
