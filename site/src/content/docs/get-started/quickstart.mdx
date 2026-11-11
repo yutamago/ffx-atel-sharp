@@ -1,0 +1,95 @@
+---
+title: Quickstart
+description: Make Wakka twice his size in Besaid village, from decompiling the script to seeing him in the game.
+sidebar:
+  order: 3
+sources:
+  - "docs/sdk.md#1-decompile-the-vanilla-source"
+  - "docs/sdk.md#dotnet-new-atel-mod"
+  - "docs/sdk.md#3-build"
+  - "docs/sdk.md#4-install"
+  - "docs/language.md#workers"
+  - "examples/Besaid/README.md#giantwakka"
+---
+
+import { Aside, Code, Steps } from '@astrojs/starlight/components';
+import wakka from '../../../../../examples/Besaid/GiantWakka/Wakka.cs?raw';
+
+This page makes Wakka twice his size on the night after the trial in Besaid village. It does each step and says what it does. [Your first mod](/ffx-atel-sharp/get-started/first-mod/) explains the same steps properly.
+
+You need everything from [Install](/ffx-atel-sharp/get-started/install/), and `FFX_GAME_DIR` set in your terminal.
+
+<Steps>
+
+1. **Make a folder for your mods**, outside any repository:
+
+   ```sh
+   mkdir ffx-mods
+   cd ffx-mods
+   ```
+
+2. **Decompile the script.** `bsvr0001` is Besaid village on the night after the trial:
+
+   ```sh
+   atel decompile bsvr0001 -o atel-vanilla
+   ```
+
+   This writes the vanilla source, the game's own script as C#, to `atel-vanilla/`. Wakka is in `atel-vanilla/Events/Bs_Besaid/Bsvr0001/Wakka.cs`. The vanilla source is the game's code: keep it on your machine and never share it.
+
+3. **Create the mod project:**
+
+   ```sh
+   dotnet new atel-mod -n GiantWakka --script bsvr0001 --authors your-name
+   cd GiantWakka
+   ```
+
+   Put your own name or handle in place of `your-name`. The mod's id becomes `your-name.giantwakka`. The project already points at `../atel-vanilla`.
+
+4. **Write the mod.** Delete `Bsvr0001.cs`, the template's sample file, and create `Wakka.cs`:
+
+   <Code code={wakka} lang="csharp" title="Wakka.cs" />
+
+   `Wakka` is the vanilla class of the actor Wakka, and your `partial` class adds to it. `[Postfix(nameof(Init))]` runs the method after Wakka's own `Init`, which loads his model when the map loads. `Chr.SetScaleAll(2)` doubles the model's size.
+
+5. **Build it:**
+
+   ```sh
+   dotnet build
+   ```
+
+   The build checks your code against the vanilla source and writes the mod folder `bin/Debug/net10.0/mods/your-name.giantwakka/`.
+
+6. **Install it.** Copy that `your-name.giantwakka` folder into Fahrenheit's `mods` folder. Then add its id to `mods/loadorder`, below the loader:
+
+   ```
+   yuta.atel
+   your-name.giantwakka
+   ```
+
+7. **See it.** Start the game through Fahrenheit and load a save from Besaid before or during the Cloister of Trials. Finish the trial and walk out of the temple. Wakka stands in the village square, and he should be twice as tall and twice as wide as everyone around him.
+
+</Steps>
+
+{/* shot 02 */}
+
+## If you don't see it
+
+- **Wakka looks normal.** Check that both ids are in `mods/loadorder`, the loader first. Then look in Fahrenheit's log, in its `logs` folder, for lines that start with `Atel loader:`. A line with `postfix Giant` means the mod was linked into the script.
+- **The log says the script differs from the one the mod was built against.** Your game files are not the ones you decompiled. Decompile and build again from the same copy of the game.
+- **The build stops with an `ATLSDK` error.** `FFX_GAME_DIR` is not set in this terminal, or the project can't find `../atel-vanilla`.
+
+<Aside type="caution" title="Not checked in game yet">
+This mod is new, and nobody has watched it in the game yet. Three things may differ from what this page says. His size may reset once his animation starts. His shadow and the camera may look off. And his collision isn't scaled, so the space he blocks stays the size of a normal Wakka. If he doesn't look as described, please [open an issue](https://github.com/yutamago/ffx-atel-sharp/issues).
+</Aside>
+
+To turn the mod off, remove its line from `mods/loadorder`. The next start runs the game's own script again.
+
+## Next
+
+[Your first mod](/ffx-atel-sharp/get-started/first-mod/) does the same steps with a monster, and explains each one.
+
+## Details
+
+- [Decompiling the vanilla source](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#1-decompile-the-vanilla-source) (docs/sdk.md)
+- [Building and installing a mod](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#3-build) (docs/sdk.md)
+- [The example and its in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#giantwakka) (examples/Besaid/README.md)

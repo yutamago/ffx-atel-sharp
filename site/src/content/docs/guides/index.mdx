@@ -1,0 +1,63 @@
+---
+title: Guides
+description: The Besaid course. Each guide adds one mod on Besaid island, from a new line of dialogue to code inside a monster's turn.
+sidebar:
+  order: 0
+sources:
+  - "docs/website.md#guides-the-besaid-course"
+  - "examples/Besaid/README.md"
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="The Besaid examples are new">
+The Besaid examples are new; if one doesn't behave as described, [open an issue](https://github.com/yutamago/ffx-atel-sharp/issues). Each guide says what you should see, and lists what isn't known yet.
+</Aside>
+
+Every guide teaches on Besaid, the island the game reaches about an hour and a half in. Each one adds a mod there that changes something you can see, and each mod is a project in the repository's [`examples/Besaid`](https://github.com/yutamago/ffx-atel-sharp/tree/main/examples/Besaid) folder.
+
+## The course
+
+Go through them in this order. Each one uses something the ones before it showed.
+
+| Guide | The mod | What you see |
+|---|---|---|
+| [Quickstart: change an actor when a map loads](/ffx-atel-sharp/get-started/quickstart/) | GiantWakka | Wakka at twice his size in the village |
+| [First mod: a monster's stats and rewards](/ffx-atel-sharp/get-started/first-mod/) | ToughDingo | a Dingo with ten times its HP, and 999 gil |
+| [Change what someone says](/ffx-atel-sharp/guides/change-dialogue/) | BesaidGossip | a villager's new line of dialogue |
+| [Run code when you talk to someone](/ffx-atel-sharp/guides/run-code-on-talk/) | DancingVillager | the villager dances after talking |
+| [Shake the camera](/ffx-atel-sharp/guides/shake-the-camera/) | BeachQuake | the camera shakes as Tidus arrives on the beach |
+| [Move faster](/ffx-atel-sharp/guides/move-faster/) | FastTidus | Tidus runs twice as fast on the Village Slope |
+| [Keep data in the save](/ffx-atel-sharp/guides/keep-data-in-the-save/) | GenerousVillager | a villager gives you 1,000 gil, once per save |
+| [Add code inside a monster's turn](/ffx-atel-sharp/guides/inject-into-a-turn/) | CleverFlan | the Water Flan heals itself below half HP |
+| [Count across battles, read another mod's data](/ffx-atel-sharp/guides/count-across-battles/) | BesaidTally and its reader | the on-screen overlay counts defeated monsters, kept in the save |
+| [Print debug text in the game](/ffx-atel-sharp/guides/debug-text/) | WhereAmI | the overlay shows Tidus's position, live |
+| [Switch dead code on](/ffx-atel-sharp/guides/dead-code/) | | code the game ships but never runs |
+
+And three that apply to any mod:
+
+- [Find the script you want to change](/ffx-atel-sharp/guides/find-a-script/)
+- [Work next to a Fahrenheit code mod](/ffx-atel-sharp/guides/fahrenheit-code-mod/)
+- [Set up VS Code or Rider](/ffx-atel-sharp/guides/editors/)
+
+## How every guide builds its mod
+
+The guides build each mod the way the [Quickstart](/ffx-atel-sharp/get-started/quickstart/) did: decompile the script into `atel-vanilla/` in your mods folder, create the project with `dotnet new atel-mod`, put the guide's files in it, `dotnet build`, copy the mod folder into Fahrenheit's `mods` folder, and add its id to `mods/loadorder` below `yuta.atel`.
+
+You can also build the examples straight from a clone of the repository, with the path to your vanilla source:
+
+```sh
+dotnet build examples/Besaid/BesaidGossip -p:AtelVanillaSource=<your atel-vanilla folder>
+```
+
+Each example's id starts with `your-name`. A Fahrenheit mod id starts with its author, so put your own name or handle in `AtelModId` and `Authors` before you share a copy.
+
+The mods can be installed together. Three of them add to the same villager's conversation, and all three then run, one after the other, in load order.
+
+## A save for the course
+
+Most guides need a save in Besaid. Some of them depend on the moment in the story: the Quickstart needs the night after the trial, the camera guide the beach before the party leaves the island, and the old woman of three guides is in the village at most visits but not all. Each guide says where to go and when.
+
+## Details
+
+- [The examples, and the in-game check for each](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md) (examples/Besaid/README.md)

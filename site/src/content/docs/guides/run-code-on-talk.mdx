@@ -1,0 +1,84 @@
+---
+title: Run code when you talk to someone
+description: A postfix on a villager's OnTalk entry makes her play a motion after the conversation.
+sidebar:
+  order: 2
+sources:
+  - "docs/language.md#entries"
+  - "docs/language.md#mods"
+  - "docs/language.md#members"
+  - "examples/Besaid/README.md#dancingvillager"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import dance from '../../../../../examples/Besaid/DancingVillager/OldWoman.cs?raw';
+
+## What you'll make
+
+When you finish talking to the old woman in Besaid village, she dances once, then walks on. The dance is the motion her model plays at the village's celebration on the night after the trial.
+
+{/* shot 07 */}
+
+## Where in the game
+
+Besaid village, the script `bsvr0000`, the same old woman as in [Change what someone says](/ffx-atel-sharp/guides/change-dialogue/). She is there at every visit from Tidus's arrival on, except on the morning he wakes up in Wakka's tent and on the morning of the farewell.
+
+## The code
+
+<Code code={dance} lang="csharp" title="OldWoman.cs" />
+
+## Line by line
+
+`[Postfix(nameof(OnTalk))]` runs `Dance` after her vanilla `OnTalk`. A worker's entries are the code the game starts at fixed moments. For an actor, `OnTalk` is the one it starts when the player talks to it, so a postfix there runs at the end of every conversation with her.
+
+The postfix runs in her worker, so the calls in it act on her. `Motion` is her motion, the animation her model plays.
+
+`const int CelebrationMotion` names the motion. A motion is a number that says which animation of which model. This one is the number the celebration's script plays for her model. The decompiled source writes motions as these numbers, so you find one by reading a script where the model does what you want.
+
+`Motion.Play(CelebrationMotion, unused: 0, loops: 1, startFrame: 0, endFrame: -1)` starts it: once, from its first frame to its last (`-1`).
+
+`Motion.Wait()` waits until the motion ends. Without it, the entry would end at once and her walk would go on without waiting for the dance to finish.
+
+While she waits, the game keeps running. Waiting in ATEL pauses only this piece of code, as `await` would in C#. [Thirty frames a second](/ffx-atel-sharp/concepts/atel/#thirty-frames-a-second) explains how.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsvr0000 -o atel-vanilla
+dotnet new atel-mod -n DancingVillager --script bsvr0000 --authors your-name
+```
+
+Delete the sample `Bsvr0000.cs`, add `OldWoman.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.dancingvillager/` into Fahrenheit's `mods` folder, and add `your-name.dancingvillager` to `mods/loadorder` below `yuta.atel`.
+
+With the gossip mod installed too, both postfixes run, in load order: the one listed first runs first.
+
+## What to look for
+
+In the game: after the conversation, she should play the motion once, then walk on along her loop.
+
+In Fahrenheit's log, a line that ends with `postfix Dance`, for her worker's `OnTalk`.
+
+## Known limitations
+
+This mod hasn't been run in the game yet, and three things about it aren't known:
+
+- Whether the motion is loaded in the village at that time. Her `Init` loads the same group of motions the celebration's script uses, so it should be.
+- What it looks like: dancing or cheering.
+- Whether she turns back to her path before she dances. The vanilla `OnTalk` turns her before the postfix runs.
+
+## What can go wrong
+
+- **Nothing plays, and she walks on at once.** The motion may not be loaded at that moment. The celebration plays two more motions of her model, and the [example's README](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#dancingvillager) lists them to try.
+- **The postfix doesn't run.** Look for the `postfix Dance` line in the log. If it is missing, check `mods/loadorder` and the loader's other lines for this mod.
+
+## Next
+
+[Shake the camera](/ffx-atel-sharp/guides/shake-the-camera/) puts code in the middle of a vanilla entry, not after it.
+
+## Details
+
+- [Entries](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#entries) (docs/language.md)
+- [Members such as Motion](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#members) (docs/language.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#dancingvillager) (examples/Besaid/README.md)

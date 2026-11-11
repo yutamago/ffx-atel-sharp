@@ -1,0 +1,114 @@
+---
+title: Requirements
+description: The game, Fahrenheit with the Atel# loader, and the .NET 10 SDK, and where each comes from.
+sidebar:
+  order: 1
+sources:
+  - "docs/tutorial.md#1-what-you-need"
+  - "docs/tutorial.md#2-install-the-tools"
+  - "docs/tutorial.md#6-install"
+  - "docs/sdk.md#what-you-need"
+  - "examples/Besaid/README.md#what-they-need"
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+You need four things: the game, Fahrenheit, the Atel# loader inside Fahrenheit, and the .NET SDK to build mods. Players of your mod need the first three, and not the SDK.
+
+## The game
+
+Final Fantasy X from the Steam release of *FINAL FANTASY X/X-2 HD Remaster*, on Windows. Atel# mods change the scripts of Final Fantasy X. They do nothing in X-2 or Last Mission.
+
+Atel# reads the game's scripts from your own copy, and never writes into the game folder. Note where the folder with `FFX.exe` is. The `atel` command and every mod build ask for it.
+
+## Fahrenheit
+
+[Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) is the mod framework for the Steam release. It starts the game with mods loaded, and it reads them from its `mods` folder. Atel# was tested with Fahrenheit 1.0.0-alpha12.
+
+Download it from its [releases page](https://github.com/fahrenheit-crew/fahrenheit/releases) and install it as its README says. Start the game through it once, before you add anything, so you know that part works.
+
+Two things in the Fahrenheit folder matter for every page on this site:
+
+- `mods/`, where each mod is a folder named after its mod id.
+- `mods/loadorder`, a text file with the ids of the enabled mods, one per line. A mod that isn't listed there is not loaded.
+
+## The Atel# loader
+
+The loader is a Fahrenheit mod with the id `yuta.atel`. When the game starts, it reads every enabled Atel# mod and joins it with your copy of the game's scripts. Every Atel# mod needs it. [How a mod gets into the game](/ffx-atel-sharp/concepts/mods/#the-loader) explains what it does.
+
+The loader isn't released as a download yet. You build it from the repository, which needs git and the .NET 10 SDK, described below.
+
+<Steps>
+
+1. Clone the repository with its whole history. The build computes its version from the history, so a shallow clone made with `--depth 1` stops it.
+
+   ```sh
+   git clone https://github.com/yutamago/ffx-atel-sharp.git
+   cd ffx-atel-sharp
+   ```
+
+2. Build the loader:
+
+   ```sh
+   dotnet build -c Release src/Ffx.Atel.Loader
+   ```
+
+   The build writes the finished mod folder to `artifacts/deploy/release/mods/yuta.atel/`.
+
+3. Copy that `yuta.atel` folder into Fahrenheit's `mods` folder.
+
+4. Add `yuta.atel` to `mods/loadorder`, above any Atel# mod:
+
+   ```
+   yuta.atel
+   ```
+
+</Steps>
+
+To update the loader later, pull, build again and copy the folder again.
+
+{/* shot 15 */}
+
+<Aside type="note">
+The loader does nothing on its own. With no Atel# mod in the load order, Fahrenheit's log says so, and the game runs its own scripts.
+</Aside>
+
+## The .NET 10 SDK
+
+Mods are C# projects, so you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Check it:
+
+```sh
+dotnet --version
+```
+
+It should print a version that starts with `10.`. The mod's code doesn't run on .NET. The SDK only builds it. [What Atel# can't do](/ffx-atel-sharp/concepts/limits/) says why that matters.
+
+An editor that knows C# helps a lot: Visual Studio, Rider, or VS Code with Microsoft's C# extension. Any of them shows the game library's documentation and the Atel# analyzers' errors as you type.
+
+## The game folder for the tools
+
+The `atel` command and every mod build read the game's files. They find the game through the environment variable `FFX_GAME_DIR`, the folder with `FFX.exe`. Set it in each terminal you use, or in your user environment:
+
+<Tabs syncKey="shell">
+<TabItem label="PowerShell">
+
+```powershell
+$env:FFX_GAME_DIR = "<the folder with FFX.exe>"
+```
+
+</TabItem>
+<TabItem label="bash">
+
+```sh
+export FFX_GAME_DIR="<the folder with FFX.exe>"
+```
+
+</TabItem>
+</Tabs>
+
+The next page installs the tools.
+
+## Details
+
+- [What you need](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#what-you-need) (docs/sdk.md)
+- [Installing the loader and a mod](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/tutorial.md#6-install) (docs/tutorial.md)
