@@ -103,9 +103,9 @@ the tests; the site doesn't use them.
 | Move faster | `FastTidus` | Tidus runs twice as fast on the island path | language.md |
 | Keep data in the save (`[Saved]`) | `GenerousVillager` | a villager gives 1,000 gil, once per save | research/mod-saves.md |
 | Add code inside a monster's turn (`[Inject]`) | `CleverFlan` | the Water Flan heals itself below half HP | language.md, plan.md Phase 9 |
-| Count things across battles, read another mod's data | `BesaidTally` (+ a reader) | the F6 overlay counts Besaid battles, kept in the save | research/mod-saves.md |
+| Count things across battles, read another mod's data | `BesaidTally` (+ a reader) | the F6 overlay counts the Dingos, Water Flans and Condors you defeat, kept in the save | research/mod-saves.md |
 | Print debug text in game | `WhereAmI` | the F6 overlay shows Tidus's position and the map, live | formats/debug.md |
-| Switch a dead `if (false)` block on | (one found in Besaid, if any) | what the block does | sdk.md, research/dead-code.md |
+| Switch a dead `if (false)` block on | none in Besaid (two empty blocks in `bsil04_00`); `Cut.ZanarkandCrowdFacingReaction` | what the block does | sdk.md, research/dead-code.md |
 | Find the script you want to change | | | research/handlers.md, corpus.md |
 | Work next to a Fahrenheit code mod | | | sdk.md |
 | Set up VS Code or Rider | | | editor.md |

@@ -51,6 +51,13 @@ public sealed record MemberNative(string Path, ushort Id, MemberUse Use, MemberR
     /// <summary>For a <see cref="Choice"/>, the constant as written: <c>ShakeKind.SineFadeOut</c>.</summary>
     public string? ChoiceText { get; init; }
 
+    /// <summary>
+    ///     On a method: its parameters' names as the reference assembly declares them, without a <see cref="Choice"/>'s
+    ///     first; named arguments (<c>Camera.Eye.Shake(ShakeKind.SineFadeOut, frames: 90, …)</c>) go by these, not by the
+    ///     native's.
+    /// </summary>
+    public string[]? ParamNames { get; init; }
+
     /// <summary>On a <c>Vector3</c> getter: the component it reads (<c>X</c> in <c>Pos.X</c>); the member is the path before it.</summary>
     public string? Component { get; init; }
 
@@ -232,7 +239,10 @@ public sealed class NativeMembers {
             Type? kinds = choice is null ? null : method.GetParameters().FirstOrDefault()?.ParameterType;
             string? choiceText = kinds is { IsEnum: true } && Enum.GetName(kinds, Enum.ToObject(kinds, choice!.Value)) is string member ? $"{kinds.Name}.{member}" : null;
             if (choice is not null && choiceText is null) throw new InvalidOperationException($"{path}: a choice's first parameter is an enum with a member {choice}");
-            Add(new MemberNative(path, Id(a), MemberUse.Call, Receiver(a, receiver), false, false, Polls(a), method.ReturnType == typeof(void), Choice: choice) { Static = isStatic, ChoiceText = choiceText });
+            Add(new MemberNative(path, Id(a), MemberUse.Call, Receiver(a, receiver), false, false, Polls(a), method.ReturnType == typeof(void), Choice: choice) {
+                Static = isStatic, ChoiceText = choiceText,
+                ParamNames = [.. method.GetParameters().Skip(choice is null ? 0 : 1).Select(x => x.Name!)],
+            });
             any = true;
         }
         return any;

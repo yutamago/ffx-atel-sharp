@@ -10,7 +10,8 @@ The examples are [`examples/LarvaHp`](../examples/LarvaHp) (a postfix),
 [`examples/LarvaInject`](../examples/LarvaInject) (`[Inject]`),
 [`examples/LarvaCount`](../examples/LarvaCount) (`[Saved]` fields) and
 [`examples/LarvaCountReader`](../examples/LarvaCountReader) (reading another
-mod's saved field).
+mod's saved field). [`examples/Besaid`](../examples/Besaid) holds the mods of the
+website's Besaid course, one per guide, with the steps to see each in game.
 
 ## What you need
 
@@ -19,8 +20,9 @@ mod's saved field).
   folder, the one with `FFX.exe`.
 - [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) and the Atel
   loader (`yuta.atel`) to play the mod.
-- The `AtelSharp.Sdk` package from a NuGet source. It is not published yet.
-  Until it is, pack it from a checkout of this repo and add a local source:
+- The `AtelSharp.Sdk` package, from nuget.org (`0.1.0-alpha.1` and later).
+  To use a build of a checkout of this repo instead, pack it and add a local
+  source:
 
   ```bash
   dotnet pack src/Ffx.Atel.Sdk -c Release -o ~/atel-feed
