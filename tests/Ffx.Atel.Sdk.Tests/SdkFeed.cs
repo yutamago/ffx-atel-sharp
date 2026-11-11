@@ -7,7 +7,7 @@ using System.Text;
 namespace Ffx.Atel.Sdk.Tests;
 
 /// <summary>
-///     The SDK and the templates as a modder gets them: packed once into a local feed, in a folder of the tests' own,
+///     The SDK, the templates and the atel tool as a modder gets them: packed once into a local feed, in a folder of the tests' own,
 ///     with a NuGet package cache of its own (NuGet never re-reads a version it has cached, and the version is the
 ///     commit's, uncommitted changes or not: docs/sdk.md, "Versions"). Shared by the test classes of the "SDK feed"
 ///     collection; packed when a test first asks for it, so the tests that skip pack nothing.
@@ -37,7 +37,7 @@ public sealed class SdkFeed : IDisposable {
     /// <summary>The environment of every <c>dotnet</c> the tests run: the package cache.</summary>
     public Dictionary<string, string?> Env { get; }
 
-    /// <summary>The folder with <c>AtelSharp.Sdk.&lt;version&gt;.nupkg</c> and <c>AtelSharp.Templates.&lt;version&gt;.nupkg</c>.</summary>
+    /// <summary>The folder with <c>AtelSharp.Sdk.&lt;version&gt;.nupkg</c>, <c>AtelSharp.Templates.&lt;version&gt;.nupkg</c> and <c>AtelSharp.Cli.&lt;version&gt;.nupkg</c>.</summary>
     public string Feed => _packed.Value.Feed;
 
     /// <summary>The packages' version, the commit's.</summary>
@@ -45,6 +45,7 @@ public sealed class SdkFeed : IDisposable {
 
     public string SdkPackage => Path.Combine(Feed, $"AtelSharp.Sdk.{Version}.nupkg");
     public string TemplatesPackage => Path.Combine(Feed, $"AtelSharp.Templates.{Version}.nupkg");
+    public string CliPackage => Path.Combine(Feed, $"AtelSharp.Cli.{Version}.nupkg");
 
     private (string, string) Pack() {
         string repo = RepoRoot();
@@ -52,13 +53,14 @@ public sealed class SdkFeed : IDisposable {
         string feed = Path.Combine(Root, "feed");
         // The repo's projects build into an artifacts folder of the tests' own: their obj/ would otherwise point at the
         // package folder above, deleted at the end while the other test projects still build.
-        foreach (string project in new[] { "Ffx.Atel.Sdk", "Ffx.Atel.Templates" }) {
+        foreach (string project in new[] { "Ffx.Atel.Sdk", "Ffx.Atel.Templates", "Ffx.Atel.Cli" }) {
             DotNet.Run(repo, Env, ["pack", Path.Combine(repo, "src", project), "-c", configuration, "-o", feed,
                 "--artifacts-path", Path.Combine(Root, "artifacts"), .. DotNet.BuildFlags]);
         }
         string nupkg = Assert.Single(Directory.GetFiles(feed, "AtelSharp.Sdk.*.nupkg"));
         string version = Path.GetFileNameWithoutExtension(nupkg)["AtelSharp.Sdk.".Length..];
         Assert.True(File.Exists(Path.Combine(feed, $"AtelSharp.Templates.{version}.nupkg")), "the templates have the SDK's version");
+        Assert.True(File.Exists(Path.Combine(feed, $"AtelSharp.Cli.{version}.nupkg")), "the atel tool has the SDK's version");
         return (feed, version);
     }
 
@@ -90,8 +92,12 @@ public static class DotNet {
     public static readonly string[] BuildFlags = ["-p:UseSharedCompilation=false", "--disable-build-servers", "-nodeReuse:false", "-m:1"];
 
     /// <summary>Runs <c>dotnet</c> with the arguments; fails the test on a non-zero exit. Returns the output.</summary>
-    public static string Run(string workingDirectory, Dictionary<string, string?> env, string[] args) {
-        ProcessStartInfo start = new(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet") {
+    public static string Run(string workingDirectory, Dictionary<string, string?> env, string[] args) =>
+        Exec(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet", workingDirectory, env, args);
+
+    /// <summary>Runs a program (an installed tool's launcher, say) as <see cref="Run" /> runs <c>dotnet</c>.</summary>
+    public static string Exec(string program, string workingDirectory, Dictionary<string, string?> env, string[] args) {
+        ProcessStartInfo start = new(program) {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -108,10 +114,10 @@ public static class DotNet {
         process.BeginErrorReadLine();
         if (!process.WaitForExit(TimeSpan.FromMinutes(10))) {
             process.Kill(entireProcessTree: true);
-            Assert.Fail($"dotnet {string.Join(' ', args)}: timed out\n{output}");
+            Assert.Fail($"{Path.GetFileName(program)} {string.Join(' ', args)}: timed out\n{output}");
         }
         process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"dotnet {string.Join(' ', args)}: exit code {process.ExitCode}\n{output}");
+        Assert.True(process.ExitCode == 0, $"{Path.GetFileName(program)} {string.Join(' ', args)}: exit code {process.ExitCode}\n{output}");
         return output.ToString();
     }
 

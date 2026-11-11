@@ -1,0 +1,143 @@
+---
+title: What ATEL is
+description: The game's script machine. Scripts, workers and entries, and the 30 frames a second they run at.
+sidebar:
+  order: 1
+sources:
+  - "docs/language.md#the-machine-in-brief"
+  - "docs/language.md#scripts"
+  - "docs/language.md#workers"
+  - "docs/language.md#entries"
+  - "docs/language.md#waiting-in-seconds"
+  - "docs/research/frame-timing.md#answers"
+  - "docs/research/handlers.md#actions"
+---
+
+Walk into Besaid village and the game loads the village's script. Every person you see there is a small program in that script. Talk to the old woman who walks around the village, and the game runs a piece of her code that makes her answer. Start a fight with a Dingo on the path outside, and when its turn comes the battle runs a piece of the Dingo's code, which picks a target and an attack.
+
+All of this code runs on ATEL, Final Fantasy X's own script machine. It is part of the game, not of Windows or .NET. ATEL has its own bytecode, and the game's event and battle files carry their scripts in it. Atel# turns that bytecode into C# you can read, and compiles your C# back into it.
+
+This page introduces the pieces you will meet in every script: scripts, workers and entries, and the frames they run in.
+
+## Scripts
+
+A script is the code of one map, one monster or one battle. There are three kinds:
+
+- An event script belongs to a map. `bsvr0000` is Besaid village, and `bsil0700` is the Village Slope just outside the gate.
+- A monster script belongs to a kind of monster. `m009` is the Dingo, and every Dingo in every battle runs it.
+- A battle script belongs to one battle, a formation of monsters in a place. It runs the battle's own cameras and events.
+
+One place can have more than one script. The village you walk through on most visits is `bsvr0000`, but the night after the trial, when Wakka stands in the square, is a separate script, `bsvr0001`. When a guide changes "the village", it names the script it means.
+
+In Atel#, a script is a C# namespace and a folder. `atel decompile bsvr0000` writes the folder `Events/Bs_Besaid/Bsvr0000/`, with one file for the script class and one file per worker. The script class lists the script's workers in order and holds its variables.
+
+## Workers
+
+A worker is one actor or one piece of logic in a script. In the village script, Tidus is a worker, the old woman is a worker, and so is each other villager. Some workers have no body at all: a line across the village gate that changes the map when you cross it, a camera, or a worker that only runs code.
+
+Each worker is a C# class, and its base class says what the game does with it every frame:
+
+| Base class | What the game does with it |
+|---|---|
+| `Actor` | A character with a model. The game moves and turns it, and checks whether the player talks to it or touches it. |
+| `LineTrigger`, `BoxTrigger` | A line or a box on the map. The game checks whether the player crosses it, touches it or talks at it. |
+| `LineSensor`, `BoxSensor` | The same, checked against another worker's movement. |
+| `LogicWorker` | Nothing. It only runs its code. |
+| `BattleWorker` | Every worker of a monster or battle script. |
+| `FunctionWorker` | A subroutine that other workers call. |
+
+The decompiler names each worker as well as it can. An actor is named after the model it loads: `Wakka`, or `SprsHan039_33` for the old woman, after her model. A monster's worker is named after the job the battle gives it: `Ai` is the worker that picks the Dingo's moves. A worker it can't name is `W03`, after its number.
+
+## Entries
+
+An entry is a piece of a worker's code that something can start. Each worker has a few, numbered from 0. In C#, an entry is a method of the worker class.
+
+| Entry | In C# | What starts it |
+|---|---|---|
+| 0 | `Init()` | The game, when the worker starts: the map loads, or the monster enters the battle. |
+| 1 | `Main()` | The game, after `Init`. In an actor it is often a loop that runs as long as the map does, such as the old woman's walk. |
+| `OnTalk` | an `[Entry(2)]` method of an `Actor` | The game, when the player talks to that actor. |
+| `OnTurn`, `OnHit`, `OnDeath` | methods of a monster's `Ai` | The battle, when the monster's turn comes, when a command hurts it, when it dies. |
+| others | `[Entry(n)]` methods | Other workers, with a [request](/ffx-atel-sharp/concepts/requests/). |
+
+The number is what the game uses. The method's name is only for you: the decompiler picks it from what starts the entry (`OnTalk`) or what its code does (`Walk`), and the `[Entry(n)]` attribute keeps the number. A monster file has a table that tells the battle which worker and entry handle its turn, a hit and its death, and the decompiler reads that table to name them.
+
+Entries are where mods attach. The Quickstart's mod adds code after Wakka's `Init`, so it runs as the night map loads. Another guide adds code after the old woman's `OnTalk`, so it runs each time you finish talking to her.
+
+<figure>
+<svg viewBox="0 0 640 320" role="img" aria-labelledby="atel-structure-title" style={{ width: '100%', height: 'auto', maxWidth: '640px' }} font-family="inherit" font-size="13">
+	<title id="atel-structure-title">Two scripts. The village script bsvr0000 has the workers Tidus, with the entries Init and Main, and the old woman, with Init, Main and OnTalk, and more workers. The Dingo's script m009 has the worker Ai with Init, OnTurn and OnDeath. Each script has script fields that all its workers share.</title>
+	<g fill="none" stroke="currentColor" stroke-width="1.5">
+		<rect x="10" y="10" width="390" height="300" rx="10" />
+		<rect x="420" y="10" width="210" height="300" rx="10" />
+	</g>
+	<g fill="currentColor">
+		<text x="26" y="36" font-weight="bold">Script bsvr0000, Besaid village</text>
+		<text x="436" y="36" font-weight="bold">Script m009, the Dingo</text>
+	</g>
+	<g stroke="currentColor" stroke-width="1" style={{ fill: 'var(--sl-color-gray-6)' }}>
+		<rect x="26" y="52" width="358" height="72" rx="6" />
+		<rect x="26" y="136" width="358" height="72" rx="6" />
+		<rect x="436" y="52" width="178" height="112" rx="6" />
+	</g>
+	<g fill="currentColor">
+		<text x="40" y="74"><tspan font-weight="bold">Tidus</tspan> : Actor</text>
+		<text x="40" y="158"><tspan font-weight="bold">SprsHan039_33</tspan> : Actor, the old woman</text>
+		<text x="450" y="74"><tspan font-weight="bold">Ai</tspan> : BattleWorker</text>
+		<text x="40" y="236">… and more workers</text>
+	</g>
+	<g stroke-width="1" style={{ fill: 'var(--sl-color-accent-low)', stroke: 'var(--sl-color-accent)' }}>
+		<rect x="40" y="86" width="72" height="26" rx="4" />
+		<rect x="120" y="86" width="72" height="26" rx="4" />
+		<rect x="40" y="170" width="72" height="26" rx="4" />
+		<rect x="120" y="170" width="72" height="26" rx="4" />
+		<rect x="200" y="170" width="80" height="26" rx="4" />
+		<rect x="450" y="86" width="64" height="26" rx="4" />
+		<rect x="522" y="86" width="78" height="26" rx="4" />
+		<rect x="450" y="122" width="78" height="26" rx="4" />
+	</g>
+	<g fill="currentColor" text-anchor="middle" style={{ fontFamily: 'var(--sl-font-mono, monospace)' }}>
+		<text x="76" y="104">Init</text>
+		<text x="156" y="104">Main</text>
+		<text x="76" y="188">Init</text>
+		<text x="156" y="188">Main</text>
+		<text x="240" y="188">OnTalk</text>
+		<text x="482" y="104">Init</text>
+		<text x="561" y="104">OnTurn</text>
+		<text x="489" y="140">OnDeath</text>
+	</g>
+	<g fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 4">
+		<rect x="26" y="252" width="358" height="42" rx="6" />
+		<rect x="436" y="252" width="178" height="42" rx="6" />
+	</g>
+	<g fill="currentColor">
+		<text x="40" y="278">Script fields, shared by all its workers</text>
+		<text x="450" y="278">Script fields</text>
+	</g>
+</svg>
+<figcaption>A script holds workers, and a worker holds entries. Each worker is shown with its base class. The small boxes are entries: the game starts Init and Main itself, OnTalk when you talk to the old woman, and the battle starts OnTurn and OnDeath.</figcaption>
+</figure>
+
+## Thirty frames a second
+
+The game updates its world 30 times a second, in steps called frames. In each frame, every worker that has something to do runs its code until it waits. Then the game moves the characters, plays their motions and draws the picture. Then the next frame starts, and each worker carries on from where it waited.
+
+Take the old woman's `Main`. It tells her to walk to the next point of her loop, then waits until she gets there. While she waits, the frames go on: Tidus moves, the other villagers walk, the camera follows. When she arrives, her `Main` goes on to the next point.
+
+Waiting is how the scripts share the game. A wait is any call that lets frames pass:
+
+- `Wait.Frames(30)` waits 30 frames, one second. `Wait.Seconds(1.5f)` is the same thing written in seconds: the compiler turns it into `Wait.Frames(45)`.
+- `Motion.Wait()` waits until the worker's current motion has played.
+- A line of dialogue waits until the player closes the window.
+- A request can wait until another worker has run an entry. That is the next page.
+
+A few things follow from this, and they surprise people who are used to .NET:
+
+- Nothing is shorter than one frame. A worker runs at most once per frame, so `Wait.Frames(0)` still waits one frame, and a wait of a fraction of a frame doesn't exist.
+- A loop needs a wait inside. The game only goes on to the next frame when every worker has stopped for this one, so a loop that never waits holds the whole game.
+- Frames are game time, not wall-clock time. With the PC version's speed-up booster the game runs two or four frames for each one it draws, and your waits run faster with it. The main menu stops the world, so no script frame passes while it is open.
+- While one entry waits, another entry of the same worker may run. The old woman is still in the middle of her walk when you talk to her. [Requests](/ffx-atel-sharp/concepts/requests/) explains how the two take turns.
+
+## Details
+
+The full description of the machine, the worker types and the entries is in [docs/language.md, "The machine in brief"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#the-machine-in-brief) and the sections after it. How the game counts frames is in [docs/research/frame-timing.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/frame-timing.md), and which battle event runs which entry is in [docs/research/handlers.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/handlers.md).

@@ -17,29 +17,46 @@ The loader links it onto the player's own file when the game starts.
   its README says, so that the game starts through it and reads mods from its `mods/` folder. The
   Atel loader was tested with Fahrenheit 1.0.0-alpha12.
 - **The .NET 10 SDK** (`dotnet --version` shows `10.…`).
-- A checkout of this repository, for the tools and the SDK package, which are not published yet.
+- A checkout of this repository, for the Atel loader, which is not published yet.
 
-## 2. Build the tools
+## 2. Install the tools
 
-From the repository's root:
+The `atel` command is a .NET tool, `AtelSharp.Cli` on nuget.org:
 
 ```bash
-dotnet build -c Release src/Ffx.Atel.Cli      # the atel command
-dotnet build -c Release src/Ffx.Atel.Loader   # the Fahrenheit mod yuta.atel
-dotnet pack -c Release src/Ffx.Atel.Sdk -o ~/atel-feed   # the SDK a mod project uses
-dotnet nuget add source ~/atel-feed --name atel          # once: where NuGet finds it
+dotnet tool install -g AtelSharp.Cli --prerelease   # the atel command
+atel --help
 ```
 
-The command is `artifacts/bin/Ffx.Atel.Cli/release/atel`; the loader is written to
-`artifacts/deploy/release/mods/yuta.atel/`; the SDK package is `~/atel-feed/AtelSharp.Sdk.<version>.nupkg`,
-the version that of the commit you built, such as `0.1.0-alpha.0.117.g5e8c870545` ([sdk.md](sdk.md),
-"Versions"). NuGet keeps a package version it has seen, so each commit packs a new one; after packing
-uncommitted changes, delete `~/.nuget/packages/atelsharp.sdk/<version>/`. For the rest of the tutorial:
+The SDK a mod project uses, `AtelSharp.Sdk`, comes from nuget.org too: restore fetches the version a
+project names, and `atel decompile` names the version of the tool itself. Later releases update both
+(`dotnet tool update -g AtelSharp.Cli --prerelease`, then the version in the project, step 5).
+
+The loader is built from the repository's root:
 
 ```bash
-alias atel="$PWD/artifacts/bin/Ffx.Atel.Cli/release/atel"
+dotnet build -c Release src/Ffx.Atel.Loader   # the Fahrenheit mod yuta.atel
+```
+
+It is written to `artifacts/deploy/release/mods/yuta.atel/`. For the rest of the tutorial:
+
+```bash
 export FFX_GAME_DIR=<the folder with FFX.exe>     # atel reads data/FFX_Data.vbf from it
 ```
+
+To use the tools of a commit between releases instead, pack them from the checkout into a local
+folder, install `atel` from there, and pass `--sdk ~/atel-feed` to `atel decompile` in step 3:
+
+```bash
+dotnet pack -c Release src/Ffx.Atel.Cli -o ~/atel-feed
+dotnet pack -c Release src/Ffx.Atel.Sdk -o ~/atel-feed
+dotnet nuget add source ~/atel-feed --name atel          # once: where NuGet finds the SDK
+dotnet tool install -g AtelSharp.Cli --version <version> --add-source ~/atel-feed
+```
+
+Their version is that of the commit you built, such as `0.1.0-alpha.0.117.g5e8c870545`
+([sdk.md](sdk.md), "Versions"). NuGet keeps a package version it has seen, so each commit packs a new
+one; after packing uncommitted changes, delete `~/.nuget/packages/atelsharp.sdk/<version>/`.
 
 `atel` reads the game's files directly from `FFX_Data.vbf`; it never writes into the game folder.
 (`--game <dir>` works instead of `FFX_GAME_DIR`.)
@@ -51,7 +68,7 @@ your machine).
 
 ```bash
 mkdir -p ~/ffx-mods && cd ~/ffx-mods
-atel decompile m209 -o vanilla --sdk ~/atel-feed
+atel decompile m209 -o vanilla
 ```
 
 ```
@@ -61,8 +78,8 @@ atel decompile m209 -o vanilla --sdk ~/atel-feed
 `vanilla/Monsters/M209/` now holds the script: `M209.cs` (the script class: its workers
 `Motions`, `Ai` and `Cameras`, and its variables), one file per worker, `M209.Layout.cs` (what keeps the bytes the
 game's: the header, the pools) and `M209.Data.cs` (its data areas). The
-projects use the SDK (`--sdk` copies the package into `vanilla/.atel/packages/` and pins its version
-in `vanilla/global.json`), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
+projects use the SDK (`vanilla/global.json` pins the version of the `atel` that wrote them; with
+`--sdk`, the package is copied into `vanilla/.atel/packages/` too), so `dotnet build vanilla/Atel.slnx` compiles the script as C# with the Atel
 analyzers, and any C# IDE opens it.
 
 Open `vanilla/Monsters/M209/Ai.cs`. Worker 1 is the Larva's action worker, which the battle asks what to do on its
@@ -112,7 +129,8 @@ property):
 </Project>
 ```
 
-- The version after `AtelSharp.Sdk/` is the one of the package you packed (its file name). A newer
+- The version after `AtelSharp.Sdk/` is the one of your `atel` (`dotnet tool list -g`), or of the
+  package you packed (its file name). A newer
   SDK is a new version: change it here (or put it in a `global.json`, [sdk.md](sdk.md)).
 - `AtelModId` is the Fahrenheit mod id: the name of the mod's folder and of its manifest.
 - `AtelModName`, `Description`, `Authors` and `Version` go into the manifest.

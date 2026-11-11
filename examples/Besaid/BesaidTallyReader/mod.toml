@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Atel's mod settings (docs/formats/mod-package.md); all optional.
+# It reads your-name.besaidtally's saved field: without that mod linked, this one is left out.
+requires = ["your-name.besaidtally"]
+after = ["your-name.besaidtally"]
