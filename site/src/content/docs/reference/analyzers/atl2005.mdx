@@ -1,0 +1,35 @@
+---
+title: "ATL2005: Awaited request to your own entry"
+description: "A worker awaits one of its own entries, which only works when the request's level is above its own."
+sidebar:
+  label: "ATL2005: Awaited request to your own entry"
+  order: 2005
+sources: ["docs/analyzers.md#atl2005"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A worker awaits one of its own entries, which only works when the request's level is above its own. Warning: the build goes on, and the editor marks the line.
+
+## What it means
+
+A worker runs one request at a time per priority level. Awaiting its own entry at the level it already runs at
+is refused: the entry doesn't run and the `await` returns at once. Below that level, the entry never starts and the
+caller waits for ever. Only a higher level works. The analyzer can't see the levels here, so it warns.
+
+<Snippet file="Analyzers/Atl2005.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Make the code a helper method and call it. It runs at once, on the same worker:
+
+<Snippet file="Analyzers/Atl2005.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+When you request at a level you know is above the caller's (`Priority.P5` from code running at level 1), the
+request runs as a call. Suppress the warning there.
+
+## Details
+
+[docs/analyzers.md, "ATL2005"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2005).

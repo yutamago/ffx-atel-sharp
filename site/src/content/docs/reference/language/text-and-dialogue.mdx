@@ -1,0 +1,75 @@
+---
+title: Text and dialogue
+description: Messages are numbered lines of the script's message table. Dialogue.Say shows one. A mod adds new lines with Text.New, and prints debug text with Debug.Print.
+sidebar:
+  order: 8
+sources: ["docs/language.md#text", "docs/language.md#inline-methods"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+The game has no strings. Every line of dialogue is a message in a table that belongs to the map or battle, in each
+language the game ships, and a script refers to a message by its number. `Text[12]` is message 12.
+
+## A line of dialogue
+
+<Snippet file="Language/Text/Test0500.cs" region="say" />
+
+`Dialogue.Say` opens the dialogue window with the message, waits until the player has read it and pressed the
+button, and closes the window. Its other parameters have the values most lines use: window 0, near the bottom of
+the screen, the usual style. Name the ones you change.
+
+`Dialogue.Say` is not one native but several, written out in place of the call: the window's position, its style,
+its text, opening it, and the waits. That is what the game's own scripts do for each line.
+
+## Voiced lines
+
+<Snippet file="Language/Text/Test0500.cs" region="voiced" />
+
+`Dialogue.SayWithVoice` prepares the voice clip, opens the window, plays the clip, and lets the player skip it
+with the button. `Dialogue.SayVoicedToEnd` plays the clip to its end. Setting `AutoTalk` moves the speaker's mouth
+while the line plays.
+
+## The message natives
+
+The natives that show text take a `TextId` too, so `Text[n]` goes anywhere a message goes:
+
+<Snippet file="Language/Text/Test0500.cs" region="natives" />
+
+The editor extensions show each `Text[n]`'s message next to it, read from your own copy of the game. See
+[the editor guide](/ffx-atel-sharp/guides/).
+
+## A new line in a mod
+
+`Text.New` adds a message to the script's table:
+
+<Snippet file="Language/Text/Mod/Wakka.cs" region="new-line" />
+
+- The loader gives the new message the next free number when it links the mod, in every language's table, so two
+  mods that add lines don't collide.
+- The text is written in the mod's language (`source_language` in `mod.toml`, English unless it says otherwise).
+  The other languages get a copy of it, and the loader's report lists them as not translated.
+- Control codes, such as a character's name or a button icon, are written in braces, as `atel text export` writes
+  them. Write `{{` and `}}` for a brace.
+- Only maps and battles have message tables. In a monster's script, `Text.New` is an error.
+
+## Debug text
+
+`Debug.Print` writes a line to Fahrenheit's log and on screen, at the top left, with the time and the worker.
+F6 shows or hides it.
+
+<Snippet file="Language/Text/Mod/Wakka.cs" region="debug" />
+
+It takes an interpolated string with up to 16 values. `Debug.Break()` logs the worker's registers, and stops in a
+.NET debugger if one is attached. A build with `--debug drop` leaves `Debug` calls out.
+
+## Strings anywhere else
+
+A `string` outside attributes, `Debug`, `Text.New` and `Asm` is an error,
+[ATL1002](/ffx-atel-sharp/reference/analyzers/atl1002/). For text the player sees, use a message.
+
+## Details
+
+[docs/language.md, "Text"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#text) and
+["Inline methods"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#inline-methods), which
+lists the natives each `Dialogue` method stands for.

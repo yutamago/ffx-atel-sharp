@@ -1,0 +1,34 @@
+---
+title: "ATL1003: .NET base library"
+description: "A type or member of .NET is used, and .NET isn't there when the script runs."
+sidebar:
+  label: "ATL1003: .NET base library"
+  order: 1003
+sources: ["docs/analyzers.md#atl1003"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A type or member of .NET is used, and .NET isn't there when the script runs. Error: the build fails until it is fixed.
+
+## What it means
+
+Your mod runs on the game's script machine, not on .NET. `Math`, `Console`, `Array.Length`, `GetHashCode` and
+everything else from the `System` and `Microsoft` namespaces doesn't exist there.
+
+<Snippet file="Analyzers/Atl1003.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write the arithmetic out, or use one of the game's natives:
+
+<Snippet file="Analyzers/Atl1003.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. The built-in number types (`int`, `float`, `bool`, …) and constants such as `int.MaxValue` are fine, and
+so are attributes and `using` lines, which only matter at build time.
+
+## Details
+
+[docs/analyzers.md, "ATL1003"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1003).

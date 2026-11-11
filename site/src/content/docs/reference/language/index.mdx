@@ -1,0 +1,54 @@
+---
+title: The Atel language
+description: Atel is C# limited to what Final Fantasy X's script machine can run. This reference goes through it one construct at a time.
+sidebar:
+  label: Overview
+  order: 0
+sources: ["docs/language.md#the-atel-language", "docs/language.md#the-machine-in-brief"]
+---
+
+Atel is ordinary C#. You write `.cs` files in any C# editor, and `dotnet build` compiles them. What makes it Atel is
+what the code may use. The game runs its scripts on a small machine of its own, called ATEL, and that machine has
+no .NET, no objects and no strings. So an Atel file uses only what the machine has: whole numbers, floats, flags,
+fixed-size arrays, the game's functions, and requests from one part of a script to another.
+
+Three things draw that line:
+
+- The game library, `Ffx.Atel.Game`. It holds the game's functions, its enums and constants, the base classes for
+  workers, and the attributes that describe a script. Your project compiles against it.
+- The analyzers. They mark C# that the game can't run, in the editor while you type and in `dotnet build`. Each
+  rule has a page under [Analyzers](/ffx-atel-sharp/reference/analyzers/).
+- The Atel compiler, which turns the C# into the game's bytecode when you build a mod. It accepts a little less
+  than the analyzers allow. Where something isn't compiled yet, these pages say so.
+
+## How to read these pages
+
+Each page takes one topic. For each construct it shows what you write, says what it does in the game, and names
+what the analyzers refuse. The examples are compiled on every change to the repository, so they are real Atel.
+
+Two kinds of code appear. Vanilla source is what `atel decompile` writes for one of the game's own scripts: you
+read it to find what to change. A mod is your code on top of it, in `partial` classes of the same names. Many
+constructs look the same in both. Where they differ, the page says which is which.
+
+The words script, worker, entry and request have a fixed meaning here. [Concepts](/ffx-atel-sharp/concepts/)
+explains them in more depth.
+
+## The pages
+
+- [Scripts and workers](/ffx-atel-sharp/reference/language/scripts-and-workers/): the classes a script is made of.
+- [Entries](/ffx-atel-sharp/reference/language/entries/): the methods the game runs.
+- [Requests and waiting](/ffx-atel-sharp/reference/language/requests-and-waiting/): how workers ask each other to run an entry, and how code waits.
+- [Variables and saved fields](/ffx-atel-sharp/reference/language/variables-and-saved-fields/): where values live and how long they last.
+- [Types and values](/ffx-atel-sharp/reference/language/types-and-values/): numbers, flags, enums and casts.
+- [Natives and members](/ffx-atel-sharp/reference/language/natives-and-members/): calling the game's functions.
+- [Control flow](/ffx-atel-sharp/reference/language/control-flow/): conditions, loops and `switch`.
+- [Text and dialogue](/ffx-atel-sharp/reference/language/text-and-dialogue/): lines of dialogue, new messages and debug output.
+- [Helpers and inline methods](/ffx-atel-sharp/reference/language/helpers-and-inline-methods/): your own methods.
+- [Patches](/ffx-atel-sharp/reference/language/patches/): `[Postfix]`, `[Prefix]`, `[Replace]` and `[Inject]`.
+- [Data edits](/ffx-atel-sharp/reference/language/data-edits/): a monster's stats and a script's initial values.
+- [What is not supported](/ffx-atel-sharp/reference/language/not-supported/): the C# that has no place in a script.
+
+## Details
+
+The full reference, with the bytecode each construct becomes, is
+[docs/language.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md) in the repository.

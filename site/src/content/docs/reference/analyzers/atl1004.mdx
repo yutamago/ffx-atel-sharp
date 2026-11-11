@@ -1,0 +1,35 @@
+---
+title: "ATL1004: Collections"
+description: "A collection type is used, and nothing in a script can grow."
+sidebar:
+  label: "ATL1004: Collections"
+  order: 1004
+sources: ["docs/analyzers.md#atl1004"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A collection type is used, and nothing in a script can grow. Error: the build fails until it is fixed.
+
+## What it means
+
+The game keeps values in variables and fixed-size arrays. `List<T>`, `Dictionary<K, V>` and the other .NET
+collections need memory that grows, which a script doesn't have.
+
+<Snippet file="Analyzers/Atl1004.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Declare an array of the size you need as a variable of the script class:
+
+<Snippet file="Analyzers/Atl1004.cs" region="fix" title="Fixed" />
+
+<Snippet file="Analyzers/Atl1004.cs" region="fix-use" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1004"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1004).

@@ -1,0 +1,33 @@
+---
+title: "ATL1006: Exceptions"
+description: "Using try, catch, finally or throw: the game has no exceptions."
+sidebar:
+  label: "ATL1006: Exceptions"
+  order: 1006
+sources: ["docs/analyzers.md#atl1006"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`try`, `catch`, `finally` or `throw` is used, and the game has no exceptions. Error: the build fails until it is fixed.
+
+## What it means
+
+Nothing in a script throws, so there is nothing to catch. A division by zero, for example, doesn't raise an
+error the script could handle.
+
+<Snippet file="Analyzers/Atl1006.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Test for the case before you act:
+
+<Snippet file="Analyzers/Atl1006.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1006"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1006).

@@ -1,0 +1,33 @@
+---
+title: "ATL3002: Calls deeper than 3"
+description: "A chain of calls from an entry goes more than 3 deep."
+sidebar:
+  label: "ATL3002: Calls deeper than 3"
+  order: 3002
+sources: ["docs/analyzers.md#atl3002"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A chain of calls from an entry goes more than 3 deep. Error: the build fails until it is fixed.
+
+## What it means
+
+The game keeps 3 return addresses per worker. Each call of a helper or a function worker uses one. So from an
+entry, a helper may call a helper, which may call one more, and that is all. The message shows the chain.
+
+<Snippet file="Analyzers/Atl3002.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Flatten the chain, or make the innermost methods `[Inline]`, which add no level:
+
+<Snippet file="Analyzers/Atl3002.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3002"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3002).

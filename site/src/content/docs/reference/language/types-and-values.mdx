@@ -1,0 +1,69 @@
+---
+title: Types and values
+description: Every value in a script is a 32-bit whole number or a float. Enums name the game's numbers, and casts compile to nothing.
+sidebar:
+  order: 5
+sources: ["docs/language.md#types-and-values", "docs/language.md#variables"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+The game's script machine knows two kinds of value: 32-bit whole numbers and 32-bit floats. Everything else in
+Atel is a way of writing one of those.
+
+## Numbers
+
+<Snippet file="Language/Types/M998.cs" region="numbers" />
+
+- `int` is 32 bits and wraps on overflow, as C# does by default. `checked` is an error,
+  [ATL1010](/ffx-atel-sharp/reference/analyzers/atl1010/).
+- `float` is a 32-bit float. A float literal needs its `f`: `35f`, `0.5f`. Without it, `0.5` is a `double`, which
+  the game doesn't have, [ATL1009](/ffx-atel-sharp/reference/analyzers/atl1009/). The editor offers to add the `f`.
+- `byte`, `sbyte`, `short`, `ushort` and `uint` are the sizes a variable can be stored in. Once read, every value is
+  32 bits again.
+- `long`, `double`, `decimal`, `char` and `object` don't exist in the game,
+  [ATL1009](/ffx-atel-sharp/reference/analyzers/atl1009/).
+
+## Flags
+
+`bool` is for conditions. The game has no `bool` type: a comparison gives 0 or 1, and a condition tests whether a
+value is 0. So a `bool` variable or local is a whole number that holds 0 or 1. See
+[Control flow](/ffx-atel-sharp/reference/language/control-flow/#conditions) for using numbers as conditions.
+
+## Enums and constants
+
+The game's functions take numbers that mean something: a target, a command, a model, a map. The game library
+names them with enums, and each member compiles to its number:
+
+<Snippet file="Language/Types/M998.cs" region="enums" />
+
+- `Target` picks battle actors (`Target.Own` is the monster itself, `Target.AllPly` the whole party), `Command` a
+  battle command, `ActorProperty` a battle stat, `Model` a character model, `Map` a map.
+- Battle ids are `int` constants of `Battle`, because the scripts keep them in integer registers.
+- `Sfx` has no members yet. Sound effects are written as a cast of their number, `(Sfx)0x80000017`.
+- A cast from a number to an enum, `(Target)I0`, compiles to nothing.
+
+## Casts
+
+The game has no conversions. Every cast compiles to nothing and only tells C# what you mean:
+
+<Snippet file="Language/Types/M998.cs" region="casts" />
+
+The decompiler writes the casts C# needs: `(int)` for a float passed where a whole number goes, `(byte)` to store a
+sum into a `byte` variable, `(int)` to read a `uint` variable. Since a cast changes nothing, don't use one to round
+a float as you would in .NET.
+
+## Message ids
+
+`Text[12]` is message 12 of the script's message table, a `TextId`. A whole number converts to `TextId` on its
+own, so a computed index works too. See [Text and dialogue](/ffx-atel-sharp/reference/language/text-and-dialogue/).
+
+## Vectors
+
+`Vector3` is the game library's, `Ffx.Vector3`. The game has no structs, so a vector is never stored or computed
+with. It only exists as the value given to a property, `Pos = new Vector3(x, y, z)`, whose three numbers go to the
+game's function as written. See [Natives and members](/ffx-atel-sharp/reference/language/natives-and-members/).
+
+## Details
+
+[docs/language.md, "Types and values"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#types-and-values).

@@ -10,6 +10,17 @@ Builds between releases have their commit's version (`0.1.0-alpha.0.<commits>.g<
 
 ## [Unreleased]
 
+### Changed
+
+- Each analyzer's help link (the link on the diagnostic in the IDE) opens its page on the website,
+  `https://yutamago.github.io/ffx-atel-sharp/reference/analyzers/atlNNNN/`, instead of a section of
+  `docs/analyzers.md`.
+
+### Fixed
+
+- ATL0001 (a register used across a wait while another entry writes it) checks `static` register fields, the form
+  the decompiler writes; before, it saw only instance fields and never fired on decompiled or new code.
+
 ## [0.1.0-alpha.1] - 2026-11-10
 
 The first release: a preview for modders who want to try Atel. Atel mods change the event, battle and monster

@@ -1,0 +1,39 @@
+---
+title: "ATL0001: Register used across a wait"
+description: "A register holds a value across a wait, and another entry of the same worker writes it."
+sidebar:
+  label: "ATL0001: Register used across a wait"
+  order: 1
+sources: ["docs/analyzers.md#atl0001"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A register holds a value across a wait, and another entry of the same worker writes it. Warning: the build goes on, and the editor marks the line.
+
+## What it means
+
+A worker has one set of registers for all of its entries. While one entry waits, another entry of the same
+worker can run, and it may change a register. Then the first entry goes on with a value it didn't put there.
+
+The rule looks for a `[Register]` field that is written before a wait, read after it, and written by another entry
+of the worker. Here `Pace` counts in `I0` while it waits, and `Reset` sets `I0`:
+
+<Snippet file="Analyzers/Atl0001.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Use a local. The compiler keeps a local that lives across a wait in a hidden variable of its own, so other
+entries can't touch it.
+
+<Snippet file="Analyzers/Atl0001.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+When the two entries can't run at the same time, for example because they run at the same priority level, the
+warning is harmless. The game's own scripts have many of these. Suppress it on the line with
+`#pragma warning disable ATL0001` if you are sure.
+
+## Details
+
+[docs/analyzers.md, "ATL0001"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl0001).

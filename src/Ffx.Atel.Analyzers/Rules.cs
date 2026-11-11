@@ -10,7 +10,8 @@ namespace Ffx.Atel.Analyzers;
 ///     workers, ATL3xxx <c>call</c> (functions and helpers), ATL4xxx what a mod writes on top of vanilla.
 /// </summary>
 public static class Rules {
-    private const string Docs = "https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#";
+    /// <summary>Each rule's page on the website, which the IDE opens from the diagnostic (<c>site/src/content/docs/reference/analyzers/</c>).</summary>
+    private const string Site = "https://yutamago.github.io/ffx-atel-sharp/reference/analyzers/";
 
     public const string SubsetCategory = "Atel.Subset";
     public const string RequestCategory = "Atel.Requests";
@@ -19,7 +20,7 @@ public static class Rules {
     public const string ModCategory = "Atel.Mods";
 
     private static DiagnosticDescriptor Rule(string id, string title, string message, string category, DiagnosticSeverity severity, string description, params string[] tags) =>
-        new(id, title, message, category, severity, isEnabledByDefault: true, description, Docs + id.ToLowerInvariant(), tags);
+        new(id, title, message, category, severity, isEnabledByDefault: true, description, Site + id.ToLowerInvariant() + "/", tags);
 
     // ----- ATL0xxx: registers ---------------------------------------------------------------
 
