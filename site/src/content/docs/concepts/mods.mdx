@@ -1,0 +1,157 @@
+---
+title: How a mod gets into the game
+description: From the vanilla source and your mod to the mod package, the linker and the loader, and what happens when two mods change the same entry.
+sidebar:
+  order: 4
+sources:
+  - "docs/language.md#mods"
+  - "docs/language.md#initial-values-and-data-edits"
+  - "docs/language.md#injecting-code"
+  - "docs/formats/mod-package.md#a-mod-on-disk"
+  - "docs/formats/mod-package.md#a-package"
+  - "docs/formats/mod-package.md#linking"
+  - "docs/formats/mod-package.md#the-report"
+  - "docs/research/loader.md#how-the-loader-serves-files"
+---
+
+The Quickstart's mod makes Wakka twice his size on the night after the trial. It is a few lines of C#. Between those lines and Wakka on the screen there are four steps: the vanilla source, your mod, the mod package, and the loader that puts the package into the game when it starts. This page follows the mod through them.
+
+<figure>
+<svg viewBox="0 0 640 380" role="img" aria-labelledby="mod-pipeline-title" style={{ width: '100%', height: 'auto', maxWidth: '640px' }} font-family="inherit" font-size="13">
+	<title id="mod-pipeline-title">When you build: atel decompile turns your game files into vanilla source, you write your mod against it, and dotnet build makes a mod package. When the player starts the game: the loader reads the player's own game files and the mod packages, links them, and the game runs the linked scripts.</title>
+	<defs>
+		<marker id="mod-pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+			<path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+		</marker>
+	</defs>
+	<g fill="currentColor" font-size="12" opacity="0.8">
+		<text x="10" y="22">When you build the mod</text>
+		<text x="10" y="176">When the player starts the game</text>
+	</g>
+	<line x1="10" y1="152" x2="630" y2="152" stroke="currentColor" stroke-width="1" stroke-dasharray="5 4" opacity="0.5" />
+	<g stroke="currentColor" stroke-width="1" style={{ fill: 'var(--sl-color-gray-6)' }}>
+		<rect x="10" y="40" width="140" height="56" rx="6" />
+		<rect x="250" y="40" width="140" height="56" rx="6" />
+		<rect x="10" y="190" width="140" height="56" rx="6" />
+		<rect x="250" y="310" width="140" height="56" rx="6" />
+	</g>
+	<g stroke-width="1.5" style={{ fill: 'var(--sl-color-accent-low)', stroke: 'var(--sl-color-accent)' }}>
+		<rect x="490" y="40" width="140" height="56" rx="6" />
+		<rect x="490" y="190" width="140" height="56" rx="6" />
+		<rect x="250" y="190" width="140" height="56" rx="6" />
+	</g>
+	<g fill="currentColor" text-anchor="middle">
+		<text x="80" y="64" font-weight="bold">Your game files</text>
+		<text x="80" y="82" font-size="12">your own copy</text>
+		<text x="320" y="64" font-weight="bold">Vanilla source</text>
+		<text x="320" y="82" font-size="12">C#, stays on your PC</text>
+		<text x="560" y="64" font-weight="bold">Your mod</text>
+		<text x="560" y="82" font-size="12">partial classes</text>
+		<text x="560" y="214" font-weight="bold">Mod package</text>
+		<text x="560" y="232" font-size="12">your code only</text>
+		<text x="80" y="214" font-weight="bold" font-size="12">Player's game files</text>
+		<text x="80" y="232" font-size="12">their own copy</text>
+		<text x="320" y="214" font-weight="bold">The loader</text>
+		<text x="320" y="232" font-size="12">checks and links</text>
+		<text x="320" y="334" font-weight="bold">The game</text>
+		<text x="320" y="352" font-size="12">runs linked scripts</text>
+	</g>
+	<g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#mod-pipeline-arrow)">
+		<line x1="150" y1="68" x2="248" y2="68" />
+		<line x1="390" y1="68" x2="488" y2="68" />
+		<line x1="560" y1="96" x2="560" y2="188" />
+		<line x1="490" y1="218" x2="392" y2="218" />
+		<line x1="150" y1="218" x2="248" y2="218" />
+		<line x1="320" y1="246" x2="320" y2="308" />
+	</g>
+	<g fill="currentColor" font-size="11" style={{ fontFamily: 'var(--sl-font-mono, monospace)' }}>
+		<text x="200" y="60" text-anchor="middle">atel decompile</text>
+		<text x="552" y="130" text-anchor="end">dotnet build</text>
+	</g>
+	<g fill="currentColor" font-size="12">
+		<text x="440" y="60" text-anchor="middle">you write</text>
+		<text x="440" y="210" text-anchor="middle">in load order</text>
+		<text x="200" y="210" text-anchor="middle">reads</text>
+		<text x="328" y="282">at game start</text>
+	</g>
+</svg>
+<figcaption>The steps above the line happen on your machine. Only the mod package travels to the player, and the loader joins it with the player's own game files.</figcaption>
+</figure>
+
+## Vanilla source and your mod
+
+`atel decompile bsvr0001` reads the night village's script from your copy of the game and writes it out as C#. This is the vanilla source: the game's own code, unchanged, as a C# project. It compiles back to exactly the bytes it came from, which is how you know it says what the game does.
+
+The vanilla source stays on your machine. It is the game's code, so you never commit it or share it.
+
+Your mod is a separate C# project that builds against the vanilla source. It adds to the vanilla classes with `partial` classes in the same namespace. The giant Wakka mod is one class, `partial class Wakka`, in the namespace of `bsvr0001`, with one method. That method has `[Postfix(nameof(Init))]` on it and calls `Chr.SetScaleAll(2)`. C# sees one `Wakka` class made of two parts, so your code can use everything the vanilla part declares, and the IDE completes the names for you.
+
+{/* Show examples/Besaid/GiantWakka/Wakka.cs here with <Code> once it is in main (PR #91). */}
+
+The attribute says where your code goes:
+
+| You write | Your code runs |
+|---|---|
+| `[Prefix(nameof(OnTalk))]` | before the vanilla `OnTalk`. A `return;` ends the entry, so the vanilla code doesn't run. |
+| `[Postfix(nameof(OnTalk))]` | after it, wherever it ends. |
+| `[Replace(nameof(OnTalk))]` | instead of it. |
+| `[Inject(nameof(OnTurn), After = nameof(Btl.SelectTarget))]` | inside it, right after the statement that calls `Btl.SelectTarget`. |
+
+A mod can also add things the script didn't have: new script fields, new entries, new workers, new lines of dialogue with `Text.New("…")`. And it can change single values in the script's data without touching any code. The first-mod tutorial gives the Dingo more HP and a bigger gil reward that way, in a static constructor of the script class.
+
+## The mod package
+
+`dotnet build` compiles your mod and writes a Fahrenheit mod folder, `mods/<your mod id>/`. Inside are Fahrenheit's manifest, your `mod.toml`, and one package for each script the mod changes.
+
+A package holds only your mod: your code, already compiled to ATEL bytecode, and your new variables and texts. Where it attaches to the game, it names the vanilla part by its number, "worker 2, the method `Init`", together with a fingerprint of that part's bytes. It never holds a copy of the game's code or data.
+
+## The loader
+
+The loader is a Fahrenheit mod, `yuta.atel`, that every Atel# mod depends on. It does its work once, when the game starts:
+
+1. It reads Fahrenheit's load order and finds every enabled mod that has packages.
+2. For each script any of them changes, it reads that script from the player's own game files.
+3. It checks every fingerprint against those files. A package whose fingerprints don't match was built for something else, so the loader leaves it out for that script and logs an error. The other mods still apply.
+4. It links the packages that passed onto the script, in load order.
+5. It hands the linked script to Fahrenheit, which gives it to the game in place of the original file.
+
+Nothing in the game folder changes. Disable the mod, and the next start runs the vanilla script again.
+
+## The linker
+
+Linking is how the loader fits a package into a script it has never seen before. The part of Atel# that does it is the linker, and it runs inside the game process.
+
+It gives your new script fields, workers and entries the next free numbers in the script. It adds your code at the end of each worker's code. The vanilla bytes stay where they were, because the game's data points at fixed places in the script. A patched entry now starts at the new code, which leads back into the vanilla code where it should.
+
+For a patched method, the linker builds one chain from every mod's patches: the prefixes in load order, then the method, then the postfixes in load order. An `[Inject]` goes into a copy of the method, at its statement.
+
+## Load order
+
+Fahrenheit keeps a list of the enabled mods, its load order. The loader comes first in it, and the Atel# mods after it. Their order is the order the linker applies them in.
+
+A mod can state what it needs in its `mod.toml`: other mods it requires, mods it can't run with, and mods it should load after. The loader reports a load order that breaks an "after" rule, but it doesn't change the order for you.
+
+## When two mods change the same entry
+
+Three of the Besaid guides add a `[Postfix]` to the old woman's `OnTalk`: one gives her a new line, one makes her dance, one makes her give you gil. Install all three and all three run, one after the other, in load order. Prefixes, postfixes and injects from different mods combine.
+
+Some changes can't combine, and the loader reports those as conflicts in Fahrenheit's log:
+
+- Two mods replace the same method. The later one in the load order wins.
+- Two mods set the same value in a script's data. The later one wins.
+- One mod replaces a method that another injects into. The inject has nowhere to go and is left out.
+- A mod lists another as incompatible. The later of the two is left out.
+
+The log also lists what each mod changed and which numbers it got, so it is the first place to look when a mod seems to do nothing.
+
+## Why mods never ship game files
+
+A mod made of whole replacement scripts would have to ship the game's files, which belong to the game's publisher. It would also overwrite every other mod that touches the same script, and break silently on a different version of the game.
+
+A package avoids all three. It holds only your code, so you can share it freely. It is joined with the player's own copy of the game, so it fits the files they have. Its fingerprints catch a version it wasn't built for, and it is left out instead of running in the wrong place. And because the linker joins packages, several mods can change one script, even one entry, at the same time.
+
+The same idea keeps the player's save files vanilla. [Saved fields](/ffx-atel-sharp/concepts/variables/#saved-fields) are kept in the loader's own file, never in the save.
+
+## Details
+
+The package format, the linking steps and the report are in [docs/formats/mod-package.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/formats/mod-package.md). How the loader hands files to the game through Fahrenheit is in [docs/research/loader.md](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/loader.md). What a mod can declare is in [docs/language.md, "Mods"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#mods).

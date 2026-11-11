@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: MIT */
+/* Only what Starlight's defaults don't cover (docs/website.md, step 8). */
+
+/* Diagrams: inline SVGs in the How it works pages. Colours come from Starlight's theme variables, so a
+   diagram reads the same in light and dark. */
+.diagram {
+	margin-block: 1.5rem;
+}
+.diagram svg {
+	display: block;
+	width: 100%;
+	max-width: 44rem;
+	height: auto;
+	margin-inline: auto;
+	color: var(--sl-color-white);
+	font-family: var(--__sl-font, system-ui, sans-serif);
+}
+.diagram figcaption {
+	margin-top: 0.5rem;
+	font-size: var(--sl-text-sm);
+	color: var(--sl-color-gray-2);
+	text-align: center;
+}
+.diagram .box {
+	fill: var(--sl-color-gray-6);
+	stroke: var(--sl-color-gray-4);
+	stroke-width: 1.5;
+}
+.diagram .accent {
+	fill: var(--sl-color-accent-low);
+	stroke: var(--sl-color-accent);
+	stroke-width: 1.5;
+}
+.diagram .line {
+	fill: none;
+	stroke: var(--sl-color-gray-3);
+	stroke-width: 1.5;
+}
+.diagram .line.dashed {
+	stroke-dasharray: 5 4;
+}
+.diagram .head {
+	fill: var(--sl-color-gray-3);
+}
+.diagram text {
+	fill: currentColor;
+	font-size: 15px;
+}
+.diagram text.mono {
+	font-family: var(--__sl-font-mono, ui-monospace, monospace);
+	font-size: 14px;
+}
+.diagram text.small {
+	font-size: 13px;
+	fill: var(--sl-color-gray-2);
+}
+.diagram text.label {
+	font-weight: 600;
+}
+
+/* Home page: the two facts and the badges. */
+.facts {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+}
+.badges img {
+	display: block;
+	height: 20px;
+	width: auto;
+}
