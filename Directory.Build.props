@@ -17,7 +17,7 @@
         <PackageReleaseNotes>https://github.com/yutamago/ffx-atel-sharp/blob/main/CHANGELOG.md</PackageReleaseNotes>
         <!-- Every commit builds its own version, 0.1.0-alpha.0.<commits>.g<commit> (Directory.Build.targets,
              docs/sdk.md "Versions"); -p:Version=<version> overrides it (the release workflow). -->
-        <AtelVersionBase>0.1.0-alpha.0</AtelVersionBase>
+        <AtelVersionBase>0.1.0-alpha.1</AtelVersionBase>
         <AtelVersionGiven Condition="'$(Version)' != ''">true</AtelVersionGiven>
         <Version Condition="'$(Version)' == ''">$(AtelVersionBase)</Version>
         <!-- Test assemblies one at a time (dotnet test); the corpus tests also lock against other checkouts. -->
