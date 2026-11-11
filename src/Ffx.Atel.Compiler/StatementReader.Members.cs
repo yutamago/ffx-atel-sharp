@@ -114,7 +114,7 @@ internal sealed partial class StatementReader {
             if (Members.Find(m.Path, MemberUse.Call).Count > 0) throw Error(call, $"{m.Path} takes no {argc} arguments");
             return null;
         }
-        return (native.Id, Site(call, native.Id, NativeArgs(sig, m.Path, call, args, fixedArg, receiver, native.Constant)));
+        return (native.Id, Site(call, native.Id, NativeArgs(sig, m.Path, call, args, fixedArg, receiver, native.Constant, native.ParamNames)));
     }
 
     /// <summary>A member read (<c>Yaw</c>, <c>Tidus.Pos.X</c>, <c>Move.YawToTarget</c>): the native's result; null if it is no member.</summary>
@@ -165,11 +165,12 @@ internal sealed partial class StatementReader {
     ///     does), then the member's arguments by position or name.
     /// </summary>
     /// <param name="constant">The argument after the receiver that the member's name stands for (<see cref="MemberNative.Constant"/>).</param>
-    private List<Expr> NativeArgs(NativeSignature sig, string name, SyntaxNode at, SeparatedSyntaxList<ArgumentSyntax> args, Expr? fixedArg, ExpressionSyntax? receiver, int? constant = null) {
+    /// <param name="memberNames">The member's own parameter names (<see cref="MemberNative.ParamNames"/>), for named arguments; else the native's.</param>
+    private List<Expr> NativeArgs(NativeSignature sig, string name, SyntaxNode at, SeparatedSyntaxList<ArgumentSyntax> args, Expr? fixedArg, ExpressionSyntax? receiver, int? constant = null, string[]? memberNames = null) {
         int skip = (fixedArg is not null || receiver is not null ? 1 : 0) + (constant is null ? 0 : 1);
         int count = sig.Argc - skip;
         if (args.Count != count) throw Error(at, $"{name} takes {count} arguments");
-        string[]? names = sig.ParamNames?.Skip(skip).ToArray();
+        string[]? names = memberNames is { Length: var n } && n == count ? memberNames : sig.ParamNames?.Skip(skip).ToArray();
         int[] position = new int[args.Count];
         bool[] given = new bool[count];
         for (int k = 0; k < args.Count; k++) {
