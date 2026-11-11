@@ -1,0 +1,33 @@
+---
+title: "ATL3003: Inline method calls itself"
+description: "An [Inline] method calls itself, directly or through other inline methods."
+sidebar:
+  label: "ATL3003: Inline method calls itself"
+  order: 3003
+sources: ["docs/analyzers.md#atl3003"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An `[Inline]` method calls itself, directly or through other inline methods. Error: the build fails until it is fixed.
+
+## What it means
+
+An inline method's code is written out in place of each call. One that calls itself would be written out inside
+itself, without end.
+
+<Snippet file="Analyzers/Atl3003.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write it as one method with a loop:
+
+<Snippet file="Analyzers/Atl3003.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3003"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3003).

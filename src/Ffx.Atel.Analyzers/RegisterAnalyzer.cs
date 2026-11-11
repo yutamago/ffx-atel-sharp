@@ -40,7 +40,7 @@ public sealed class RegisterAnalyzer : DiagnosticAnalyzer {
                 INamedTypeSymbol type = (INamedTypeSymbol)symbolStart.Symbol;
                 if (!model.IsWorker(type) || model.IsFunctionWorker(type)) return;
                 ImmutableArray<IFieldSymbol> registers = [
-                    .. AllFields(type).Where(f => !f.IsStatic && f.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, model.RegisterAttribute))),
+                    .. AllFields(type).Where(f => f.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, model.RegisterAttribute))),
                 ];
                 if (registers.IsEmpty) return;
                 ConcurrentDictionary<IMethodSymbol, ImmutableHashSet<IFieldSymbol>> writes = new(SymbolEqualityComparer.Default);

@@ -1,0 +1,38 @@
+---
+title: "ATL2008: Overlapping requests to an entry with parameters"
+description: "An entry with parameters or a result is requested where two requests may overlap."
+sidebar:
+  label: "ATL2008: Overlapping requests to an entry with parameters"
+  order: 2008
+sources: ["docs/analyzers.md#atl2008"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An entry with parameters or a result is requested where two requests may overlap. Warning: the build goes on, and the editor marks the line.
+
+## What it means
+
+The game's requests carry no values. So an entry's parameters and result live in hidden variables of its
+worker: a request writes the arguments, the entry reads them when it runs, and `await` reads the result after it
+ends. If a second request writes the arguments before the first has run, the first sees the second's values.
+
+The rule reports the requests when the entry is requested from more than one method, more than once without
+waiting for the end, or in a loop without waiting:
+
+<Snippet file="Analyzers/Atl2008.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Await each request to its end, from one place:
+
+<Snippet file="Analyzers/Atl2008.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+When you know the requests can't overlap, for example because the second can only happen after the first has
+ended, suppress it with `#pragma warning disable ATL2008`.
+
+## Details
+
+[docs/analyzers.md, "ATL2008"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl2008).

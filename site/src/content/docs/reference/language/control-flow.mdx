@@ -1,0 +1,72 @@
+---
+title: Control flow
+description: if, else, the loops, switch with patterns, && and ||, and the forms the decompiler writes for conditions and dead code.
+sidebar:
+  order: 7
+sources: ["docs/language.md#statements-and-expressions", "docs/language.md#conditions", "docs/language.md#control-flow"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+Atel has the statements you know from C#. This page covers the ones with a twist.
+
+## if and else
+
+<Snippet file="Language/ControlFlow/Test0400.cs" region="if-else" />
+
+`&&` and `||` short-circuit as in C#: the right side runs only when the left doesn't decide. `?:` evaluates only
+the branch it picks.
+
+## Loops
+
+<Snippet file="Language/ControlFlow/Test0400.cs" region="loops" />
+
+`while`, `do … while` and `for` work as in C#, and so do `break` and `continue` (`continue` in `while` and `for`,
+not in `do … while`). `foreach` is not compiled yet.
+
+A loop that waits for something to happen in the game, such as a character arriving, has a wait in it
+(`Wait.Frames(1)`), so that the game can go on to the next frame between two tests.
+
+## switch
+
+<Snippet file="Language/ControlFlow/Test0400.cs" region="switch" />
+
+- The value is any whole number.
+- A case is a constant (`case 3:`), a comparison (`case < 5:`) or a range (`case >= 10 and <= 20:`). `when` is not
+  supported.
+- Each section has one label. Write `case 1: case 2:` as a range or as two sections.
+- A section that should run on into the next ends with `goto case` naming the next one. That jump costs nothing.
+
+## Conditions
+
+C# wants a `bool` in a condition. The game tests any value against 0. Two helpers bridge the two:
+
+<Snippet file="Language/ControlFlow/Test0400.cs" region="conditions" />
+
+- `AsBool(x)` uses a number as a condition, true when it is not 0. `if (Flags != 0)` would mean the same, but
+  compiles to one more instruction, so the decompiler writes `AsBool` to keep the original bytes.
+- `AsInt(c)` uses a condition as a number, 0 or 1.
+- `&` and `|` on conditions run both sides, as they do in C#. The decompiler writes them, because the original code
+  never jumps inside a condition. In new code, prefer `&&` and `||`, which skip the right side, unless you want
+  both sides to run.
+
+## Dead code
+
+The game's scripts hold code that can never run, behind conditions that are always false. The decompiler keeps it
+as `if (false)`, so the script compiles back to the same bytes:
+
+<Snippet file="Language/ControlFlow/Test0400.cs" region="dead-code" />
+
+Some of these blocks are understood and have a name: `if (Cut.ZanarkandCrowdFacingReaction)` is `if (false)` with a
+constant of `Ffx.Cut` that says what the block does. Any other constant condition is an error. `while (true)` is a
+loop without a test.
+
+## goto
+
+The decompiler writes `goto` with labels such as `l12:` where no loop or `if` fits the original code. New code
+rarely needs it.
+
+## Details
+
+[docs/language.md, "Statements and expressions"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#statements-and-expressions)
+lists every operator and statement with what it compiles to.

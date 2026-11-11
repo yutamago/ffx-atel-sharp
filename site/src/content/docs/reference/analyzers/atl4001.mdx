@@ -1,0 +1,35 @@
+---
+title: "ATL4001: Static constructor that is not initial values"
+description: "A mod's static constructor does something other than set starting values."
+sidebar:
+  label: "ATL4001: Static constructor that is not initial values"
+  order: 4001
+sources: ["docs/analyzers.md#atl4001"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A mod's static constructor does something other than set starting values. Error: the build fails until it is fixed.
+
+## What it means
+
+A mod's static constructor is not code that runs. It lists starting values that the loader writes into the
+player's file: a monster's stats and rewards, a variable's first value, an element of a table. Each line assigns a
+constant to one of those. A call, a loop, a value read from a variable, or a field that isn't the script's data is
+reported, with the reason in the message.
+
+<Snippet file="Analyzers/Atl4001.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Keep constants in the static constructor, and move code to a patch:
+
+<Snippet file="Analyzers/Atl4001.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL4001"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl4001).

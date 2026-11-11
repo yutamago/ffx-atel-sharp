@@ -1,0 +1,33 @@
+---
+title: "ATL1012: Compound assignment to a member"
+description: "A compound assignment such as += on a property that is a game function."
+sidebar:
+  label: "ATL1012: Compound assignment to a member"
+  order: 1012
+sources: ["docs/analyzers.md#atl1012"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`+=`, `++` or another compound assignment is used on a property that is a game function. Error: the build fails until it is fixed.
+
+## What it means
+
+A property such as `Self.Hp`, `Yaw` or `Actors[…].Hp` is a native: reading it calls one game function,
+assigning it calls another. `+=` would hide both calls in one operator, so the compiler takes only `=`.
+
+<Snippet file="Analyzers/Atl1012.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write the read and the write out:
+
+<Snippet file="Analyzers/Atl1012.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1012"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1012).

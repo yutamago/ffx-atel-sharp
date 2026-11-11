@@ -1,0 +1,99 @@
+---
+title: Entries
+description: An entry is a method of a worker that the game runs by number. Init and Main are entries 0 and 1; [Entry(n)] declares the others.
+sidebar:
+  order: 2
+sources: ["docs/language.md#entries", "docs/language.md#function-workers-and-helpers", "docs/language.md#workers"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+An entry is a numbered starting point in a worker's code. The game never calls a worker's code by name. It runs
+entry 0 when the worker starts, entry 1 after it, and other entries when something asks for them: the player
+talks to an actor, a battle reaches a monster's turn, or another worker sends a request.
+
+In C#, an entry is a method, and its declaration says which number it has.
+
+<Snippet file="Language/Entries/Test0100.cs" region="entries" />
+
+| Declaration | Entry | When it runs |
+|---|---|---|
+| `protected override void Init()` | 0 | once, when the worker starts |
+| `protected override void Main()` | 1 | after `Init`: the worker's main code |
+| `[Entry(2)] void OnTalk()` | 2 | when the game or a trigger runs entry 2 |
+| `[Entry(3)] public static async Task WaveAsync()` | 3 | when another worker requests it |
+| `public static void Run()` in a `FunctionWorker` | 0 | when another worker calls it |
+
+The method's name doesn't matter to the game, only the number does. The decompiler names an entry after the
+trigger that runs it (`OnTalk`, `OnTouch`, `OnCross` on the map; `OnTurn`, `OnHit`, `OnDeath` in battle) or after
+what its code does.
+
+Which numbers the game runs by itself depends on the kind of worker. An `Actor` runs entry 2 when the player talks
+to it and entry 5 while the player touches it. A `LineTrigger` or `BoxTrigger` also runs entry 4 when the player
+crosses it. Other entries run only when code asks for them.
+
+## Entries other workers request
+
+A worker asks another worker to run one of its entries with a request. In C#, a request is a call of the entry's
+method, so that entry must be declared in a way C# can call and wait for: `public static async Task`, with a name
+ending in `Async`. The `Task` is the game library's, `Ffx.Atel.Task`, not .NET's.
+
+Requested entries are `static` so that `Villager.WaveAsync()` reads as a call on the class. There is one of each
+worker, so being static changes nothing. [Requests and waiting](/ffx-atel-sharp/reference/language/requests-and-waiting/)
+has the forms a request takes.
+
+Calling an entry that is not `async Task` is an error, [ATL2002](/ffx-atel-sharp/reference/analyzers/atl2002/).
+
+## Waiting for a request inside an entry
+
+An entry the game runs by itself (`Init`, `Main`, an `[Entry(n)]`) may be `async void`, so that it can `await` a
+request. Nothing waits for its result, so it doesn't need a `Task`:
+
+<Snippet file="Language/Entries/Test0100.cs" region="async-main" />
+
+Any other `async` method must return `Task` or `Task<T>`, [ATL2007](/ffx-atel-sharp/reference/analyzers/atl2007/).
+
+## Two entries, one method
+
+When two entries start at the same code, the method takes both numbers:
+
+<Snippet file="Language/Entries/Test0100.cs" region="two-entries" />
+
+## Ending an entry
+
+`return;` ends the entry. The worker then waits for its next request. Vanilla source ends every entry with an
+explicit `return;`, because the original code has one there. In your own new code, the end of the method does
+the same.
+
+<Snippet file="Language/Entries/Test0100.cs" region="end-entry" />
+
+## Function workers
+
+A `FunctionWorker` is a subroutine. It has one entry, `public static void Run()`, and other workers call it.
+It runs on the caller's worker, with the caller's registers, and the caller goes on when it returns.
+
+<Snippet file="Language/Entries/Test0100.cs" region="function-worker" />
+
+<Snippet file="Language/Entries/Test0100.cs" region="call-function-worker" title="Calling it" />
+
+Calls nest at most 3 deep, and a function can't call itself. Both are errors,
+[ATL3002](/ffx-atel-sharp/reference/analyzers/atl3002/) and [ATL3001](/ffx-atel-sharp/reference/analyzers/atl3001/).
+In a mod, a plain method of your own does the same job with less ceremony: see
+[Helpers and inline methods](/ffx-atel-sharp/reference/language/helpers-and-inline-methods/).
+
+## Entries in a mod
+
+Vanilla source always gives entry numbers. In a mod, a new entry has no number: the loader gives it one when it
+links the mod onto the player's script, so two mods that both add entries don't collide. Write it as an `async`
+method without `[Entry]`:
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="new-entry" />
+
+A method with `[Postfix]`, `[Prefix]`, `[Replace]` or `[Inject]` is not an entry but a patch of one. See
+[Patches](/ffx-atel-sharp/reference/language/patches/).
+
+## Details
+
+[docs/language.md, "Entries"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#entries) has
+the forms the decompiler writes for code that jumps from one entry into another (`Entry(n);`), and the levels each
+entry runs at.
