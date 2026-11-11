@@ -1,0 +1,34 @@
+---
+title: "ATL1013: Member holder used as a value"
+description: "Self, Actors[…], Turn, Workers[n] or another holder of members is kept, passed or returned."
+sidebar:
+  label: "ATL1013: Member holder used as a value"
+  order: 1013
+sources: ["docs/analyzers.md#atl1013"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`Self`, `Actors[…]`, `Turn`, `Workers[n]` or another holder of members is kept in a local, passed or returned. Error: the build fails until it is fixed.
+
+## What it means
+
+`Actors[Target.AllPly]` doesn't stand for an object. It only says whom the member after it acts on: the
+compiler reads `Actors[Target.AllPly].Defense` as one call of a game function, with the target as its first
+argument. Without a member after it, there is nothing to call.
+
+<Snippet file="Analyzers/Atl1013.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write the member right after it, each time:
+
+<Snippet file="Analyzers/Atl1013.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1013"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1013).

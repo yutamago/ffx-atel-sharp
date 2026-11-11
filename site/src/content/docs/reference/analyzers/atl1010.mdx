@@ -1,0 +1,33 @@
+---
+title: "ATL1010: checked arithmetic"
+description: "Using checked: the game's integers always wrap."
+sidebar:
+  label: "ATL1010: checked arithmetic"
+  order: 1010
+sources: ["docs/analyzers.md#atl1010"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+`checked` is used, and the game's integers always wrap. Error: the build fails until it is fixed.
+
+## What it means
+
+The game has no overflow check. An `int` that goes past its largest value wraps around, as C# does by default,
+so `checked` has nothing to compile to.
+
+<Snippet file="Analyzers/Atl1010.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Remove `checked`; the editor offers to do it:
+
+<Snippet file="Analyzers/Atl1010.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never. `unchecked` is fine, and the decompiler writes it for constants that need it.
+
+## Details
+
+[docs/analyzers.md, "ATL1010"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1010).

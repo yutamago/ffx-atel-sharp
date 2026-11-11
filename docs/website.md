@@ -151,8 +151,8 @@ What a modder needs in their head before the reference makes sense:
   that pass: regenerating `Natives.g.cs` needs the game and a scan of every
   script.
 - **Analyzers.** One page per rule (`ATL0001` … `ATL4004`): what it means, an
-  example that triggers it, the fix. Each analyzer gets a `HelpLinkUri` to its
-  page, so the link in the IDE's error list opens the site. None set it today.
+  example that triggers it, the fix. Each analyzer has a `HelpLinkUri` to its
+  page, so the link in the IDE's error list opens the site.
 - **CLI.** One page per command (`reference/cli/<command>.mdx`, written by
   hand), with the usage text generated at build time from the tool itself:
   `tools/gen-cli-usage.cs` cuts `atel --help` into

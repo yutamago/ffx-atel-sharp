@@ -1,0 +1,34 @@
+---
+title: "ATL1009: Not a type the game has"
+description: "A type the game has no room for is used, such as long or double."
+sidebar:
+  label: "ATL1009: Not a type the game has"
+  order: 1009
+sources: ["docs/analyzers.md#atl1009"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A type the game has no room for is used, such as `long` or `double`. Error: the build fails until it is fixed.
+
+## What it means
+
+Every value in a script is 32 bits: a whole number or a float. `long`, `ulong`, `double`, `decimal`, `char`,
+`object`, `dynamic`, native-sized integers and pointers don't fit. A literal like `0.5` is a `double` in C#, so it
+is reported too.
+
+<Snippet file="Analyzers/Atl1009.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Use `int` and `float`. A float literal needs its `f`; the editor offers to add it:
+
+<Snippet file="Analyzers/Atl1009.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL1009"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl1009).

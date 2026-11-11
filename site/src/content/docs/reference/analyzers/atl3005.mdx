@@ -1,0 +1,33 @@
+---
+title: "ATL3005: Argument must be a constant"
+description: "A parameter whose value is needed at build time gets a value known only at run time."
+sidebar:
+  label: "ATL3005: Argument must be a constant"
+  order: 3005
+sources: ["docs/analyzers.md#atl3005"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A parameter whose value is needed at build time gets a value known only at run time. Error: the build fails until it is fixed.
+
+## What it means
+
+`Wait.Seconds(s)` counts its frames when the mod is built, so `s` must be known then: a literal, a `const`, or
+arithmetic of them. A variable or a register has no value until the script runs.
+
+<Snippet file="Analyzers/Atl3005.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Use a constant, or count frames with `Wait.Frames`, which takes any value:
+
+<Snippet file="Analyzers/Atl3005.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3005"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3005).

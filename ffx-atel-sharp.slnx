@@ -13,6 +13,9 @@
     <Project Path="src/Ffx.Atel.Sdk/Ffx.Atel.Sdk.csproj" />
     <Project Path="src/Ffx.Atel.Templates/Ffx.Atel.Templates.csproj" />
   </Folder>
+  <Folder Name="/site/">
+    <Project Path="site/snippets/Snippets.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ffx.Atel.Analyzers.Tests/Ffx.Atel.Analyzers.Tests.csproj" />
     <Project Path="tests/Ffx.Atel.Bytecode.Tests/Ffx.Atel.Bytecode.Tests.csproj" />

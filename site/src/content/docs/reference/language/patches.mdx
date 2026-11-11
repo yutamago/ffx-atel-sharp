@@ -1,0 +1,94 @@
+---
+title: Patches
+description: A mod changes a vanilla method with [Postfix], [Prefix], [Replace] or [Inject], and adds variables, entries and workers of its own.
+sidebar:
+  order: 10
+sources: ["docs/language.md#mods", "docs/language.md#injecting-code"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A mod doesn't replace a script. It adds code to it, at places it names, and the loader links that code onto the
+player's own copy of the script when the game starts. So a mod's files are `partial` classes of the vanilla
+source's classes, in the same namespace and with the same `using` lines:
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="usings" />
+
+The examples on this page patch this vanilla worker of a monster:
+
+<Snippet file="Language/Patches/M997.cs" region="vanilla" title="Vanilla source" />
+
+## After a method: [Postfix]
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="postfix" />
+
+A postfix runs after the vanilla method, wherever the method ends: at its last line or at any `return;`. This is
+the usual way to change what a worker sets up in `Init`.
+
+## Before a method: [Prefix]
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="prefix" />
+
+A prefix runs before the vanilla method. A `return;` in the prefix ends the entry, so the vanilla method doesn't
+run. Without one, the vanilla method runs after it.
+
+## Instead of a method: [Replace]
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="replace" />
+
+The vanilla method's code doesn't run; yours does.
+
+## Inside a method: [Inject]
+
+`[Inject]` runs your code at a point inside a vanilla method. The point is a statement, named by a call or a member
+it holds:
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="inject" />
+
+- `Before` runs the code as the statement starts, `After` as it ends. Name one of the two.
+- The anchor is the call as the vanilla source writes it: `nameof(Btl.UseCommand)` for a native, `"Motion.Play"`
+  for a member's method, `nameof(Self.Hp)` for a property, which counts its reads and its assignments.
+- `Occurrence` counts the anchor's places in the method, from the top of the file, starting at 1.
+- The statement is the innermost one holding the anchor. When the anchor is in an `if`'s condition, as `Self.Hp`
+  is above, the statement is the whole `if` with its branches.
+- A `return;` in the injected code ends the entry there, as in a prefix.
+
+When the method has fewer places of the anchor than `Occurrence` says, or none, that is an error in the editor,
+[ATL4002](/ffx-atel-sharp/reference/analyzers/atl4002/), and in the build.
+
+The mod remembers which version of the method it was built against. If a game update changes the method, the
+loader leaves the inject out instead of putting code in the wrong place.
+
+## What patches have in common
+
+- A patch applies to every entry the vanilla method starts.
+- A patch is not an entry the game runs, so it can't be `async` or `await`. To wait for a request, request an
+  entry of your own (`_ = ShoutAsync();`) and await there.
+- Several mods may patch the same method. Their prefixes, postfixes and injects all run, in the load order. Two
+  `[Replace]`s of one method conflict, and the later mod wins. A `[Replace]` also takes the place an inject points
+  into, so the inject is left out and the loader reports the conflict.
+
+## New variables, entries and workers
+
+A mod can add to the script, as well as change it:
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="new-variable" />
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="new-entry" title="A new entry" />
+
+<Snippet file="Language/Patches/Mod/Ai.cs" region="new-worker" title="A new worker" />
+
+- A field of the script class without `[Var]` is a new variable. The loader places it.
+- An `async` method without an attribute is a new entry. The loader gives it a number when it links.
+- A plain method without an attribute is a helper, see
+  [Helpers and inline methods](/ffx-atel-sharp/reference/language/helpers-and-inline-methods/).
+- A new class deriving from a worker type is a new worker.
+
+A mod doesn't change the attributes or base classes of vanilla classes. To change a value the script starts with,
+see [Data edits](/ffx-atel-sharp/reference/language/data-edits/).
+
+## Details
+
+[docs/language.md, "Mods"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#mods) and
+["Injecting code"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#injecting-code), with
+how injects combine and where an inject can't go.

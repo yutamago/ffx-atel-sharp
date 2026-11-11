@@ -39,9 +39,11 @@ internal static partial class Harness {
             .WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> { ["CS0162"] = ReportDiagnostic.Suppress }));
 
     /// <summary>Every diagnostic, the analyzers' (all severities) and C#'s (warnings and errors).</summary>
-    public static ImmutableArray<Diagnostic> Analyze(Compilation compilation) {
+    /// <param name="reportSuppressed">Also the diagnostics a <c>#pragma warning disable</c> suppresses (<see cref="Diagnostic.IsSuppressed"/>).</param>
+    public static ImmutableArray<Diagnostic> Analyze(Compilation compilation, bool reportSuppressed = false) {
         CompilationWithAnalyzers analyzed = compilation.WithAnalyzers(AtelAnalyzers.All,
-            new CompilationWithAnalyzersOptions(new AnalyzerOptions([]), onAnalyzerException: null, concurrentAnalysis: true, logAnalyzerExecutionTime: false));
+            new CompilationWithAnalyzersOptions(new AnalyzerOptions([]), onAnalyzerException: null, concurrentAnalysis: true, logAnalyzerExecutionTime: false,
+                reportSuppressedDiagnostics: reportSuppressed));
         return [.. analyzed.GetAllDiagnosticsAsync().GetAwaiter().GetResult().Where(d => d.Id.StartsWith("ATL", StringComparison.Ordinal) || d.Id == "AD0001" || d.Severity >= DiagnosticSeverity.Warning)];
     }
 

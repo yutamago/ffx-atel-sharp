@@ -1,0 +1,60 @@
+---
+// SPDX-License-Identifier: MIT
+// Shows one region of a file in site/snippets/ (docs/website.md, "Code on the site"):
+//
+//   <Snippet file="Language/Entries/Test0100.cs" region="entries" />
+//
+// A region is the lines between "// region <name>" and the next matching "// endregion". Region lines nested
+// inside it are left out, and the code is dedented. A missing file or region fails the build, so a page can't
+// show code the snippets project doesn't compile (SnippetTests checks the snippets).
+import { Code } from '@astrojs/starlight/components';
+
+interface Props {
+	/** The path under site/snippets/, e.g. "Analyzers/Atl1001.cs". */
+	file: string;
+	/** The region's name. */
+	region: string;
+	/** A title over the code; none by default. */
+	title?: string;
+}
+
+const { file, region, title } = Astro.props;
+
+const files = import.meta.glob<string>('../../snippets/**/*.cs', { query: '?raw', import: 'default', eager: true });
+const source = files[`../../snippets/${file}`];
+if (source === undefined) {
+	throw new Error(`Snippet: no file site/snippets/${file}`);
+}
+
+const marker = /^\s*\/\/\s*(end)?region\b\s*(\S*)/;
+const lines = source.replace(/\r\n/g, '\n').split('\n');
+const start = lines.findIndex((line) => {
+	const m = marker.exec(line);
+	return m !== null && m[1] === undefined && m[2] === region;
+});
+if (start < 0) {
+	throw new Error(`Snippet: no region "${region}" in site/snippets/${file}`);
+}
+
+const body: string[] = [];
+let depth = 1;
+for (let k = start + 1; k < lines.length; k++) {
+	const m = marker.exec(lines[k]);
+	if (m !== null) {
+		depth += m[1] === undefined ? 1 : -1;
+		if (depth === 0) break;
+		continue;
+	}
+	body.push(lines[k]);
+}
+if (depth !== 0) {
+	throw new Error(`Snippet: region "${region}" in site/snippets/${file} is not closed`);
+}
+
+while (body.length > 0 && body[0].trim() === '') body.shift();
+while (body.length > 0 && body[body.length - 1].trim() === '') body.pop();
+const indent = Math.min(...body.filter((l) => l.trim() !== '').map((l) => l.length - l.trimStart().length));
+const code = body.map((l) => l.slice(Number.isFinite(indent) ? indent : 0)).join('\n');
+---
+
+<Code code={code} lang="csharp" title={title} />

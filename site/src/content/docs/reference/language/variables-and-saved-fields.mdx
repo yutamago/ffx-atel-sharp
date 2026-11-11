@@ -1,0 +1,120 @@
+---
+title: Variables and saved fields
+description: Script variables are static fields of the script class. Registers, locals, a mod's new variables and [Saved] fields each live somewhere else and last a different time.
+sidebar:
+  order: 4
+sources: ["docs/language.md#variables", "docs/language.md#registers", "docs/language.md#locals", "docs/language.md#saved-fields", "docs/language.md#mods"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A script keeps its values in four kinds of place. Which one you use decides who can see the value and how long it
+lasts.
+
+| Kind | Declared as | Lasts |
+|---|---|---|
+| a script variable | a static field of the script class | while the script runs, or in the save game |
+| a register | a `[Register(n)]` field of a worker | until any entry of that worker writes it |
+| a local | a local variable in a method | while the method runs, also across waits |
+| a saved field | a `[Saved]` field of your mod | with the player's save game |
+
+## Script variables
+
+In vanilla source, each variable says where it lives with `[Var(storage, offset)]`:
+
+<Snippet file="Language/Variables/Test0300.cs" region="variables" />
+
+| `Storage` | Where | Notes |
+|---|---|---|
+| `Save` | the save game | `Save.StoryProgress` and the other `Save.*` constants name known places |
+| `Common` | values all scripts share | |
+| `Private` | the worker's own data | each worker has its own copy |
+| `Shared` | the script's data | two monsters of the same kind share it |
+| `Event` | the map's event data | |
+
+Code reads and writes them as fields:
+
+<Snippet file="Language/Variables/Test0300.cs" region="use-variables" />
+
+- The types are `byte`, `sbyte`, `ushort`, `short`, `uint`, `int` and `float`, and arrays of those with one or two
+  dimensions. The initializer gives an array's size; a 2-D array's second number is its row length.
+- `bool` is a flag. The game stores it as a whole number, 0 or 1.
+- `Story` holds the story progress values the scripts compare against, named after the map that sets them.
+  `if (StoryProgress < Story.S00111_Bsil0000)` reads "before that point of the story".
+- The decompiler names variables `V0`, `V1` and so on, and save variables after the save field they are.
+
+In vanilla source, a field has no initializer for its value: the script's initial values are in its data areas,
+which the decompiler writes as hex. A mod changes them with a static constructor, see
+[Data edits](/ffx-atel-sharp/reference/language/data-edits/).
+
+## A mod's own variables
+
+A mod adds variables as fields of its part of the script class, without `[Var]`. The loader finds them a place in
+the script's data when it links the mod. An initializer gives the starting value.
+
+<Snippet file="Language/Variables/Mod/NewVariables.cs" region="mod-variables" />
+
+These start again each time the script loads. A value that has to last goes in a saved field.
+
+## Registers
+
+A register is one of a worker's fast scratch values: four integers and ten floats. The decompiler declares the
+ones a worker uses:
+
+<Snippet file="Language/Variables/Test0300.cs" region="registers" />
+
+A worker has one set of registers for all its entries. While an entry waits, another entry of the same worker can
+run and change one. The analyzers warn where a register holds a value across a wait and another entry writes it,
+[ATL0001](/ffx-atel-sharp/reference/analyzers/atl0001/). In new code, use a local.
+
+## Locals
+
+<Snippet file="Language/Variables/Test0300.cs" region="locals" />
+
+A local is `int` (or another whole-number type, or an enum), `float` or `bool`. It is not an array, `long`,
+`double` or `string`.
+
+The compiler decides where each local lives. One that never holds a value across a wait goes in a register the
+worker doesn't use. One that does goes in a hidden variable of the worker, so it keeps its value while other
+entries run. Either way, you write it as an ordinary local.
+
+## Saved fields
+
+A `[Saved]` field keeps its value with the player's save game. It belongs to your mod, in a plain static class
+in any namespace, and every script of the mod can use it:
+
+<Snippet file="Language/Variables/Mod/Progress.cs" region="saved" />
+
+Code reads and writes it like any other variable:
+
+<Snippet file="Language/Variables/Mod/NewVariables.cs" region="use-saved" />
+
+- The initializer is the value on a new game, on a save made before the mod was installed, and on a vanilla save.
+- The types are those of a script variable: `byte` to `int`, `float`, and arrays of them with their size. The
+  analyzers check each field, [ATL4003](/ffx-atel-sharp/reference/analyzers/atl4003/).
+- The loader keeps the values in a file of its own, next to the save, by name: `<mod id>/<namespace>.<class>.<field>`.
+  The game's own save file stays as it was, so a save made with mods still loads without them.
+- Renaming the field or its class changes that name, and the old value is no longer found. Keep the old name
+  with `Key`, as `Seen` does above.
+- All mods share a small area of the save (about a kilobyte). A mod whose fields don't fit is left out, with an
+  error in the log.
+
+A field for one script only can also be `[Saved]` in the mod's part of the script class, as `Wins` is in the
+example above.
+
+### Reading another mod's saved field
+
+A mod may read a field another mod saves. It declares the field with that mod's id and the field's key, and its
+`mod.toml` requires the other mod:
+
+<Snippet file="Analyzers/Atl4004.cs" region="fix" />
+
+The type and size must be the other mod's, and the field has no initializer. Only the owner writes it; an
+assignment is an error, [ATL4004](/ffx-atel-sharp/reference/analyzers/atl4004/).
+
+## Details
+
+[docs/language.md, "Variables"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#variables)
+covers the storage areas, flags and casts, and
+["Saved fields"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#saved-fields) how the
+loader places and keeps them.

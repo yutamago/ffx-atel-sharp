@@ -1,0 +1,34 @@
+---
+title: "ATL3001: Recursion"
+description: "A method calls itself, directly or through other methods."
+sidebar:
+  label: "ATL3001: Recursion"
+  order: 3001
+sources: ["docs/analyzers.md#atl3001"]
+---
+
+import Snippet from '../../../../components/Snippet.astro';
+
+A method calls itself, directly or through other methods. Error: the build fails until it is fixed.
+
+## What it means
+
+Helpers and function workers run as subroutines that share the caller's registers. They have no stack frame of
+their own, so a second call of the same method would overwrite the first one's values. The message shows the
+cycle.
+
+<Snippet file="Analyzers/Atl3001.cs" region="bad" title="Reported" />
+
+## How to fix it
+
+Write a loop:
+
+<Snippet file="Analyzers/Atl3001.cs" region="fix" title="Fixed" />
+
+## When to ignore it
+
+Never.
+
+## Details
+
+[docs/analyzers.md, "ATL3001"](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/analyzers.md#atl3001).
