@@ -1,6 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- The atel CLI. Two ways out (docs/sdk.md, docs/release.md):
+           AtelSharp.Cli   this project as a .NET tool package: dotnet tool install -g AtelSharp.Cli, then atel;
+           AtelSharp.Sdk   carries a copy under tools/atel/ (src/Ffx.Atel.Sdk publishes this project into it).
+         Both have the commit's version (Directory.Build.targets), or the release's: atel decompile pins the SDK
+         of its own version. Packed on every build; published to nuget.org only by a release. -->
     <PropertyGroup>
-        <Description>atel: decompile, compile, link and round-trip FFX scripts.</Description>
+        <Description>atel, the command line tool of Atel#: decompile Final Fantasy X's event, battle and monster scripts to C#, compile them back, build and link mods.</Description>
+        <!-- The package id (docs/release.md): the AtelSharp prefix, as the SDK and the templates. -->
+        <PackageId>AtelSharp.Cli</PackageId>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>atel</ToolCommandName>
+        <PackageTags>ffx;atel;fahrenheit;decompiler;dotnet-tool</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IsPackable>true</IsPackable>
         <OutputType>Exe</OutputType>
         <AssemblyName>atel</AssemblyName>
         <RootNamespace>Ffx.Atel.Cli</RootNamespace>
@@ -9,6 +22,9 @@
         <!-- Roslyn's messages in English only: the SDK package carries this CLI. -->
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     </PropertyGroup>
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" />
+    </ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="Ffx.Atel.Cli.Tests" />
     </ItemGroup>

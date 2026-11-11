@@ -2,8 +2,8 @@
 # Releasing the SDK
 
 What a release takes (plan, Phase 8; Decisions 2026-11-03: **no NuGet release until the user tags one**; the
-release decisions of 2026-11-10 below). Nothing is published yet: the first release is `0.1.0-alpha.1`, to nuget.org,
-once the account's setup below is done and the user pushes the tag.
+release decisions of 2026-11-10 below). The first release, `0.1.0-alpha.1` (2026-11-10), put `AtelSharp.Sdk` and
+`AtelSharp.Templates` on nuget.org; the next one adds `AtelSharp.Cli`.
 
 The packages:
 
@@ -11,6 +11,7 @@ The packages:
 |---|---|---|
 | `AtelSharp.Sdk` | the MSBuild project SDK: `Sdk.props`/`Sdk.targets`, the reference assembly `Ffx.Atel.Game` with its docs, the analyzers and code fixes, the `atel` tool | `src/Ffx.Atel.Sdk` ([sdk.md](sdk.md)) |
 | `AtelSharp.Templates` | `dotnet new atel-mod` | `src/Ffx.Atel.Templates` ([sdk.md](sdk.md#dotnet-new-atel-mod)) |
+| `AtelSharp.Cli` | the `atel` CLI as a .NET tool: `dotnet tool install -g AtelSharp.Cli`, command `atel` (from `0.1.0-alpha.2`) | `src/Ffx.Atel.Cli` ([sdk.md](sdk.md#the-atel-tool)) |
 
 The project folders, project files, assemblies and C# namespaces keep their `Ffx.Atel` names; only the package ids
 are `AtelSharp.*`. A project SDK resolves by package id, so a mod is `<Project Sdk="AtelSharp.Sdk">` and
@@ -36,8 +37,13 @@ The editor extensions (`editors/vscode`, `editors/rider`) are not NuGet packages
    and `SaveData`, used with the Fahrenheit project's permission, which covers the public package.
 7. **The tag is `v<version>`.** With `v*`, a tag also names the version of the whole repository; if the editors or
    the loader get releases of their own later, they need their own prefixes.
-8. **A GitHub release** for each tag, with both `.nupkg`, the VS Code `.vsix`, the Rider plugin `.zip` and the
+8. **A GitHub release** for each tag, with every `.nupkg`, the VS Code `.vsix`, the Rider plugin `.zip` and the
    version's CHANGELOG section as notes; a version with a suffix (`-alpha.1`) is a pre-release.
+
+Added later (website plan, [website.md](website.md#the-cli-as-a-net-tool)): **`AtelSharp.Cli`**, the `atel` CLI as a
+.NET tool package, released with the others from `0.1.0-alpha.2`, same version, MIT. The SDK package keeps its copy
+under `tools/atel/`, which its targets run. The Trusted Publishing policy covers it as it covers any package the
+workflow pushes for the account.
 
 ## Versions
 
@@ -68,15 +74,16 @@ So:
 ## The release workflow
 
 `.github/workflows/release-sdk.yml` runs **only on a pushed tag `v*`**: no branch, pull request or manual run starts
-it, and no other workflow publishes (`build.yml` only packs, as before). Its job `packages`:
+it, and no other workflow publishes (`build.yml` only packs, and installs the packed `atel` tool into a folder of its own to run it once). Its job `packages`:
 
 1. takes the version from the tag (`v0.1.0-alpha.1` → `0.1.0-alpha.1`) and stops unless it is a SemVer 2 version;
 2. stops unless the tagged commit is on `main`;
 3. stops unless `CHANGELOG.md` has a section `## [<version>]`;
 4. builds and tests the solution (the corpus tests skip: CI has no game);
-5. packs both packages with `-p:Version=<version>`, checks that neither names the runner's checkout path and that the
-   template pins the SDK of the same version, and keeps them as the run's artifact;
-6. keeps them as the run's artifact `packages-<version>`.
+5. packs the three packages with `-p:Version=<version>`, checks that none names the runner's checkout path and that
+   the template pins the SDK of the same version;
+6. installs `AtelSharp.Cli` from the packed file into a tool path of its own and runs `atel --help`;
+7. keeps them as the run's artifact `packages-<version>`.
 
 The job `editors` builds and tests the VS Code extension and the Rider plugin (`.github/workflows/editors.yml`, the
 same jobs `build.yml` runs on every push; the Rider build downloads the Rider SDK, a few GB) and keeps the `.vsix`
@@ -91,11 +98,13 @@ Once both pass, the job `publish` pushes the packages (`--skip-duplicate`, so a 
   the job's `GITHUB_TOKEN`;
 - unset: it stops with an error before pushing anything, and no GitHub release is made.
 
-`AtelSharp.Templates` goes along unless the variable `ATEL_PUBLISH_TEMPLATES` is `false`.
+`AtelSharp.Sdk` and `AtelSharp.Cli` always go; `AtelSharp.Templates` goes along unless the variable
+`ATEL_PUBLISH_TEMPLATES` is `false`.
 
 After the push, the job `release` (the only job with `contents: write`) creates the GitHub release of the tag with
 `gh release create --verify-tag`: title `Atel# <version>`, the version's section of `CHANGELOG.md` as notes, and as
-assets `AtelSharp.Sdk.<version>.nupkg`, `AtelSharp.Templates.<version>.nupkg`, `atel-text-vscode-<version>.vsix` and
+assets `AtelSharp.Sdk.<version>.nupkg`, `AtelSharp.Templates.<version>.nupkg`, `AtelSharp.Cli.<version>.nupkg`,
+`atel-text-vscode-<version>.vsix` and
 `atel-text-rider-<version>.zip` (the editors' own versions). A version with a prerelease suffix is marked a
 pre-release.
 
@@ -132,14 +141,14 @@ pre-release.
 
 Set in `Directory.Build.props` and each package's project:
 
-| | `AtelSharp.Sdk` | `AtelSharp.Templates` |
-|---|---|---|
-| Id | `AtelSharp.Sdk` | `AtelSharp.Templates` (template identity `AtelSharp.Templates.Mod`, short name `atel-mod`) |
-| Package type | `MSBuildSdk` | `Template` |
-| Description, tags | the project's `Description`, `PackageTags` | the same |
-| Authors, copyright | `Yutamago`, `Copyright (c) 2026 Yutamago` | the same |
-| License | `MIT` (`PackageLicenseExpression`) | the same |
-| Project and repository URL | `https://github.com/yutamago/ffx-atel-sharp` | the same |
-| Readme | `src/Ffx.Atel.Sdk/README.md` | `src/Ffx.Atel.Templates/README.md` |
-| Release notes | `CHANGELOG.md` | the same |
-| Icon | none yet | none yet |
+| | `AtelSharp.Sdk` | `AtelSharp.Templates` | `AtelSharp.Cli` |
+|---|---|---|---|
+| Id | `AtelSharp.Sdk` | `AtelSharp.Templates` (template identity `AtelSharp.Templates.Mod`, short name `atel-mod`) | `AtelSharp.Cli` (command `atel`) |
+| Package type | `MSBuildSdk` | `Template` | `DotnetTool` (`PackAsTool`, `ToolCommandName`) |
+| Description, tags | the project's `Description`, `PackageTags` | the same | the same |
+| Authors, copyright | `Yutamago`, `Copyright (c) 2026 Yutamago` | the same | the same |
+| License | `MIT` (`PackageLicenseExpression`) | the same | the same |
+| Project and repository URL | `https://github.com/yutamago/ffx-atel-sharp` | the same | the same |
+| Readme | `src/Ffx.Atel.Sdk/README.md` | `src/Ffx.Atel.Templates/README.md` | `src/Ffx.Atel.Cli/README.md` |
+| Release notes | `CHANGELOG.md` | the same | the same |
+| Icon | none yet | none yet | none yet |
