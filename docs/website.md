@@ -3,8 +3,10 @@
 A site on GitHub Pages that introduces Atel# to developers and teaches them to
 write mods with it.
 
-Status: planned 2026-11-10; the user's decisions of the same day are in
-[Decisions](#decisions).
+Status: planned 2026-11-10 with the user's decisions (in [Decisions](#decisions)); built 2026-11-11, steps 1 to 8,
+live at https://yutamago.github.io/ffx-atel-sharp/. Open: the shots (the list below), the in-game check of
+`examples/Besaid` (none has run in the game yet; the guides say "what you should see"), the `0.1.0-alpha.2` tag that
+publishes `AtelSharp.Cli`, and plain summaries for the natives that still show only a research note.
 
 ## Who it is for
 

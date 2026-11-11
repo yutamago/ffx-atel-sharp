@@ -2044,7 +2044,13 @@ count, names placed.
     the `Ffx.Atel.Game` API and one page per analyzer rule, and the CLI as a
     .NET tool (`AtelSharp.Cli`); the guides are a Besaid course of visual
     example mods. Planned and decided 2026-11-10 in
-    [website.md](website.md), with the list of screenshots and clips.
+    [website.md](website.md), with the list of screenshots and clips. Built
+    2026-11-11 (PRs #89 to #99) and live at
+    https://yutamago.github.io/ffx-atel-sharp/: every section of the site
+    map. Left: the screenshots and clips (the user captures them), the
+    in-game check of the Besaid examples, the `0.1.0-alpha.2` release that
+    publishes `AtelSharp.Cli`, and plain summaries for the natives that only
+    have a research note.
 
 Phases 0–4: about 5–7 weeks to a fully structured, byte-identical decompile
 of every script. 5–12 follow and partly run alongside.
