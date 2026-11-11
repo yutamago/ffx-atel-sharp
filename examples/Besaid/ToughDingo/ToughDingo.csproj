@@ -1,0 +1,15 @@
+<Project Sdk="AtelSharp.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod of the Besaid course: The Dingo (m009) has 1250 HP, strength 30 and drops 999 gil. docs/sdk.md, examples/Besaid/README.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id, <author>.<mod>: put your own name or handle in place of your-name, in Authors too.
+             The build writes bin/<configuration>/net10.0/mods/your-name.toughdingo/. -->
+        <AtelModId>your-name.toughdingo</AtelModId>
+        <AtelModName>Tough Dingo</AtelModName>
+        <Description>The Dingo (m009) has 1250 HP, strength 30 and drops 999 gil. An example Atel mod.</Description>
+        <Authors>Your Name</Authors>
+        <Version>0.1.0</Version>
+        <!-- The vanilla source this mod changes: the folder `atel decompile m009 -o <dir>` wrote. Never inside this project. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>
