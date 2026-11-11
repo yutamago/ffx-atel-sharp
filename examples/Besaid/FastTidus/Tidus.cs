@@ -15,6 +15,6 @@ public sealed partial class Tidus
     [Postfix(nameof(Init))]
     void Fast()
     {
-        Screen.PlayerSetSpeed(2, 76f);   // 2: running (1 is walking, 18 swimming)
+        Screen.PlayerSetSpeed(kind: 2, speed: 76f);   // kind 2 is running (1 walking, 18 swimming)
     }
 }

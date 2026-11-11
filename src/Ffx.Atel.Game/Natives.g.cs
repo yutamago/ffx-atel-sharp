@@ -1611,10 +1611,11 @@ public static partial class Common
     [Atel.Native(0x0135)]
     public static int GetGil() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x0136: (v): 1 when 0x007859a0(-v) is not negative; ported in native_move (script round 11); name from &quot;1 when 0x007859a0(-v) is not negative&quot; = MsPayGIL of -v</summary>
-    /// <remarks>Native <c>0x0136</c>, <c>Native_0136_GiveGil</c>; 144 calls in the shipped scripts.</remarks>
+    /// <summary>Adds <paramref name="amount"/> gil to the party's gil (MsPayGIL of -amount; the total stays within 0-999,999,999). Returns 1, or 0 if the total would have dropped below 0 (a negative amount larger than the party's gil), which leaves the gil as it was.</summary>
+    /// <param name="amount">The gil to add.</param>
+    /// <remarks>Native <c>0x0136</c>, <c>Native_0136_GiveGil</c>; 144 calls in the shipped scripts. Reverse engineering: 0x0136: (v): 1 when 0x007859a0(-v) is not negative; ported in native_move (script round 11); name from &quot;1 when 0x007859a0(-v) is not negative&quot; = MsPayGIL of -v</remarks>
     [Atel.Native(0x0136)]
-    public static int GiveGil(int a0) => throw Atel.Runtime.NotRunnable();
+    public static int GiveGil(int amount) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x0137: (v): 1 when 0x007859a0(v) is not negative; ported in native_move (script round 11); name from &quot;1 when 0x007859a0(v) is not negative&quot; = MsPayGIL</summary>
     /// <remarks>Native <c>0x0137</c>, <c>Native_0137_PayGil</c>; 104 calls in the shipped scripts.</remarks>
@@ -3413,10 +3414,12 @@ public static partial class Screen
     [Atel.Native(0x4015)]
     public static int SetFocus(int b, int a) => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x4016: args (i int, v f) -&gt; 0: 0x0082d9e0(i, v); ported in native_chr (script round 12); name from &quot;0x0082d9e0(i, v)&quot;=Sg_PlayerSetSpeed (a layout name)</summary>
-    /// <remarks>Native <c>0x4016</c>, <c>Native_4016_PlayerSetSpeed</c>; 270 calls in the shipped scripts.</remarks>
+    /// <summary>Sets one of the player's move speeds: <paramref name="kind"/> 1 walk, 2 run, 18 swim. Loading a map resets them to walk 16, run 38, swim 20.</summary>
+    /// <param name="kind">Which speed: 1 walk, 2 run, 18 (0x12) swim. 19 (0x13) is stored but never read; other values do nothing.</param>
+    /// <param name="speed">The speed.</param>
+    /// <remarks>Native <c>0x4016</c>, <c>Native_4016_PlayerSetSpeed</c>; 270 calls in the shipped scripts. Reverse engineering: 0x4016: args (i int, v f) -&gt; 0: 0x0082d9e0(i, v); ported in native_chr (script round 12); name from &quot;0x0082d9e0(i, v)&quot;=Sg_PlayerSetSpeed (a layout name)</remarks>
     [Atel.Native(0x4016)]
-    public static int PlayerSetSpeed(int i, float vF) => throw Atel.Runtime.NotRunnable();
+    public static int PlayerSetSpeed(int kind, float speed) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x4017: args (b int, a int) -&gt; 0: Sg_IdSetMapTable(b, a) (0x0083e9e0); ported in native_chr (script round 12); name from &quot;Sg_IdSetMapTable(b, a)&quot; (0x0083e9e0)</summary>
     /// <remarks>Native <c>0x4017</c>, <c>Native_4017_IdSetMapTable</c>; 750 calls in the shipped scripts.</remarks>
@@ -3693,10 +3696,11 @@ public static partial class Chr
     [Atel.Native(0x5005)]
     public static int ReleaseMotion() => throw Atel.Runtime.NotRunnable();
 
-    /// <summary>0x5006: args (scale f) -&gt; 0: Ch_SetScaleAll(model, scale) (0x0082b590); ported in native_chr (script round 12); name from Ch_SetScaleAll(model, scale)</summary>
-    /// <remarks>Native <c>0x5006</c>, <c>Native_5006_ChrSetScaleAll</c>; 441 calls in the shipped scripts.</remarks>
+    /// <summary>Scales the worker's model by <paramref name="scale"/> on all three axes.</summary>
+    /// <param name="scale">The scale: 1 is the normal size, 2 twice as big.</param>
+    /// <remarks>Native <c>0x5006</c>, <c>Native_5006_ChrSetScaleAll</c>; 441 calls in the shipped scripts. Reverse engineering: 0x5006: args (scale f) -&gt; 0: Ch_SetScaleAll(model, scale) (0x0082b590); ported in native_chr (script round 12); name from Ch_SetScaleAll(model, scale)</remarks>
     [Atel.Native(0x5006)]
-    public static int SetScaleAll(float scaleF) => throw Atel.Runtime.NotRunnable();
+    public static int SetScaleAll(float scale) => throw Atel.Runtime.NotRunnable();
 
     /// <summary>0x5007: args (n, x f, y f, z f) -&gt; Ch_SetScale(model, n, x, y, z) (0x0082b560); ported in native_chr (script round 12); name from Ch_SetScale(model, n, x, y, z)</summary>
     /// <remarks>Native <c>0x5007</c>, <c>Native_5007_ChrSetScale</c>; 66 calls in the shipped scripts.</remarks>

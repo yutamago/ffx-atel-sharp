@@ -8824,7 +8824,7 @@
       },
       "args": [
         {
-          "name": "a0",
+          "name": "amount",
           "kind": "int"
         }
       ],
@@ -19181,11 +19181,11 @@
       },
       "args": [
         {
-          "name": "i",
+          "name": "kind",
           "kind": "int"
         },
         {
-          "name": "vF",
+          "name": "speed",
           "kind": "float"
         }
       ],
@@ -20828,7 +20828,7 @@
       },
       "args": [
         {
-          "name": "scaleF",
+          "name": "scale",
           "kind": "float"
         }
       ],
