@@ -15,7 +15,7 @@ In a cut scene, one worker usually directs. It asks Wakka's worker to walk to th
 
 ## Writing a request
 
-An entry that other workers can request is a static `async` method that returns a `Task`, such as `[Entry(5)] public static async Task WalkAsync()` in Wakka's worker class.
+An entry that other workers can request is a static `async` method that returns a `Task`. The examples on this page use a made-up one, `[Entry(5)] public static async Task WalkAsync()` in Wakka's worker class.
 
 The requesting worker calls it like a method, and how it calls it says whether it waits:
 
@@ -49,7 +49,7 @@ A worker can request one of its own entries, but awaiting it only works when the
 
 ## Passing values
 
-A requested entry can take parameters and return a value, as a C# method does: `int left = await Ai.DamageAsync(100);`.
+A requested entry can take parameters and return a value, as a C# method does: `int left = await Ai.DamageAsync(100);` (another made-up entry).
 
 The machine's requests carry no values, only "which worker, which entry, which level". So the compiler keeps each parameter and the result in hidden fields of the receiving worker: the request writes the arguments, then requests the entry, and `await` reads the result once the entry has ended.
 
