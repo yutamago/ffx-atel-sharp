@@ -31,14 +31,14 @@ What you do get covers what scripts do: `if`, `switch`, loops, arithmetic, local
 
 Atel# ships Roslyn analyzers, so Rider, Visual Studio and VS Code show these rules while you type, and `dotnet build` fails on them. You find out in the editor, not when the game crashes. The rules come in four groups:
 
-- C# the machine can't run: everything in the list above.
-- [Requests](/ffx-atel-sharp/concepts/requests/): requesting an entry that isn't `async`, awaiting your own worker's entry where it can never start, using the priority levels the game keeps for itself, and requests to an entry with parameters that may overlap.
-- Calls between workers. A function worker runs on its caller's worker, and the machine allows only three such calls inside each other, with no recursion. `Wait.Seconds` needs a constant of at least one frame, because the compiler counts the frames.
-- What a mod writes on top of vanilla: a static constructor that does more than set starting values, an `[Inject]` whose statement isn't in the method, a `[Saved]` field of a type that can't be saved, and a write to another mod's saved field.
+- [C# the machine can't run](/ffx-atel-sharp/reference/analyzers/#atl1xxx-c-the-game-cant-run): everything in the list above.
+- [Requests](/ffx-atel-sharp/reference/analyzers/#atl2xxx-requests) ([what requests are](/ffx-atel-sharp/concepts/requests/)): requesting an entry that isn't `async`, awaiting your own worker's entry where it can never start, using the priority levels the game keeps for itself, and requests to an entry with parameters that may overlap.
+- [Calls between workers](/ffx-atel-sharp/reference/analyzers/#atl3xxx-calls). A function worker runs on its caller's worker, and the machine allows only three such calls inside each other, with no recursion. `Wait.Seconds` needs a constant of at least one frame, because the compiler counts the frames.
+- [What a mod writes on top of vanilla](/ffx-atel-sharp/reference/analyzers/#atl4xxx-mods): a static constructor that does more than set starting values, an `[Inject]` whose statement isn't in the method, a `[Saved]` field of a type that can't be saved, and a write to another mod's saved field.
 
-One more rule is a warning, not an error. It flags a [register](/ffx-atel-sharp/concepts/variables/#registers) that an entry uses across a wait while another entry of the same worker writes it. Vanilla scripts do this in places, on purpose or not, so the warning shows up in vanilla source too.
+One more rule, [ATL0001](/ffx-atel-sharp/reference/analyzers/atl0001/), is a warning, not an error. It flags a [register](/ffx-atel-sharp/concepts/variables/#registers) that an entry uses across a wait while another entry of the same worker writes it. Vanilla scripts do this in places, on purpose or not, so the warning shows up in vanilla source too.
 
-Each rule has an id starting with `ATL`. The analyzer reference in the [Reference](/ffx-atel-sharp/reference/) section will have one page per rule, with an example that triggers it and the fix.
+Each rule has an id starting with `ATL`, and the [analyzer reference](/ffx-atel-sharp/reference/analyzers/) has one page per rule, with an example that triggers it and the fix.
 
 ## A worker holds only entries
 
