@@ -40,6 +40,18 @@ How it works:
 - [`docs/research/save-fields.md`](docs/research/save-fields.md): the save variables the `Save` class names.
 - [`docs/source-repo.md`](docs/source-repo.md): the private repo of decompiled source.
 
+## Install
+
+.NET 10, then from nuget.org:
+
+```bash
+dotnet tool install -g AtelSharp.Cli --prerelease   # the atel command (from 0.1.0-alpha.2)
+dotnet new install AtelSharp.Templates              # dotnet new atel-mod
+```
+
+A mod project builds with the `AtelSharp.Sdk` package, which restore fetches from nuget.org. The loader
+is built from this repository for now ([`docs/tutorial.md`](docs/tutorial.md), step 2).
+
 ## Status
 
 Phases 0-4, 6, 7, 10 and 11 are done; 5 (names), 8 (tooling) and 9 (mods) are under way:
@@ -141,6 +153,7 @@ Phases 0-4, 6, 7, 10 and 11 are done; 5 (names), 8 (tooling) and 9 (mods) are un
 | `Ffx.Atel.Cuts` | the Fahrenheit mod (`yuta.atel.cuts`) that switches the named dead blocks (`Cut.*`) on and off in the loaded scripts, from a menu |
 | `Ffx.Atel.Cli` | `atel`: list, disasm, asm, handlers, survey, decompile, compile, compile-all, roundtrip, export, text export, names export, compile-mod, link, dead, repeats |
 | `AtelSharp.Sdk` | the MSBuild SDK package mod projects build with (`dotnet pack src/Ffx.Atel.Sdk`) |
+| `AtelSharp.Cli` | `atel` as a .NET tool package (`dotnet pack src/Ffx.Atel.Cli`) |
 | `editors/vscode` | the VS Code extension that shows message text and names (TypeScript; `npm test`, `npm run package`) |
 | `editors/rider` | the Rider plugin that shows message text and names (ReSharper backend in C#, Gradle; `./gradlew check buildPlugin`) |
 
