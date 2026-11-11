@@ -1,0 +1,15 @@
+<Project Sdk="AtelSharp.Sdk">
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- An Atel mod of the Besaid course: Counts the Dingos, Water Flans and Condors you defeat, kept with each save. docs/sdk.md, examples/Besaid/README.md -->
+    <PropertyGroup>
+        <!-- The Fahrenheit mod id, <author>.<mod>: put your own name or handle in place of your-name, in Authors too.
+             The build writes bin/<configuration>/net10.0/mods/your-name.besaidtally/. -->
+        <AtelModId>your-name.besaidtally</AtelModId>
+        <AtelModName>Besaid Tally</AtelModName>
+        <Description>Counts the Dingos, Water Flans and Condors you defeat, kept with each save. An example Atel mod.</Description>
+        <Authors>Your Name</Authors>
+        <Version>0.1.0</Version>
+        <!-- The vanilla source this mod changes: the folder `atel decompile m009 m016 m028 -o <dir>` wrote. Never inside this project. -->
+        <AtelVanillaSource Condition="'$(AtelVanillaSource)' == ''">../../../../atel-vanilla</AtelVanillaSource>
+    </PropertyGroup>
+</Project>
