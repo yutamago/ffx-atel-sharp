@@ -1,0 +1,108 @@
+---
+title: Print debug text in the game
+description: A new worker prints the story progress and Tidus's position to the on-screen overlay, once a second.
+sidebar:
+  order: 8
+sources:
+  - "docs/formats/debug.md#the-natives"
+  - "docs/formats/debug.md#on-screen"
+  - "docs/language.md#text"
+  - "docs/language.md#mods"
+  - "docs/language.md#waiting-in-seconds"
+  - "examples/Besaid/README.md#whereami"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import whereAmI from '../../../../../examples/Besaid/WhereAmI/WhereAmI.cs?raw';
+
+## What you'll make
+
+In Besaid village, a line at the top left of the screen says where you are, once a second:
+
+```
+bsvr0000, story 134: Tidus at x 35, y -8, z 419
+```
+
+The numbers change as you walk. This is how you look inside a running script: print what you want to know, and watch it while you play.
+
+{/* shot 14 */}
+
+## Where in the game
+
+Besaid village, the script `bsvr0000`, at any visit. Leaving the village stops it.
+
+## The code
+
+<Code code={whereAmI} lang="csharp" title="WhereAmI.cs" />
+
+## Line by line
+
+`public sealed partial class WhereAmI : LogicWorker` is a new [worker](/ffx-atel-sharp/concepts/atel/#workers). The village's script has no class of that name, so this isn't an addition to a vanilla class: the linker adds a worker to the script. A `LogicWorker` has no body and the game does nothing with it every frame. It only runs its code.
+
+The game starts a new worker with the map's own workers, as it does every worker: first `Init`, then `Main`. `Init` has nothing to do here, but a worker has both.
+
+`using static Events.Bs_Besaid.Bsvr0000.Bsvr0000;` makes the village script's fields and workers visible by their short names. Every decompiled file starts with it. That's how `StoryProgress` and `Tidus` resolve.
+
+`StoryProgress` is the game's story counter, the number in the save that says how far the story has got. `Tidus.Pos` is the position of the village's `Tidus` worker.
+
+`Debug.Print($"…")` writes the text to Fahrenheit's log and shows it on screen. It takes an interpolated string with up to 16 values. `:F0` rounds a `float` to a whole number. A string is allowed only in a few calls like this one and `Text.New`. A `string` variable is an error, because the script machine has nowhere to keep one.
+
+`while (true)` with `Wait.Frames(30)` repeats once a second. The script machine runs at 30 frames a second, and waiting pauses only this worker, never the game. [Thirty frames a second](/ffx-atel-sharp/concepts/atel/#thirty-frames-a-second) explains it.
+
+The loop never ends, but the map does. When you leave the village, the game unloads its script, and this worker with it.
+
+## The overlay
+
+The loader draws the latest `Debug` lines at the top left, over the game, with the time and the number of the worker that printed them. A line stays for a few seconds, then fades.
+
+| Key | Does |
+|---|---|
+| F6 | hides or shows the lines |
+| Shift+F6 | shows more or fewer lines at once |
+
+The overlay is on by default. The lines are also in Fahrenheit's log, after `Atel debug:`, so you can read them after you quit.
+
+`Debug.Print` is for development. Take it out before you share a mod, or players see your lines too.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsvr0000 -o atel-vanilla
+dotnet new atel-mod -n WhereAmI --script bsvr0000 --authors your-name
+```
+
+Delete the sample `Bsvr0000.cs`, add `WhereAmI.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.whereami/` into Fahrenheit's `mods` folder, and add `your-name.whereami` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game: once a second, a new line at the top left, with numbers that change as you move.
+
+In Fahrenheit's log, the new worker's number, and then a line each second:
+
+```
+info: your-name.whereami: bsvr0000: new worker WhereAmI is worker 87
+Atel debug: worker 87: bsvr0000, story 134: Tidus at x 35, y -8, z 419
+```
+
+The numbers may differ in your game.
+
+## Known limitations
+
+This mod hasn't been run in the game yet. The linker adds the new worker to the village's list of workers, so the game should start its `Main` with the others, but that hasn't been seen in this script yet.
+
+## What can go wrong
+
+- **No lines on screen.** Press F6: the overlay may be hidden. Then check the log for the `new worker` line.
+- **More than one line a second.** The overlay keeps the latest lines of every mod that prints. Shift+F6 shows more of them at once.
+
+## Next
+
+[Switch dead code on](/ffx-atel-sharp/guides/dead-code/) runs code the game ships but never reaches.
+
+## Details
+
+- [The debug natives and the overlay](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/formats/debug.md#on-screen) (docs/formats/debug.md)
+- [New workers in a mod](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#mods) (docs/language.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#whereami) (examples/Besaid/README.md)

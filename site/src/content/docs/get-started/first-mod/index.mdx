@@ -1,0 +1,27 @@
+---
+title: "Your first mod: a tougher Dingo"
+description: A mod that gives the Dingo ten times its HP, more strength and 999 gil, explained one step per page.
+sidebar:
+  label: Overview
+  order: 0
+sources:
+  - "docs/tutorial.md"
+  - "docs/language.md#initial-values-and-data-edits"
+  - "examples/Besaid/README.md#toughdingo"
+---
+
+The Dingo is the wolf you fight on the path outside Besaid village. In this mod it gets 1,250 HP instead of 125, strength 30 instead of 13, and it drops 999 gil instead of 16.
+
+{/* shot 03 */}
+
+The [Quickstart](/ffx-atel-sharp/get-started/quickstart/) went through the same steps quickly. Here each step gets its own page, with what happens and why:
+
+1. [Read the Dingo's script](/ffx-atel-sharp/get-started/first-mod/decompile/). Decompile it and find your way around the C#.
+2. [Create the project](/ffx-atel-sharp/get-started/first-mod/project/). What the template writes, and what each file is for.
+3. [Change the Dingo's stats](/ffx-atel-sharp/get-started/first-mod/write/). Three lines in a static constructor.
+4. [Build the mod](/ffx-atel-sharp/get-started/first-mod/build/). What the build checks and what it writes.
+5. [Install and play](/ffx-atel-sharp/get-started/first-mod/play/). Where to fight a Dingo, and what the log says.
+
+The mod changes data, not code. That is the simplest kind of mod, because nothing runs differently: the battle reads different numbers from the Dingo's file. The [guides](/ffx-atel-sharp/guides/) go on to code that runs.
+
+You need everything from [Requirements](/ffx-atel-sharp/get-started/requirements/) and [Install](/ffx-atel-sharp/get-started/install/), and a save in Besaid from after you reach the village.

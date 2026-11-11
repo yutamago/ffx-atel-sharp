@@ -1,0 +1,95 @@
+---
+title: Add code inside a monster's turn
+description: Inject code into the Water Flan's OnTurn so that it heals itself below half HP.
+sidebar:
+  order: 6
+sources:
+  - "docs/language.md#injecting-code"
+  - "docs/research/handlers.md#actions"
+  - "docs/language.md#members"
+  - "examples/Besaid/README.md#cleverflan"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import flan from '../../../../../examples/Besaid/CleverFlan/Ai.cs?raw';
+
+## What you'll make
+
+The Water Flan normally casts Water on one of your party. With this mod, once its HP is below half, it casts Water on itself instead. Water Flans absorb water, so it heals.
+
+{/* shot 12 */}
+
+## Where in the game
+
+A random battle with a Water Flan on the Village Slope or the Waterfall Way. Its script is `m016`.
+
+Physical attacks barely hurt a flan. Lulu's Thunder works best. It has 315 HP. Bring it below half, then let it take a turn.
+
+## The code
+
+<Code code={flan} lang="csharp" title="Ai.cs" />
+
+## How a monster's turn works
+
+A monster doesn't run a loop of its own. The battle asks its script what to do at fixed moments, and each moment is an [entry](/ffx-atel-sharp/concepts/atel/#entries) of the worker `Ai`. When the flan's turn comes, the battle runs `Ai.OnTurn`. The vanilla `OnTurn` picks a target, then uses a command on it.
+
+To change the choice, the mod needs code between those two steps. A prefix would run before the target is picked, and a postfix after the command is already used. An inject runs at a statement you name inside the method.
+
+## Line by line
+
+`namespace Monsters.M016;` is the Water Flan's script.
+
+`[Inject(nameof(OnTurn), After = nameof(Btl.SelectTarget))]` puts `HealItself` inside the vanilla `OnTurn`, right after the statement that calls `Btl.SelectTarget`. That statement picks the target. The anchor is a call, written as the decompiled source writes it, and the first one counts unless you set `Occurrence`.
+
+The build finds the statement in the vanilla source each time you build. If the vanilla method has no such call, the build stops with an error that names the anchor, instead of putting code in the wrong place.
+
+`Self` is the monster whose turn it is. `Self.Hp` and `Self.Maxhp` are its current and maximum HP.
+
+`Btl.UseCommand(Target.Own, Command.Water)` uses the command Water on `Target.Own`, the monster itself.
+
+`return;` ends the turn here. The rest of the vanilla `OnTurn`, the Water on the party member it picked, doesn't run. Above half HP, the `if` is false, nothing returns, and the vanilla code goes on as before.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile m016 -o atel-vanilla
+dotnet new atel-mod -n CleverFlan --script m016 --authors your-name
+```
+
+Delete the sample `M016.cs`, add `Ai.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.cleverflan/` into Fahrenheit's `mods` folder, and add `your-name.cleverflan` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game: above half HP, the flan attacks your party as usual. Below half, on its turn, it should cast Water on itself, and its HP should go up.
+
+In Fahrenheit's log, the line that says where the inject went:
+
+```
+info: your-name.cleverflan: m016: worker 1's OnTurn: inject HealItself, after the statement with the 1st call to Btl.SelectTarget in OnTurn
+```
+
+## Known limitations
+
+This mod hasn't been run in the game yet, and two things aren't known:
+
+- Whether `Target.Own` aims the command at the flan itself.
+- Whether its Water heals it. If the flan doesn't absorb water, it hurts itself instead.
+
+## What can go wrong
+
+- **It never heals.** Its HP may not be below half when its turn comes. Watch the HP bar, or print it with `Debug.Print`, as [Print debug text in the game](/ffx-atel-sharp/guides/debug-text/) shows.
+- **Another mod replaces `OnTurn`.** An inject needs the vanilla method to go into. When another mod in the load order replaces the whole method, the loader reports a conflict and leaves the inject out.
+
+The tutorial battles on the island may use the game's other copies of these monsters, which this mod doesn't change. Try a random battle.
+
+## Next
+
+[Count across battles](/ffx-atel-sharp/guides/count-across-battles/) adds the same code to three monsters and keeps a count in the save.
+
+## Details
+
+- [Injecting code](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#injecting-code) (docs/language.md)
+- [Which entry the battle runs for which event](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/handlers.md#actions) (docs/research/handlers.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#cleverflan) (examples/Besaid/README.md)

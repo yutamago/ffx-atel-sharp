@@ -28,7 +28,16 @@ export default defineConfig({
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/yutamago/ffx-atel-sharp' },
 			],
 			sidebar: [
-				{ label: 'Get started', items: [{ autogenerate: { directory: 'get-started' } }] },
+				{
+					label: 'Get started',
+					items: [
+						'get-started',
+						'get-started/requirements',
+						'get-started/install',
+						'get-started/quickstart',
+						{ label: 'Your first mod', items: [{ autogenerate: { directory: 'get-started/first-mod' } }] },
+					],
+				},
 				{ label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
 				{ label: 'Concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
 				{ label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },

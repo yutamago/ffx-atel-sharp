@@ -1,0 +1,81 @@
+---
+title: Install
+description: Install the atel command, the dotnet new template, and the editor extensions.
+sidebar:
+  order: 2
+sources:
+  - "docs/sdk.md#the-atel-tool"
+  - "docs/website.md#the-cli-as-a-net-tool"
+  - "docs/sdk.md#dotnet-new-atel-mod"
+  - "docs/sdk.md#versions"
+  - "docs/editor.md#vs-code"
+  - "docs/editor.md#installing"
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Atel# comes as three NuGet packages and two editor extensions. You install two of the packages by hand. The third, the SDK your mod builds with, comes by itself the first time you build.
+
+## The atel command
+
+`atel` reads the game's scripts and writes them out as C#. It is a .NET tool, the package `AtelSharp.Cli`, from 0.1.0-alpha.2 on:
+
+```sh
+dotnet tool install -g AtelSharp.Cli --prerelease
+atel --help
+```
+
+`--prerelease` is needed while every version of Atel# is a preview. `atel --help` lists the commands. The guides use few of them: `decompile`, `list`, `text export`, `names export` and `handlers`.
+
+To update it later:
+
+```sh
+dotnet tool update -g AtelSharp.Cli --prerelease
+```
+
+## The project template
+
+The template creates a mod project with everything set up:
+
+```sh
+dotnet new install AtelSharp.Templates
+```
+
+Install the template of the same version as the `atel` command. Both pin the SDK of their own version in the files they write, and a mod and its vanilla source should use the same one. `dotnet tool list -g` shows the tool's version, and `dotnet new install AtelSharp.Templates::<version>` installs that exact template.
+
+## The SDK
+
+`AtelSharp.Sdk` is what a mod project builds with: the game library, the analyzers, and the step that turns your C# into a mod folder. You don't install it. The template writes its version into the project's `global.json`, and `dotnet build` downloads it from nuget.org.
+
+## The editor extensions
+
+The decompiled scripts name each line of dialogue by its number, as `Text[12]`, and each monster or command by its internal name. The editor extensions show the real text and names from your own game next to them. They are optional, and the guides work without them.
+
+Download them from the assets of the latest [GitHub release](https://github.com/yutamago/ffx-atel-sharp/releases):
+
+- VS Code: the `.vsix` file. Install it with `code --install-extension <the file>.vsix`, or with **Install from VSIX…** in the Extensions view's menu.
+- Rider: the `.zip` file. In Rider, open **Settings**, then **Plugins**, the gear icon, **Install Plugin from Disk…**, and pick the zip. The plugin is built for Rider 2026.3.
+
+[Set up VS Code or Rider](/ffx-atel-sharp/guides/editors/) shows how to export the text and names for them.
+
+<Aside type="note">
+The extensions aren't on the editors' marketplaces yet, so they don't update by themselves. Install the new file from each release.
+</Aside>
+
+## Check
+
+You should now have:
+
+- `atel --help` printing its commands,
+- `dotnet new list atel` showing the template `atel-mod`,
+- `yuta.atel` in Fahrenheit's `mods` folder and first in `mods/loadorder`,
+- `FFX_GAME_DIR` set to the game folder.
+
+The [Quickstart](/ffx-atel-sharp/get-started/quickstart/) uses all four.
+
+## Details
+
+- [The atel tool](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#the-atel-tool) (docs/sdk.md)
+- [The template's options](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#dotnet-new-atel-mod) (docs/sdk.md)
+- [The SDK's versions](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/sdk.md#versions) (docs/sdk.md)
+- [The editor extensions](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/editor.md) (docs/editor.md)

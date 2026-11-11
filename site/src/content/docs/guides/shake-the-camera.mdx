@@ -1,0 +1,93 @@
+---
+title: Shake the camera
+description: Inject a camera shake into the beach's map worker, right after the player gets control.
+sidebar:
+  order: 3
+sources:
+  - "docs/language.md#injecting-code"
+  - "docs/language.md#members"
+  - "docs/research/oo-surface.md"
+  - "examples/Besaid/README.md#beachquake"
+---
+
+import { Code } from '@astrojs/starlight/components';
+import quake from '../../../../../examples/Besaid/BeachQuake/W19.cs?raw';
+
+## What you'll make
+
+When Tidus arrives on Besaid beach and you get control of him, the camera shakes for three seconds and fades out, as if the ground moved.
+
+{/* shot 08 */}
+
+## Where in the game
+
+The beach, the script `bsil0000`. It is the beach where Tidus swims ashore, and it stays this script until the morning the party leaves the island. From then on the beach is another script, and this mod does nothing there.
+
+Walk from the crossroads down to the beach, or load a save made at the beach's save sphere.
+
+## The code
+
+<Code code={quake} lang="csharp" title="W19.cs" />
+
+## Line by line
+
+`W19` is worker 19 of the beach. The decompiler names a worker after its model, and this one has none, so it keeps its number. Its `Main` runs when the map loads: it fades the screen in and gives the player control.
+
+`[Inject(nameof(Main), After = nameof(Common.ControlEnable))]` puts your method inside the vanilla `Main`, not before or after it. `After = nameof(Common.ControlEnable)` names a statement of `Main`: the one that calls `Common.ControlEnable`, which gives the player control. The shake runs right after it, the moment you can move.
+
+A postfix runs when `Main` ends, and a map worker's `Main` may go on waiting or looping long after the fade-in. An inject runs at the statement you name, wherever it stands in the method.
+
+The anchor names a call as the decompiled source writes it. If `Main` called `Common.ControlEnable` twice, the inject would go after the first, and `Occurrence = 2` would pick the second.
+
+`Camera.Eye.Shake(…)` shakes the camera. The arguments:
+
+- `ShakeKind.SineFadeOut` is a smooth shake that fades out.
+- `which: 7` shakes all three axes. It is a set of bits, one for each of x, y and z, and 7 is all three.
+- `speed: 3.14f` is how fast it swings.
+- `frames: 90` is how long, in frames. The script machine runs at 30 frames a second, so this is three seconds.
+- `amplitude: 20` is how far it swings, and `jitter: 0` adds no randomness.
+
+These are the values of a shake the game itself uses elsewhere. Change them to find one you like.
+
+## Build and install
+
+In your mods folder, with `FFX_GAME_DIR` set:
+
+```sh
+atel decompile bsil0000 -o atel-vanilla
+dotnet new atel-mod -n BeachQuake --script bsil0000 --authors your-name
+```
+
+Delete the sample `Bsil0000.cs`, add `W19.cs` from above, then `dotnet build` in the project folder. Copy `bin/Debug/net10.0/mods/your-name.beachquake/` into Fahrenheit's `mods` folder, and add `your-name.beachquake` to `mods/loadorder` below `yuta.atel`.
+
+## What to look for
+
+In the game: as the screen fades in and Tidus can move, the camera should shake on all three axes for three seconds, fading out.
+
+In Fahrenheit's log, the line that says where the inject went:
+
+```
+info: your-name.beachquake: bsil0000: worker 19's Main: inject Quake, after the statement with the 1st call to Common.ControlEnable in Main
+```
+
+## Known limitations
+
+This mod hasn't been run in the game yet, and two things aren't known:
+
+- The island's camera scripts reset the camera's shake when Tidus crosses certain lines. If he crosses one as he arrives, the shake may stop early.
+- How strong an amplitude of 20 looks on this camera.
+
+## What can go wrong
+
+- **The build stops with an error that names the anchor.** The vanilla `Main` has no call to `Common.ControlEnable`, for example because you decompiled another script. Check the namespace and the anchor's name.
+- **The log reports a hash mismatch.** Your copy of the beach script isn't the one you built against. The loader leaves the mod out. Decompile and build again.
+
+## Next
+
+[Move faster](/ffx-atel-sharp/guides/move-faster/) changes the player's speed when a map loads.
+
+## Details
+
+- [Injecting code](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/language.md#injecting-code) (docs/language.md)
+- [Members over the natives, such as Camera.Eye](https://github.com/yutamago/ffx-atel-sharp/blob/main/docs/research/oo-surface.md) (docs/research/oo-surface.md)
+- [The example's in-game check](https://github.com/yutamago/ffx-atel-sharp/blob/main/examples/Besaid/README.md#beachquake) (examples/Besaid/README.md)
