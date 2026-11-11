@@ -19,8 +19,11 @@ mod's saved field).
   folder, the one with `FFX.exe`.
 - [Fahrenheit](https://github.com/fahrenheit-crew/fahrenheit) and the Atel
   loader (`yuta.atel`) to play the mod.
-- The `AtelSharp.Sdk` package from a NuGet source. It is not published yet.
-  Until it is, pack it from a checkout of this repo and add a local source:
+- The `atel` tool, `AtelSharp.Cli` (below).
+- The `AtelSharp.Sdk` package, from nuget.org: restore fetches it, at the
+  version the mod's `global.json` pins (step 2). For a build of a commit
+  between releases, pack it from a checkout of this repo and add a local
+  source:
 
   ```bash
   dotnet pack src/Ffx.Atel.Sdk -c Release -o ~/atel-feed
@@ -31,7 +34,27 @@ mod's saved field).
   `AtelSharp.Sdk.0.1.0-alpha.0.117.g5e8c870545.nupkg`. Pin that version in
   your mod (step 2).
 
-The package also carries the `atel` tool (`tools/atel/atel.dll`):
+### The atel tool
+
+`atel` is the .NET tool package `AtelSharp.Cli` (from `0.1.0-alpha.2`;
+`src/Ffx.Atel.Cli`), with the version of the SDK it belongs to:
+
+```bash
+dotnet tool install -g AtelSharp.Cli --prerelease   # then: atel --help
+dotnet tool update -g AtelSharp.Cli --prerelease    # a later release
+```
+
+`atel decompile` pins the SDK of the tool's own version, so install the
+tool of the SDK version the mod uses (`--version <version>`). From a
+checkout, the same package installs from a local folder:
+
+```bash
+dotnet pack src/Ffx.Atel.Cli -c Release -o ~/atel-feed
+dotnet tool install -g AtelSharp.Cli --version <version> --add-source ~/atel-feed
+```
+
+The SDK package also carries a copy of `atel` (`tools/atel/atel.dll`), the
+one its targets run for `compile-mod`; it works by hand too:
 `dotnet ~/.nuget/packages/atelsharp.sdk/<version>/tools/atel/atel.dll --help`.
 
 ### Versions
@@ -186,7 +209,8 @@ fixes, which run in the IDE and on build ([analyzers.md](analyzers.md)).
 ### `dotnet new atel-mod`
 
 `AtelSharp.Templates` (`src/Ffx.Atel.Templates`) is a `dotnet new` template package, packed beside the SDK with the
-same version and not published either. Install it from the local folder, then make a mod:
+same version and released with it. Install it from nuget.org (`dotnet new install AtelSharp.Templates`), or, for a
+build of a commit, from a local folder, then make a mod:
 
 ```bash
 dotnet pack src/Ffx.Atel.Templates -c Release -o ~/atel-feed
@@ -311,15 +335,14 @@ the same package works on Windows, Linux and macOS.
 
 ## Not yet
 
-- The packages are not published yet; CI only packs them. The release is decided and ready (below)
-  and waits for the user's nuget.org setup and tag.
 - `atel compile-mod` reads every `.cs` under the project folder (but `obj/`
   and `bin/`), not the project's `Compile` items.
 
 ## Publishing
 
-Ready, not yet done: the first release is `0.1.0-alpha.1`, to nuget.org as `AtelSharp.Sdk` and
-`AtelSharp.Templates`, with a GitHub release that also carries the editors' packages. [release.md](release.md) has
+The first release, `0.1.0-alpha.1`, put `AtelSharp.Sdk` and `AtelSharp.Templates` on nuget.org, with a GitHub
+release that also carries the editors' packages; `AtelSharp.Cli` (the `atel` tool) goes with them from the next
+release. [release.md](release.md) has
 the decisions (2026-11-10), the versions, the release workflow (`.github/workflows/release-sdk.yml`, only on a pushed
 tag `v<version>`, pushing only once the repository variable `ATEL_NUGET_TARGET` says where), the account setup and
 the package metadata.

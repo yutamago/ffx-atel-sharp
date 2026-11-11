@@ -35,13 +35,25 @@ jobs:
     - name: Test
       run: dotnet test -c Release --no-build ffx-atel-sharp.slnx
 
-    # The SDK package and the dotnet new templates (docs/sdk.md), packed on every OS a modder may build on.
+    # The SDK package, the dotnet new templates and the atel tool (docs/sdk.md), packed on every OS a modder may build on.
     # Not published: only the release workflow publishes, on a tag the user pushes (docs/release.md).
     - name: Pack the SDK
       run: dotnet pack -c Release src/Ffx.Atel.Sdk -o artifacts/sdk-feed
 
     - name: Pack the templates
       run: dotnet pack -c Release src/Ffx.Atel.Templates -o artifacts/sdk-feed
+
+    - name: Pack the atel tool
+      run: dotnet pack -c Release src/Ffx.Atel.Cli -o artifacts/sdk-feed
+
+    # As a modder installs it from nuget.org, from the feed only, into a tool path of its own.
+    - name: Install and run the atel tool
+      shell: bash
+      run: |
+        nupkg=$(ls artifacts/sdk-feed/AtelSharp.Cli.*.nupkg)
+        version=$(basename "$nupkg" .nupkg); version=${version#AtelSharp.Cli.}
+        dotnet tool install AtelSharp.Cli --version "$version" --tool-path artifacts/atel-tool --add-source artifacts/sdk-feed
+        artifacts/atel-tool/atel --help
 
     - name: No checkout path in the packages
       shell: bash
